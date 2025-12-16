@@ -39,7 +39,7 @@ export function ServicesSection() {
   const currentTab = tabs.find((tab) => tab.id === activeTab);
 
   return (
-    <section className="py-24 bg-primary text-primary-foreground">
+    <section id="services" className="py-24 bg-primary text-primary-foreground">
       <div className="container">
         <div className="grid lg:grid-cols-2 gap-16 items-start">
           {/* Left Content */}

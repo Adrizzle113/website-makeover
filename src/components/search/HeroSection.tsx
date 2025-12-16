@@ -1,7 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import { SearchBar } from "./SearchBar";
 
 export function HeroSection() {
+  const scrollToResults = () => {
+    const resultsSection = document.getElementById("search-results");
+    resultsSection?.scrollIntoView({ behavior: "smooth" });
+  };
+
   return (
     <section className="relative min-h-screen flex items-center justify-center px-4 py-8">
       {/* Rounded Container with Background Image */}
@@ -16,7 +22,7 @@ export function HeroSection() {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 container text-center max-w-4xl pt-20">
+      <div className="relative z-10 container text-center max-w-5xl pt-20">
         <p 
           className="heading-spaced text-white/80 mb-6 opacity-0 animate-fade-in"
           style={{ animationDelay: "0.1s" }}
@@ -37,12 +43,21 @@ export function HeroSection() {
           with our expertly curated tour packages.
         </p>
 
+        {/* Search Bar */}
+        <div 
+          className="opacity-0 animate-fade-in mb-8"
+          style={{ animationDelay: "0.5s" }}
+        >
+          <SearchBar />
+        </div>
+
         <div 
           className="opacity-0 animate-fade-in"
           style={{ animationDelay: "0.6s" }}
         >
           <Button 
             size="lg" 
+            onClick={scrollToResults}
             className="bg-cream text-primary hover:bg-cream/90 rounded-full px-8 py-6 text-body-md font-semibold group"
           >
             Book a Tour

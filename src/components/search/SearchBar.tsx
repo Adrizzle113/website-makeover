@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { format, addDays } from "date-fns";
 import { CalendarIcon, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,6 @@ import { ratehawkApi } from "@/services/ratehawkApi";
 import { toast } from "@/hooks/use-toast";
 
 export function SearchBar() {
-  const navigate = useNavigate();
   const { setSearchParams, setSearchResults, setLoading, setError } = useBookingStore();
 
   const [destination, setDestination] = useState("");
@@ -61,8 +59,10 @@ export function SearchBar() {
       setSearchResults(response.hotels);
       
       // Scroll to results
-      const resultsSection = document.getElementById("search-results");
-      resultsSection?.scrollIntoView({ behavior: "smooth" });
+      setTimeout(() => {
+        const resultsSection = document.getElementById("search-results");
+        resultsSection?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
     } catch (error) {
       console.error("Search error:", error);
       setError("Failed to search hotels. Please try again.");
@@ -79,11 +79,11 @@ export function SearchBar() {
 
   return (
     <div className="w-full max-w-5xl mx-auto">
-      <div className="bg-card/95 backdrop-blur-sm rounded-2xl shadow-card p-4 md:p-6">
+      <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl p-4 md:p-6 border border-white/20">
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Destination */}
           <div className="flex-1 min-w-0">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+            <label className="text-xs font-semibold text-primary uppercase tracking-wider mb-2 block">
               Destination
             </label>
             <DestinationAutocomplete
@@ -94,7 +94,7 @@ export function SearchBar() {
 
           {/* Check-in Date */}
           <div className="flex-shrink-0">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+            <label className="text-xs font-semibold text-primary uppercase tracking-wider mb-2 block">
               Check-in
             </label>
             <Popover>
@@ -102,15 +102,15 @@ export function SearchBar() {
                 <Button
                   variant="outline"
                   className={cn(
-                    "h-12 w-full lg:w-[160px] justify-start text-left font-normal",
+                    "h-12 w-full lg:w-[160px] justify-start text-left font-normal bg-cream/50 border-border/50 hover:bg-cream",
                     !checkIn && "text-muted-foreground"
                   )}
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
                   {checkIn ? format(checkIn, "MMM d, yyyy") : "Select date"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 bg-white" align="start">
                 <Calendar
                   mode="single"
                   selected={checkIn}
@@ -125,7 +125,7 @@ export function SearchBar() {
 
           {/* Check-out Date */}
           <div className="flex-shrink-0">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+            <label className="text-xs font-semibold text-primary uppercase tracking-wider mb-2 block">
               Check-out
             </label>
             <Popover>
@@ -133,15 +133,15 @@ export function SearchBar() {
                 <Button
                   variant="outline"
                   className={cn(
-                    "h-12 w-full lg:w-[160px] justify-start text-left font-normal",
+                    "h-12 w-full lg:w-[160px] justify-start text-left font-normal bg-cream/50 border-border/50 hover:bg-cream",
                     !checkOut && "text-muted-foreground"
                   )}
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
                   {checkOut ? format(checkOut, "MMM d, yyyy") : "Select date"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 bg-white" align="start">
                 <Calendar
                   mode="single"
                   selected={checkOut}
@@ -156,7 +156,7 @@ export function SearchBar() {
 
           {/* Guests & Rooms */}
           <div className="flex-shrink-0">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+            <label className="text-xs font-semibold text-primary uppercase tracking-wider mb-2 block">
               Guests & Rooms
             </label>
             <GuestSelector
@@ -172,7 +172,7 @@ export function SearchBar() {
             <Button
               onClick={handleSearch}
               disabled={isSearching}
-              className="h-12 px-8 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
+              className="h-12 px-8 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-full"
             >
               {isSearching ? (
                 <span className="animate-pulse">Searching...</span>

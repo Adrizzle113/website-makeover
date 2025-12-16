@@ -27,7 +27,7 @@ const tours = [
 
 export function TourPackagesSection() {
   return (
-    <section className="py-24 bg-background">
+    <section id="tour-packages" className="py-24 bg-background">
       <div className="container">
         {/* Header */}
         <div className="text-center mb-16">
