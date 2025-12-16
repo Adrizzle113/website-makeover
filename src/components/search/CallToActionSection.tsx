@@ -1,36 +1,42 @@
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ArrowRight } from "lucide-react";
 
 export function CallToActionSection() {
   return (
-    <section className="py-20 bg-primary">
+    <section className="py-24 bg-primary">
       <div className="container">
-        <div className="text-center max-w-3xl mx-auto">
-          <h2 className="font-heading text-heading-big text-primary-foreground mb-4">
-            Ready to Grow Your Business?
+        <div className="max-w-2xl mx-auto text-center">
+          <span className="heading-spaced text-primary-foreground/70 mb-6 block">
+            Newsletter
+          </span>
+          <h2 className="font-heading text-display-md text-primary-foreground mb-4">
+            Get Travel Inspiration
           </h2>
-          <p className="text-body-large text-primary-foreground/80 mb-8">
-            Join thousands of travel agents who trust us for their hotel
-            bookings. Get access to exclusive rates and start earning more
-            today.
+          <p className="text-body-lg text-primary-foreground/80 mb-10">
+            Subscribe to our newsletter and receive exclusive deals, travel tips, 
+            and destination guides straight to your inbox.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              size="lg"
-              variant="secondary"
-              className="text-accent font-semibold"
+
+          {/* Newsletter Form */}
+          <form className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
+            <Input
+              type="email"
+              placeholder="Enter your email"
+              className="flex-1 h-14 rounded-full bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground placeholder:text-primary-foreground/50 px-6"
+            />
+            <Button 
+              type="submit"
+              className="h-14 rounded-full px-8 bg-cream text-primary hover:bg-cream/90 font-semibold group"
             >
-              Get Started
-              <ArrowRight className="ml-2 h-5 w-5" />
+              Subscribe
+              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
-            >
-              Contact Sales
-            </Button>
-          </div>
+          </form>
+
+          <p className="text-body-sm text-primary-foreground/60 mt-6">
+            By subscribing, you agree to our Privacy Policy. Unsubscribe anytime.
+          </p>
         </div>
       </div>
     </section>

@@ -1,105 +1,101 @@
-@import url('https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Open+Sans:wght@400;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* App-specific design tokens */
-    --app-primary: 131 19% 42%;
-    --app-secondary: 82 22% 62%;
-    --app-accent: 150 20% 25%;
-    --app-tertiary: 131 22% 29%;
-    --app-body: 0 0% 43%;
-    --app-heading: 0 0% 18%;
-    --app-stars: 36 90% 58%;
-    --app-white-smoke: 0 0% 98%;
-    --app-border: 0 0% 85%;
-    --app-border-transparent: 0 0% 100% / 0.3;
-    --app-white-transparent: 0 0% 100% / 0.75;
+    /* Explo-inspired design tokens */
+    --app-forest: 153 39% 15%;
+    --app-forest-light: 153 30% 25%;
+    --app-sage: 158 25% 45%;
+    --app-cream: 80 30% 92%;
+    --app-gold: 43 74% 66%;
+    --app-offwhite: 80 25% 98%;
+    --app-charcoal: 0 0% 15%;
+    --app-body: 0 0% 40%;
     
     /* Shadow tokens */
-    --shadow-card: 0px 10px 25px 0px rgba(0, 0, 0, 0.07);
+    --shadow-card: 0px 10px 30px 0px rgba(0, 0, 0, 0.08);
+    --shadow-soft: 0px 4px 20px 0px rgba(0, 0, 0, 0.06);
     
-    /* Shadcn base tokens */
-    --background: 0 0% 100%;
-    --foreground: 0 0% 18%;
+    /* Shadcn base tokens - Explo theme */
+    --background: 80 25% 98%;
+    --foreground: 0 0% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 18%;
+    --card-foreground: 0 0% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 18%;
+    --popover-foreground: 0 0% 15%;
 
-    --primary: 131 19% 42%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 153 39% 15%;
+    --primary-foreground: 80 30% 92%;
 
-    --secondary: 82 22% 62%;
-    --secondary-foreground: 0 0% 18%;
+    --secondary: 80 30% 92%;
+    --secondary-foreground: 153 39% 15%;
 
-    --muted: 0 0% 98%;
-    --muted-foreground: 0 0% 43%;
+    --muted: 80 20% 95%;
+    --muted-foreground: 0 0% 40%;
 
-    --accent: 150 20% 25%;
+    --accent: 158 25% 45%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 85%;
-    --input: 0 0% 85%;
-    --ring: 131 19% 42%;
+    --border: 80 15% 88%;
+    --input: 80 15% 88%;
+    --ring: 153 39% 15%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 0 0% 18%;
-    --sidebar-primary: 131 19% 42%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 96%;
-    --sidebar-accent-foreground: 0 0% 18%;
-    --sidebar-border: 0 0% 91%;
-    --sidebar-ring: 131 19% 42%;
+    --sidebar-background: 80 25% 98%;
+    --sidebar-foreground: 0 0% 15%;
+    --sidebar-primary: 153 39% 15%;
+    --sidebar-primary-foreground: 80 30% 92%;
+    --sidebar-accent: 80 20% 95%;
+    --sidebar-accent-foreground: 0 0% 15%;
+    --sidebar-border: 80 15% 88%;
+    --sidebar-ring: 153 39% 15%;
   }
 
   .dark {
-    --background: 0 0% 8%;
-    --foreground: 0 0% 98%;
+    --background: 153 30% 8%;
+    --foreground: 80 25% 95%;
 
-    --card: 0 0% 12%;
-    --card-foreground: 0 0% 98%;
+    --card: 153 25% 12%;
+    --card-foreground: 80 25% 95%;
 
-    --popover: 0 0% 12%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 153 25% 12%;
+    --popover-foreground: 80 25% 95%;
 
-    --primary: 131 19% 52%;
+    --primary: 158 25% 45%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 82 22% 72%;
-    --secondary-foreground: 0 0% 12%;
+    --secondary: 153 30% 20%;
+    --secondary-foreground: 80 30% 92%;
 
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 65%;
+    --muted: 153 20% 15%;
+    --muted-foreground: 80 15% 65%;
 
-    --accent: 150 20% 35%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 43 74% 66%;
+    --accent-foreground: 0 0% 10%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 20%;
-    --input: 0 0% 20%;
-    --ring: 131 19% 52%;
+    --border: 153 20% 20%;
+    --input: 153 20% 20%;
+    --ring: 158 25% 45%;
 
-    --sidebar-background: 0 0% 10%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 131 19% 52%;
+    --sidebar-background: 153 25% 10%;
+    --sidebar-foreground: 80 25% 95%;
+    --sidebar-primary: 158 25% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 15%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 0 0% 20%;
-    --sidebar-ring: 131 19% 52%;
+    --sidebar-accent: 153 20% 15%;
+    --sidebar-accent-foreground: 80 25% 95%;
+    --sidebar-border: 153 20% 20%;
+    --sidebar-ring: 158 25% 45%;
   }
 }
 
@@ -109,16 +105,26 @@
   }
 
   body {
-    @apply bg-background text-foreground font-body;
+    @apply bg-background text-foreground font-body antialiased;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-heading;
+    @apply font-heading text-foreground;
   }
 }
 
 @layer components {
   .all-\[unset\] {
     all: unset;
+  }
+  
+  /* Spaced letter heading style like Explo */
+  .heading-spaced {
+    @apply uppercase tracking-[0.2em] text-sm font-body font-semibold;
+  }
+  
+  /* Badge pill style */
+  .badge-pill {
+    @apply inline-flex items-center px-4 py-2 rounded-full text-sm font-medium;
   }
 }

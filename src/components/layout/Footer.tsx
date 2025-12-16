@@ -1,95 +1,99 @@
 import { Link } from "react-router-dom";
-import { Mail, Phone, MapPin } from "lucide-react";
+import { Facebook, Linkedin, Twitter } from "lucide-react";
 
 export function Footer() {
+  const currentYear = new Date().getFullYear();
+
   return (
-    <footer className="bg-accent text-white py-16">
+    <footer className="bg-primary text-primary-foreground pt-20 pb-8">
       <div className="container">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
           {/* Brand */}
-          <div>
-            <h3 className="font-heading text-heading-standard mb-4">
-              TravelBooking
-            </h3>
-            <p className="text-white/70 text-body-small mb-6">
-              Your trusted B2B partner for hotel bookings worldwide. Access
-              exclusive rates and grow your travel business.
+          <div className="lg:col-span-1">
+            <Link to="/" className="inline-block mb-6">
+              <span className="font-heading text-heading-xl text-primary-foreground">
+                Explo
+              </span>
+            </Link>
+            <p className="text-body-md text-primary-foreground/70 mb-6">
+              Creating unforgettable travel experiences since 2015. Let us turn 
+              your travel dreams into reality.
             </p>
           </div>
 
-          {/* Quick Links */}
+          {/* Discover */}
           <div>
-            <h4 className="font-semibold text-lg mb-4">Quick Links</h4>
-            <ul className="space-y-3">
-              <li>
-                <Link
-                  to="/"
-                  className="text-white/70 hover:text-white transition-colors text-body-small"
-                >
-                  Search Hotels
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/bookings"
-                  className="text-white/70 hover:text-white transition-colors text-body-small"
-                >
-                  My Bookings
-                </Link>
-              </li>
+            <h4 className="font-heading text-heading-sm mb-6">Discover</h4>
+            <ul className="space-y-4">
               <li>
                 <Link
                   to="/about"
-                  className="text-white/70 hover:text-white transition-colors text-body-small"
+                  className="text-body-md text-primary-foreground/70 hover:text-primary-foreground transition-colors"
                 >
                   About Us
                 </Link>
               </li>
               <li>
                 <Link
-                  to="/contact"
-                  className="text-white/70 hover:text-white transition-colors text-body-small"
+                  to="/destinations"
+                  className="text-body-md text-primary-foreground/70 hover:text-primary-foreground transition-colors"
                 >
-                  Contact
+                  Destinations
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/tours"
+                  className="text-body-md text-primary-foreground/70 hover:text-primary-foreground transition-colors"
+                >
+                  Tour Packages
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/blog"
+                  className="text-body-md text-primary-foreground/70 hover:text-primary-foreground transition-colors"
+                >
+                  Blog
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Support */}
+          {/* Locations */}
           <div>
-            <h4 className="font-semibold text-lg mb-4">Support</h4>
-            <ul className="space-y-3">
+            <h4 className="font-heading text-heading-sm mb-6">Top Destinations</h4>
+            <ul className="space-y-4">
               <li>
                 <Link
-                  to="/help"
-                  className="text-white/70 hover:text-white transition-colors text-body-small"
+                  to="/destinations/bali"
+                  className="text-body-md text-primary-foreground/70 hover:text-primary-foreground transition-colors"
                 >
-                  Help Center
+                  Bali, Indonesia
                 </Link>
               </li>
               <li>
                 <Link
-                  to="/faq"
-                  className="text-white/70 hover:text-white transition-colors text-body-small"
+                  to="/destinations/switzerland"
+                  className="text-body-md text-primary-foreground/70 hover:text-primary-foreground transition-colors"
                 >
-                  FAQs
+                  Switzerland
                 </Link>
               </li>
               <li>
                 <Link
-                  to="/terms"
-                  className="text-white/70 hover:text-white transition-colors text-body-small"
+                  to="/destinations/new-zealand"
+                  className="text-body-md text-primary-foreground/70 hover:text-primary-foreground transition-colors"
                 >
-                  Terms & Conditions
+                  New Zealand
                 </Link>
               </li>
               <li>
                 <Link
-                  to="/privacy"
-                  className="text-white/70 hover:text-white transition-colors text-body-small"
+                  to="/destinations/iceland"
+                  className="text-body-md text-primary-foreground/70 hover:text-primary-foreground transition-colors"
                 >
-                  Privacy Policy
+                  Iceland
                 </Link>
               </li>
             </ul>
@@ -97,33 +101,63 @@ export function Footer() {
 
           {/* Contact */}
           <div>
-            <h4 className="font-semibold text-lg mb-4">Contact Us</h4>
-            <ul className="space-y-3">
-              <li className="flex items-center gap-3 text-white/70 text-body-small">
-                <Mail className="h-4 w-4" />
-                support@travelbooking.com
-              </li>
-              <li className="flex items-center gap-3 text-white/70 text-body-small">
-                <Phone className="h-4 w-4" />
-                +1 (800) 123-4567
-              </li>
-              <li className="flex items-start gap-3 text-white/70 text-body-small">
-                <MapPin className="h-4 w-4 mt-1" />
-                <span>
-                  123 Travel Street
-                  <br />
-                  New York, NY 10001
-                </span>
+            <h4 className="font-heading text-heading-sm mb-6">Contact</h4>
+            <ul className="space-y-4 text-body-md text-primary-foreground/70">
+              <li>hello@explo.travel</li>
+              <li>+1 (800) 123-4567</li>
+              <li>
+                123 Adventure Street<br />
+                San Francisco, CA 94102
               </li>
             </ul>
           </div>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="mt-12 pt-8 border-t border-white/10 text-center text-white/50 text-body-small">
-          <p>
-            © {new Date().getFullYear()} TravelBooking. All rights reserved.
-          </p>
+        {/* Social & Copyright */}
+        <div className="pt-8 border-t border-primary-foreground/10">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            {/* Social Icons */}
+            <div className="flex items-center gap-4">
+              <a
+                href="https://facebook.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-10 h-10 rounded-full bg-primary-foreground/10 flex items-center justify-center hover:bg-primary-foreground/20 transition-colors"
+              >
+                <Facebook className="h-5 w-5" />
+              </a>
+              <a
+                href="https://linkedin.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-10 h-10 rounded-full bg-primary-foreground/10 flex items-center justify-center hover:bg-primary-foreground/20 transition-colors"
+              >
+                <Linkedin className="h-5 w-5" />
+              </a>
+              <a
+                href="https://twitter.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-10 h-10 rounded-full bg-primary-foreground/10 flex items-center justify-center hover:bg-primary-foreground/20 transition-colors"
+              >
+                <Twitter className="h-5 w-5" />
+              </a>
+            </div>
+
+            {/* Copyright */}
+            <div className="text-body-sm text-primary-foreground/50 text-center md:text-right">
+              <p>© {currentYear} Explo Travel. All rights reserved.</p>
+              <p className="mt-1">
+                <Link to="/privacy" className="hover:text-primary-foreground transition-colors">
+                  Privacy Policy
+                </Link>
+                {" · "}
+                <Link to="/terms" className="hover:text-primary-foreground transition-colors">
+                  Terms of Service
+                </Link>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </footer>
