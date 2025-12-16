@@ -71,85 +71,161 @@ export const Login = (): JSX.Element => {
     }
   };
   if (success === true) {
-    return <main className="flex min-h-screen items-center justify-center bg-secondary p-8">
-        <Card className="w-full max-w-md rounded-[30px] shadow-lg">
-          <CardContent className="p-8 text-center">
-            <CheckCircleIcon className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h1 className="font-heading text-2xl text-primary mb-2">
-              RateHawk Authentication Successful!
-            </h1>
-            <p className="text-muted-foreground text-sm mb-4">
-              Successfully logged into RateHawk platform.
-            </p>
-            <div className="text-xs text-green-600 mb-4">
-              User ID: {generateUserIdFromEmail(email)}
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/10 p-8">
+        <Card className="w-full max-w-md border-none shadow-2xl bg-card/80 backdrop-blur-sm">
+          <CardContent className="p-10 text-center">
+            <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
+              <CheckCircleIcon className="w-10 h-10 text-green-600" />
             </div>
-            <div className="flex items-center justify-center mb-4">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mr-2"></div>
-              <p className="text-muted-foreground text-xs">Redirecting to dashboard...</p>
+            <h1 className="font-heading text-2xl text-foreground mb-3">
+              Welcome Back!
+            </h1>
+            <p className="text-muted-foreground text-sm mb-6">
+              Authentication successful. Redirecting you now...
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              <span className="text-muted-foreground text-xs">Please wait...</span>
             </div>
           </CardContent>
         </Card>
-      </main>;
+      </main>
+    );
   }
-  return <main className="flex min-h-screen">
-      <div className="hidden md:block w-[60%] bg-cover bg-center bg-primary" style={{
-      backgroundImage: "url('/images/Header.png')"
-    }} />
 
-      <div className="w-full md:w-[40%] bg-secondary p-8 flex items-center justify-center">
-        <Card className="w-full max-w-md rounded-[30px] shadow-lg">
-          <CardContent className="p-8">
-            <div className="text-center mb-8">
-              <h1 className="font-heading text-3xl text-primary mb-2">Login</h1>
-              <p className="text-muted-foreground text-sm">
-                Sign in with your RateHawk credentials
-              </p>
+  return (
+    <main className="flex min-h-screen">
+      {/* Left side - Decorative */}
+      <div 
+        className="hidden lg:flex lg:w-1/2 bg-primary relative overflow-hidden"
+        style={{
+          backgroundImage: "url('/images/Header.png')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/90 via-primary/70 to-transparent" />
+        <div className="relative z-10 flex flex-col justify-center p-16 text-primary-foreground">
+          <h2 className="font-heading text-5xl mb-6 leading-tight">
+            Discover Your<br />Perfect Stay
+          </h2>
+          <p className="text-primary-foreground/80 text-lg max-w-md leading-relaxed">
+            Access exclusive hotel deals and manage your bookings with ease. Your journey begins here.
+          </p>
+        </div>
+      </div>
+
+      {/* Right side - Login Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-gradient-to-br from-background via-background to-accent/5">
+        <div className="w-full max-w-md">
+          {/* Logo/Brand */}
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-6">
+              <span className="font-heading text-2xl text-primary">T</span>
             </div>
+            <h1 className="font-heading text-3xl text-foreground mb-2">Welcome Back</h1>
+            <p className="text-muted-foreground">
+              Sign in to continue to your account
+            </p>
+          </div>
 
-            {typeof success === 'string' && <div className="mb-6 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
-                {success}
-              </div>}
+          {/* Success message */}
+          {typeof success === 'string' && (
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm flex items-center gap-3">
+              <CheckCircleIcon className="w-5 h-5 flex-shrink-0" />
+              <span>{success}</span>
+            </div>
+          )}
 
-            <form className="space-y-6" onSubmit={handleLogin}>
-              <div className="space-y-4">
+          {/* Login Form */}
+          <form className="space-y-5" onSubmit={handleLogin}>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Email Address
+                </label>
                 <div className="relative">
-                  <Input type="email" placeholder="RateHawk Email Address" className="pl-12 pr-4 py-3 rounded-[15px] bg-muted border-none" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" required disabled={loading} />
-                  <MailIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-primary w-5 h-5" />
+                  <Input
+                    type="email"
+                    placeholder="Enter your email"
+                    className="pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border border-border/50 focus:border-primary focus:bg-background transition-colors"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    autoComplete="email"
+                    required
+                    disabled={loading}
+                  />
+                  <MailIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                 </div>
+              </div>
 
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Password
+                </label>
                 <div className="relative">
-                  <Input type={showPassword ? "text" : "password"} placeholder="RateHawk Password" className="pl-12 pr-12 py-3 rounded-[15px] bg-muted border-none" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" required disabled={loading} />
-                  <LockIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-primary w-5 h-5" />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary disabled:opacity-50" disabled={loading}>
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    className="pl-12 pr-12 py-3 h-12 rounded-xl bg-muted/50 border border-border/50 focus:border-primary focus:bg-background transition-colors"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                    required
+                    disabled={loading}
+                  />
+                  <LockIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                    disabled={loading}
+                  >
                     {showPassword ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
                   </button>
                 </div>
               </div>
-
-              {error && <div className="flex items-start gap-2 text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg p-3">
-                  <AlertCircleIcon className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <span>{error}</span>
-                </div>}
-
-              <Button className="w-full py-3 rounded-[15px]" disabled={loading} type="submit">
-                {loading ? <div className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Authenticating...</span>
-                  </div> : <span>Sign In to RateHawk</span>}
-              </Button>
-            </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                Don't have an account?
-                <Link to="/auth/register" className="ml-2 text-primary hover:underline font-medium">
-                  Sign Up
-                </Link>
-              </p>
             </div>
-          </CardContent>
-        </Card>
+
+            {/* Error message */}
+            {error && (
+              <div className="flex items-start gap-3 text-red-600 text-sm bg-red-50 border border-red-200 rounded-xl p-4">
+                <AlertCircleIcon className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <Button 
+              className="w-full h-12 rounded-xl text-base font-medium shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all" 
+              disabled={loading} 
+              type="submit"
+            >
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Signing in...</span>
+                </div>
+              ) : (
+                <span>Sign In</span>
+              )}
+            </Button>
+          </form>
+
+          {/* Footer */}
+          <div className="mt-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              Don't have an account?{' '}
+              <Link 
+                to="/auth/register" 
+                className="text-primary hover:text-primary/80 font-medium transition-colors"
+              >
+                Create Account
+              </Link>
+            </p>
+          </div>
+        </div>
       </div>
-    </main>;
+    </main>
+  );
 };
