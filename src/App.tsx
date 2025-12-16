@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import SearchPage from "./pages/SearchPage";
 import HotelDetailsPage from "./pages/HotelDetailsPage";
 import NotFound from "./pages/NotFound";
+import { Login, Register, EmailVerification, PendingApproval } from "./pages/auth";
 
 const queryClient = new QueryClient();
 
@@ -18,6 +19,10 @@ const App = () => (
         <Routes>
           <Route path="/" element={<SearchPage />} />
           <Route path="/hotel/:id" element={<HotelDetailsPage />} />
+          <Route path="/auth/login" element={<Login />} />
+          <Route path="/auth/register" element={<Register />} />
+          <Route path="/auth/email-verification" element={<EmailVerification />} />
+          <Route path="/auth/pending-approval" element={<PendingApproval />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
