@@ -11,7 +11,7 @@ import {
 
 export function ContactSection() {
   return (
-    <section className="py-24 bg-background">
+    <section id="contact" className="py-24 bg-background">
       <div className="container">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           {/* Left Content */}
