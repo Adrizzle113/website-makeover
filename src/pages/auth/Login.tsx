@@ -10,20 +10,9 @@ import {
   LockIcon, 
   CheckCircleIcon, 
   AlertCircleIcon, 
-  Loader2,
-  RefreshCwIcon,
-  ServerIcon,
-  ShieldCheckIcon,
-  UsersIcon
+  Loader2
 } from "lucide-react";
 import { API_BASE_URL } from "@/config/api";
-
-interface BackendStatus {
-  status: string;
-  browserless: string;
-  sessions: number;
-  timestamp: string;
-}
 
 export const Login = (): JSX.Element => {
   const [email, setEmail] = useState("");
@@ -32,8 +21,6 @@ export const Login = (): JSX.Element => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState<boolean | string>(false);
-  const [backendStatus, setBackendStatus] = useState<BackendStatus | null>(null);
-  const [statusLoading, setStatusLoading] = useState(false);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -50,35 +37,6 @@ export const Login = (): JSX.Element => {
       setEmail(location.state.approvedEmail);
     }
   }, [location.state]);
-
-  const checkBackendHealth = async () => {
-    setStatusLoading(true);
-    setError("");
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/health`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Backend returned ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      setBackendStatus({
-        status: data.status === 'healthy' ? 'healthy' : 'unhealthy',
-        browserless: data.services?.browserless === 'configured' ? 'configured' : 'missing',
-        sessions: data.activeSessions || 0,
-        timestamp: data.timestamp
-      });
-    } catch (err: any) {
-      setError(`Backend connection failed: ${err.message}`);
-      setBackendStatus(null);
-    } finally {
-      setStatusLoading(false);
-    }
-  };
 
   const generateUserIdFromEmail = (email: string): string => {
     return email.replace('@', '_').replace(/\./g, '_');
@@ -177,62 +135,6 @@ export const Login = (): JSX.Element => {
               </div>
             )}
 
-            <Card className="mb-6 border">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-medium text-sm text-foreground flex items-center">
-                    <ServerIcon className="w-4 h-4 mr-2" />
-                    Backend Status
-                  </h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={checkBackendHealth}
-                    disabled={statusLoading}
-                    className="h-8 px-2"
-                  >
-                    {statusLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCwIcon className="w-4 h-4" />}
-                  </Button>
-                </div>
-                
-                {backendStatus ? (
-                  <div className="space-y-2 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center"><ServerIcon className="w-3 h-3 mr-1" />Server:</span>
-                      <span className={`font-medium ${backendStatus.status === 'healthy' ? 'text-green-600' : 'text-red-600'}`}>
-                        {backendStatus.status === 'healthy' ? '✅ Healthy' : '❌ Unhealthy'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center"><ShieldCheckIcon className="w-3 h-3 mr-1" />Browserless:</span>
-                      <span className={`font-medium ${backendStatus.browserless === 'configured' ? 'text-green-600' : 'text-red-600'}`}>
-                        {backendStatus.browserless === 'configured' ? '✅ Configured' : '❌ Missing'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center"><UsersIcon className="w-3 h-3 mr-1" />Sessions:</span>
-                      <span className="font-medium text-blue-600">{backendStatus.sessions}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-xs text-muted-foreground text-center py-2">
-                    Click refresh to check backend status
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {email && (
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="text-xs text-blue-700">
-                  <strong>User ID:</strong> {generateUserIdFromEmail(email)}
-                </div>
-                <div className="text-xs text-blue-600 mt-1">
-                  This ID will be used to match your session
-                </div>
-              </div>
-            )}
-
             <form className="space-y-6" onSubmit={handleLogin}>
               <div className="space-y-4">
                 <div className="relative">
@@ -281,7 +183,7 @@ export const Login = (): JSX.Element => {
 
               <Button
                 className="w-full py-3 rounded-[15px]"
-                disabled={loading || !backendStatus || backendStatus.status !== 'healthy'}
+                disabled={loading}
                 type="submit"
               >
                 {loading ? (
@@ -294,17 +196,6 @@ export const Login = (): JSX.Element => {
                 )}
               </Button>
             </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-xs text-muted-foreground">
-                Need help? Check the browser console (F12) for detailed logs.
-              </p>
-              {(!backendStatus || backendStatus.status !== 'healthy') && (
-                <p className="text-xs text-red-600 mt-2">
-                  ⚠️ Backend must be healthy before you can login
-                </p>
-              )}
-            </div>
 
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">
