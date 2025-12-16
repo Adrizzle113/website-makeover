@@ -1,0 +1,211 @@
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { Loader2 } from "lucide-react";
+import {
+  HotelHeroSection,
+  ImageGallerySection,
+  RoomSelectionSection,
+  BookingSection,
+  AmenitiesSection,
+  MapSection,
+  HotelInfoSection,
+} from "@/components/hotel";
+import { Footer } from "@/components/layout/Footer";
+import { useBookingStore } from "@/stores/bookingStore";
+import { ratehawkApi } from "@/services/ratehawkApi";
+import type { HotelDetails } from "@/types/booking";
+
+const HotelDetailsPage = () => {
+  const { id } = useParams<{ id: string }>();
+  const { selectedHotel, setSelectedHotel, searchParams, clearRoomSelection } = useBookingStore();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchHotelDetails = async () => {
+      if (!id) return;
+
+      setIsLoading(true);
+      setError(null);
+      clearRoomSelection();
+
+      try {
+        const hotel = await ratehawkApi.getHotelDetails(id, searchParams || undefined);
+        setSelectedHotel(hotel);
+      } catch (err) {
+        console.error("Error fetching hotel details:", err);
+        setError("Unable to load hotel details. Please try again.");
+        // Use mock data as fallback
+        setSelectedHotel(getMockHotel(id));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchHotelDetails();
+  }, [id, searchParams, setSelectedHotel, clearRoomSelection]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading hotel details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !selectedHotel) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <p className="text-destructive text-lg mb-4">{error}</p>
+          <a href="/" className="text-primary hover:underline">
+            Back to Search
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  if (!selectedHotel) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <p className="text-muted-foreground text-lg">Hotel not found</p>
+          <a href="/" className="text-primary hover:underline">
+            Back to Search
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      <main className="flex-1">
+        <HotelHeroSection hotel={selectedHotel} />
+        <ImageGallerySection images={selectedHotel.images} hotelName={selectedHotel.name} />
+        <HotelInfoSection hotel={selectedHotel} />
+        <AmenitiesSection
+          amenities={selectedHotel.amenities}
+          facilities={selectedHotel.facilities}
+        />
+        <RoomSelectionSection
+          rooms={selectedHotel.rooms || []}
+          currency={selectedHotel.currency}
+        />
+        <MapSection
+          latitude={selectedHotel.latitude}
+          longitude={selectedHotel.longitude}
+          address={`${selectedHotel.address}, ${selectedHotel.city}, ${selectedHotel.country}`}
+          hotelName={selectedHotel.name}
+        />
+        <BookingSection currency={selectedHotel.currency} />
+      </main>
+      <Footer />
+    </div>
+  );
+};
+
+// Mock hotel data for development/fallback
+const getMockHotel = (id: string): HotelDetails => ({
+  id,
+  name: "Grand Luxury Resort & Spa",
+  description: "Experience unparalleled luxury at our award-winning resort.",
+  fullDescription:
+    "Nestled in a prime location, the Grand Luxury Resort & Spa offers an exceptional blend of sophisticated elegance and modern comfort. Our meticulously designed rooms and suites provide a serene sanctuary, while world-class dining options tantalize your taste buds. Unwind at our renowned spa or take a refreshing dip in our infinity pool overlooking breathtaking views.",
+  address: "123 Luxury Avenue",
+  city: "Dubai",
+  country: "United Arab Emirates",
+  starRating: 5,
+  reviewScore: 9.2,
+  reviewCount: 1250,
+  mainImage:
+    "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=2000&q=80",
+  images: [
+    {
+      url: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80",
+      alt: "Hotel exterior",
+    },
+    {
+      url: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80",
+      alt: "Luxury room",
+    },
+    {
+      url: "https://images.unsplash.com/photo-1584132967334-10e028bd69f7?auto=format&fit=crop&w=800&q=80",
+      alt: "Pool area",
+    },
+    {
+      url: "https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=800&q=80",
+      alt: "Restaurant",
+    },
+  ],
+  amenities: [
+    { id: "1", name: "Free WiFi" },
+    { id: "2", name: "Swimming Pool" },
+    { id: "3", name: "Spa & Wellness" },
+    { id: "4", name: "Fitness Center" },
+    { id: "5", name: "Restaurant" },
+    { id: "6", name: "Room Service" },
+    { id: "7", name: "Parking" },
+    { id: "8", name: "Air Conditioning" },
+  ],
+  facilities: ["Business Center", "Conference Rooms", "Concierge Service", "Laundry Service"],
+  priceFrom: 450,
+  currency: "USD",
+  latitude: 25.1972,
+  longitude: 55.2744,
+  checkInTime: "3:00 PM",
+  checkOutTime: "12:00 PM",
+  policies: [
+    "No smoking in rooms",
+    "Pets allowed on request",
+    "Credit card required for guarantee",
+  ],
+  rooms: [
+    {
+      id: "room-1",
+      name: "Deluxe King Room",
+      description: "Spacious room with king bed and city views",
+      price: 450,
+      currency: "USD",
+      maxOccupancy: 2,
+      bedType: "King Bed",
+      amenities: ["Free WiFi", "Mini Bar", "Safe", "Air Conditioning"],
+      mealPlan: "Breakfast Included",
+      cancellationPolicy: "Free cancellation until 24h before check-in",
+      available: 5,
+    },
+    {
+      id: "room-2",
+      name: "Premium Suite",
+      description: "Luxurious suite with separate living area",
+      price: 750,
+      originalPrice: 850,
+      currency: "USD",
+      maxOccupancy: 4,
+      bedType: "King Bed + Sofa Bed",
+      amenities: ["Free WiFi", "Mini Bar", "Safe", "Balcony", "Living Area"],
+      mealPlan: "Half Board",
+      cancellationPolicy: "Free cancellation until 48h before check-in",
+      available: 3,
+    },
+    {
+      id: "room-3",
+      name: "Family Room",
+      description: "Perfect for families with two queen beds",
+      price: 550,
+      currency: "USD",
+      maxOccupancy: 4,
+      bedType: "2 Queen Beds",
+      amenities: ["Free WiFi", "Mini Bar", "Safe", "Air Conditioning"],
+      mealPlan: "Room Only",
+      cancellationPolicy: "Non-refundable",
+      available: 2,
+    },
+  ],
+});
+
+export default HotelDetailsPage;
