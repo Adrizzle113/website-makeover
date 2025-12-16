@@ -2,14 +2,34 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MailIcon, UserIcon, BriefcaseIcon, Loader2, BuildingIcon, MapPinIcon, FileTextIcon } from "lucide-react";
+import { MailIcon, UserIcon, BriefcaseIcon, Loader2, BuildingIcon, MapPinIcon, FileTextIcon, AlertCircleIcon } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/config/api";
+import { z } from "zod";
+
+const step1Schema = z.object({
+  first_name: z.string().trim().min(1, "First name is required").max(50, "First name must be less than 50 characters"),
+  last_name: z.string().trim().min(1, "Last name is required").max(50, "Last name must be less than 50 characters"),
+  email: z.string().trim().email("Please enter a valid email address").max(255, "Email must be less than 255 characters"),
+  phone_number: z.string().trim().min(7, "Please enter a valid phone number").max(20, "Phone number is too long"),
+  agency_name: z.string().trim().min(1, "Business name is required").max(100, "Business name must be less than 100 characters"),
+});
+
+const step2Schema = z.object({
+  legal_name: z.string().trim().min(1, "Legal entity name is required").max(100, "Legal name must be less than 100 characters"),
+  itn: z.string().trim().min(1, "Tax ID is required").max(20, "Tax ID must be less than 20 characters"),
+  city: z.string().trim().min(1, "City is required").max(100, "City must be less than 100 characters"),
+  address: z.string().trim().min(1, "Address is required").max(200, "Address must be less than 200 characters"),
+  actual_address_matches: z.literal(true, { errorMap: () => ({ message: "You must accept this agreement" }) }),
+});
+
+type FieldErrors = Record<string, string>;
 
 export const Register = (): JSX.Element => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<FieldErrors>({});
   const [formData, setFormData] = useState({
     email: "",
     first_name: "",
@@ -30,10 +50,55 @@ export const Register = (): JSX.Element => {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const validateStep1 = (): boolean => {
+    const result = step1Schema.safeParse(formData);
+    if (!result.success) {
+      const fieldErrors: FieldErrors = {};
+      result.error.errors.forEach((err) => {
+        const field = err.path[0] as string;
+        fieldErrors[field] = err.message;
+      });
+      setErrors(fieldErrors);
+      return false;
+    }
+    setErrors({});
+    return true;
+  };
+
+  const validateStep2 = (): boolean => {
+    const result = step2Schema.safeParse(formData);
+    if (!result.success) {
+      const fieldErrors: FieldErrors = {};
+      result.error.errors.forEach((err) => {
+        const field = err.path[0] as string;
+        fieldErrors[field] = err.message;
+      });
+      setErrors(fieldErrors);
+      return false;
+    }
+    setErrors({});
+    return true;
+  };
+
+  const handleContinue = () => {
+    if (validateStep1()) {
+      setStep(2);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateStep2()) {
+      return;
+    }
+
     setLoading(true);
     
     try {
@@ -58,6 +123,16 @@ export const Register = (): JSX.Element => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const InputError = ({ message }: { message?: string }) => {
+    if (!message) return null;
+    return (
+      <div className="flex items-center gap-1.5 mt-1.5 text-red-500 text-xs">
+        <AlertCircleIcon className="w-3.5 h-3.5" />
+        <span>{message}</span>
+      </div>
+    );
   };
 
   return (
@@ -125,11 +200,11 @@ export const Register = (): JSX.Element => {
                         onChange={handleChange}
                         type="text"
                         placeholder="John"
-                        className="pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border border-border/50 focus:border-primary focus:bg-background transition-colors"
-                        required
+                        className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.first_name ? 'border-red-500 focus:border-red-500' : 'border-border/50 focus:border-primary'}`}
                       />
                       <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                     </div>
+                    <InputError message={errors.first_name} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
@@ -142,11 +217,11 @@ export const Register = (): JSX.Element => {
                         onChange={handleChange}
                         type="text"
                         placeholder="Doe"
-                        className="pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border border-border/50 focus:border-primary focus:bg-background transition-colors"
-                        required
+                        className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.last_name ? 'border-red-500 focus:border-red-500' : 'border-border/50 focus:border-primary'}`}
                       />
                       <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                     </div>
+                    <InputError message={errors.last_name} />
                   </div>
                 </div>
 
@@ -161,11 +236,11 @@ export const Register = (): JSX.Element => {
                       onChange={handleChange}
                       type="email"
                       placeholder="john@example.com"
-                      className="pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border border-border/50 focus:border-primary focus:bg-background transition-colors"
-                      required
+                      className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.email ? 'border-red-500 focus:border-red-500' : 'border-border/50 focus:border-primary'}`}
                     />
                     <MailIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   </div>
+                  <InputError message={errors.email} />
                 </div>
 
                 <div>
@@ -176,7 +251,6 @@ export const Register = (): JSX.Element => {
                     <select
                       name="countryCode"
                       onChange={handleChange}
-                      required
                       className="h-12 px-3 bg-muted/50 border border-border/50 border-r-0 rounded-l-xl text-sm text-foreground focus:outline-none focus:border-primary transition-colors"
                     >
                       <option value="+1">+1</option>
@@ -189,10 +263,10 @@ export const Register = (): JSX.Element => {
                       onChange={handleChange}
                       type="tel"
                       placeholder="(555) 000-0000"
-                      required
-                      className="h-12 rounded-l-none rounded-r-xl bg-muted/50 border border-border/50 focus:border-primary focus:bg-background transition-colors"
+                      className={`h-12 rounded-l-none rounded-r-xl bg-muted/50 border focus:bg-background transition-colors ${errors.phone_number ? 'border-red-500 focus:border-red-500' : 'border-border/50 focus:border-primary'}`}
                     />
                   </div>
+                  <InputError message={errors.phone_number} />
                 </div>
 
                 <div>
@@ -205,17 +279,17 @@ export const Register = (): JSX.Element => {
                       value={formData.agency_name}
                       onChange={handleChange}
                       type="text"
-                      required
                       placeholder="Your Travel Agency"
-                      className="pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border border-border/50 focus:border-primary focus:bg-background transition-colors"
+                      className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.agency_name ? 'border-red-500 focus:border-red-500' : 'border-border/50 focus:border-primary'}`}
                     />
                     <BriefcaseIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   </div>
+                  <InputError message={errors.agency_name} />
                 </div>
 
                 <Button
                   type="button"
-                  onClick={() => setStep(2)}
+                  onClick={handleContinue}
                   className="w-full h-12 rounded-xl text-base font-medium shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
                 >
                   Continue
@@ -236,11 +310,11 @@ export const Register = (): JSX.Element => {
                       onChange={handleChange}
                       type="text"
                       placeholder="Legal Company Name LLC"
-                      className="pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border border-border/50 focus:border-primary focus:bg-background transition-colors"
-                      required
+                      className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.legal_name ? 'border-red-500 focus:border-red-500' : 'border-border/50 focus:border-primary'}`}
                     />
                     <BuildingIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   </div>
+                  <InputError message={errors.legal_name} />
                 </div>
 
                 <div>
@@ -252,13 +326,13 @@ export const Register = (): JSX.Element => {
                       name="itn"
                       value={formData.itn}
                       onChange={handleChange}
-                      type="number"
+                      type="text"
                       placeholder="123456789"
-                      className="pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border border-border/50 focus:border-primary focus:bg-background transition-colors"
-                      required
+                      className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.itn ? 'border-red-500 focus:border-red-500' : 'border-border/50 focus:border-primary'}`}
                     />
                     <FileTextIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   </div>
+                  <InputError message={errors.itn} />
                 </div>
 
                 <div>
@@ -272,11 +346,11 @@ export const Register = (): JSX.Element => {
                       onChange={handleChange}
                       type="text"
                       placeholder="New York"
-                      className="pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border border-border/50 focus:border-primary focus:bg-background transition-colors"
-                      required
+                      className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.city ? 'border-red-500 focus:border-red-500' : 'border-border/50 focus:border-primary'}`}
                     />
                     <MapPinIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   </div>
+                  <InputError message={errors.city} />
                 </div>
 
                 <div>
@@ -290,25 +364,27 @@ export const Register = (): JSX.Element => {
                       onChange={handleChange}
                       type="text"
                       placeholder="123 Business Street, Suite 100"
-                      className="pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border border-border/50 focus:border-primary focus:bg-background transition-colors"
-                      required
+                      className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.address ? 'border-red-500 focus:border-red-500' : 'border-border/50 focus:border-primary'}`}
                     />
                     <MapPinIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   </div>
+                  <InputError message={errors.address} />
                 </div>
 
-                <div className="flex items-start gap-3 p-4 rounded-xl bg-muted/30 border border-border/30">
+                <div className={`flex items-start gap-3 p-4 rounded-xl border ${errors.actual_address_matches ? 'bg-red-50/50 border-red-200' : 'bg-muted/30 border-border/30'}`}>
                   <input
                     name="actual_address_matches"
                     type="checkbox"
                     checked={formData.actual_address_matches}
                     onChange={handleChange}
-                    required
                     className="mt-0.5 h-4 w-4 cursor-pointer rounded border-border text-primary focus:ring-primary"
                   />
-                  <label className="text-sm text-muted-foreground leading-relaxed">
-                    I am part of Host/Agency chain/Franchise
-                  </label>
+                  <div>
+                    <label className="text-sm text-muted-foreground leading-relaxed">
+                      I am part of Host/Agency chain/Franchise
+                    </label>
+                    <InputError message={errors.actual_address_matches} />
+                  </div>
                 </div>
 
                 <p className="text-xs text-muted-foreground text-center">
