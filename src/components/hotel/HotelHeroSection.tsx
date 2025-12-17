@@ -51,75 +51,8 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
         </div>
       </div>
 
-      {/* Image Gallery Hero */}
-      <section className="px-3 md:px-8 pb-4 md:pb-6">
-        <div className="container p-0">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3 h-[250px] sm:h-[300px] md:h-[380px] lg:h-[620px]">
-            {/* Main Large Image */}
-            <button
-              onClick={() => openLightbox(0)}
-              className="md:col-span-2 relative overflow-hidden rounded-2xl group"
-            >
-              <img
-                src={mainImage}
-                alt={hotel.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-              {displayImages.length > 3 && (
-                <div className="absolute bottom-4 right-4 bg-background/90 backdrop-blur-sm text-foreground px-4 py-2 rounded-full text-sm font-medium">
-                  +{displayImages.length - 3} photos
-                </div>
-              )}
-            </button>
-
-            {/* Stacked Side Images */}
-            <div className="hidden md:flex flex-col gap-2 md:gap-3 h-full">
-              <button
-                onClick={() => openLightbox(1)}
-                className="flex-1 min-h-0 relative overflow-hidden rounded-2xl group"
-              >
-                <img
-                  src={sideImage1}
-                  alt={displayImages[1]?.alt || `${hotel.name} - Photo 2`}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
-                />
-                {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                {/* Text overlay */}
-                <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
-                  <span className="text-white font-medium text-sm">{displayImages[1]?.alt || "Room Interior"}</span>
-                </div>
-                {/* Corner accent */}
-                <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-white/0 group-hover:border-white/60 transition-colors duration-300 rounded-tr-lg" />
-                <div className="absolute bottom-3 left-3 w-8 h-8 border-b-2 border-l-2 border-white/0 group-hover:border-white/60 transition-colors duration-300 rounded-bl-lg" />
-              </button>
-              <button
-                onClick={() => openLightbox(2)}
-                className="flex-1 min-h-0 relative overflow-hidden rounded-2xl group"
-              >
-                <img
-                  src={sideImage2}
-                  alt={displayImages[2]?.alt || `${hotel.name} - Photo 3`}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
-                />
-                {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                {/* Text overlay */}
-                <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
-                  <span className="text-white font-medium text-sm">{displayImages[2]?.alt || "Amenities"}</span>
-                </div>
-                {/* Corner accent */}
-                <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-white/0 group-hover:border-white/60 transition-colors duration-300 rounded-tr-lg" />
-                <div className="absolute bottom-3 left-3 w-8 h-8 border-b-2 border-l-2 border-white/0 group-hover:border-white/60 transition-colors duration-300 rounded-bl-lg" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Hotel Info Section */}
-      <section className="px-4 md:px-8 pb-8">
+      <section className="px-4 md:px-8 pb-6">
         <div className="container p-0">
           <div className="flex flex-col md:items-start md:justify-between gap-6">
             <div className="space-y-4">
@@ -183,6 +116,73 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      </section>
+
+      {/* Image Gallery Hero */}
+      <section className="px-3 md:px-8 pb-4 md:pb-6">
+        <div className="container p-0">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3 h-[250px] sm:h-[300px] md:h-[380px] lg:h-[620px]">
+            {/* Main Large Image */}
+            <button
+              onClick={() => openLightbox(0)}
+              className="md:col-span-2 relative overflow-hidden rounded-2xl group"
+            >
+              <img
+                src={mainImage}
+                alt={hotel.name}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+              {displayImages.length > 3 && (
+                <div className="absolute bottom-4 right-4 bg-background/90 backdrop-blur-sm text-foreground px-4 py-2 rounded-full text-sm font-medium">
+                  +{displayImages.length - 3} photos
+                </div>
+              )}
+            </button>
+
+            {/* Stacked Side Images */}
+            <div className="hidden md:flex flex-col gap-2 md:gap-3 h-full">
+              <button
+                onClick={() => openLightbox(1)}
+                className="flex-1 min-h-0 relative overflow-hidden rounded-2xl group"
+              >
+                <img
+                  src={sideImage1}
+                  alt={displayImages[1]?.alt || `${hotel.name} - Photo 2`}
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+                />
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                {/* Text overlay */}
+                <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
+                  <span className="text-white font-medium text-sm">{displayImages[1]?.alt || "Room Interior"}</span>
+                </div>
+                {/* Corner accent */}
+                <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-white/0 group-hover:border-white/60 transition-colors duration-300 rounded-tr-lg" />
+                <div className="absolute bottom-3 left-3 w-8 h-8 border-b-2 border-l-2 border-white/0 group-hover:border-white/60 transition-colors duration-300 rounded-bl-lg" />
+              </button>
+              <button
+                onClick={() => openLightbox(2)}
+                className="flex-1 min-h-0 relative overflow-hidden rounded-2xl group"
+              >
+                <img
+                  src={sideImage2}
+                  alt={displayImages[2]?.alt || `${hotel.name} - Photo 3`}
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+                />
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                {/* Text overlay */}
+                <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
+                  <span className="text-white font-medium text-sm">{displayImages[2]?.alt || "Amenities"}</span>
+                </div>
+                {/* Corner accent */}
+                <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-white/0 group-hover:border-white/60 transition-colors duration-300 rounded-tr-lg" />
+                <div className="absolute bottom-3 left-3 w-8 h-8 border-b-2 border-l-2 border-white/0 group-hover:border-white/60 transition-colors duration-300 rounded-bl-lg" />
+              </button>
+            </div>
           </div>
         </div>
       </section>
