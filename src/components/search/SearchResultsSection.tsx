@@ -1,7 +1,17 @@
+import { useState, useMemo } from "react";
 import { useBookingStore } from "@/stores/bookingStore";
 import { HotelCard } from "./HotelCard";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, ArrowUpDown } from "lucide-react";
 import type { Hotel } from "@/types/booking";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+type SortOption = "popularity" | "price-low" | "price-high" | "rating";
 
 const mockHotels: Hotel[] = [
   {
@@ -77,6 +87,25 @@ const mockHotels: Hotel[] = [
 
 export function SearchResultsSection() {
   const { searchResults, isLoading, error, searchParams } = useBookingStore();
+  const [sortBy, setSortBy] = useState<SortOption>("popularity");
+
+  const hotels = useMemo(() => {
+    const baseHotels = searchResults.length > 0 ? searchResults : mockHotels;
+    
+    return [...baseHotels].sort((a, b) => {
+      switch (sortBy) {
+        case "price-low":
+          return a.priceFrom - b.priceFrom;
+        case "price-high":
+          return b.priceFrom - a.priceFrom;
+        case "rating":
+          return (b.reviewScore || 0) - (a.reviewScore || 0);
+        case "popularity":
+        default:
+          return (b.reviewCount || 0) - (a.reviewCount || 0);
+      }
+    });
+  }, [searchResults, sortBy]);
 
   if (!searchParams) {
     return null;
@@ -109,9 +138,6 @@ export function SearchResultsSection() {
     );
   }
 
-  // Use mock hotels if no real results
-  const hotels = searchResults.length > 0 ? searchResults : mockHotels;
-
   return (
     <section id="search-results" className="py-16 bg-cream/30">
       <div className="container">
@@ -123,6 +149,21 @@ export function SearchResultsSection() {
                 {hotels.length} {hotels.length === 1 ? "property" : "properties"} found
               </span>
             </h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Sort by:</span>
+            <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
+              <SelectTrigger className="w-[160px] bg-background">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="popularity">Popularity</SelectItem>
+                <SelectItem value="price-low">Price: Low to High</SelectItem>
+                <SelectItem value="price-high">Price: High to Low</SelectItem>
+                <SelectItem value="rating">Guest Rating</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
