@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { Plus, Minus, Users, Bed, Check } from "lucide-react";
+import { Plus, Minus, Maximize, Bed, Check } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import type { RoomRate } from "@/types/booking";
 import { useBookingStore } from "@/stores/bookingStore";
+import { format, addDays } from "date-fns";
 
 interface RoomSelectionSectionProps {
   rooms: RoomRate[];
@@ -80,10 +81,12 @@ export function RoomSelectionSection({ rooms, currency }: RoomSelectionSectionPr
                     </h3>
 
                     <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-3">
-                      <div className="flex items-center gap-1">
-                        <Users className="h-4 w-4" />
-                        <span>Max {room.maxOccupancy} guests</span>
-                      </div>
+                      {room.squareFootage && (
+                        <div className="flex items-center gap-1">
+                          <Maximize className="h-4 w-4" />
+                          <span>{room.squareFootage} ft²</span>
+                        </div>
+                      )}
                       {room.bedType && (
                         <div className="flex items-center gap-1">
                           <Bed className="h-4 w-4" />
@@ -93,17 +96,20 @@ export function RoomSelectionSection({ rooms, currency }: RoomSelectionSectionPr
                     </div>
 
                     {room.amenities && room.amenities.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {room.amenities.slice(0, 5).map((amenity, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center gap-1 text-xs text-primary"
-                          >
-                            <Check className="h-3 w-3" />
-                            {amenity}
-                          </span>
-                        ))}
-                      </div>
+                      <ScrollArea className="w-full whitespace-nowrap mb-3">
+                        <div className="flex gap-3 pb-2">
+                          {room.amenities.map((amenity, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center gap-1 text-xs text-primary shrink-0"
+                            >
+                              <Check className="h-3 w-3" />
+                              {amenity}
+                            </span>
+                          ))}
+                        </div>
+                        <ScrollBar orientation="horizontal" />
+                      </ScrollArea>
                     )}
 
                     {room.mealPlan && (
@@ -111,8 +117,8 @@ export function RoomSelectionSection({ rooms, currency }: RoomSelectionSectionPr
                     )}
 
                     {room.cancellationPolicy && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        {room.cancellationPolicy}
+                      <p className="text-xs text-green-600 mt-2">
+                        Free cancellation until {format(addDays(new Date(), 7), "MMMM d")}
                       </p>
                     )}
                   </div>
