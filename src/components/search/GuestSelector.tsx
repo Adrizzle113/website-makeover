@@ -57,7 +57,8 @@ export function GuestSelector({ rooms, onRoomsChange }: GuestSelectorProps) {
 
   const addChild = (roomIndex: number) => {
     const room = rooms[roomIndex];
-    if (room.childrenAges.length < 4) {
+    const totalInRoom = room.adults + room.childrenAges.length;
+    if (totalInRoom < 6) {
       updateRoom(roomIndex, { childrenAges: [...room.childrenAges, 5] });
     }
   };
@@ -141,7 +142,7 @@ export function GuestSelector({ rooms, onRoomsChange }: GuestSelectorProps) {
                   value={room.adults}
                   onChange={(adults) => updateRoom(roomIndex, { adults })}
                   min={1}
-                  max={6}
+                  max={6 - room.childrenAges.length}
                 />
               </div>
 
@@ -176,7 +177,7 @@ export function GuestSelector({ rooms, onRoomsChange }: GuestSelectorProps) {
                     ))}
                   </div>
                 ) : null}
-                {room.childrenAges.length < 4 && (
+                {room.adults + room.childrenAges.length < 6 && (
                   <button
                     onClick={() => addChild(roomIndex)}
                     className="text-primary text-sm font-medium hover:underline mt-2"
