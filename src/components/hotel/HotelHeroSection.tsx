@@ -13,9 +13,8 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const displayImages: HotelImage[] = hotel.images?.length > 0 
-    ? hotel.images 
-    : [{ url: hotel.mainImage || "/placeholder.svg", alt: hotel.name }];
+  const displayImages: HotelImage[] =
+    hotel.images?.length > 0 ? hotel.images : [{ url: hotel.mainImage || "/placeholder.svg", alt: hotel.name }];
 
   const mainImage = hotel.mainImage || displayImages[0]?.url || "/placeholder.svg";
   const sideImage1 = displayImages[1]?.url || displayImages[0]?.url || "/placeholder.svg";
@@ -46,11 +45,7 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
             <ArrowLeft className="h-5 w-5" />
             <span className="font-medium">Back to Search</span>
           </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-foreground"
-          >
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
             <Share2 className="h-5 w-5" />
           </Button>
         </div>
@@ -93,9 +88,7 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 {/* Text overlay */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
-                  <span className="text-white font-medium text-sm">
-                    {displayImages[1]?.alt || "Room Interior"}
-                  </span>
+                  <span className="text-white font-medium text-sm">{displayImages[1]?.alt || "Room Interior"}</span>
                 </div>
                 {/* Corner accent */}
                 <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-white/0 group-hover:border-white/60 transition-colors duration-300 rounded-tr-lg" />
@@ -114,9 +107,7 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 {/* Text overlay */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
-                  <span className="text-white font-medium text-sm">
-                    {displayImages[2]?.alt || "Amenities"}
-                  </span>
+                  <span className="text-white font-medium text-sm">{displayImages[2]?.alt || "Amenities"}</span>
                 </div>
                 {/* Corner accent */}
                 <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-white/0 group-hover:border-white/60 transition-colors duration-300 rounded-tr-lg" />
@@ -130,7 +121,7 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
       {/* Hotel Info Section */}
       <section className="px-4 md:px-8 pb-8">
         <div className="container p-0">
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+          <div className="flex flex-col md:items-start md:justify-between gap-6">
             <div className="space-y-4">
               {/* Category Label */}
               <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
@@ -153,21 +144,26 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
                       const isFilled = i < Math.floor(normalizedScore);
                       const isHalf = !isFilled && i < normalizedScore;
                       return (
-                        <Star 
-                          key={i} 
+                        <Star
+                          key={i}
                           className={`w-4 h-4 ${
-                            isFilled 
-                              ? "fill-app-stars text-app-stars" 
-                              : isHalf 
-                                ? "fill-app-stars/50 text-app-stars" 
+                            isFilled
+                              ? "fill-app-stars text-app-stars"
+                              : isHalf
+                                ? "fill-app-stars/50 text-app-stars"
                                 : "fill-muted text-muted"
-                          }`} 
+                          }`}
                         />
                       );
                     })}
                   </div>
                   <span className="font-medium text-foreground">
-                    {(hotel.reviewScore ? (hotel.reviewScore > 5 ? hotel.reviewScore / 2 : hotel.reviewScore) : hotel.starRating).toFixed(1)}
+                    {(hotel.reviewScore
+                      ? hotel.reviewScore > 5
+                        ? hotel.reviewScore / 2
+                        : hotel.reviewScore
+                      : hotel.starRating
+                    ).toFixed(1)}
                   </span>
                 </div>
 
@@ -194,9 +190,7 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
                     {hotel.reviewScore >= 9 ? "Exceptional" : hotel.reviewScore >= 8 ? "Excellent" : "Very Good"}
                   </div>
                   <span className="text-muted-foreground text-sm">
-                    {hotel.reviewCount
-                      ? `${hotel.reviewCount.toLocaleString()} reviews`
-                      : "Guest reviews"}
+                    {hotel.reviewCount ? `${hotel.reviewCount.toLocaleString()} reviews` : "Guest reviews"}
                   </span>
                 </div>
               </div>
