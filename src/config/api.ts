@@ -1,5 +1,5 @@
 // API Configuration for RateHawk Backend
-export const API_BASE_URL = "https://travel-frontend-two-nu.vercel.app";
+export const API_BASE_URL = "https://travel-frontend-5izj2xq3z-bba-b6b19fcb.vercel.app";
 
 export const API_CONFIG = {
   BASE_URL: API_BASE_URL,
