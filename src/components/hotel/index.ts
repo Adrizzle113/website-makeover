@@ -7,3 +7,4 @@ export { AmenitiesSection } from "./AmenitiesSection";
 export { MapSection } from "./MapSection";
 export { HotelInfoSection } from "./HotelInfoSection";
 export { HotelPoliciesSection } from "./HotelPoliciesSection";
+export { FacilitiesAmenitiesSection } from "./FacilitiesAmenitiesSection";
