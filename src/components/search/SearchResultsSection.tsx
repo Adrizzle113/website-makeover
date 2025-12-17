@@ -93,6 +93,7 @@ export function SearchResultsSection() {
   const [sortBy, setSortBy] = useState<SortOption>("popularity");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [hoveredHotelId, setHoveredHotelId] = useState<string | null>(null);
+  const [focusedHotelId, setFocusedHotelId] = useState<string | null>(null);
 
   const hotels = useMemo(() => {
     const baseHotels = searchResults.length > 0 ? searchResults : mockHotels;
@@ -222,11 +223,16 @@ export function SearchResultsSection() {
                   hotel={hotel} 
                   compact 
                   onHover={setHoveredHotelId}
+                  onFocus={setFocusedHotelId}
                 />
               ))}
             </div>
             <div className="hidden lg:block sticky top-0">
-              <HotelMapView hotels={hotels} highlightedHotelId={hoveredHotelId} />
+              <HotelMapView 
+                hotels={hotels} 
+                highlightedHotelId={hoveredHotelId} 
+                focusedHotelId={focusedHotelId}
+              />
             </div>
           </div>
         )}
