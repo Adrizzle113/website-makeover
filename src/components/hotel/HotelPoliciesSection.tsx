@@ -1,4 +1,4 @@
-import { Clock, Info, Wallet, PawPrint, BedDouble } from "lucide-react";
+import { Clock, Info, Wallet, PawPrint, BedDouble, MessageCircle } from "lucide-react";
 import type { HotelDetails } from "@/types/booking";
 
 interface DepositPolicy {
@@ -149,6 +149,24 @@ export function HotelPoliciesSection({
               </ul>
             </div>
           )}
+        </div>
+
+        {/* Additional Information */}
+        <div className="mt-6 bg-muted/50 rounded-lg p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <MessageCircle className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold text-foreground">Additional Information</h3>
+          </div>
+          <ul className="space-y-2">
+            <li className="text-sm text-muted-foreground flex items-start gap-2">
+              <span className="text-primary mt-0.5">•</span>
+              Front desk is open 24/7.
+            </li>
+            <li className="text-sm text-muted-foreground flex items-start gap-2">
+              <span className="text-primary mt-0.5">•</span>
+              Information about the type of meals included in the price is indicated in the rate details.
+            </li>
+          </ul>
         </div>
       </div>
     </section>
