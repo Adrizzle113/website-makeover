@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useBookingStore } from "@/stores/bookingStore";
 import { HotelCard } from "./HotelCard";
 import { HotelMapView } from "./HotelMapView";
-import { Loader2, ArrowUpDown, List, Map } from "lucide-react";
+import { Loader2, ArrowUpDown, List, Map, Columns } from "lucide-react";
 import type { Hotel } from "@/types/booking";
 import {
   Select,
@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 type SortOption = "popularity" | "price-low" | "price-high" | "rating";
-type ViewMode = "list" | "map";
+type ViewMode = "list" | "map" | "split";
 
 const mockHotels: Hotel[] = [
   {
@@ -181,6 +181,15 @@ export function SearchResultsSection() {
                 List
               </Button>
               <Button
+                variant={viewMode === "split" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("split")}
+                className="rounded-none"
+              >
+                <Columns className="h-4 w-4 mr-1" />
+                Split
+              </Button>
+              <Button
                 variant={viewMode === "map" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode("map")}
@@ -193,14 +202,27 @@ export function SearchResultsSection() {
           </div>
         </div>
 
-        {viewMode === "list" ? (
+        {viewMode === "list" && (
           <div className="space-y-6 max-w-4xl mx-auto">
             {hotels.map((hotel) => (
               <HotelCard key={hotel.id} hotel={hotel} />
             ))}
           </div>
-        ) : (
-          <HotelMapView hotels={hotels} />
+        )}
+
+        {viewMode === "map" && <HotelMapView hotels={hotels} />}
+
+        {viewMode === "split" && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+              {hotels.map((hotel) => (
+                <HotelCard key={hotel.id} hotel={hotel} compact />
+              ))}
+            </div>
+            <div className="hidden lg:block sticky top-0">
+              <HotelMapView hotels={hotels} />
+            </div>
+          </div>
         )}
       </div>
     </section>
