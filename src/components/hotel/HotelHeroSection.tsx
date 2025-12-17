@@ -57,9 +57,9 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
       </div>
 
       {/* Image Gallery Hero */}
-      <section className="px-4 md:px-8 pb-6">
+      <section className="px-3 md:px-8 pb-4 md:pb-6">
         <div className="container p-0">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 h-[400px] md:h-[450px]">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3 h-[250px] sm:h-[300px] md:h-[380px] lg:h-[420px]">
             {/* Main Large Image */}
             <button
               onClick={() => openLightbox(0)}
