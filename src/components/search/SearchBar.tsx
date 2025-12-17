@@ -15,6 +15,11 @@ import { useBookingStore } from "@/stores/bookingStore";
 import { ratehawkApi } from "@/services/ratehawkApi";
 import { toast } from "@/hooks/use-toast";
 
+interface Room {
+  adults: number;
+  childrenAges: number[];
+}
+
 export function SearchBar() {
   const { setSearchParams, setSearchResults, setLoading, setError } = useBookingStore();
 
@@ -22,21 +27,22 @@ export function SearchBar() {
   const [destinationId, setDestinationId] = useState<string | undefined>();
   const [checkIn, setCheckIn] = useState<Date>(addDays(new Date(), 1));
   const [checkOut, setCheckOut] = useState<Date>(addDays(new Date(), 3));
-  const [guests, setGuests] = useState(2);
-  const [rooms, setRooms] = useState(1);
+  const [rooms, setRooms] = useState<Room[]>([{ adults: 2, childrenAges: [] }]);
   const [isSearching, setIsSearching] = useState(false);
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [checkOutOpen, setCheckOutOpen] = useState(false);
 
+  const totalGuests = rooms.reduce((sum, room) => sum + room.adults + room.childrenAges.length, 0);
+  const totalChildren = rooms.reduce((sum, room) => sum + room.childrenAges.length, 0);
+  const allChildrenAges = rooms.flatMap(room => room.childrenAges);
+
   const handleCheckInSelect = (date: Date | undefined) => {
     if (date) {
       setCheckIn(date);
-      // Auto-adjust checkout if it's before or same as new check-in
       if (checkOut <= date) {
         setCheckOut(addDays(date, 2));
       }
       setCheckInOpen(false);
-      // Auto-open checkout picker for better flow
       setTimeout(() => setCheckOutOpen(true), 150);
     }
   };
@@ -67,8 +73,10 @@ export function SearchBar() {
       destinationId,
       checkIn,
       checkOut,
-      guests,
-      rooms,
+      guests: totalGuests,
+      rooms: rooms.length,
+      children: totalChildren,
+      childrenAges: allChildrenAges,
     };
 
     setSearchParams(searchParams);
@@ -80,7 +88,6 @@ export function SearchBar() {
       const response = await ratehawkApi.searchHotels(searchParams);
       setSearchResults(response.hotels);
       
-      // Scroll to results
       setTimeout(() => {
         const resultsSection = document.getElementById("search-results");
         resultsSection?.scrollIntoView({ behavior: "smooth" });
@@ -182,9 +189,7 @@ export function SearchBar() {
               Guests & Rooms
             </label>
             <GuestSelector
-              guests={guests}
               rooms={rooms}
-              onGuestsChange={setGuests}
               onRoomsChange={setRooms}
             />
           </div>
