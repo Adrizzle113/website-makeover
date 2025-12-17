@@ -79,10 +79,10 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
             </button>
 
             {/* Stacked Side Images */}
-            <div className="hidden md:flex flex-col gap-3">
+            <div className="hidden md:flex flex-col gap-2 md:gap-3 h-full">
               <button
                 onClick={() => openLightbox(1)}
-                className="flex-1 relative overflow-hidden rounded-2xl group"
+                className="flex-1 min-h-0 relative overflow-hidden rounded-2xl group"
               >
                 <img
                   src={sideImage1}
@@ -103,7 +103,7 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
               </button>
               <button
                 onClick={() => openLightbox(2)}
-                className="flex-1 relative overflow-hidden rounded-2xl group"
+                className="flex-1 min-h-0 relative overflow-hidden rounded-2xl group"
               >
                 <img
                   src={sideImage2}
