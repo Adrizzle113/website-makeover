@@ -25,6 +25,28 @@ export function SearchBar() {
   const [guests, setGuests] = useState(2);
   const [rooms, setRooms] = useState(1);
   const [isSearching, setIsSearching] = useState(false);
+  const [checkInOpen, setCheckInOpen] = useState(false);
+  const [checkOutOpen, setCheckOutOpen] = useState(false);
+
+  const handleCheckInSelect = (date: Date | undefined) => {
+    if (date) {
+      setCheckIn(date);
+      // Auto-adjust checkout if it's before or same as new check-in
+      if (checkOut <= date) {
+        setCheckOut(addDays(date, 2));
+      }
+      setCheckInOpen(false);
+      // Auto-open checkout picker for better flow
+      setTimeout(() => setCheckOutOpen(true), 150);
+    }
+  };
+
+  const handleCheckOutSelect = (date: Date | undefined) => {
+    if (date) {
+      setCheckOut(date);
+      setCheckOutOpen(false);
+    }
+  };
 
   const handleDestinationChange = (value: string, id?: string) => {
     setDestination(value);
@@ -97,7 +119,7 @@ export function SearchBar() {
             <label className="text-xs font-semibold text-primary uppercase tracking-wider mb-2 block">
               Check-in
             </label>
-            <Popover>
+            <Popover open={checkInOpen} onOpenChange={setCheckInOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -114,7 +136,7 @@ export function SearchBar() {
                 <Calendar
                   mode="single"
                   selected={checkIn}
-                  onSelect={(date) => date && setCheckIn(date)}
+                  onSelect={handleCheckInSelect}
                   disabled={(date) => date < new Date()}
                   initialFocus
                   className="pointer-events-auto"
@@ -128,7 +150,7 @@ export function SearchBar() {
             <label className="text-xs font-semibold text-primary uppercase tracking-wider mb-2 block">
               Check-out
             </label>
-            <Popover>
+            <Popover open={checkOutOpen} onOpenChange={setCheckOutOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -145,7 +167,7 @@ export function SearchBar() {
                 <Calendar
                   mode="single"
                   selected={checkOut}
-                  onSelect={(date) => date && setCheckOut(date)}
+                  onSelect={handleCheckOutSelect}
                   disabled={(date) => date <= checkIn}
                   initialFocus
                   className="pointer-events-auto"
