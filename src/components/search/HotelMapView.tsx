@@ -5,22 +5,22 @@ import type { Hotel } from "@/types/booking";
 
 interface HotelMapViewProps {
   hotels: Hotel[];
+  highlightedHotelId?: string | null;
   onHotelSelect?: (hotel: Hotel) => void;
 }
 
 const MAPBOX_TOKEN = "pk.eyJ1IjoiYm91Z2llYmFja3BhY2tlciIsImEiOiJjbWphZWgyZG4wNHN4M2RweWVjdzVpY3kyIn0.otTqyXhQRvR8qYCHhD8wqg";
 
-export function HotelMapView({ hotels, onHotelSelect }: HotelMapViewProps) {
+export function HotelMapView({ hotels, highlightedHotelId, onHotelSelect }: HotelMapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; element: HTMLDivElement }>>(new Map());
 
   useEffect(() => {
     if (!mapContainer.current || hotels.length === 0) return;
 
     mapboxgl.accessToken = MAPBOX_TOKEN;
 
-    // Calculate center from hotels
     const validHotels = hotels.filter(h => h.latitude && h.longitude);
     if (validHotels.length === 0) return;
 
@@ -36,12 +36,12 @@ export function HotelMapView({ hotels, onHotelSelect }: HotelMapViewProps) {
 
     map.current.addControl(new mapboxgl.NavigationControl(), "top-right");
 
-    // Add markers for each hotel
     validHotels.forEach((hotel) => {
       const el = document.createElement("div");
       el.className = "hotel-marker";
+      el.dataset.hotelId = hotel.id;
       el.innerHTML = `
-        <div class="bg-primary text-primary-foreground px-2 py-1 rounded-lg shadow-lg text-sm font-medium cursor-pointer hover:bg-primary/90 transition-colors">
+        <div class="marker-content bg-primary text-primary-foreground px-2 py-1 rounded-lg shadow-lg text-sm font-medium cursor-pointer transition-all duration-200">
           $${hotel.priceFrom}
         </div>
       `;
@@ -68,10 +68,9 @@ export function HotelMapView({ hotels, onHotelSelect }: HotelMapViewProps) {
         onHotelSelect?.(hotel);
       });
 
-      markersRef.current.push(marker);
+      markersRef.current.set(hotel.id, { marker, element: el });
     });
 
-    // Fit bounds to show all markers
     if (validHotels.length > 1) {
       const bounds = new mapboxgl.LngLatBounds();
       validHotels.forEach((hotel) => {
@@ -81,11 +80,31 @@ export function HotelMapView({ hotels, onHotelSelect }: HotelMapViewProps) {
     }
 
     return () => {
-      markersRef.current.forEach((marker) => marker.remove());
-      markersRef.current = [];
+      markersRef.current.forEach(({ marker }) => marker.remove());
+      markersRef.current.clear();
       map.current?.remove();
     };
   }, [hotels, onHotelSelect]);
+
+  // Handle highlight changes
+  useEffect(() => {
+    markersRef.current.forEach(({ element }, hotelId) => {
+      const content = element.querySelector(".marker-content") as HTMLElement;
+      if (content) {
+        if (hotelId === highlightedHotelId) {
+          content.style.transform = "scale(1.25)";
+          content.style.zIndex = "100";
+          content.style.boxShadow = "0 4px 20px rgba(0,0,0,0.3)";
+          element.style.zIndex = "100";
+        } else {
+          content.style.transform = "scale(1)";
+          content.style.zIndex = "1";
+          content.style.boxShadow = "";
+          element.style.zIndex = "1";
+        }
+      }
+    });
+  }, [highlightedHotelId]);
 
   if (hotels.length === 0) {
     return (

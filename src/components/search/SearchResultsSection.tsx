@@ -92,6 +92,7 @@ export function SearchResultsSection() {
   const { searchResults, isLoading, error, searchParams } = useBookingStore();
   const [sortBy, setSortBy] = useState<SortOption>("popularity");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [hoveredHotelId, setHoveredHotelId] = useState<string | null>(null);
 
   const hotels = useMemo(() => {
     const baseHotels = searchResults.length > 0 ? searchResults : mockHotels;
@@ -216,11 +217,16 @@ export function SearchResultsSection() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
               {hotels.map((hotel) => (
-                <HotelCard key={hotel.id} hotel={hotel} compact />
+                <HotelCard 
+                  key={hotel.id} 
+                  hotel={hotel} 
+                  compact 
+                  onHover={setHoveredHotelId}
+                />
               ))}
             </div>
             <div className="hidden lg:block sticky top-0">
-              <HotelMapView hotels={hotels} />
+              <HotelMapView hotels={hotels} highlightedHotelId={hoveredHotelId} />
             </div>
           </div>
         )}

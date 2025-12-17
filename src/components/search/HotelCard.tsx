@@ -8,9 +8,10 @@ import { useBookingStore } from "@/stores/bookingStore";
 interface HotelCardProps {
   hotel: Hotel;
   compact?: boolean;
+  onHover?: (hotelId: string | null) => void;
 }
 
-export function HotelCard({ hotel, compact = false }: HotelCardProps) {
+export function HotelCard({ hotel, compact = false, onHover }: HotelCardProps) {
   const navigate = useNavigate();
   const { setSelectedHotel } = useBookingStore();
 
@@ -20,7 +21,12 @@ export function HotelCard({ hotel, compact = false }: HotelCardProps) {
 
   if (compact) {
     return (
-      <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-card border-border/50 group rounded-xl cursor-pointer" onClick={handleViewDetails}>
+      <Card 
+        className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-card border-border/50 group rounded-xl cursor-pointer" 
+        onClick={handleViewDetails}
+        onMouseEnter={() => onHover?.(hotel.id)}
+        onMouseLeave={() => onHover?.(null)}
+      >
         <div className="flex">
           <div className="relative w-28 h-28 flex-shrink-0 overflow-hidden">
             <img
