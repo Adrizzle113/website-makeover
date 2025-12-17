@@ -115,14 +115,15 @@ export function SearchResultsSection() {
   return (
     <section id="search-results" className="py-16 bg-cream/30">
       <div className="container">
-        <div className="mb-10 text-center">
-          <p className="heading-spaced text-primary mb-4">SEARCH RESULTS</p>
-          <h2 className="font-heading text-heading-lg text-foreground mb-3">
-            {hotels.length} Hotels Found
-          </h2>
-          <p className="text-muted-foreground text-body-md">
-            in {searchParams.destination}
-          </p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 className="font-heading text-heading-md text-foreground">
+              {searchParams.destination}:{" "}
+              <span className="text-muted-foreground font-normal">
+                {hotels.length} {hotels.length === 1 ? "property" : "properties"} found
+              </span>
+            </h2>
+          </div>
         </div>
 
         <div className="space-y-6 max-w-4xl mx-auto">
