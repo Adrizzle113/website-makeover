@@ -6,12 +6,13 @@ import type { Hotel } from "@/types/booking";
 interface HotelMapViewProps {
   hotels: Hotel[];
   highlightedHotelId?: string | null;
+  focusedHotelId?: string | null;
   onHotelSelect?: (hotel: Hotel) => void;
 }
 
 const MAPBOX_TOKEN = "pk.eyJ1IjoiYm91Z2llYmFja3BhY2tlciIsImEiOiJjbWphZWgyZG4wNHN4M2RweWVjdzVpY3kyIn0.otTqyXhQRvR8qYCHhD8wqg";
 
-export function HotelMapView({ hotels, highlightedHotelId, onHotelSelect }: HotelMapViewProps) {
+export function HotelMapView({ hotels, highlightedHotelId, focusedHotelId, onHotelSelect }: HotelMapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; element: HTMLDivElement }>>(new Map());
@@ -105,6 +106,26 @@ export function HotelMapView({ hotels, highlightedHotelId, onHotelSelect }: Hote
       }
     });
   }, [highlightedHotelId]);
+
+  // Handle focus/zoom to hotel
+  useEffect(() => {
+    if (!focusedHotelId || !map.current) return;
+    
+    const hotel = hotels.find(h => h.id === focusedHotelId);
+    if (hotel?.longitude && hotel?.latitude) {
+      map.current.flyTo({
+        center: [hotel.longitude, hotel.latitude],
+        zoom: 15,
+        duration: 1000,
+      });
+      
+      // Open the popup
+      const markerData = markersRef.current.get(focusedHotelId);
+      if (markerData) {
+        markerData.marker.togglePopup();
+      }
+    }
+  }, [focusedHotelId, hotels]);
 
   if (hotels.length === 0) {
     return (

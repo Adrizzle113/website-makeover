@@ -9,9 +9,10 @@ interface HotelCardProps {
   hotel: Hotel;
   compact?: boolean;
   onHover?: (hotelId: string | null) => void;
+  onFocus?: (hotelId: string) => void;
 }
 
-export function HotelCard({ hotel, compact = false, onHover }: HotelCardProps) {
+export function HotelCard({ hotel, compact = false, onHover, onFocus }: HotelCardProps) {
   const navigate = useNavigate();
   const { setSelectedHotel } = useBookingStore();
 
@@ -19,11 +20,19 @@ export function HotelCard({ hotel, compact = false, onHover }: HotelCardProps) {
     navigate(`/hotel/${hotel.id}`);
   };
 
+  const handleClick = () => {
+    if (onFocus) {
+      onFocus(hotel.id);
+    } else {
+      handleViewDetails();
+    }
+  };
+
   if (compact) {
     return (
       <Card 
         className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-card border-border/50 group rounded-xl cursor-pointer" 
-        onClick={handleViewDetails}
+        onClick={handleClick}
         onMouseEnter={() => onHover?.(hotel.id)}
         onMouseLeave={() => onHover?.(null)}
       >
