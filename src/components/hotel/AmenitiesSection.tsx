@@ -12,6 +12,7 @@ import {
   Accessibility,
   Globe,
 } from "lucide-react";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import type { HotelAmenity } from "@/types/booking";
 
 interface AmenitiesSectionProps {
@@ -57,28 +58,25 @@ export function AmenitiesSection({ amenities, facilities }: AmenitiesSectionProp
   }
 
   return (
-    <section className="py-8 bg-background">
+    <section className="py-6 bg-background">
       <div className="container">
-        <h2 className="font-heading text-heading-standard text-foreground mb-6">
-          Amenities & Facilities
-        </h2>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {allAmenities.map((amenity) => {
-            const Icon = getIcon(amenity.name);
-            return (
-              <div
-                key={amenity.id}
-                className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-              >
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Icon className="w-5 h-5 text-primary" />
+        <ScrollArea className="w-full whitespace-nowrap">
+          <div className="flex gap-3 pb-3">
+            {allAmenities.map((amenity) => {
+              const Icon = getIcon(amenity.name);
+              return (
+                <div
+                  key={amenity.id}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-muted/50 hover:bg-muted transition-colors flex-shrink-0"
+                >
+                  <Icon className="w-4 h-4 text-primary" />
+                  <span className="text-sm text-foreground">{amenity.name}</span>
                 </div>
-                <span className="text-body-small text-foreground">{amenity.name}</span>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       </div>
     </section>
   );
