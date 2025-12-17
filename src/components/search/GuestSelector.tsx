@@ -25,9 +25,15 @@ export function GuestSelector({ rooms, onRoomsChange }: GuestSelectorProps) {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+      const target = event.target as HTMLElement;
+      // Don't close if clicking inside the wrapper or on Radix select content (rendered in portal)
+      if (
+        wrapperRef.current?.contains(target) ||
+        target.closest('[data-radix-popper-content-wrapper]')
+      ) {
+        return;
       }
+      setIsOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
