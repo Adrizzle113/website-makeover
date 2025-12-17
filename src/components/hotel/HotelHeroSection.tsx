@@ -139,31 +139,22 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-0.5">
                     {Array.from({ length: 5 }).map((_, i) => {
-                      const score = hotel.reviewScore || hotel.starRating;
-                      const normalizedScore = score > 5 ? score / 2 : score; // Handle 10-point scale
-                      const isFilled = i < Math.floor(normalizedScore);
-                      const isHalf = !isFilled && i < normalizedScore;
+                      const starRating = hotel.starRating || 0;
+                      const isFilled = i < starRating;
                       return (
                         <Star
                           key={i}
                           className={`w-4 h-4 ${
                             isFilled
                               ? "fill-app-stars text-app-stars"
-                              : isHalf
-                                ? "fill-app-stars/50 text-app-stars"
-                                : "fill-muted text-muted"
+                              : "fill-muted text-muted"
                           }`}
                         />
                       );
                     })}
                   </div>
                   <span className="font-medium text-foreground">
-                    {(hotel.reviewScore
-                      ? hotel.reviewScore > 5
-                        ? hotel.reviewScore / 2
-                        : hotel.reviewScore
-                      : hotel.starRating
-                    ).toFixed(1)}
+                    {hotel.starRating || 0} Star{hotel.starRating !== 1 ? 's' : ''}
                   </span>
                 </div>
 
