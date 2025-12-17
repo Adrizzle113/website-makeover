@@ -121,7 +121,7 @@ export function BookingSidebar({ currency }: BookingSidebarProps) {
 
           {/* Total */}
           <div className="border-t border-border pt-4">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center mb-2">
               <span className="text-muted-foreground">Total</span>
               <div className="text-right">
                 <p className="font-heading text-xl text-primary">
@@ -130,6 +130,16 @@ export function BookingSidebar({ currency }: BookingSidebarProps) {
                 <p className="text-xs text-muted-foreground">
                   for {totalRooms} room{totalRooms > 1 ? "s" : ""}, {nights} night{nights > 1 ? "s" : ""}
                 </p>
+              </div>
+            </div>
+
+            {/* Commission Sticker */}
+            <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-3 mb-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-green-700 dark:text-green-400">Your Commission</span>
+                <span className="text-sm font-bold text-green-700 dark:text-green-400">
+                  {currency} {(totalPrice * nights * 0.1).toLocaleString()} (10%)
+                </span>
               </div>
             </div>
 
