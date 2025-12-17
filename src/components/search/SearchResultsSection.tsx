@@ -144,24 +144,32 @@ export function SearchResultsSection() {
     );
   }
 
+  // On mobile, default to list view if split was selected
+  const effectiveViewMode = viewMode === "split" && typeof window !== "undefined" && window.innerWidth < 1024 ? "list" : viewMode;
+
   return (
-    <section id="search-results" className="py-16 bg-cream/30">
-      <div className="container">
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <section id="search-results" className="py-8 md:py-16 bg-cream/30">
+      <div className="container px-3 md:px-4">
+        {/* Header */}
+        <div className="mb-4 md:mb-8 space-y-4">
+          {/* Title Row */}
           <div>
-            <h2 className="font-heading text-heading-md text-foreground">
+            <h2 className="font-heading text-lg md:text-heading-md text-foreground">
               {searchParams.destination}:{" "}
               <span className="text-muted-foreground font-normal">
-                {hotels.length} {hotels.length === 1 ? "property" : "properties"} found
+                {hotels.length} {hotels.length === 1 ? "property" : "properties"}
               </span>
             </h2>
           </div>
-          <div className="flex items-center gap-4">
+
+          {/* Controls Row */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            {/* Sort */}
             <div className="flex items-center gap-2">
-              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Sort by:</span>
+              <ArrowUpDown className="h-4 w-4 text-muted-foreground hidden sm:block" />
+              <span className="text-sm text-muted-foreground hidden sm:block">Sort:</span>
               <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
-                <SelectTrigger className="w-[160px] bg-background">
+                <SelectTrigger className="w-full sm:w-[160px] bg-background text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -172,51 +180,58 @@ export function SearchResultsSection() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center border border-border rounded-lg overflow-hidden">
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center border border-border rounded-lg overflow-hidden self-start sm:self-auto">
               <Button
                 variant={viewMode === "list" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode("list")}
-                className="rounded-none"
+                className="rounded-none px-3 md:px-4"
               >
-                <List className="h-4 w-4 mr-1" />
-                List
+                <List className="h-4 w-4" />
+                <span className="ml-1.5 hidden sm:inline">List</span>
               </Button>
               <Button
                 variant={viewMode === "split" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode("split")}
-                className="rounded-none"
+                className="rounded-none px-3 md:px-4 hidden lg:flex"
               >
-                <Columns className="h-4 w-4 mr-1" />
-                Split
+                <Columns className="h-4 w-4" />
+                <span className="ml-1.5">Split</span>
               </Button>
               <Button
                 variant={viewMode === "map" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode("map")}
-                className="rounded-none"
+                className="rounded-none px-3 md:px-4"
               >
-                <Map className="h-4 w-4 mr-1" />
-                Map
+                <Map className="h-4 w-4" />
+                <span className="ml-1.5 hidden sm:inline">Map</span>
               </Button>
             </div>
           </div>
         </div>
 
-        {viewMode === "list" && (
-          <div className="space-y-6 max-w-4xl mx-auto">
+        {/* Results */}
+        {effectiveViewMode === "list" && (
+          <div className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
             {hotels.map((hotel) => (
               <HotelCard key={hotel.id} hotel={hotel} />
             ))}
           </div>
         )}
 
-        {viewMode === "map" && <HotelMapView hotels={hotels} />}
+        {effectiveViewMode === "map" && (
+          <div className="h-[calc(100vh-280px)] min-h-[400px] rounded-xl overflow-hidden">
+            <HotelMapView hotels={hotels} />
+          </div>
+        )}
 
-        {viewMode === "split" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+        {effectiveViewMode === "split" && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+            <div className="space-y-3 md:space-y-4 max-h-[600px] overflow-y-auto pr-1 md:pr-2">
               {hotels.map((hotel) => (
                 <HotelCard 
                   key={hotel.id} 
@@ -227,7 +242,7 @@ export function SearchResultsSection() {
                 />
               ))}
             </div>
-            <div className="hidden lg:block sticky top-0">
+            <div className="hidden lg:block sticky top-0 h-[600px] rounded-xl overflow-hidden">
               <HotelMapView 
                 hotels={hotels} 
                 highlightedHotelId={hoveredHotelId} 
