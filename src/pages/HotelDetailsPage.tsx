@@ -9,6 +9,7 @@ import {
   MapSection,
   HotelInfoSection,
   HotelPoliciesSection,
+  FacilitiesAmenitiesSection,
 } from "@/components/hotel";
 import { Footer } from "@/components/layout/Footer";
 import { useBookingStore } from "@/stores/bookingStore";
@@ -102,6 +103,7 @@ const HotelDetailsPage = () => {
           address={`${selectedHotel.address}, ${selectedHotel.city}, ${selectedHotel.country}`}
           hotelName={selectedHotel.name}
         />
+        <FacilitiesAmenitiesSection />
         <BookingSection currency={selectedHotel.currency} />
       </main>
       <Footer />
