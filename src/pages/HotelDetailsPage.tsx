@@ -85,11 +85,11 @@ const HotelDetailsPage = () => {
     <div className="min-h-screen flex flex-col bg-background">
       <main className="flex-1">
         <HotelHeroSection hotel={selectedHotel} />
-        <HotelInfoSection hotel={selectedHotel} />
         <AmenitiesSection
           amenities={selectedHotel.amenities}
           facilities={selectedHotel.facilities}
         />
+        <HotelInfoSection hotel={selectedHotel} />
         <RoomSelectionSection
           rooms={selectedHotel.rooms || []}
           currency={selectedHotel.currency}
