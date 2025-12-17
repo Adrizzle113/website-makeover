@@ -54,68 +54,69 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
       {/* Hotel Info Section */}
       <section className="px-4 md:px-8 pb-6">
         <div className="container p-0">
-          <div className="flex flex-col md:items-start md:justify-between gap-6">
-            <div className="space-y-4">
-              {/* Category Label */}
-              <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                Hotel in {hotel.city}
-              </span>
+          <div className="space-y-4">
+            {/* Category Label */}
+            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+              Hotel in {hotel.city}
+            </span>
 
+            {/* Title Row with Review Score */}
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
               {/* Name */}
               <h1 className="font-heading text-3xl md:text-4xl lg:text-5xl text-foreground leading-tight">
                 {hotel.name}
               </h1>
 
-              {/* Rating & Location Row */}
-              <div className="flex flex-wrap items-center gap-4 text-muted-foreground">
-                {/* Star Rating */}
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-0.5">
-                    {Array.from({ length: 5 }).map((_, i) => {
-                      const starRating = hotel.starRating || 0;
-                      const isFilled = i < starRating;
-                      return (
-                        <Star
-                          key={i}
-                          className={`w-4 h-4 ${isFilled ? "text-gold" : "text-muted-foreground"}`}
-                          fill={isFilled ? "currentColor" : "none"}
-                        />
-                      );
-                    })}
+              {/* Review Score Badge */}
+              {hotel.reviewScore && (
+                <div className="flex items-center gap-3 bg-secondary/50 rounded-xl px-4 py-3 shrink-0">
+                  <div className="bg-primary text-primary-foreground w-12 h-12 rounded-lg flex items-center justify-center font-bold text-xl">
+                    {hotel.reviewScore.toFixed(1)}
                   </div>
-                  <span className="font-medium text-foreground">
-                    {hotel.starRating || 0} Star{hotel.starRating !== 1 ? "s" : ""}
-                  </span>
+                  <div>
+                    <div className="font-semibold text-foreground">
+                      {hotel.reviewScore >= 9 ? "Exceptional" : hotel.reviewScore >= 8 ? "Excellent" : "Very Good"}
+                    </div>
+                    <span className="text-muted-foreground text-sm">
+                      {hotel.reviewCount ? `${hotel.reviewCount.toLocaleString()} reviews` : "Guest reviews"}
+                    </span>
+                  </div>
                 </div>
-
-                <span className="text-muted-foreground/40">•</span>
-
-                {/* Location */}
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="h-4 w-4" />
-                  <span className="text-body">
-                    {hotel.address}, {hotel.city}, {hotel.country}
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
 
-            {/* Review Score Badge */}
-            {hotel.reviewScore && (
-              <div className="flex items-center gap-3 bg-secondary/50 rounded-xl px-4 py-3">
-                <div className="bg-primary text-primary-foreground w-12 h-12 rounded-lg flex items-center justify-center font-bold text-xl">
-                  {hotel.reviewScore.toFixed(1)}
+            {/* Rating & Location Row */}
+            <div className="flex flex-wrap items-center gap-4 text-muted-foreground">
+              {/* Star Rating */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-0.5">
+                  {Array.from({ length: 5 }).map((_, i) => {
+                    const starRating = hotel.starRating || 0;
+                    const isFilled = i < starRating;
+                    return (
+                      <Star
+                        key={i}
+                        className={`w-4 h-4 ${isFilled ? "text-gold" : "text-muted-foreground"}`}
+                        fill={isFilled ? "currentColor" : "none"}
+                      />
+                    );
+                  })}
                 </div>
-                <div>
-                  <div className="font-semibold text-foreground">
-                    {hotel.reviewScore >= 9 ? "Exceptional" : hotel.reviewScore >= 8 ? "Excellent" : "Very Good"}
-                  </div>
-                  <span className="text-muted-foreground text-sm">
-                    {hotel.reviewCount ? `${hotel.reviewCount.toLocaleString()} reviews` : "Guest reviews"}
-                  </span>
-                </div>
+                <span className="font-medium text-foreground">
+                  {hotel.starRating || 0} Star{hotel.starRating !== 1 ? "s" : ""}
+                </span>
               </div>
-            )}
+
+              <span className="text-muted-foreground/40">•</span>
+
+              {/* Location */}
+              <div className="flex items-center gap-1.5">
+                <MapPin className="h-4 w-4" />
+                <span className="text-body">
+                  {hotel.address}, {hotel.city}, {hotel.country}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
