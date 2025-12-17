@@ -35,6 +35,7 @@ export interface RoomRate {
   originalPrice?: number;
   currency: string;
   maxOccupancy: number;
+  squareFootage?: number;
   bedType?: string;
   amenities?: string[];
   cancellationPolicy?: string;
