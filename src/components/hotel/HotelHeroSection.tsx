@@ -1,85 +1,196 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Star, MapPin, Share2 } from "lucide-react";
+import { ArrowLeft, Star, MapPin, Share2, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { HotelDetails } from "@/types/booking";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import type { HotelDetails, HotelImage } from "@/types/booking";
 
 interface HotelHeroSectionProps {
   hotel: HotelDetails;
 }
 
 export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const displayImages: HotelImage[] = hotel.images?.length > 0 
+    ? hotel.images 
+    : [{ url: hotel.mainImage || "/placeholder.svg", alt: hotel.name }];
+
+  const mainImage = hotel.mainImage || displayImages[0]?.url || "/placeholder.svg";
+  const sideImage1 = displayImages[1]?.url || displayImages[0]?.url || "/placeholder.svg";
+  const sideImage2 = displayImages[2]?.url || displayImages[0]?.url || "/placeholder.svg";
+
+  const handlePrevious = () => {
+    setCurrentIndex((prev) => (prev === 0 ? displayImages.length - 1 : prev - 1));
+  };
+
+  const handleNext = () => {
+    setCurrentIndex((prev) => (prev === displayImages.length - 1 ? 0 : prev + 1));
+  };
+
+  const openLightbox = (index: number) => {
+    setCurrentIndex(index);
+    setIsOpen(true);
+  };
+
   return (
-    <section className="relative h-[400px] md:h-[500px] mx-4 md:mx-8 mt-4 md:mt-6">
-      {/* Background Image */}
-      <div
-        className="absolute inset-0 bg-cover bg-center rounded-2xl overflow-hidden"
-        style={{
-          backgroundImage: `url('${hotel.mainImage || "/placeholder.svg"}')`,
-        }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/20 rounded-2xl" />
-      </div>
-
+    <>
       {/* Header Bar */}
-      <div className="absolute top-0 left-0 right-0 z-20">
-        <div className="container py-6">
-          <div className="flex items-center justify-between">
-            <Link
-              to="/"
-              className="flex items-center gap-2 text-white hover:text-white/80 transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5" />
-              <span className="font-medium">Back to Search</span>
-            </Link>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-white hover:bg-white/20"
-            >
-              <Share2 className="h-5 w-5" />
-            </Button>
-          </div>
+      <div className="container py-4">
+        <div className="flex items-center justify-between">
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span className="font-medium">Back to Search</span>
+          </Link>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <Share2 className="h-5 w-5" />
+          </Button>
         </div>
       </div>
 
-      {/* Hotel Info */}
-      <div className="absolute bottom-0 left-0 right-0 z-10">
-        <div className="container pb-8">
-          {/* Stars */}
-          <div className="flex items-center gap-1 mb-3">
-            {Array.from({ length: hotel.starRating }).map((_, i) => (
-              <Star key={i} className="w-5 h-5 fill-app-stars text-app-stars" />
-            ))}
-          </div>
+      {/* Image Gallery Hero */}
+      <section className="px-4 md:px-8 pb-6">
+        <div className="container p-0">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 h-[400px] md:h-[450px]">
+            {/* Main Large Image */}
+            <button
+              onClick={() => openLightbox(0)}
+              className="md:col-span-2 relative overflow-hidden rounded-2xl group"
+            >
+              <img
+                src={mainImage}
+                alt={hotel.name}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+              {displayImages.length > 3 && (
+                <div className="absolute bottom-4 right-4 bg-background/90 backdrop-blur-sm text-foreground px-4 py-2 rounded-full text-sm font-medium">
+                  +{displayImages.length - 3} photos
+                </div>
+              )}
+            </button>
 
-          {/* Name */}
-          <h1 className="font-heading text-heading-big md:text-heading-very-big text-white mb-3">
-            {hotel.name}
-          </h1>
-
-          {/* Location */}
-          <div className="flex items-center gap-2 text-white/80">
-            <MapPin className="h-5 w-5" />
-            <span className="text-body-large">
-              {hotel.address}, {hotel.city}, {hotel.country}
-            </span>
-          </div>
-
-          {/* Review Score */}
-          {hotel.reviewScore && (
-            <div className="flex items-center gap-3 mt-4">
-              <div className="bg-primary text-primary-foreground px-3 py-1 rounded-md font-semibold">
-                {hotel.reviewScore.toFixed(1)}
-              </div>
-              <span className="text-white/80">
-                {hotel.reviewCount
-                  ? `${hotel.reviewCount.toLocaleString()} reviews`
-                  : "Excellent"}
-              </span>
+            {/* Stacked Side Images */}
+            <div className="hidden md:flex flex-col gap-3">
+              <button
+                onClick={() => openLightbox(1)}
+                className="flex-1 relative overflow-hidden rounded-2xl group"
+              >
+                <img
+                  src={sideImage1}
+                  alt={displayImages[1]?.alt || `${hotel.name} - Photo 2`}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+              </button>
+              <button
+                onClick={() => openLightbox(2)}
+                className="flex-1 relative overflow-hidden rounded-2xl group"
+              >
+                <img
+                  src={sideImage2}
+                  alt={displayImages[2]?.alt || `${hotel.name} - Photo 3`}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+              </button>
             </div>
-          )}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      {/* Hotel Info Section */}
+      <section className="px-4 md:px-8 pb-8">
+        <div className="container p-0">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+            <div>
+              {/* Stars */}
+              <div className="flex items-center gap-1 mb-2">
+                {Array.from({ length: hotel.starRating }).map((_, i) => (
+                  <Star key={i} className="w-4 h-4 fill-app-stars text-app-stars" />
+                ))}
+              </div>
+
+              {/* Name */}
+              <h1 className="font-heading text-heading-big md:text-heading-very-big text-foreground mb-2">
+                {hotel.name}
+              </h1>
+
+              {/* Location */}
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <MapPin className="h-4 w-4" />
+                <span className="text-body">
+                  {hotel.address}, {hotel.city}, {hotel.country}
+                </span>
+              </div>
+            </div>
+
+            {/* Review Score */}
+            {hotel.reviewScore && (
+              <div className="flex items-center gap-3">
+                <div className="bg-primary text-primary-foreground px-3 py-1.5 rounded-lg font-semibold text-lg">
+                  {hotel.reviewScore.toFixed(1)}
+                </div>
+                <div className="text-right">
+                  <div className="font-medium text-foreground">Excellent</div>
+                  <span className="text-muted-foreground text-sm">
+                    {hotel.reviewCount
+                      ? `${hotel.reviewCount.toLocaleString()} reviews`
+                      : "Guest reviews"}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Lightbox */}
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-5xl bg-black/95 border-none p-0">
+          <div className="relative">
+            <button
+              onClick={() => setIsOpen(false)}
+              className="absolute top-4 right-4 z-50 text-white/80 hover:text-white"
+            >
+              <X className="h-8 w-8" />
+            </button>
+
+            <div className="relative aspect-video">
+              <img
+                src={displayImages[currentIndex]?.url}
+                alt={displayImages[currentIndex]?.alt || hotel.name}
+                className="w-full h-full object-contain"
+              />
+            </div>
+
+            <button
+              onClick={handlePrevious}
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </button>
+            <button
+              onClick={handleNext}
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </button>
+
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/80 text-sm">
+              {currentIndex + 1} / {displayImages.length}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

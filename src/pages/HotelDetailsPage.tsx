@@ -3,7 +3,6 @@ import { useParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import {
   HotelHeroSection,
-  ImageGallerySection,
   RoomSelectionSection,
   BookingSection,
   AmenitiesSection,
@@ -86,7 +85,6 @@ const HotelDetailsPage = () => {
     <div className="min-h-screen flex flex-col bg-background">
       <main className="flex-1">
         <HotelHeroSection hotel={selectedHotel} />
-        <ImageGallerySection images={selectedHotel.images} hotelName={selectedHotel.name} />
         <HotelInfoSection hotel={selectedHotel} />
         <AmenitiesSection
           amenities={selectedHotel.amenities}
