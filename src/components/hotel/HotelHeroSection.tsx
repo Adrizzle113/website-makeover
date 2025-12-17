@@ -9,15 +9,15 @@ interface HotelHeroSectionProps {
 
 export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
   return (
-    <section className="relative h-[400px] md:h-[500px]">
+    <section className="relative h-[400px] md:h-[500px] mx-4 md:mx-8 mt-4 md:mt-6">
       {/* Background Image */}
       <div
-        className="absolute inset-0 bg-cover bg-center"
+        className="absolute inset-0 bg-cover bg-center rounded-2xl overflow-hidden"
         style={{
           backgroundImage: `url('${hotel.mainImage || "/placeholder.svg"}')`,
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/20" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/20 rounded-2xl" />
       </div>
 
       {/* Header Bar */}
