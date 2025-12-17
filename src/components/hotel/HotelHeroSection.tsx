@@ -87,9 +87,19 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
                 <img
                   src={sideImage1}
                   alt={displayImages[1]?.alt || `${hotel.name} - Photo 2`}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
                 />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                {/* Text overlay */}
+                <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
+                  <span className="text-white font-medium text-sm">
+                    {displayImages[1]?.alt || "Room Interior"}
+                  </span>
+                </div>
+                {/* Corner accent */}
+                <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-white/0 group-hover:border-white/60 transition-colors duration-300 rounded-tr-lg" />
+                <div className="absolute bottom-3 left-3 w-8 h-8 border-b-2 border-l-2 border-white/0 group-hover:border-white/60 transition-colors duration-300 rounded-bl-lg" />
               </button>
               <button
                 onClick={() => openLightbox(2)}
@@ -98,9 +108,19 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
                 <img
                   src={sideImage2}
                   alt={displayImages[2]?.alt || `${hotel.name} - Photo 3`}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
                 />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                {/* Text overlay */}
+                <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
+                  <span className="text-white font-medium text-sm">
+                    {displayImages[2]?.alt || "Amenities"}
+                  </span>
+                </div>
+                {/* Corner accent */}
+                <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-white/0 group-hover:border-white/60 transition-colors duration-300 rounded-tr-lg" />
+                <div className="absolute bottom-3 left-3 w-8 h-8 border-b-2 border-l-2 border-white/0 group-hover:border-white/60 transition-colors duration-300 rounded-bl-lg" />
               </button>
             </div>
           </div>
