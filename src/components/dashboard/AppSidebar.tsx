@@ -27,10 +27,10 @@ import { NavLink } from "@/components/NavLink";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboardIcon },
-  { title: "Search Hotels", url: "/", icon: SearchIcon },
-  { title: "Bookings", url: "/bookings", icon: CalendarIcon },
-  { title: "Reports", url: "/reports", icon: FileTextIcon },
-  { title: "Clients", url: "/clients", icon: UsersIcon },
+  { title: "Search Hotels", url: "/dashboard/search", icon: SearchIcon },
+  { title: "Bookings", url: "/dashboard/bookings", icon: CalendarIcon },
+  { title: "Reports", url: "/dashboard/reports", icon: FileTextIcon },
+  { title: "Clients", url: "/dashboard/clients", icon: UsersIcon },
 ];
 
 const secondaryNavItems = [
