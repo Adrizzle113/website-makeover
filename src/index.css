@@ -127,4 +127,13 @@
   .badge-pill {
     @apply inline-flex items-center px-4 py-2 rounded-full text-sm font-medium;
   }
+  
+  /* Hide scrollbar utility */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }

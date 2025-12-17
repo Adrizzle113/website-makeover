@@ -12,7 +12,6 @@ import {
   Accessibility,
   Globe,
 } from "lucide-react";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import type { HotelAmenity } from "@/types/booking";
 
 interface AmenitiesSectionProps {
@@ -60,8 +59,8 @@ export function AmenitiesSection({ amenities, facilities }: AmenitiesSectionProp
   return (
     <section className="py-6 bg-background">
       <div className="container">
-        <ScrollArea className="w-full whitespace-nowrap">
-          <div className="flex gap-3 pb-3">
+        <div className="w-full overflow-x-auto scrollbar-hide">
+          <div className="flex gap-3 pb-1">
             {allAmenities.map((amenity) => {
               const Icon = getIcon(amenity.name);
               return (
@@ -75,8 +74,7 @@ export function AmenitiesSection({ amenities, facilities }: AmenitiesSectionProp
               );
             })}
           </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+        </div>
       </div>
     </section>
   );
