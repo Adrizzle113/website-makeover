@@ -8,6 +8,7 @@ import {
   AmenitiesSection,
   MapSection,
   HotelInfoSection,
+  HotelPoliciesSection,
 } from "@/components/hotel";
 import { Footer } from "@/components/layout/Footer";
 import { useBookingStore } from "@/stores/bookingStore";
@@ -94,6 +95,7 @@ const HotelDetailsPage = () => {
           rooms={selectedHotel.rooms || []}
           currency={selectedHotel.currency}
         />
+        <HotelPoliciesSection hotel={selectedHotel} />
         <MapSection
           latitude={selectedHotel.latitude}
           longitude={selectedHotel.longitude}
