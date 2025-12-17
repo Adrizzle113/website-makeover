@@ -133,11 +133,11 @@ export function BookingSidebar({ currency }: BookingSidebarProps) {
               </div>
             </div>
 
-            {/* Commission Sticker */}
-            <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-3 mb-4">
+            {/* Commission Ribbon */}
+            <div className="relative -mx-5 px-5 py-2 bg-primary/10 border-y border-primary/20 mb-4">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-green-700 dark:text-green-400">Your Commission</span>
-                <span className="text-sm font-bold text-green-700 dark:text-green-400">
+                <span className="text-sm font-medium text-primary">Your Commission</span>
+                <span className="text-sm font-bold text-primary">
                   {currency} {(totalPrice * nights * 0.1).toLocaleString()} (10%)
                 </span>
               </div>
