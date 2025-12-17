@@ -7,15 +7,59 @@ import { useBookingStore } from "@/stores/bookingStore";
 
 interface HotelCardProps {
   hotel: Hotel;
+  compact?: boolean;
 }
 
-export function HotelCard({ hotel }: HotelCardProps) {
+export function HotelCard({ hotel, compact = false }: HotelCardProps) {
   const navigate = useNavigate();
   const { setSelectedHotel } = useBookingStore();
 
   const handleViewDetails = () => {
     navigate(`/hotel/${hotel.id}`);
   };
+
+  if (compact) {
+    return (
+      <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-card border-border/50 group rounded-xl cursor-pointer" onClick={handleViewDetails}>
+        <div className="flex">
+          <div className="relative w-28 h-28 flex-shrink-0 overflow-hidden">
+            <img
+              src={hotel.mainImage || "/placeholder.svg"}
+              alt={hotel.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+            {hotel.reviewScore && (
+              <div className="absolute top-2 left-2 bg-primary text-primary-foreground px-2 py-0.5 rounded-full text-xs font-semibold">
+                {hotel.reviewScore.toFixed(1)}
+              </div>
+            )}
+          </div>
+          <div className="flex-1 p-3 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-0.5 mb-1">
+                {Array.from({ length: hotel.starRating }).map((_, i) => (
+                  <Star key={i} className="w-3 h-3 fill-amber-400 text-amber-400" />
+                ))}
+              </div>
+              <h3 className="font-heading text-sm text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                {hotel.name}
+              </h3>
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <MapPin className="w-3 h-3 text-primary" />
+                <span className="text-xs">{hotel.city}</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <p className="font-heading text-sm text-primary font-semibold">
+                ${hotel.priceFrom}
+              </p>
+              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 bg-card border-border/50 group rounded-2xl">
