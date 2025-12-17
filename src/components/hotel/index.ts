@@ -1,8 +1,8 @@
 export { HotelHeroSection } from "./HotelHeroSection";
-export { BookingSidebar } from "./BookingSidebar";
 export { ImageGallerySection } from "./ImageGallerySection";
 export { RoomSelectionSection } from "./RoomSelectionSection";
 export { BookingSection } from "./BookingSection";
+export { BookingSidebar } from "./BookingSidebar";
 export { AmenitiesSection } from "./AmenitiesSection";
 export { MapSection } from "./MapSection";
 export { HotelInfoSection } from "./HotelInfoSection";

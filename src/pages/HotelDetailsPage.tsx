@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import {
@@ -10,7 +10,6 @@ import {
   HotelInfoSection,
   HotelPoliciesSection,
   FacilitiesAmenitiesSection,
-  BookingSidebar,
 } from "@/components/hotel";
 import { Footer } from "@/components/layout/Footer";
 import { useBookingStore } from "@/stores/bookingStore";
@@ -22,9 +21,6 @@ const HotelDetailsPage = () => {
   const { selectedHotel, setSelectedHotel, searchParams, clearRoomSelection } = useBookingStore();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showBottomBar, setShowBottomBar] = useState(false);
-  
-  const roomSectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchHotelDetails = async () => {
@@ -49,22 +45,6 @@ const HotelDetailsPage = () => {
 
     fetchHotelDetails();
   }, [id, searchParams, setSelectedHotel, clearRoomSelection]);
-
-  // Track scroll position relative to room selection section
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!roomSectionRef.current) return;
-      
-      const rect = roomSectionRef.current.getBoundingClientRect();
-      const sectionBottom = rect.bottom;
-      
-      // Show bottom bar when room section is scrolled past (bottom is above viewport)
-      setShowBottomBar(sectionBottom < 0);
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   if (isLoading) {
     return (
@@ -112,24 +92,10 @@ const HotelDetailsPage = () => {
           facilities={selectedHotel.facilities}
         />
         <HotelInfoSection hotel={selectedHotel} />
-        
-        {/* Room Selection with Sticky Sidebar */}
-        <div ref={roomSectionRef} className="container py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2">
-              <RoomSelectionSection
-                rooms={selectedHotel.rooms || []}
-                currency={selectedHotel.currency}
-              />
-            </div>
-            <div className="hidden lg:block">
-              <div className="sticky top-4">
-                <BookingSidebar currency={selectedHotel.currency} />
-              </div>
-            </div>
-          </div>
-        </div>
-        
+        <RoomSelectionSection
+          rooms={selectedHotel.rooms || []}
+          currency={selectedHotel.currency}
+        />
         <HotelPoliciesSection hotel={selectedHotel} />
         <MapSection
           latitude={selectedHotel.latitude}
@@ -138,9 +104,7 @@ const HotelDetailsPage = () => {
           hotelName={selectedHotel.name}
         />
         <FacilitiesAmenitiesSection />
-        
-        {/* Bottom sticky bar - only shows after scrolling past room selection */}
-        {showBottomBar && <BookingSection currency={selectedHotel.currency} />}
+        <BookingSection currency={selectedHotel.currency} />
       </main>
       <Footer />
     </div>
