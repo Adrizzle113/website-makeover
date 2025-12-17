@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { useBookingStore } from "@/stores/bookingStore";
 import { HotelCard } from "./HotelCard";
-import { Loader2, ArrowUpDown } from "lucide-react";
+import { HotelMapView } from "./HotelMapView";
+import { Loader2, ArrowUpDown, List, Map } from "lucide-react";
 import type { Hotel } from "@/types/booking";
 import {
   Select,
@@ -10,8 +11,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
 type SortOption = "popularity" | "price-low" | "price-high" | "rating";
+type ViewMode = "list" | "map";
 
 const mockHotels: Hotel[] = [
   {
@@ -88,6 +91,7 @@ const mockHotels: Hotel[] = [
 export function SearchResultsSection() {
   const { searchResults, isLoading, error, searchParams } = useBookingStore();
   const [sortBy, setSortBy] = useState<SortOption>("popularity");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
 
   const hotels = useMemo(() => {
     const baseHotels = searchResults.length > 0 ? searchResults : mockHotels;
@@ -150,28 +154,54 @@ export function SearchResultsSection() {
               </span>
             </h2>
           </div>
-          <div className="flex items-center gap-2">
-            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Sort by:</span>
-            <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
-              <SelectTrigger className="w-[160px] bg-background">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="popularity">Popularity</SelectItem>
-                <SelectItem value="price-low">Price: Low to High</SelectItem>
-                <SelectItem value="price-high">Price: High to Low</SelectItem>
-                <SelectItem value="rating">Guest Rating</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Sort by:</span>
+              <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
+                <SelectTrigger className="w-[160px] bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="popularity">Popularity</SelectItem>
+                  <SelectItem value="price-low">Price: Low to High</SelectItem>
+                  <SelectItem value="price-high">Price: High to Low</SelectItem>
+                  <SelectItem value="rating">Guest Rating</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center border border-border rounded-lg overflow-hidden">
+              <Button
+                variant={viewMode === "list" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+                className="rounded-none"
+              >
+                <List className="h-4 w-4 mr-1" />
+                List
+              </Button>
+              <Button
+                variant={viewMode === "map" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("map")}
+                className="rounded-none"
+              >
+                <Map className="h-4 w-4 mr-1" />
+                Map
+              </Button>
+            </div>
           </div>
         </div>
 
-        <div className="space-y-6 max-w-4xl mx-auto">
-          {hotels.map((hotel) => (
-            <HotelCard key={hotel.id} hotel={hotel} />
-          ))}
-        </div>
+        {viewMode === "list" ? (
+          <div className="space-y-6 max-w-4xl mx-auto">
+            {hotels.map((hotel) => (
+              <HotelCard key={hotel.id} hotel={hotel} />
+            ))}
+          </div>
+        ) : (
+          <HotelMapView hotels={hotels} />
+        )}
       </div>
     </section>
   );
