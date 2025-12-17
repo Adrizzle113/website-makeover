@@ -144,17 +144,14 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
                       return (
                         <Star
                           key={i}
-                          className={`w-4 h-4 ${
-                            isFilled
-                              ? "fill-app-stars text-app-stars"
-                              : "fill-muted text-muted"
-                          }`}
+                          className={`w-4 h-4 ${isFilled ? "text-gold" : "text-muted-foreground"}`}
+                          fill={isFilled ? "currentColor" : "none"}
                         />
                       );
                     })}
                   </div>
                   <span className="font-medium text-foreground">
-                    {hotel.starRating || 0} Star{hotel.starRating !== 1 ? 's' : ''}
+                    {hotel.starRating || 0} Star{hotel.starRating !== 1 ? "s" : ""}
                   </span>
                 </div>
 
