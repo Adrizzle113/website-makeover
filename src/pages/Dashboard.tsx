@@ -18,6 +18,8 @@ import {
   GlobeIcon,
   StarIcon,
 } from "lucide-react";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/dashboard/AppSidebar";
 
 const stats = [
   {
@@ -113,51 +115,40 @@ export const Dashboard = (): JSX.Element => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-border">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-                <GlobeIcon className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <span className="font-heading text-xl text-foreground">TravelHub</span>
-            </div>
-            <nav className="hidden md:flex items-center gap-6">
-              <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
-                Dashboard
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="text-muted-foreground hover:text-foreground"
-                onClick={() => navigate("/")}
-              >
-                Search Hotels
-              </Button>
-              <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
-                Bookings
-              </Button>
-              <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
-                Reports
-              </Button>
-            </nav>
-            <div className="flex items-center gap-4">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium text-foreground">{userEmail || "Agent"}</p>
-                <p className="text-xs text-muted-foreground">Travel Agent</p>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center">
-                <span className="text-accent-foreground font-medium text-sm">
-                  {userEmail ? userEmail.charAt(0).toUpperCase() : "A"}
-                </span>
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-background">
+        <AppSidebar />
+        
+        <div className="flex-1 flex flex-col">
+          {/* Header */}
+          <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-border">
+            <div className="px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{getGreeting()}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {currentTime.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right hidden sm:block">
+                    <p className="text-sm font-medium text-foreground">{userEmail || "Agent"}</p>
+                    <p className="text-xs text-muted-foreground">Travel Agent</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center">
+                    <span className="text-accent-foreground font-medium text-sm">
+                      {userEmail ? userEmail.charAt(0).toUpperCase() : "A"}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      </header>
+          </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+          <main className="flex-1 px-6 py-8 overflow-auto">
         {/* Welcome Section */}
         <div className="mb-8">
           <p className="heading-spaced text-accent mb-2">{getGreeting()}</p>
@@ -428,8 +419,10 @@ export const Dashboard = (): JSX.Element => {
             </CardContent>
           </Card>
         </div>
-      </main>
-    </div>
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
   );
 };
 
