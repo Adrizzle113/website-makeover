@@ -185,11 +185,11 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
 
             {/* Review Score Badge */}
             {hotel.reviewScore && (
-              <div className="flex flex-col items-center gap-2 bg-secondary/50 rounded-xl px-5 py-4">
-                <div className="bg-primary text-primary-foreground w-14 h-14 rounded-lg flex items-center justify-center font-bold text-2xl">
+              <div className="flex items-center gap-3 bg-secondary/50 rounded-xl px-4 py-3">
+                <div className="bg-primary text-primary-foreground w-12 h-12 rounded-lg flex items-center justify-center font-bold text-xl">
                   {hotel.reviewScore.toFixed(1)}
                 </div>
-                <div className="text-center">
+                <div>
                   <div className="font-semibold text-foreground">
                     {hotel.reviewScore >= 9 ? "Exceptional" : hotel.reviewScore >= 8 ? "Excellent" : "Very Good"}
                   </div>
