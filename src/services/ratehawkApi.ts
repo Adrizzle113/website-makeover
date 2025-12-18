@@ -22,6 +22,14 @@ interface DestinationResponse {
 }
 
 class RateHawkApiService {
+  private getCurrentUserId(): string {
+    const userId = localStorage.getItem('userId');
+    if (!userId) {
+      throw new Error('No authenticated user found. Please log in first.');
+    }
+    return userId;
+  }
+
   private async fetchWithError<T>(url: string, options?: RequestInit): Promise<T> {
     try {
       const response = await fetch(url, {
@@ -53,10 +61,12 @@ class RateHawkApiService {
       console.log("Session init skipped or failed:", e);
     }
 
+    const userId = this.getCurrentUserId();
+
     return this.fetchWithError<SearchResponse>(url, {
       method: "POST",
       body: JSON.stringify({
-        userId: "guest", // Required by API - will be replaced with actual user ID when auth is implemented
+        userId,
         destination: params.destinationId || params.destination,
         checkin: params.checkIn.toISOString().split("T")[0],
         checkout: params.checkOut.toISOString().split("T")[0],
@@ -104,7 +114,12 @@ class RateHawkApiService {
 
   async initSession(): Promise<{ sessionId: string }> {
     const url = getApiUrl("INIT_SESSION");
-    return this.fetchWithError<{ sessionId: string }>(url, { method: "POST" });
+    const userId = this.getCurrentUserId();
+    
+    return this.fetchWithError<{ sessionId: string }>(url, { 
+      method: "POST",
+      body: JSON.stringify({ userId })
+    });
   }
 }
 
