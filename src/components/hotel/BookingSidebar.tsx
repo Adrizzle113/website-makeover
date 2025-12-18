@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { CalendarDays, Users, Check, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ interface BookingSidebarProps {
 }
 
 export function BookingSidebar({ currency }: BookingSidebarProps) {
+  const navigate = useNavigate();
   const { selectedRooms, searchParams, getTotalPrice, getTotalRooms } = useBookingStore();
 
   const totalPrice = getTotalPrice();
@@ -38,10 +40,8 @@ export function BookingSidebar({ currency }: BookingSidebarProps) {
       return;
     }
 
-    toast({
-      title: "Booking initiated",
-      description: `${totalRooms} room(s) for ${nights} night(s) - Total: ${currency} ${(totalPrice * nights).toLocaleString()}`,
-    });
+    // Navigate to booking page
+    navigate("/booking");
   };
 
   return (
