@@ -72,11 +72,29 @@ export interface OrderDocument {
 export type DocumentType = "voucher" | "confirmation" | "invoice" | "receipt";
 
 // Timeline event for order history
+export type OrderEventType = 
+  | "booked" 
+  | "payment_authorized" 
+  | "paid" 
+  | "confirmed" 
+  | "documents_issued" 
+  | "documents_resent" 
+  | "cancellation_requested" 
+  | "cancelled" 
+  | "refunded" 
+  | "synced" 
+  | "agent_note";
+
+export type OrderEventSource = "SYSTEM" | "SUPPLIER" | "AGENT";
+
 export interface OrderTimelineEvent {
   id: string;
   orderId: string;
-  type: "created" | "confirmed" | "modified" | "cancelled" | "document_generated";
-  description: string;
+  type: OrderEventType;
+  source: OrderEventSource;
+  actorName?: string;
+  message: string;
+  description?: string;
   timestamp: string;
   metadata?: Record<string, unknown>;
 }
