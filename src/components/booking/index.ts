@@ -4,3 +4,5 @@ export { BookingDetailsSection } from "./BookingDetailsSection";
 export { BookingSummaryCard } from "./BookingSummaryCard";
 export { ContinueToPaymentSection } from "./ContinueToPaymentSection";
 export { PriceChangeModal } from "./PriceChangeModal";
+export { AgentPricingSection } from "./AgentPricingSection";
+export type { PricingSnapshot } from "./AgentPricingSection";
