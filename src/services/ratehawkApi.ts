@@ -1,5 +1,16 @@
-import { API_CONFIG, getApiUrl } from "@/config/api";
+import { API_BASE_URL } from "@/config/api";
 import type { SearchParams, Hotel, HotelDetails, Destination } from "@/types/booking";
+
+const API_ENDPOINTS = {
+  SEARCH_HOTELS: "/api/ratehawk/search",
+  GET_HOTEL_DETAILS: "/api/ratehawk/hotel",
+  GET_DESTINATIONS: "/api/ratehawk/destinations",
+  INIT_SESSION: "/api/ratehawk/session",
+} as const;
+
+const getApiUrl = (endpoint: keyof typeof API_ENDPOINTS) => {
+  return `${API_BASE_URL}${API_ENDPOINTS[endpoint]}`;
+};
 
 interface SearchResponse {
   hotels: Hotel[];
