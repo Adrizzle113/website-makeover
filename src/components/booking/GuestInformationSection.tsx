@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,14 +9,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, User, ChevronDown } from "lucide-react";
+import { Plus, User, ChevronDown, Baby } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { useBookingStore } from "@/stores/bookingStore";
 import type { HotelDetails, RoomSelection } from "@/types/booking";
 
 interface Guest {
   id: string;
   firstName: string;
   lastName: string;
+  type: "adult" | "child";
+  age?: number;
 }
 
 interface GuestInformationSectionProps {
@@ -42,18 +45,39 @@ const countries = [
   { code: "MX", name: "Mexico" },
 ];
 
+const childAges = Array.from({ length: 17 }, (_, i) => i + 1);
+
 export function GuestInformationSection({ rooms, hotel }: GuestInformationSectionProps) {
+  const { searchParams, setSearchParams } = useBookingStore();
   const [citizenship, setCitizenship] = useState("United States");
   const [guests, setGuests] = useState<Guest[]>([
-    { id: "1", firstName: "", lastName: "" },
+    { id: "1", firstName: "", lastName: "", type: "adult" },
   ]);
   const [showSpecialRequests, setShowSpecialRequests] = useState(false);
   const [specialRequests, setSpecialRequests] = useState("");
 
+  // Sync guest count with booking store
+  useEffect(() => {
+    if (searchParams) {
+      const totalGuests = guests.length;
+      const children = guests.filter((g) => g.type === "child");
+      const childrenAges = children
+        .map((c) => c.age)
+        .filter((age): age is number => age !== undefined);
+
+      setSearchParams({
+        ...searchParams,
+        guests: totalGuests,
+        children: children.length,
+        childrenAges,
+      });
+    }
+  }, [guests]);
+
   const handleGuestChange = (
     guestId: string,
-    field: "firstName" | "lastName",
-    value: string
+    field: "firstName" | "lastName" | "type" | "age",
+    value: string | number
   ) => {
     setGuests((prev) =>
       prev.map((guest) =>
@@ -67,6 +91,7 @@ export function GuestInformationSection({ rooms, hotel }: GuestInformationSectio
       id: Date.now().toString(),
       firstName: "",
       lastName: "",
+      type: "adult",
     };
     setGuests((prev) => [...prev, newGuest]);
   };
@@ -77,7 +102,9 @@ export function GuestInformationSection({ rooms, hotel }: GuestInformationSectio
     }
   };
 
-  const totalGuests = rooms.reduce((sum, r) => sum + r.quantity * 2, 0); // Default 2 guests per room
+  const totalGuestCount = guests.length;
+  const adultCount = guests.filter((g) => g.type === "adult").length;
+  const childCount = guests.filter((g) => g.type === "child").length;
 
   return (
     <Card className="border-0 shadow-lg">
@@ -109,7 +136,12 @@ export function GuestInformationSection({ rooms, hotel }: GuestInformationSectio
         <div className="mb-6 p-4 bg-muted/50 rounded-lg">
           <div className="flex justify-between items-center">
             <p className="text-foreground font-medium">
-              {rooms.map((r) => r.roomName).join(", ")} for {totalGuests} guests
+              {rooms.map((r) => r.roomName).join(", ")} for {totalGuestCount} guest{totalGuestCount !== 1 ? "s" : ""}
+              {childCount > 0 && (
+                <span className="text-muted-foreground ml-1">
+                  ({adultCount} adult{adultCount !== 1 ? "s" : ""}, {childCount} child{childCount !== 1 ? "ren" : ""})
+                </span>
+              )}
             </p>
             <span className="text-muted-foreground text-sm">
               {rooms.reduce((sum, r) => sum + r.quantity, 0)} room(s)
@@ -120,10 +152,34 @@ export function GuestInformationSection({ rooms, hotel }: GuestInformationSectio
         {/* Guest Name Fields */}
         <div className="space-y-6">
           {guests.map((guest, index) => (
-            <div key={guest.id}>
-              <p className="text-sm font-medium text-muted-foreground mb-3">
-                Guest {index + 1}
-              </p>
+            <div key={guest.id} className="p-4 border border-border rounded-lg">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  {guest.type === "child" ? (
+                    <Baby className="h-4 w-4 text-primary" />
+                  ) : (
+                    <User className="h-4 w-4 text-primary" />
+                  )}
+                  <p className="text-sm font-medium text-foreground">
+                    Guest {index + 1}
+                  </p>
+                </div>
+                <Select
+                  value={guest.type}
+                  onValueChange={(value: "adult" | "child") =>
+                    handleGuestChange(guest.id, "type", value)
+                  }
+                >
+                  <SelectTrigger className="w-28 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="adult">Adult</SelectItem>
+                    <SelectItem value="child">Child</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-2">
@@ -151,6 +207,31 @@ export function GuestInformationSection({ rooms, hotel }: GuestInformationSectio
                     required
                   />
                 </div>
+                
+                {guest.type === "child" && (
+                  <div>
+                    <label className="block text-sm font-medium text-muted-foreground mb-2">
+                      Age *
+                    </label>
+                    <Select
+                      value={guest.age?.toString() || ""}
+                      onValueChange={(value) =>
+                        handleGuestChange(guest.id, "age", parseInt(value))
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select age" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {childAges.map((age) => (
+                          <SelectItem key={age} value={age.toString()}>
+                            {age} year{age !== 1 ? "s" : ""} old
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
               {guests.length > 1 && (
                 <div className="mt-2 flex justify-end">
