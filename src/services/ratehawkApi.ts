@@ -49,9 +49,10 @@ class RateHawkApiService {
     return this.fetchWithError<SearchResponse>(url, {
       method: "POST",
       body: JSON.stringify({
+        userId: "guest", // Required by API - will be replaced with actual user ID when auth is implemented
         destination: params.destinationId || params.destination,
-        checkIn: params.checkIn.toISOString().split("T")[0],
-        checkOut: params.checkOut.toISOString().split("T")[0],
+        checkin: params.checkIn.toISOString().split("T")[0],
+        checkout: params.checkOut.toISOString().split("T")[0],
         guests: params.guests,
         rooms: params.rooms,
         children: params.children,
