@@ -68,7 +68,7 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(
             </div>
             <div className="flex items-center justify-between">
               <p className="font-heading text-xs sm:text-sm text-primary font-semibold">
-                ${hotel.priceFrom}
+                {hotel.priceFrom ? `$${hotel.priceFrom.toLocaleString()}` : 'Price on request'}
               </p>
               <ArrowRight className="h-3 sm:h-4 w-3 sm:w-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
             </div>
@@ -148,7 +148,7 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(
                 Starting from
               </p>
               <p className="font-heading text-lg md:text-heading-medium text-primary">
-                {hotel.currency} {hotel.priceFrom.toLocaleString()}
+                {hotel.priceFrom ? `${hotel.currency || 'USD'} ${hotel.priceFrom.toLocaleString()}` : 'Price on request'}
               </p>
               <p className="text-[10px] md:text-body-sm text-muted-foreground">per night</p>
             </div>
