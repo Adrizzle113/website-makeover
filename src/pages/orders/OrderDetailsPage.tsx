@@ -15,7 +15,13 @@ import {
   StarIcon,
   CheckCircleIcon,
   AlertCircleIcon,
-  HotelIcon
+  HotelIcon,
+  RefreshCwIcon,
+  SendIcon,
+  XCircleIcon,
+  DollarSignIcon,
+  PlusIcon,
+  MessageSquareIcon
 } from "lucide-react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
@@ -23,7 +29,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Order, OrderStatus, OrderTimelineEvent } from "@/types/trips";
+import { Textarea } from "@/components/ui/textarea";
+import { Order, OrderStatus, OrderTimelineEvent, OrderEventType, OrderEventSource } from "@/types/trips";
+import { toast } from "sonner";
 
 // Mock data
 const mockOrder: Order = {
@@ -80,25 +88,53 @@ const mockOrder: Order = {
 
 const mockTimeline: OrderTimelineEvent[] = [
   {
-    id: "evt_001",
+    id: "evt_006",
     orderId: "ord_001",
-    type: "created",
-    description: "Booking created",
-    timestamp: "2024-12-10T10:30:00Z"
+    type: "documents_resent",
+    source: "AGENT",
+    actorName: "John Doe",
+    message: "Agent resent confirmation to guest",
+    timestamp: "2025-01-06T09:12:00Z"
   },
   {
-    id: "evt_002",
+    id: "evt_005",
     orderId: "ord_001",
-    type: "confirmed",
-    description: "Payment processed and booking confirmed",
-    timestamp: "2024-12-10T10:32:00Z"
+    type: "synced",
+    source: "SYSTEM",
+    message: "Order synced with supplier",
+    timestamp: "2025-01-05T16:00:00Z"
+  },
+  {
+    id: "evt_004",
+    orderId: "ord_001",
+    type: "documents_issued",
+    source: "SYSTEM",
+    message: "Booking voucher generated",
+    timestamp: "2025-01-05T14:35:00Z"
   },
   {
     id: "evt_003",
     orderId: "ord_001",
-    type: "document_generated",
-    description: "Voucher and confirmation documents generated",
-    timestamp: "2024-12-10T10:32:00Z"
+    type: "confirmed",
+    source: "SUPPLIER",
+    message: "Supplier confirmed the booking",
+    timestamp: "2025-01-05T14:32:00Z"
+  },
+  {
+    id: "evt_002",
+    orderId: "ord_001",
+    type: "paid",
+    source: "SYSTEM",
+    message: "USD 2,800 charged successfully",
+    timestamp: "2025-01-05T14:31:00Z"
+  },
+  {
+    id: "evt_001",
+    orderId: "ord_001",
+    type: "booked",
+    source: "SYSTEM",
+    message: "Booking created by agent",
+    timestamp: "2025-01-05T14:30:00Z"
   }
 ];
 
@@ -115,10 +151,51 @@ const paymentTypeLabels: Record<string, string> = {
   pay_at_hotel: "Pay at Hotel"
 };
 
+const eventConfig: Record<OrderEventType, { icon: React.ElementType; label: string; color: string }> = {
+  booked: { icon: PlusIcon, label: "Booked", color: "text-blue-500 bg-blue-500/10" },
+  payment_authorized: { icon: CreditCardIcon, label: "Payment Authorized", color: "text-amber-500 bg-amber-500/10" },
+  paid: { icon: DollarSignIcon, label: "Paid in Full", color: "text-emerald-500 bg-emerald-500/10" },
+  confirmed: { icon: CheckCircleIcon, label: "Confirmed", color: "text-emerald-500 bg-emerald-500/10" },
+  documents_issued: { icon: FileTextIcon, label: "Documents Issued", color: "text-blue-500 bg-blue-500/10" },
+  documents_resent: { icon: SendIcon, label: "Documents Resent", color: "text-purple-500 bg-purple-500/10" },
+  cancellation_requested: { icon: AlertCircleIcon, label: "Cancellation Requested", color: "text-amber-500 bg-amber-500/10" },
+  cancelled: { icon: XCircleIcon, label: "Cancelled", color: "text-red-500 bg-red-500/10" },
+  refunded: { icon: DollarSignIcon, label: "Refunded", color: "text-emerald-500 bg-emerald-500/10" },
+  synced: { icon: RefreshCwIcon, label: "Order Synced", color: "text-muted-foreground bg-muted" },
+  agent_note: { icon: MessageSquareIcon, label: "Agent Note", color: "text-primary bg-primary/10" },
+};
+
+const sourceLabels: Record<OrderEventSource, string> = {
+  SYSTEM: "System",
+  SUPPLIER: "Supplier",
+  AGENT: "Agent"
+};
+
 export default function OrderDetailsPage() {
   const { orderId } = useParams();
   const [order] = useState(mockOrder);
-  const [timeline] = useState(mockTimeline);
+  const [timeline, setTimeline] = useState<OrderTimelineEvent[]>(mockTimeline);
+  const [newNote, setNewNote] = useState("");
+  const [isAddingNote, setIsAddingNote] = useState(false);
+
+  const handleAddNote = () => {
+    if (!newNote.trim()) return;
+    
+    const newEvent: OrderTimelineEvent = {
+      id: `evt_${Date.now()}`,
+      orderId: order.id,
+      type: "agent_note",
+      source: "AGENT",
+      actorName: "Current Agent", // Would come from auth context
+      message: newNote.trim(),
+      timestamp: new Date().toISOString()
+    };
+    
+    setTimeline([newEvent, ...timeline]);
+    setNewNote("");
+    setIsAddingNote(false);
+    toast.success("Note added to timeline");
+  };
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("en-US", {
@@ -137,6 +214,14 @@ export default function OrderDetailsPage() {
       hour: "2-digit",
       minute: "2-digit"
     });
+  };
+
+  const formatTimelineDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return {
+      date: date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      time: date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+    };
   };
 
   const formatFileSize = (bytes?: number) => {
@@ -307,34 +392,98 @@ export default function OrderDetailsPage() {
                 </CardContent>
               </Card>
 
-              {/* Timeline */}
+              {/* Order Timeline */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <ClockIcon className="w-5 h-5" />
-                    Booking Timeline
+                    Order Timeline
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {timeline.map((event, index) => (
-                      <div key={event.id} className="flex gap-3">
-                        <div className="flex flex-col items-center">
-                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                            {getTimelineIcon(event.type)}
-                          </div>
-                          {index < timeline.length - 1 && (
-                            <div className="w-px h-full bg-border mt-2" />
-                          )}
-                        </div>
-                        <div className="flex-1 pb-4">
-                          <p className="font-medium text-foreground">{event.description}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {formatDateTime(event.timestamp)}
-                          </p>
-                        </div>
+                <CardContent className="space-y-4">
+                  {/* Add Note Section */}
+                  {isAddingNote ? (
+                    <div className="p-4 bg-muted/50 rounded-lg border border-border space-y-3">
+                      <Textarea
+                        placeholder="Add an internal note..."
+                        value={newNote}
+                        onChange={(e) => setNewNote(e.target.value)}
+                        className="min-h-[80px] resize-none"
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            setIsAddingNote(false);
+                            setNewNote("");
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          size="sm"
+                          onClick={handleAddNote}
+                          disabled={!newNote.trim()}
+                        >
+                          Add Note
+                        </Button>
                       </div>
-                    ))}
+                    </div>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      className="w-full gap-2"
+                      onClick={() => setIsAddingNote(true)}
+                    >
+                      <MessageSquareIcon className="w-4 h-4" />
+                      Add internal note
+                    </Button>
+                  )}
+
+                  {/* Timeline Events */}
+                  <div className="space-y-1">
+                    {timeline.map((event, index) => {
+                      const config = eventConfig[event.type];
+                      const Icon = config.icon;
+                      const { date, time } = formatTimelineDate(event.timestamp);
+                      
+                      return (
+                        <div key={event.id} className="flex gap-3">
+                          <div className="flex flex-col items-center">
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center ${config.color.split(' ')[1]}`}>
+                              <Icon className={`w-4 h-4 ${config.color.split(' ')[0]}`} />
+                            </div>
+                            {index < timeline.length - 1 && (
+                              <div className="w-px flex-1 bg-border min-h-[24px]" />
+                            )}
+                          </div>
+                          <div className="flex-1 pb-4">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="font-medium text-foreground text-sm">
+                                  {config.label}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {event.message}
+                                </p>
+                              </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              <span className={`font-medium ${
+                                event.source === "SUPPLIER" ? "text-emerald-600" :
+                                event.source === "AGENT" ? "text-purple-600" :
+                                "text-muted-foreground"
+                              }`}>
+                                {event.actorName ? `${sourceLabels[event.source]}: ${event.actorName}` : sourceLabels[event.source]}
+                              </span>
+                              <span className="mx-1.5">•</span>
+                              {date} – {time}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
