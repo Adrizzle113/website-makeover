@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useBookingStore } from "@/stores/bookingStore";
 import { HotelCard } from "./HotelCard";
 import { HotelMapView } from "./HotelMapView";
@@ -106,9 +106,13 @@ export function SearchResultsSection() {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [hoveredHotelId, setHoveredHotelId] = useState<string | null>(null);
   const [focusedHotelId, setFocusedHotelId] = useState<string | null>(null);
+  
+  // Refs for infinite scroll
+  const listSentinelRef = useRef<HTMLDivElement>(null);
+  const splitSentinelRef = useRef<HTMLDivElement>(null);
 
-  const handleLoadMore = async () => {
-    if (!searchParams || isLoadingMore) return;
+  const handleLoadMore = useCallback(async () => {
+    if (!searchParams || isLoadingMore || !hasMoreResults) return;
     
     setLoadingMore(true);
     try {
@@ -119,7 +123,43 @@ export function SearchResultsSection() {
     } finally {
       setLoadingMore(false);
     }
-  };
+  }, [searchParams, isLoadingMore, hasMoreResults, currentPage, appendSearchResults, setLoadingMore]);
+
+  // Infinite scroll observer for list view
+  useEffect(() => {
+    const sentinel = listSentinelRef.current;
+    if (!sentinel || viewMode !== "list") return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMoreResults && !isLoadingMore) {
+          handleLoadMore();
+        }
+      },
+      { rootMargin: "200px" }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [viewMode, hasMoreResults, isLoadingMore, handleLoadMore]);
+
+  // Infinite scroll observer for split view
+  useEffect(() => {
+    const sentinel = splitSentinelRef.current;
+    if (!sentinel || viewMode !== "split") return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMoreResults && !isLoadingMore) {
+          handleLoadMore();
+        }
+      },
+      { root: sentinel.parentElement, rootMargin: "100px" }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [viewMode, hasMoreResults, isLoadingMore, handleLoadMore]);
 
   const hotels = useMemo(() => {
     const baseHotels = searchResults.length > 0 ? searchResults : mockHotels;
@@ -248,25 +288,23 @@ export function SearchResultsSection() {
               <HotelCard key={hotel.id} hotel={hotel} />
             ))}
             
-            {/* Load More Button */}
-            {hasMoreResults && (
-              <div className="flex justify-center pt-6">
-                <Button
-                  onClick={handleLoadMore}
-                  disabled={isLoadingMore}
-                  variant="outline"
-                  size="lg"
-                  className="min-w-[200px]"
-                >
-                  {isLoadingMore ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Loading...
-                    </>
-                  ) : (
-                    "Load More Properties"
-                  )}
-                </Button>
+            {/* Infinite scroll sentinel */}
+            <div ref={listSentinelRef} className="h-4" />
+            
+            {/* Loading indicator */}
+            {isLoadingMore && (
+              <div className="flex justify-center py-6">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Loading more properties...</span>
+                </div>
+              </div>
+            )}
+            
+            {/* End of results message */}
+            {!hasMoreResults && searchResults.length > 0 && (
+              <div className="text-center py-6 text-muted-foreground text-sm">
+                You've reached the end of the results
               </div>
             )}
           </div>
@@ -291,24 +329,13 @@ export function SearchResultsSection() {
                 />
               ))}
               
-              {/* Load More Button in Split View */}
-              {hasMoreResults && (
+              {/* Infinite scroll sentinel for split view */}
+              <div ref={splitSentinelRef} className="h-4" />
+              
+              {/* Loading indicator */}
+              {isLoadingMore && (
                 <div className="flex justify-center py-4">
-                  <Button
-                    onClick={handleLoadMore}
-                    disabled={isLoadingMore}
-                    variant="outline"
-                    size="sm"
-                  >
-                    {isLoadingMore ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Loading...
-                      </>
-                    ) : (
-                      "Load More"
-                    )}
-                  </Button>
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               )}
             </div>
