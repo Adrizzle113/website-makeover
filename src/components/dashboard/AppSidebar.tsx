@@ -31,7 +31,7 @@ const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboardIcon },
   { title: "Search Hotels", url: "/dashboard/search", icon: SearchIcon },
   { title: "Trips", url: "/trips", icon: CalendarIcon, badge: "3" },
-  { title: "Reports", url: "/dashboard/reports", icon: FileTextIcon },
+  { title: "Reports", url: "/reporting/bookings", icon: FileTextIcon },
   { title: "Clients", url: "/dashboard/clients", icon: UsersIcon },
 ];
 
