@@ -47,8 +47,13 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
 
   const handleLogout = () => {
+    localStorage.removeItem("isLoggedIn");
     localStorage.removeItem("userEmail");
-    navigate("/login");
+    localStorage.removeItem("ratehawkSessionId");
+    localStorage.removeItem("ratehawkLoginUrl");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("ratehawkAuthTimestamp");
+    navigate("/auth/login");
   };
 
   const isActive = (url: string) => location.pathname === url;
