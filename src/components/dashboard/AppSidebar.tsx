@@ -9,6 +9,7 @@ import {
   LogOutIcon,
   GlobeIcon,
   HelpCircleIcon,
+  Sparkles,
 } from "lucide-react";
 import {
   Sidebar,
@@ -24,11 +25,12 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { NavLink } from "@/components/NavLink";
+import { Badge } from "@/components/ui/badge";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboardIcon },
   { title: "Search Hotels", url: "/dashboard/search", icon: SearchIcon },
-  { title: "Bookings", url: "/dashboard/bookings", icon: CalendarIcon },
+  { title: "Bookings", url: "/dashboard/bookings", icon: CalendarIcon, badge: "3" },
   { title: "Reports", url: "/dashboard/reports", icon: FileTextIcon },
   { title: "Clients", url: "/dashboard/clients", icon: UsersIcon },
 ];
@@ -49,40 +51,88 @@ export function AppSidebar() {
     navigate("/login");
   };
 
+  const isActive = (url: string) => location.pathname === url;
+
   return (
-    <Sidebar collapsible="icon" className="border-r border-border">
-      <SidebarHeader className="p-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shrink-0">
-            <GlobeIcon className="w-5 h-5 text-primary-foreground" />
+    <Sidebar collapsible="icon" className="border-r-0 bg-primary">
+      {/* Header with gradient and gold accent */}
+      <SidebarHeader className="p-4 pb-6">
+        <div className="relative">
+          <div className="flex items-center gap-3">
+            <div className="relative w-11 h-11 rounded-xl bg-gradient-to-br from-sidebar-gold to-sidebar-gold-dark flex items-center justify-center shrink-0 shadow-lg shadow-sidebar-gold/20 group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:h-9">
+              <GlobeIcon className="w-5 h-5 text-primary group-data-[collapsible=icon]:w-4 group-data-[collapsible=icon]:h-4" />
+              <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-sidebar-gold animate-pulse" />
+            </div>
+            {!collapsed && (
+              <div className="flex flex-col">
+                <span className="font-heading text-xl text-primary-foreground tracking-wide">
+                  TravelHub
+                </span>
+                <span className="text-[10px] uppercase tracking-[0.2em] text-primary-foreground/60">
+                  Agent Portal
+                </span>
+              </div>
+            )}
           </div>
+          {/* Decorative accent line */}
           {!collapsed && (
-            <span className="font-heading text-xl text-foreground">TravelHub</span>
+            <div className="mt-4 h-px bg-gradient-to-r from-sidebar-gold/60 via-sidebar-gold/30 to-transparent" />
           )}
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="px-2">
         <SidebarGroup>
-          <SidebarGroupLabel className="px-4 text-xs uppercase tracking-wider text-muted-foreground">
+          <SidebarGroupLabel className="px-3 mb-2 text-[10px] uppercase tracking-[0.2em] text-primary-foreground/50 font-semibold">
             Main Menu
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {mainNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
+            <SidebarMenu className="space-y-1">
+              {mainNavItems.map((item, index) => (
+                <SidebarMenuItem 
+                  key={item.title}
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
                   <SidebarMenuButton
                     asChild
-                    isActive={location.pathname === item.url}
+                    isActive={isActive(item.url)}
                     tooltip={item.title}
+                    className="group/item"
                   >
                     <NavLink
                       to={item.url}
-                      className="flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors"
-                      activeClassName="bg-primary/10 text-primary font-medium"
+                      className={`
+                        relative flex items-center gap-3 px-3 py-3 rounded-lg
+                        transition-all duration-300 ease-out
+                        text-primary-foreground/70 hover:text-primary-foreground
+                        hover:bg-primary-foreground/10 hover:scale-[1.02]
+                        ${isActive(item.url) 
+                          ? 'bg-primary-foreground/15 text-primary-foreground font-semibold shadow-lg' 
+                          : ''
+                        }
+                      `}
+                      activeClassName=""
                     >
-                      <item.icon className="w-5 h-5 shrink-0" />
-                      {!collapsed && <span>{item.title}</span>}
+                      {/* Gold accent bar for active state */}
+                      {isActive(item.url) && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-gradient-to-b from-sidebar-gold to-sidebar-gold-dark rounded-r-full shadow-glow-gold" />
+                      )}
+                      <item.icon className={`
+                        w-5 h-5 shrink-0 transition-all duration-300
+                        group-hover/item:scale-110
+                        ${isActive(item.url) ? 'text-sidebar-gold' : ''}
+                      `} />
+                      {!collapsed && (
+                        <>
+                          <span className="flex-1">{item.title}</span>
+                          {item.badge && (
+                            <Badge className="bg-sidebar-gold text-primary text-[10px] font-bold px-1.5 py-0 h-5 min-w-5 flex items-center justify-center rounded-full shadow-glow-gold">
+                              {item.badge}
+                            </Badge>
+                          )}
+                        </>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -91,25 +141,51 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {/* Decorative divider */}
+        {!collapsed && (
+          <div className="my-4 mx-3 h-px bg-gradient-to-r from-transparent via-primary-foreground/20 to-transparent" />
+        )}
+
         <SidebarGroup>
-          <SidebarGroupLabel className="px-4 text-xs uppercase tracking-wider text-muted-foreground">
+          <SidebarGroupLabel className="px-3 mb-2 text-[10px] uppercase tracking-[0.2em] text-primary-foreground/50 font-semibold">
             Support
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {secondaryNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
+            <SidebarMenu className="space-y-1">
+              {secondaryNavItems.map((item, index) => (
+                <SidebarMenuItem 
+                  key={item.title}
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${(mainNavItems.length + index) * 50}ms` }}
+                >
                   <SidebarMenuButton
                     asChild
-                    isActive={location.pathname === item.url}
+                    isActive={isActive(item.url)}
                     tooltip={item.title}
+                    className="group/item"
                   >
                     <NavLink
                       to={item.url}
-                      className="flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors"
-                      activeClassName="bg-primary/10 text-primary font-medium"
+                      className={`
+                        relative flex items-center gap-3 px-3 py-3 rounded-lg
+                        transition-all duration-300 ease-out
+                        text-primary-foreground/70 hover:text-primary-foreground
+                        hover:bg-primary-foreground/10 hover:scale-[1.02]
+                        ${isActive(item.url) 
+                          ? 'bg-primary-foreground/15 text-primary-foreground font-semibold shadow-lg' 
+                          : ''
+                        }
+                      `}
+                      activeClassName=""
                     >
-                      <item.icon className="w-5 h-5 shrink-0" />
+                      {isActive(item.url) && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-gradient-to-b from-sidebar-gold to-sidebar-gold-dark rounded-r-full shadow-glow-gold" />
+                      )}
+                      <item.icon className={`
+                        w-5 h-5 shrink-0 transition-all duration-300
+                        group-hover/item:scale-110
+                        ${isActive(item.url) ? 'text-sidebar-gold' : ''}
+                      `} />
                       {!collapsed && <span>{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
@@ -120,16 +196,20 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4">
+      <SidebarFooter className="p-4 pt-2">
+        {/* Decorative divider */}
+        {!collapsed && (
+          <div className="mb-4 h-px bg-gradient-to-r from-transparent via-primary-foreground/20 to-transparent" />
+        )}
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={handleLogout}
               tooltip="Logout"
-              className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors w-full"
+              className="group/logout flex items-center gap-3 px-3 py-3 rounded-lg text-primary-foreground/60 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300 w-full"
             >
-              <LogOutIcon className="w-5 h-5 shrink-0" />
-              {!collapsed && <span>Logout</span>}
+              <LogOutIcon className="w-5 h-5 shrink-0 transition-all duration-300 group-hover/logout:scale-110 group-hover/logout:rotate-[-10deg]" />
+              {!collapsed && <span className="font-medium">Logout</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
