@@ -60,7 +60,7 @@ export const Login = (): JSX.Element => {
         localStorage.setItem('userEmail', email);
         localStorage.setItem('ratehawkAuthTimestamp', new Date().toISOString());
         setSuccess(true);
-        setTimeout(() => navigate("/"), 2000);
+        setTimeout(() => navigate("/dashboard"), 2000);
       } else {
         setError(data.error || "RateHawk authentication failed. Please verify your credentials.");
       }
