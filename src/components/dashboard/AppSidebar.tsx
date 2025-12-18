@@ -30,7 +30,7 @@ import { Badge } from "@/components/ui/badge";
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboardIcon },
   { title: "Search Hotels", url: "/dashboard/search", icon: SearchIcon },
-  { title: "Bookings", url: "/dashboard/bookings", icon: CalendarIcon, badge: "3" },
+  { title: "Trips", url: "/trips", icon: CalendarIcon, badge: "3" },
   { title: "Reports", url: "/dashboard/reports", icon: FileTextIcon },
   { title: "Clients", url: "/dashboard/clients", icon: UsersIcon },
 ];
