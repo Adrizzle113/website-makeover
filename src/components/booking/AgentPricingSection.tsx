@@ -144,10 +144,10 @@ export function AgentPricingSection({
           </div>
 
           <div className="space-y-6">
-            {/* ETG Net Price (Read-only) */}
+            {/* Minimum Price (Read-only) */}
             <div>
               <Label className="text-sm font-medium text-muted-foreground mb-2 block">
-                ETG Net Price
+                Minimum Price
               </Label>
               <div className="relative">
                 <Input

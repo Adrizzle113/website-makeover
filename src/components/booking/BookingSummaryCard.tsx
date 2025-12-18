@@ -165,7 +165,7 @@ export function BookingSummaryCard({
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">
-              ETG Net Price ({nights} night{nights > 1 ? "s" : ""})
+              Minimum Price ({nights} night{nights > 1 ? "s" : ""})
             </span>
             <span className="text-sm font-medium text-foreground">
               {hotel.currency} {netPrice.toFixed(2)}
