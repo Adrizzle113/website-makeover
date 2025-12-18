@@ -36,7 +36,8 @@ const iconMap: Record<string, React.ElementType> = {
   "24-hour": Globe,
 };
 
-const getIcon = (name: string) => {
+const getIcon = (name: string | undefined) => {
+  if (!name) return Sparkles;
   const lowerName = name.toLowerCase();
   for (const [key, Icon] of Object.entries(iconMap)) {
     if (lowerName.includes(key)) {
@@ -61,7 +62,7 @@ export function AmenitiesSection({ amenities, facilities }: AmenitiesSectionProp
       <div className="container">
         <div className="w-full overflow-x-auto scrollbar-hide">
           <div className="flex gap-3 pb-1">
-            {allAmenities.map((amenity) => {
+            {allAmenities.filter(a => a.name).map((amenity) => {
               const Icon = getIcon(amenity.name);
               return (
                 <div
