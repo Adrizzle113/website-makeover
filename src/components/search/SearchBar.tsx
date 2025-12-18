@@ -21,7 +21,7 @@ interface Room {
 }
 
 export function SearchBar() {
-  const { setSearchParams, setSearchResults, setLoading, setError } = useBookingStore();
+  const { setSearchParams, setSearchResults, setLoading, setError, filters } = useBookingStore();
 
   const [destination, setDestination] = useState("");
   const [destinationId, setDestinationId] = useState<string | undefined>();
@@ -110,7 +110,8 @@ export function SearchBar() {
 
       setSearchParams(searchParams);
 
-      const response = await ratehawkApi.searchHotels(searchParams, 1);
+      // Pass filters to initial search for server-side filtering
+      const response = await ratehawkApi.searchHotels(searchParams, 1, filters);
       setSearchResults(response.hotels, response.hasMore, response.totalResults);
       
       // Store results in localStorage for persistence

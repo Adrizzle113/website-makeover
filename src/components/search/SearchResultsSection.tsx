@@ -7,6 +7,7 @@ import { Loader2, List, Map, Columns } from "lucide-react";
 import type { Hotel, SortOption } from "@/types/booking";
 import { ratehawkApi } from "@/services/ratehawkApi";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/hooks/use-toast";
 
 type ViewMode = "list" | "map" | "split";
 
@@ -92,32 +93,99 @@ export function SearchResultsSection() {
     hasMoreResults,
     currentPage,
     totalResults,
+    setSearchResults,
     appendSearchResults,
+    setLoading,
     setLoadingMore,
+    setError,
     filters,
     sortBy,
+    getActiveFilterCount,
   } = useBookingStore();
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [hoveredHotelId, setHoveredHotelId] = useState<string | null>(null);
   const [focusedHotelId, setFocusedHotelId] = useState<string | null>(null);
+  const [isFilterSearching, setIsFilterSearching] = useState(false);
+  
+  // Track previous filter state to detect changes
+  const prevFiltersRef = useRef(filters);
+  const filterDebounceRef = useRef<NodeJS.Timeout | null>(null);
   
   // Refs for infinite scroll
   const listSentinelRef = useRef<HTMLDivElement>(null);
   const splitSentinelRef = useRef<HTMLDivElement>(null);
+
+  // Server-side filter search
+  const executeFilteredSearch = useCallback(async () => {
+    if (!searchParams) return;
+    
+    setIsFilterSearching(true);
+    setLoading(true);
+    
+    try {
+      const response = await ratehawkApi.searchHotels(searchParams, 1, filters);
+      setSearchResults(response.hotels, response.hasMore, response.totalResults);
+      
+      // Update localStorage with filtered results
+      localStorage.setItem("hotelSearchResults", JSON.stringify({
+        hotels: response.hotels,
+        searchParams,
+        filters,
+        timestamp: new Date().toISOString(),
+      }));
+    } catch (err) {
+      console.error("Filtered search error:", err);
+      toast({
+        title: "Filter search failed",
+        description: "Unable to apply filters. Showing cached results.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsFilterSearching(false);
+      setLoading(false);
+    }
+  }, [searchParams, filters, setSearchResults, setLoading]);
+
+  // Watch for filter changes and trigger server-side search
+  useEffect(() => {
+    // Skip if no search params or on initial render
+    if (!searchParams || searchResults.length === 0) return;
+    
+    // Check if filters actually changed
+    const filtersChanged = JSON.stringify(filters) !== JSON.stringify(prevFiltersRef.current);
+    if (!filtersChanged) return;
+    
+    prevFiltersRef.current = filters;
+    
+    // Debounce filter changes to avoid too many API calls
+    if (filterDebounceRef.current) {
+      clearTimeout(filterDebounceRef.current);
+    }
+    
+    filterDebounceRef.current = setTimeout(() => {
+      executeFilteredSearch();
+    }, 500);
+    
+    return () => {
+      if (filterDebounceRef.current) {
+        clearTimeout(filterDebounceRef.current);
+      }
+    };
+  }, [filters, searchParams, searchResults.length, executeFilteredSearch]);
 
   const handleLoadMore = useCallback(async () => {
     if (!searchParams || isLoadingMore || !hasMoreResults) return;
     
     setLoadingMore(true);
     try {
-      const response = await ratehawkApi.searchHotels(searchParams, currentPage + 1);
+      const response = await ratehawkApi.searchHotels(searchParams, currentPage + 1, filters);
       appendSearchResults(response.hotels, response.hasMore);
     } catch (err) {
       console.error("Error loading more results:", err);
     } finally {
       setLoadingMore(false);
     }
-  }, [searchParams, isLoadingMore, hasMoreResults, currentPage, appendSearchResults, setLoadingMore]);
+  }, [searchParams, isLoadingMore, hasMoreResults, currentPage, filters, appendSearchResults, setLoadingMore]);
 
   // Infinite scroll observer for list view
   useEffect(() => {
@@ -165,42 +233,12 @@ export function SearchResultsSection() {
     };
   }, [searchResults]);
 
-  // Apply filters and sorting
+  // Apply client-side sorting (filtering is server-side now)
   const hotels = useMemo(() => {
     const baseHotels = searchResults.length > 0 ? searchResults : mockHotels;
     
-    // Apply filters
-    let filtered = baseHotels.filter((hotel) => {
-      // Star rating filter
-      if (filters.starRatings.length > 0 && !filters.starRatings.includes(hotel.starRating)) {
-        return false;
-      }
-      
-      // Price range filter
-      if (filters.priceMin !== undefined && hotel.priceFrom < filters.priceMin) {
-        return false;
-      }
-      if (filters.priceMax !== undefined && hotel.priceFrom > filters.priceMax) {
-        return false;
-      }
-      
-      // Amenity filter - hotel must have ALL selected amenities
-      if (filters.amenities.length > 0) {
-        const hotelAmenityIds = hotel.amenities.map((a) => a.id.toLowerCase());
-        const hasAllAmenities = filters.amenities.every((filterAmenity) =>
-          hotelAmenityIds.some((hotelAmenity) => 
-            hotelAmenity.includes(filterAmenity.toLowerCase()) ||
-            filterAmenity.toLowerCase().includes(hotelAmenity)
-          )
-        );
-        if (!hasAllAmenities) return false;
-      }
-      
-      return true;
-    });
-    
-    // Apply sorting
-    return [...filtered].sort((a, b) => {
+    // Apply sorting only - filtering is done server-side
+    return [...baseHotels].sort((a, b) => {
       switch (sortBy) {
         case "price-low":
           return a.priceFrom - b.priceFrom;
@@ -212,8 +250,10 @@ export function SearchResultsSection() {
           // Would need distance data from API
           return 0;
         case "free-cancellation":
-          // Would need cancellation data from API
-          return 0;
+          // Sort by free cancellation first
+          const aFree = (a as any).freeCancellation ? 1 : 0;
+          const bFree = (b as any).freeCancellation ? 1 : 0;
+          return bFree - aFree;
         case "cheapest-rate":
           return a.priceFrom - b.priceFrom;
         case "popularity":
@@ -221,16 +261,16 @@ export function SearchResultsSection() {
           return (b.reviewCount || 0) - (a.reviewCount || 0);
       }
     });
-  }, [searchResults, sortBy, filters]);
+  }, [searchResults, sortBy]);
 
-  const filteredCount = hotels.length;
-  const totalCount = searchResults.length > 0 ? totalResults : mockHotels.length;
+  const activeFilterCount = getActiveFilterCount();
+  const isFiltered = activeFilterCount > 0;
 
   if (!searchParams) {
     return null;
   }
 
-  if (isLoading) {
+  if (isLoading && !isFilterSearching) {
     return (
       <section id="search-results" className="py-16 bg-cream/30">
         <div className="container">
@@ -267,20 +307,18 @@ export function SearchResultsSection() {
         <div className="mb-4 md:mb-6 space-y-4">
           {/* Title Row */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <h2 className="font-heading text-lg md:text-heading-md text-foreground">
-              {searchParams.destination}:{" "}
-              <span className="text-muted-foreground font-normal">
-                {filteredCount !== totalCount ? (
-                  <>
-                    {filteredCount} of {totalCount} properties
-                  </>
-                ) : (
-                  <>
-                    {totalCount} {totalCount === 1 ? "property" : "properties"}
-                  </>
-                )}
-              </span>
-            </h2>
+            <div className="flex items-center gap-3">
+              <h2 className="font-heading text-lg md:text-heading-md text-foreground">
+                {searchParams.destination}:{" "}
+                <span className="text-muted-foreground font-normal">
+                  {totalResults} {totalResults === 1 ? "property" : "properties"}
+                  {isFiltered && ` (filtered)`}
+                </span>
+              </h2>
+              {(isFilterSearching || isLoading) && (
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              )}
+            </div>
           </div>
 
           {/* Filters Row */}
