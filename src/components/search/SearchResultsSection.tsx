@@ -2,19 +2,12 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useBookingStore } from "@/stores/bookingStore";
 import { HotelCard } from "./HotelCard";
 import { HotelMapView } from "./HotelMapView";
-import { Loader2, ArrowUpDown, List, Map, Columns } from "lucide-react";
-import type { Hotel } from "@/types/booking";
+import { PrimaryFilters, AdvancedFiltersDrawer, SortingDropdown } from "./filters";
+import { Loader2, List, Map, Columns } from "lucide-react";
+import type { Hotel, SortOption } from "@/types/booking";
 import { ratehawkApi } from "@/services/ratehawkApi";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
-type SortOption = "popularity" | "price-low" | "price-high" | "rating";
 type ViewMode = "list" | "map" | "split";
 
 const mockHotels: Hotel[] = [
@@ -101,8 +94,9 @@ export function SearchResultsSection() {
     totalResults,
     appendSearchResults,
     setLoadingMore,
+    filters,
+    sortBy,
   } = useBookingStore();
-  const [sortBy, setSortBy] = useState<SortOption>("popularity");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [hoveredHotelId, setHoveredHotelId] = useState<string | null>(null);
   const [focusedHotelId, setFocusedHotelId] = useState<string | null>(null);
@@ -161,10 +155,52 @@ export function SearchResultsSection() {
     return () => observer.disconnect();
   }, [viewMode, hasMoreResults, isLoadingMore, handleLoadMore]);
 
+  // Calculate price range from results
+  const priceRange = useMemo(() => {
+    const baseHotels = searchResults.length > 0 ? searchResults : mockHotels;
+    const prices = baseHotels.map((h) => h.priceFrom);
+    return {
+      min: Math.min(...prices, 0),
+      max: Math.max(...prices, 1000),
+    };
+  }, [searchResults]);
+
+  // Apply filters and sorting
   const hotels = useMemo(() => {
     const baseHotels = searchResults.length > 0 ? searchResults : mockHotels;
     
-    return [...baseHotels].sort((a, b) => {
+    // Apply filters
+    let filtered = baseHotels.filter((hotel) => {
+      // Star rating filter
+      if (filters.starRatings.length > 0 && !filters.starRatings.includes(hotel.starRating)) {
+        return false;
+      }
+      
+      // Price range filter
+      if (filters.priceMin !== undefined && hotel.priceFrom < filters.priceMin) {
+        return false;
+      }
+      if (filters.priceMax !== undefined && hotel.priceFrom > filters.priceMax) {
+        return false;
+      }
+      
+      // Amenity filter - hotel must have ALL selected amenities
+      if (filters.amenities.length > 0) {
+        const hotelAmenityIds = hotel.amenities.map((a) => a.id.toLowerCase());
+        const hasAllAmenities = filters.amenities.every((filterAmenity) =>
+          hotelAmenityIds.some((hotelAmenity) => 
+            hotelAmenity.includes(filterAmenity.toLowerCase()) ||
+            filterAmenity.toLowerCase().includes(hotelAmenity)
+          )
+        );
+        if (!hasAllAmenities) return false;
+      }
+      
+      return true;
+    });
+    
+    // Apply sorting
+    return [...filtered].sort((a, b) => {
       switch (sortBy) {
         case "price-low":
           return a.priceFrom - b.priceFrom;
@@ -172,12 +208,23 @@ export function SearchResultsSection() {
           return b.priceFrom - a.priceFrom;
         case "rating":
           return (b.reviewScore || 0) - (a.reviewScore || 0);
+        case "distance":
+          // Would need distance data from API
+          return 0;
+        case "free-cancellation":
+          // Would need cancellation data from API
+          return 0;
+        case "cheapest-rate":
+          return a.priceFrom - b.priceFrom;
         case "popularity":
         default:
           return (b.reviewCount || 0) - (a.reviewCount || 0);
       }
     });
-  }, [searchResults, sortBy]);
+  }, [searchResults, sortBy, filters]);
+
+  const filteredCount = hotels.length;
+  const totalCount = searchResults.length > 0 ? totalResults : mockHotels.length;
 
   if (!searchParams) {
     return null;
@@ -217,36 +264,34 @@ export function SearchResultsSection() {
     <section id="search-results" className="py-8 md:py-16 bg-cream/30">
       <div className="container px-3 md:px-4">
         {/* Header */}
-        <div className="mb-4 md:mb-8 space-y-4">
+        <div className="mb-4 md:mb-6 space-y-4">
           {/* Title Row */}
-          <div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <h2 className="font-heading text-lg md:text-heading-md text-foreground">
               {searchParams.destination}:{" "}
               <span className="text-muted-foreground font-normal">
-                {totalResults > 0 ? totalResults : hotels.length} {(totalResults > 0 ? totalResults : hotels.length) === 1 ? "property" : "properties"}
-                {searchResults.length < totalResults && ` (showing ${searchResults.length})`}
+                {filteredCount !== totalCount ? (
+                  <>
+                    {filteredCount} of {totalCount} properties
+                  </>
+                ) : (
+                  <>
+                    {totalCount} {totalCount === 1 ? "property" : "properties"}
+                  </>
+                )}
               </span>
             </h2>
           </div>
 
-          {/* Controls Row */}
+          {/* Filters Row */}
+          <div className="flex flex-wrap items-center gap-2 pb-2 border-b border-border">
+            <PrimaryFilters priceRange={priceRange} />
+            <AdvancedFiltersDrawer />
+          </div>
+
+          {/* Sort & View Controls */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            {/* Sort */}
-            <div className="flex items-center gap-2">
-              <ArrowUpDown className="h-4 w-4 text-muted-foreground hidden sm:block" />
-              <span className="text-sm text-muted-foreground hidden sm:block">Sort:</span>
-              <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
-                <SelectTrigger className="w-full sm:w-[160px] bg-background text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="popularity">Popularity</SelectItem>
-                  <SelectItem value="price-low">Price: Low to High</SelectItem>
-                  <SelectItem value="price-high">Price: High to Low</SelectItem>
-                  <SelectItem value="rating">Guest Rating</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <SortingDropdown />
 
             {/* View Mode Toggle */}
             <div className="flex items-center border border-border rounded-lg overflow-hidden self-start sm:self-auto">
@@ -281,8 +326,20 @@ export function SearchResultsSection() {
           </div>
         </div>
 
+        {/* No Results */}
+        {hotels.length === 0 && (
+          <div className="text-center py-20">
+            <p className="text-muted-foreground text-body-lg mb-4">
+              No properties match your current filters.
+            </p>
+            <Button variant="outline" onClick={() => useBookingStore.getState().resetFilters()}>
+              Clear All Filters
+            </Button>
+          </div>
+        )}
+
         {/* Results */}
-        {effectiveViewMode === "list" && (
+        {hotels.length > 0 && effectiveViewMode === "list" && (
           <div className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
             {hotels.map((hotel) => (
               <HotelCard key={hotel.id} hotel={hotel} />
@@ -310,13 +367,13 @@ export function SearchResultsSection() {
           </div>
         )}
 
-        {effectiveViewMode === "map" && (
+        {hotels.length > 0 && effectiveViewMode === "map" && (
           <div className="h-[calc(100vh-280px)] min-h-[400px] rounded-xl overflow-hidden">
             <HotelMapView hotels={hotels} />
           </div>
         )}
 
-        {effectiveViewMode === "split" && (
+        {hotels.length > 0 && effectiveViewMode === "split" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
             <div className="space-y-3 md:space-y-4 max-h-[600px] overflow-y-auto pr-1 md:pr-2">
               {hotels.map((hotel) => (

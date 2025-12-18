@@ -5,7 +5,10 @@ import type {
   Hotel,
   HotelDetails,
   RoomSelection,
+  SearchFilters,
+  SortOption,
 } from "@/types/booking";
+import { DEFAULT_FILTERS } from "@/types/booking";
 
 interface BookingStore {
   // State
@@ -19,6 +22,10 @@ interface BookingStore {
   hasMoreResults: boolean;
   currentPage: number;
   totalResults: number;
+  
+  // Filter & Sort State
+  filters: SearchFilters;
+  sortBy: SortOption;
 
   // Actions
   setSearchParams: (params: SearchParams) => void;
@@ -35,10 +42,16 @@ interface BookingStore {
   setCurrentPage: (page: number) => void;
   clearSearch: () => void;
   reset: () => void;
+  
+  // Filter & Sort Actions
+  setFilters: (filters: Partial<SearchFilters>) => void;
+  resetFilters: () => void;
+  setSortBy: (sort: SortOption) => void;
 
   // Computed
   getTotalPrice: () => number;
   getTotalRooms: () => number;
+  getActiveFilterCount: () => number;
 }
 
 const initialState = {
@@ -52,6 +65,8 @@ const initialState = {
   hasMoreResults: false,
   currentPage: 1,
   totalResults: 0,
+  filters: DEFAULT_FILTERS,
+  sortBy: "popularity" as SortOption,
 };
 
 export const useBookingStore = create<BookingStore>()(
@@ -140,6 +155,15 @@ export const useBookingStore = create<BookingStore>()(
         }),
 
       reset: () => set(initialState),
+      
+      // Filter & Sort Actions
+      setFilters: (newFilters) => set((state) => ({
+        filters: { ...state.filters, ...newFilters },
+      })),
+      
+      resetFilters: () => set({ filters: DEFAULT_FILTERS }),
+      
+      setSortBy: (sort) => set({ sortBy: sort }),
 
       getTotalPrice: () => {
         const state = get();
@@ -156,12 +180,30 @@ export const useBookingStore = create<BookingStore>()(
           0
         );
       },
+      
+      getActiveFilterCount: () => {
+        const { filters } = get();
+        let count = 0;
+        if (filters.priceMin !== undefined || filters.priceMax !== undefined) count++;
+        if (filters.starRatings.length > 0) count++;
+        if (filters.freeCancellationOnly) count++;
+        if (filters.refundableOnly) count++;
+        if (filters.mealPlans.length > 0) count++;
+        if (filters.amenities.length > 0) count++;
+        if (filters.paymentTypes.length > 0) count++;
+        if (filters.rateType !== null) count++;
+        if (filters.roomTypes.length > 0) count++;
+        if (filters.bedTypes.length > 0) count++;
+        return count;
+      },
     }),
     {
       name: "booking-storage",
       partialize: (state) => ({
         searchParams: state.searchParams,
         searchResults: state.searchResults,
+        filters: state.filters,
+        sortBy: state.sortBy,
       }),
     }
   )
