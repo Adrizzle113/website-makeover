@@ -46,6 +46,13 @@ class RateHawkApiService {
   async searchHotels(params: SearchParams): Promise<SearchResponse> {
     const url = getApiUrl("SEARCH_HOTELS");
 
+    // Initialize session first if needed
+    try {
+      await this.initSession();
+    } catch (e) {
+      console.log("Session init skipped or failed:", e);
+    }
+
     return this.fetchWithError<SearchResponse>(url, {
       method: "POST",
       body: JSON.stringify({
