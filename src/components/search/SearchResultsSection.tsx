@@ -4,6 +4,7 @@ import { HotelCard } from "./HotelCard";
 import { HotelMapView } from "./HotelMapView";
 import { Loader2, ArrowUpDown, List, Map, Columns } from "lucide-react";
 import type { Hotel } from "@/types/booking";
+import { ratehawkApi } from "@/services/ratehawkApi";
 import {
   Select,
   SelectContent,
@@ -89,11 +90,36 @@ const mockHotels: Hotel[] = [
 ];
 
 export function SearchResultsSection() {
-  const { searchResults, isLoading, error, searchParams } = useBookingStore();
+  const { 
+    searchResults, 
+    isLoading, 
+    isLoadingMore,
+    error, 
+    searchParams,
+    hasMoreResults,
+    currentPage,
+    totalResults,
+    appendSearchResults,
+    setLoadingMore,
+  } = useBookingStore();
   const [sortBy, setSortBy] = useState<SortOption>("popularity");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [hoveredHotelId, setHoveredHotelId] = useState<string | null>(null);
   const [focusedHotelId, setFocusedHotelId] = useState<string | null>(null);
+
+  const handleLoadMore = async () => {
+    if (!searchParams || isLoadingMore) return;
+    
+    setLoadingMore(true);
+    try {
+      const response = await ratehawkApi.searchHotels(searchParams, currentPage + 1);
+      appendSearchResults(response.hotels, response.hasMore);
+    } catch (err) {
+      console.error("Error loading more results:", err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const hotels = useMemo(() => {
     const baseHotels = searchResults.length > 0 ? searchResults : mockHotels;
@@ -157,7 +183,8 @@ export function SearchResultsSection() {
             <h2 className="font-heading text-lg md:text-heading-md text-foreground">
               {searchParams.destination}:{" "}
               <span className="text-muted-foreground font-normal">
-                {hotels.length} {hotels.length === 1 ? "property" : "properties"}
+                {totalResults > 0 ? totalResults : hotels.length} {(totalResults > 0 ? totalResults : hotels.length) === 1 ? "property" : "properties"}
+                {searchResults.length < totalResults && ` (showing ${searchResults.length})`}
               </span>
             </h2>
           </div>
@@ -220,6 +247,28 @@ export function SearchResultsSection() {
             {hotels.map((hotel) => (
               <HotelCard key={hotel.id} hotel={hotel} />
             ))}
+            
+            {/* Load More Button */}
+            {hasMoreResults && (
+              <div className="flex justify-center pt-6">
+                <Button
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore}
+                  variant="outline"
+                  size="lg"
+                  className="min-w-[200px]"
+                >
+                  {isLoadingMore ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Loading...
+                    </>
+                  ) : (
+                    "Load More Properties"
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
@@ -241,6 +290,27 @@ export function SearchResultsSection() {
                   onFocus={setFocusedHotelId}
                 />
               ))}
+              
+              {/* Load More Button in Split View */}
+              {hasMoreResults && (
+                <div className="flex justify-center py-4">
+                  <Button
+                    onClick={handleLoadMore}
+                    disabled={isLoadingMore}
+                    variant="outline"
+                    size="sm"
+                  >
+                    {isLoadingMore ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Loading...
+                      </>
+                    ) : (
+                      "Load More"
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="hidden lg:block sticky top-0 h-[600px] rounded-xl overflow-hidden">
               <HotelMapView 

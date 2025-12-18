@@ -13,6 +13,8 @@ const getApiUrl = (endpoint: keyof typeof API_ENDPOINTS) => {
 interface SearchResponse {
   hotels: Hotel[];
   totalResults: number;
+  hasMore: boolean;
+  nextPage: number;
 }
 
 interface SessionCheckResponse {
@@ -86,7 +88,7 @@ class RateHawkApiService {
     }
   }
 
-  async searchHotels(params: SearchParams): Promise<SearchResponse> {
+  async searchHotels(params: SearchParams, page: number = 1): Promise<SearchResponse> {
     const url = getApiUrl("SEARCH_HOTELS");
     const userId = this.getCurrentUserId();
 
@@ -127,6 +129,8 @@ class RateHawkApiService {
           };
         };
       }>;
+      total?: number;
+      hasMore?: boolean;
     }>(url, {
       method: "POST",
       body: JSON.stringify({
@@ -135,6 +139,8 @@ class RateHawkApiService {
         checkin: params.checkIn.toISOString().split("T")[0],
         checkout: params.checkOut.toISOString().split("T")[0],
         guests,
+        page,
+        limit: 20,
       }),
     });
 
@@ -165,8 +171,15 @@ class RateHawkApiService {
         longitude: staticVm?.longitude,
       };
     });
+    const totalResults = rawResponse.total || hotels.length;
+    const hasMore = rawResponse.hasMore ?? (hotels.length === 20);
 
-    return { hotels, totalResults: hotels.length };
+    return { 
+      hotels, 
+      totalResults,
+      hasMore,
+      nextPage: page + 1,
+    };
   }
 
   async getHotelDetails(hotelId: string, searchParams?: SearchParams): Promise<HotelDetails | null> {

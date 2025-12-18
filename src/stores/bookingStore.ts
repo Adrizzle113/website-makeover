@@ -14,18 +14,25 @@ interface BookingStore {
   selectedHotel: HotelDetails | null;
   selectedRooms: RoomSelection[];
   isLoading: boolean;
+  isLoadingMore: boolean;
   error: string | null;
+  hasMoreResults: boolean;
+  currentPage: number;
+  totalResults: number;
 
   // Actions
   setSearchParams: (params: SearchParams) => void;
-  setSearchResults: (results: Hotel[]) => void;
+  setSearchResults: (results: Hotel[], hasMore?: boolean, total?: number) => void;
+  appendSearchResults: (results: Hotel[], hasMore?: boolean) => void;
   setSelectedHotel: (hotel: HotelDetails | null) => void;
   addRoom: (room: RoomSelection) => void;
   removeRoom: (roomId: string) => void;
   updateRoomQuantity: (roomId: string, quantity: number) => void;
   clearRoomSelection: () => void;
   setLoading: (loading: boolean) => void;
+  setLoadingMore: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  setCurrentPage: (page: number) => void;
   clearSearch: () => void;
   reset: () => void;
 
@@ -40,7 +47,11 @@ const initialState = {
   selectedHotel: null,
   selectedRooms: [],
   isLoading: false,
+  isLoadingMore: false,
   error: null,
+  hasMoreResults: false,
+  currentPage: 1,
+  totalResults: 0,
 };
 
 export const useBookingStore = create<BookingStore>()(
@@ -48,9 +59,20 @@ export const useBookingStore = create<BookingStore>()(
     (set, get) => ({
       ...initialState,
 
-      setSearchParams: (params) => set({ searchParams: params }),
+      setSearchParams: (params) => set({ searchParams: params, currentPage: 1 }),
 
-      setSearchResults: (results) => set({ searchResults: results }),
+      setSearchResults: (results, hasMore = false, total = 0) => set({ 
+        searchResults: results, 
+        hasMoreResults: hasMore,
+        totalResults: total || results.length,
+        currentPage: 1,
+      }),
+
+      appendSearchResults: (results, hasMore = false) => set((state) => ({
+        searchResults: [...state.searchResults, ...results],
+        hasMoreResults: hasMore,
+        currentPage: state.currentPage + 1,
+      })),
 
       setSelectedHotel: (hotel) => set({ selectedHotel: hotel }),
 
@@ -100,7 +122,11 @@ export const useBookingStore = create<BookingStore>()(
 
       setLoading: (loading) => set({ isLoading: loading }),
 
+      setLoadingMore: (loading) => set({ isLoadingMore: loading }),
+
       setError: (error) => set({ error }),
+
+      setCurrentPage: (page) => set({ currentPage: page }),
 
       clearSearch: () =>
         set({
@@ -108,6 +134,9 @@ export const useBookingStore = create<BookingStore>()(
           selectedHotel: null,
           selectedRooms: [],
           error: null,
+          hasMoreResults: false,
+          currentPage: 1,
+          totalResults: 0,
         }),
 
       reset: () => set(initialState),

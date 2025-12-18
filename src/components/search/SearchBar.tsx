@@ -110,8 +110,8 @@ export function SearchBar() {
 
       setSearchParams(searchParams);
 
-      const response = await ratehawkApi.searchHotels(searchParams);
-      setSearchResults(response.hotels);
+      const response = await ratehawkApi.searchHotels(searchParams, 1);
+      setSearchResults(response.hotels, response.hasMore, response.totalResults);
       
       // Store results in localStorage for persistence
       localStorage.setItem("hotelSearchResults", JSON.stringify({
