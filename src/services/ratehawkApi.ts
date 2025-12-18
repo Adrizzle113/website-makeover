@@ -3,9 +3,7 @@ import type { SearchParams, Hotel, HotelDetails, Destination } from "@/types/boo
 
 const API_ENDPOINTS = {
   SEARCH_HOTELS: "/api/ratehawk/search",
-  GET_HOTEL_DETAILS: "/api/ratehawk/hotel",
-  GET_DESTINATIONS: "/api/destination", // ✅ Fixed: Changed from /api/ratehawk/destinations
-  INIT_SESSION: "/api/ratehawk/session",
+  GET_DESTINATIONS: "/api/destination",
 } as const;
 
 const getApiUrl = (endpoint: keyof typeof API_ENDPOINTS) => {
@@ -17,8 +15,12 @@ interface SearchResponse {
   totalResults: number;
 }
 
-interface DestinationResponse {
-  destinations: Destination[];
+interface SessionCheckResponse {
+  isLoggedIn: boolean;
+  ratehawkData?: {
+    email: string;
+    sessionExpiry: string;
+  };
 }
 
 class RateHawkApiService {
@@ -51,17 +53,33 @@ class RateHawkApiService {
     }
   }
 
+  async checkSession(userId: string): Promise<SessionCheckResponse> {
+    const url = `${API_BASE_URL}/api/sessions/${userId}`;
+    
+    try {
+      const response = await this.fetchWithError<SessionCheckResponse>(url);
+      return response;
+    } catch (error) {
+      console.error("Session check failed:", error);
+      return { isLoggedIn: false };
+    }
+  }
+
   async searchHotels(params: SearchParams): Promise<SearchResponse> {
     const url = getApiUrl("SEARCH_HOTELS");
-
-    // Initialize session first if needed
-    try {
-      await this.initSession();
-    } catch (e) {
-      console.log("Session init skipped or failed:", e);
-    }
-
     const userId = this.getCurrentUserId();
+
+    // Format guests as array of room objects (required by backend)
+    const guestsPerRoom = Math.max(1, Math.floor(params.guests / params.rooms));
+    const guests = Array.from({ length: params.rooms }, (_, index) => {
+      // Distribute adults across rooms, with extra going to first rooms
+      const baseAdults = guestsPerRoom;
+      const extraAdult = index < (params.guests % params.rooms) ? 1 : 0;
+      return {
+        adults: baseAdults + extraAdult,
+        children: params.childrenAges || [],
+      };
+    });
 
     return this.fetchWithError<SearchResponse>(url, {
       method: "POST",
@@ -70,30 +88,18 @@ class RateHawkApiService {
         destination: params.destinationId || params.destination,
         checkin: params.checkIn.toISOString().split("T")[0],
         checkout: params.checkOut.toISOString().split("T")[0],
-        guests: params.guests,
-        rooms: params.rooms,
-        children: params.children,
-        childrenAges: params.childrenAges,
+        guests,
       }),
     });
   }
 
-  async getHotelDetails(hotelId: string, searchParams?: SearchParams): Promise<HotelDetails> {
-    const url = `${getApiUrl("GET_HOTEL_DETAILS")}/${hotelId}`;
-    const queryParams = new URLSearchParams();
-
-    if (searchParams) {
-      queryParams.append("checkIn", searchParams.checkIn.toISOString().split("T")[0]);
-      queryParams.append("checkOut", searchParams.checkOut.toISOString().split("T")[0]);
-      queryParams.append("guests", String(searchParams.guests));
-      queryParams.append("rooms", String(searchParams.rooms));
-    }
-
-    const fullUrl = queryParams.toString() ? `${url}?${queryParams}` : url;
-    return this.fetchWithError<HotelDetails>(fullUrl);
+  async getHotelDetails(hotelId: string, searchParams?: SearchParams): Promise<HotelDetails | null> {
+    // Hotel details endpoint doesn't exist on backend
+    // Hotel data should be retrieved from localStorage (set when user clicks hotel card)
+    console.warn("getHotelDetails: Backend endpoint not available. Use localStorage instead.");
+    return null;
   }
 
-  // ✅ Fixed: Changed from GET to POST and updated to use correct endpoint
   async getDestinations(query: string): Promise<Destination[]> {
     const url = `${API_BASE_URL}/api/destination`;
 
@@ -107,19 +113,8 @@ class RateHawkApiService {
       return response.destinations || response.data || response || [];
     } catch (error) {
       console.error("Error fetching destinations:", error);
-      // Return empty array on error so the UI doesn't break
       return [];
     }
-  }
-
-  async initSession(): Promise<{ sessionId: string }> {
-    const url = getApiUrl("INIT_SESSION");
-    const userId = this.getCurrentUserId();
-    
-    return this.fetchWithError<{ sessionId: string }>(url, { 
-      method: "POST",
-      body: JSON.stringify({ userId })
-    });
   }
 }
 

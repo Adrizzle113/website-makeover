@@ -13,38 +13,51 @@ import {
 } from "@/components/hotel";
 import { Footer } from "@/components/layout/Footer";
 import { useBookingStore } from "@/stores/bookingStore";
-import { ratehawkApi } from "@/services/ratehawkApi";
 import type { HotelDetails } from "@/types/booking";
 
 const HotelDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
-  const { selectedHotel, setSelectedHotel, searchParams, clearRoomSelection } = useBookingStore();
+  const { selectedHotel, setSelectedHotel, clearRoomSelection } = useBookingStore();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchHotelDetails = async () => {
+    const loadHotelDetails = () => {
       if (!id) return;
 
       setIsLoading(true);
       setError(null);
       clearRoomSelection();
 
-      try {
-        const hotel = await ratehawkApi.getHotelDetails(id, searchParams || undefined);
-        setSelectedHotel(hotel);
-      } catch (err) {
-        console.error("Error fetching hotel details:", err);
-        setError("Unable to load hotel details. Please try again.");
-        // Use mock data as fallback
-        setSelectedHotel(getMockHotel(id));
-      } finally {
+      // First check if hotel is already in store (from card click)
+      if (selectedHotel && selectedHotel.id === id) {
         setIsLoading(false);
+        return;
       }
+
+      // Try to load from localStorage (for page refresh or direct URL access)
+      try {
+        const storedData = localStorage.getItem("selectedHotel");
+        if (storedData) {
+          const parsed = JSON.parse(storedData);
+          if (parsed.hotel && parsed.hotel.id === id) {
+            setSelectedHotel(parsed.hotel);
+            setIsLoading(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Error parsing stored hotel data:", err);
+      }
+
+      // Fallback to mock data if no stored data found
+      console.warn("No stored hotel data found, using mock data");
+      setSelectedHotel(getMockHotel(id));
+      setIsLoading(false);
     };
 
-    fetchHotelDetails();
-  }, [id, searchParams, setSelectedHotel, clearRoomSelection]);
+    loadHotelDetails();
+  }, [id, selectedHotel, setSelectedHotel, clearRoomSelection]);
 
   if (isLoading) {
     return (

@@ -68,25 +68,57 @@ export function SearchBar() {
       return;
     }
 
-    const searchParams = {
-      destination,
-      destinationId,
-      checkIn,
-      checkOut,
-      guests: totalGuests,
-      rooms: rooms.length,
-      children: totalChildren,
-      childrenAges: allChildrenAges,
-    };
+    // Check for valid RateHawk session
+    const userId = localStorage.getItem('userId');
+    if (!userId) {
+      toast({
+        title: "Please log in first",
+        description: "You need to be logged in to search for hotels.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    setSearchParams(searchParams);
     setIsSearching(true);
     setLoading(true);
     setError(null);
 
     try {
+      // Verify RateHawk session before searching
+      const sessionCheck = await ratehawkApi.checkSession(userId);
+      if (!sessionCheck.isLoggedIn) {
+        toast({
+          title: "RateHawk session required",
+          description: "Please connect to RateHawk from the dashboard first.",
+          variant: "destructive",
+        });
+        setIsSearching(false);
+        setLoading(false);
+        return;
+      }
+
+      const searchParams = {
+        destination,
+        destinationId,
+        checkIn,
+        checkOut,
+        guests: totalGuests,
+        rooms: rooms.length,
+        children: totalChildren,
+        childrenAges: allChildrenAges,
+      };
+
+      setSearchParams(searchParams);
+
       const response = await ratehawkApi.searchHotels(searchParams);
       setSearchResults(response.hotels);
+      
+      // Store results in localStorage for persistence
+      localStorage.setItem("hotelSearchResults", JSON.stringify({
+        hotels: response.hotels,
+        searchParams,
+        timestamp: new Date().toISOString(),
+      }));
       
       setTimeout(() => {
         const resultsSection = document.getElementById("search-results");

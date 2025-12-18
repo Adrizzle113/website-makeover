@@ -3,7 +3,7 @@ import { Star, MapPin, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import type { Hotel } from "@/types/booking";
+import type { Hotel, HotelDetails } from "@/types/booking";
 import { useBookingStore } from "@/stores/bookingStore";
 
 interface HotelCardProps {
@@ -13,12 +13,48 @@ interface HotelCardProps {
   onFocus?: (hotelId: string) => void;
 }
 
+// Convert Hotel to HotelDetails with default values for extended fields
+const convertToHotelDetails = (hotel: Hotel): HotelDetails => ({
+  ...hotel,
+  description: hotel.description || `Experience exceptional hospitality at ${hotel.name}.`,
+  fullDescription: hotel.description || `${hotel.name} offers comfortable accommodations in ${hotel.city}, ${hotel.country}. Enjoy modern amenities and excellent service during your stay.`,
+  images: hotel.mainImage ? [{ url: hotel.mainImage, alt: hotel.name }] : [],
+  facilities: [],
+  checkInTime: "3:00 PM",
+  checkOutTime: "12:00 PM",
+  policies: [
+    "Check-in from 3:00 PM",
+    "Check-out by 12:00 PM",
+    "Credit card required for guarantee",
+  ],
+  rooms: [],
+  reviewCount: 0,
+});
+
 export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(
   function HotelCard({ hotel, compact = false, onHover, onFocus }, ref) {
   const navigate = useNavigate();
-  const { setSelectedHotel } = useBookingStore();
+  const { setSelectedHotel, searchParams } = useBookingStore();
 
   const handleViewDetails = () => {
+    // Convert to HotelDetails and store in both Zustand and localStorage
+    const hotelDetails = convertToHotelDetails(hotel);
+    setSelectedHotel(hotelDetails);
+    
+    // Store in localStorage for persistence across page refreshes
+    const hotelDataPackage = {
+      hotel: hotelDetails,
+      searchContext: searchParams ? {
+        destination: searchParams.destination,
+        checkin: searchParams.checkIn,
+        checkout: searchParams.checkOut,
+        guests: searchParams.guests,
+        rooms: searchParams.rooms,
+      } : null,
+      timestamp: new Date().toISOString(),
+    };
+    localStorage.setItem("selectedHotel", JSON.stringify(hotelDataPackage));
+    
     navigate(`/hotel/${hotel.id}`);
   };
 
