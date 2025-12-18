@@ -9,8 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, User, ChevronDown, Baby } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
+import { Plus, User, Baby, X } from "lucide-react";
 import { useBookingStore } from "@/stores/bookingStore";
 import type { HotelDetails, RoomSelection } from "@/types/booking";
 
@@ -18,13 +17,16 @@ interface Guest {
   id: string;
   firstName: string;
   lastName: string;
+  email?: string;
   type: "adult" | "child";
   age?: number;
+  isLead: boolean;
 }
 
 interface GuestInformationSectionProps {
   rooms: RoomSelection[];
   hotel: HotelDetails;
+  onGuestsChange?: (guests: Guest[]) => void;
 }
 
 const countries = [
@@ -47,14 +49,16 @@ const countries = [
 
 const childAges = Array.from({ length: 17 }, (_, i) => i + 1);
 
-export function GuestInformationSection({ rooms, hotel }: GuestInformationSectionProps) {
+export function GuestInformationSection({ 
+  rooms, 
+  hotel,
+  onGuestsChange 
+}: GuestInformationSectionProps) {
   const { searchParams, setSearchParams } = useBookingStore();
   const [citizenship, setCitizenship] = useState("United States");
   const [guests, setGuests] = useState<Guest[]>([
-    { id: "1", firstName: "", lastName: "", type: "adult" },
+    { id: "1", firstName: "", lastName: "", email: "", type: "adult", isLead: true },
   ]);
-  const [showSpecialRequests, setShowSpecialRequests] = useState(false);
-  const [specialRequests, setSpecialRequests] = useState("");
 
   // Sync guest count with booking store
   useEffect(() => {
@@ -72,11 +76,13 @@ export function GuestInformationSection({ rooms, hotel }: GuestInformationSectio
         childrenAges,
       });
     }
+    
+    onGuestsChange?.(guests);
   }, [guests]);
 
   const handleGuestChange = (
     guestId: string,
-    field: "firstName" | "lastName" | "type" | "age",
+    field: "firstName" | "lastName" | "email" | "type" | "age",
     value: string | number
   ) => {
     setGuests((prev) =>
@@ -92,6 +98,7 @@ export function GuestInformationSection({ rooms, hotel }: GuestInformationSectio
       firstName: "",
       lastName: "",
       type: "adult",
+      isLead: false,
     };
     setGuests((prev) => [...prev, newGuest]);
   };
@@ -116,7 +123,7 @@ export function GuestInformationSection({ rooms, hotel }: GuestInformationSectio
         {/* Citizenship */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-muted-foreground mb-2">
-            Guests' Citizenship
+            Guests' Citizenship <span className="text-destructive">*</span>
           </label>
           <Select value={citizenship} onValueChange={setCitizenship}>
             <SelectTrigger className="w-full">
@@ -130,6 +137,9 @@ export function GuestInformationSection({ rooms, hotel }: GuestInformationSectio
               ))}
             </SelectContent>
           </Select>
+          <p className="text-xs text-muted-foreground mt-1">
+            Used as residency for booking
+          </p>
         </div>
 
         {/* Room Summary */}
@@ -161,29 +171,48 @@ export function GuestInformationSection({ rooms, hotel }: GuestInformationSectio
                     <User className="h-4 w-4 text-primary" />
                   )}
                   <p className="text-sm font-medium text-foreground">
-                    Guest {index + 1}
+                    {guest.isLead ? "Lead Guest" : `Guest ${index + 1}`}
                   </p>
+                  {guest.isLead && (
+                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                      Primary Contact
+                    </span>
+                  )}
                 </div>
-                <Select
-                  value={guest.type}
-                  onValueChange={(value: "adult" | "child") =>
-                    handleGuestChange(guest.id, "type", value)
-                  }
-                >
-                  <SelectTrigger className="w-28 h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="adult">Adult</SelectItem>
-                    <SelectItem value="child">Child</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  {!guest.isLead && (
+                    <Select
+                      value={guest.type}
+                      onValueChange={(value: "adult" | "child") =>
+                        handleGuestChange(guest.id, "type", value)
+                      }
+                    >
+                      <SelectTrigger className="w-24 h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="adult">Adult</SelectItem>
+                        <SelectItem value="child">Child</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {!guest.isLead && guests.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeGuest(guest.id)}
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-2">
-                    First Name *
+                    First Name <span className="text-destructive">*</span>
                   </label>
                   <Input
                     value={guest.firstName}
@@ -196,7 +225,7 @@ export function GuestInformationSection({ rooms, hotel }: GuestInformationSectio
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-2">
-                    Last Name *
+                    Last Name <span className="text-destructive">*</span>
                   </label>
                   <Input
                     value={guest.lastName}
@@ -207,11 +236,31 @@ export function GuestInformationSection({ rooms, hotel }: GuestInformationSectio
                     required
                   />
                 </div>
-                
+
+                {guest.isLead && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-muted-foreground mb-2">
+                      Email <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      type="email"
+                      value={guest.email || ""}
+                      onChange={(e) =>
+                        handleGuestChange(guest.id, "email", e.target.value)
+                      }
+                      placeholder="Enter email address"
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Booking confirmation will be sent to this email
+                    </p>
+                  </div>
+                )}
+
                 {guest.type === "child" && (
                   <div>
                     <label className="block text-sm font-medium text-muted-foreground mb-2">
-                      Age *
+                      Age <span className="text-destructive">*</span>
                     </label>
                     <Select
                       value={guest.age?.toString() || ""}
@@ -233,18 +282,6 @@ export function GuestInformationSection({ rooms, hotel }: GuestInformationSectio
                   </div>
                 )}
               </div>
-              {guests.length > 1 && (
-                <div className="mt-2 flex justify-end">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeGuest(guest.id)}
-                    className="text-destructive hover:text-destructive/80"
-                  >
-                    Remove guest
-                  </Button>
-                </div>
-              )}
             </div>
           ))}
         </div>
@@ -252,43 +289,17 @@ export function GuestInformationSection({ rooms, hotel }: GuestInformationSectio
         {/* Add Guest Button */}
         <div className="mt-6">
           <Button
-            variant="ghost"
+            variant="outline"
             onClick={addGuest}
-            className="flex items-center gap-2 text-primary hover:text-primary/80"
+            className="flex items-center gap-2 text-primary border-primary/30 hover:bg-primary/5"
           >
-            <User className="h-4 w-4" />
-            <Plus className="h-3 w-3" />
+            <Plus className="h-4 w-4" />
             <span>Add another guest</span>
           </Button>
-        </div>
-
-        {/* Special Requests */}
-        <div className="mt-8">
-          <Button
-            variant="ghost"
-            onClick={() => setShowSpecialRequests(!showSpecialRequests)}
-            className="flex items-center gap-2 text-foreground hover:text-primary p-0"
-          >
-            <ChevronDown
-              className={`h-4 w-4 transition-transform ${
-                showSpecialRequests ? "rotate-180" : ""
-              }`}
-            />
-            <span>Special Requests</span>
-          </Button>
-
-          {showSpecialRequests && (
-            <div className="mt-4">
-              <Textarea
-                value={specialRequests}
-                onChange={(e) => setSpecialRequests(e.target.value)}
-                placeholder="Enter any special requests (e.g., early check-in, high floor, etc.)"
-                className="resize-none h-24"
-              />
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>
   );
 }
+
+export type { Guest };
