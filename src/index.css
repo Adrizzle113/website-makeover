@@ -136,4 +136,9 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+  
+  /* Gold glow shadow for sidebar accents */
+  .shadow-glow-gold {
+    box-shadow: 0 0 12px 2px hsl(43 74% 66% / 0.4);
+  }
 }

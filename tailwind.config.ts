@@ -78,6 +78,8 @@ export default {
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
+          gold: "hsl(var(--app-gold))",
+          "gold-dark": "hsl(38 70% 50%)",
         },
         // Explo-specific colors
         forest: {
