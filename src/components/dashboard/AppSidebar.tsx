@@ -105,11 +105,11 @@ export function AppSidebar() {
                       className={`
                         relative flex items-center gap-3 px-3 py-3 rounded-lg
                         transition-all duration-300 ease-out
-                        text-primary-foreground/70 hover:text-primary-foreground
+                        hover:text-primary-foreground
                         hover:bg-primary-foreground/10 hover:scale-[1.02]
                         ${isActive(item.url) 
                           ? 'bg-primary-foreground/15 text-primary-foreground font-semibold shadow-lg' 
-                          : ''
+                          : 'text-gray-400'
                         }
                       `}
                       activeClassName=""
@@ -169,11 +169,11 @@ export function AppSidebar() {
                       className={`
                         relative flex items-center gap-3 px-3 py-3 rounded-lg
                         transition-all duration-300 ease-out
-                        text-primary-foreground/70 hover:text-primary-foreground
+                        hover:text-primary-foreground
                         hover:bg-primary-foreground/10 hover:scale-[1.02]
                         ${isActive(item.url) 
                           ? 'bg-primary-foreground/15 text-primary-foreground font-semibold shadow-lg' 
-                          : ''
+                          : 'text-gray-400'
                         }
                       `}
                       activeClassName=""
