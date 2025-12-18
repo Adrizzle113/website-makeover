@@ -83,7 +83,7 @@ export function AppSidebar() {
 
       <SidebarContent className="px-2">
         <SidebarGroup>
-          <SidebarGroupLabel className="px-3 mb-2 text-[10px] uppercase tracking-[0.2em] text-primary-foreground/50 font-semibold">
+          <SidebarGroupLabel className="px-3 mb-2 text-[10px] uppercase tracking-[0.2em] text-black font-semibold">
             Main Menu
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -147,7 +147,7 @@ export function AppSidebar() {
         )}
 
         <SidebarGroup>
-          <SidebarGroupLabel className="px-3 mb-2 text-[10px] uppercase tracking-[0.2em] text-primary-foreground/50 font-semibold">
+          <SidebarGroupLabel className="px-3 mb-2 text-[10px] uppercase tracking-[0.2em] text-black font-semibold">
             Support
           </SidebarGroupLabel>
           <SidebarGroupContent>
