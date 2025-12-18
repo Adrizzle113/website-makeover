@@ -90,7 +90,7 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(
           <div className="flex-1 p-2 sm:p-3 flex flex-col justify-between min-w-0">
             <div className="min-w-0">
               <div className="flex items-center gap-0.5 mb-0.5 sm:mb-1">
-                {Array.from({ length: hotel.starRating }).map((_, i) => (
+                {Array.from({ length: hotel.starRating || 0 }).map((_, i) => (
                   <Star key={i} className="w-2.5 sm:w-3 h-2.5 sm:h-3 fill-amber-400 text-amber-400" />
                 ))}
               </div>
@@ -136,7 +136,7 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(
           <div className="flex-1">
             {/* Stars */}
             <div className="flex items-center gap-0.5 md:gap-1 mb-2 md:mb-3">
-              {Array.from({ length: hotel.starRating }).map((_, i) => (
+              {Array.from({ length: hotel.starRating || 0 }).map((_, i) => (
                 <Star
                   key={i}
                   className="w-3 md:w-4 h-3 md:h-4 fill-amber-400 text-amber-400"
