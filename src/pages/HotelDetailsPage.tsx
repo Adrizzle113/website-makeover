@@ -75,7 +75,7 @@ const HotelDetailsPage = () => {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <p className="text-destructive text-lg mb-4">{error}</p>
-          <a href="/" className="text-primary hover:underline">
+          <a href="/dashboard/search" className="text-primary hover:underline">
             Back to Search
           </a>
         </div>
@@ -88,7 +88,7 @@ const HotelDetailsPage = () => {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <p className="text-muted-foreground text-lg">Hotel not found</p>
-          <a href="/" className="text-primary hover:underline">
+          <a href="/dashboard/search" className="text-primary hover:underline">
             Back to Search
           </a>
         </div>

@@ -43,7 +43,7 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
       <div className="container py-4">
         <div className="flex items-center justify-between">
           <Link
-            to="/"
+            to="/dashboard/search"
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
