@@ -77,14 +77,23 @@ export function Header() {
             </button>
           </nav>
 
-          {/* CTA Button */}
-          <div className="hidden lg:flex items-center">
-            <Button 
-              onClick={() => scrollToSection("tour-packages")}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-6"
-            >
-              View Packages
-            </Button>
+          {/* CTA Buttons */}
+          <div className="hidden lg:flex items-center gap-3">
+            <Link to="/auth/login">
+              <Button 
+                variant="ghost"
+                className="text-white hover:bg-white/10 rounded-full px-6"
+              >
+                Login
+              </Button>
+            </Link>
+            <Link to="/auth/register">
+              <Button 
+                className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-6"
+              >
+                Register
+              </Button>
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -136,13 +145,22 @@ export function Header() {
               >
                 Contact
               </button>
-              <div className="pt-4 border-t border-white/20">
-                <Button 
-                  onClick={() => scrollToSection("tour-packages")}
-                  className="w-full bg-cream text-primary hover:bg-cream/90 rounded-full"
-                >
-                  View Packages
-                </Button>
+              <div className="pt-4 border-t border-white/20 flex flex-col gap-2">
+                <Link to="/auth/login" onClick={() => setIsMenuOpen(false)}>
+                  <Button 
+                    variant="outline"
+                    className="w-full border-white text-white hover:bg-white/10 rounded-full"
+                  >
+                    Login
+                  </Button>
+                </Link>
+                <Link to="/auth/register" onClick={() => setIsMenuOpen(false)}>
+                  <Button 
+                    className="w-full bg-cream text-primary hover:bg-cream/90 rounded-full"
+                  >
+                    Register
+                  </Button>
+                </Link>
               </div>
             </nav>
           </div>
