@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useBookingStore } from "@/stores/bookingStore";
@@ -9,6 +10,7 @@ interface BookingSectionProps {
 }
 
 export function BookingSection({ currency }: BookingSectionProps) {
+  const navigate = useNavigate();
   const { selectedRooms, searchParams, getTotalPrice, getTotalRooms, selectedHotel } =
     useBookingStore();
 
@@ -30,10 +32,8 @@ export function BookingSection({ currency }: BookingSectionProps) {
       return;
     }
 
-    toast({
-      title: "Booking initiated",
-      description: `${totalRooms} room(s) for ${nights} night(s) - Total: ${currency} ${(totalPrice * nights).toLocaleString()}`,
-    });
+    // Navigate to the booking page
+    navigate("/booking");
   };
 
   if (selectedRooms.length === 0) {
