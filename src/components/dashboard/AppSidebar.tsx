@@ -32,7 +32,7 @@ const mainNavItems = [
   { title: "Search Hotels", url: "/dashboard/search", icon: SearchIcon },
   { title: "Trips", url: "/trips", icon: CalendarIcon, badge: "3" },
   { title: "Reports", url: "/reporting/bookings", icon: FileTextIcon },
-  { title: "Clients", url: "/dashboard/clients", icon: UsersIcon },
+  { title: "Clients", url: "/clients", icon: UsersIcon },
 ];
 
 const secondaryNavItems = [

@@ -21,6 +21,13 @@ import {
   PayoutsReportPage, 
   ExportsReportPage 
 } from "./pages/reporting";
+import {
+  AllClientsPage,
+  GroupsPage,
+  ContactsPage,
+  BillingPage,
+  ActivityPage,
+} from "./pages/clients";
 import NotFound from "./pages/NotFound";
 import { Login, Register, EmailVerification, PendingApproval } from "./pages/auth";
 
@@ -56,6 +63,13 @@ const App = () => (
           <Route path="/reporting/reconciliation" element={<ReconciliationReportPage />} />
           <Route path="/reporting/payouts" element={<PayoutsReportPage />} />
           <Route path="/reporting/exports" element={<ExportsReportPage />} />
+          {/* Clients */}
+          <Route path="/clients" element={<AllClientsPage />} />
+          <Route path="/clients/groups" element={<GroupsPage />} />
+          <Route path="/clients/contacts" element={<ContactsPage />} />
+          <Route path="/clients/billing" element={<BillingPage />} />
+          <Route path="/clients/activity" element={<ActivityPage />} />
+          <Route path="/dashboard/clients" element={<Navigate to="/clients" replace />} />
           {/* Auth */}
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/register" element={<Register />} />
