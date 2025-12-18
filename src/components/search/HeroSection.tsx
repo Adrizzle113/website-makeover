@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
-import { SearchBar } from "./SearchBar";
 
 export function HeroSection() {
   const scrollToResults = () => {
@@ -42,14 +41,6 @@ export function HeroSection() {
           Discover breathtaking destinations and create unforgettable memories 
           with our expertly curated tour packages.
         </p>
-
-        {/* Search Bar */}
-        <div 
-          className="opacity-0 animate-fade-in mb-8"
-          style={{ animationDelay: "0.5s" }}
-        >
-          <SearchBar />
-        </div>
 
         <div 
           className="opacity-0 animate-fade-in"
