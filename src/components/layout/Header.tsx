@@ -19,7 +19,7 @@ export function Header() {
   };
 
   return (
-    <header className="absolute top-0 left-0 right-0 z-50 mt-4 md:mt-8">
+    <header className="absolute top-0 left-0 right-0 z-50 mt-4 md:mt-8 mx-[21px] md:mx-[37px]">
       <div className="container">
         <div className="flex items-center justify-between h-24">
           {/* Logo */}
