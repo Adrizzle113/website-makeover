@@ -31,6 +31,7 @@ import {
 import { SettingsPage } from "./pages/settings";
 import NotFound from "./pages/NotFound";
 import { Login, Register, EmailVerification, PendingApproval } from "./pages/auth";
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -42,37 +43,38 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<SearchPage />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/dashboard/search" element={<DashboardSearchPage />} />
+          {/* Protected Routes */}
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/dashboard/search" element={<ProtectedRoute><DashboardSearchPage /></ProtectedRoute>} />
           <Route path="/dashboard/reports" element={<Navigate to="/reporting/bookings" replace />} />
           <Route path="/hotel/:id" element={<HotelDetailsPage />} />
-          <Route path="/booking" element={<BookingPage />} />
-          <Route path="/payment" element={<PaymentPage />} />
+          <Route path="/booking" element={<ProtectedRoute><BookingPage /></ProtectedRoute>} />
+          <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
           {/* Trips */}
-          <Route path="/trips" element={<TripsListPage />} />
-          <Route path="/trips/:orderGroupId" element={<TripDetailsPage />} />
+          <Route path="/trips" element={<ProtectedRoute><TripsListPage /></ProtectedRoute>} />
+          <Route path="/trips/:orderGroupId" element={<ProtectedRoute><TripDetailsPage /></ProtectedRoute>} />
           {/* Orders */}
-          <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
-          <Route path="/orders/:orderId/confirmation" element={<BookingConfirmationPage />} />
+          <Route path="/orders/:orderId" element={<ProtectedRoute><OrderDetailsPage /></ProtectedRoute>} />
+          <Route path="/orders/:orderId/confirmation" element={<ProtectedRoute><BookingConfirmationPage /></ProtectedRoute>} />
           {/* Documents */}
-          <Route path="/documents/:documentId" element={<DocumentsViewerPage />} />
+          <Route path="/documents/:documentId" element={<ProtectedRoute><DocumentsViewerPage /></ProtectedRoute>} />
           {/* Reporting */}
-          <Route path="/reporting/bookings" element={<BookingsReportPage />} />
-          <Route path="/reporting/revenue" element={<RevenueReportPage />} />
-          <Route path="/reporting/invoices" element={<InvoicesReportPage />} />
-          <Route path="/reporting/payments" element={<PaymentsReportPage />} />
-          <Route path="/reporting/reconciliation" element={<ReconciliationReportPage />} />
-          <Route path="/reporting/payouts" element={<PayoutsReportPage />} />
-          <Route path="/reporting/exports" element={<ExportsReportPage />} />
+          <Route path="/reporting/bookings" element={<ProtectedRoute><BookingsReportPage /></ProtectedRoute>} />
+          <Route path="/reporting/revenue" element={<ProtectedRoute><RevenueReportPage /></ProtectedRoute>} />
+          <Route path="/reporting/invoices" element={<ProtectedRoute><InvoicesReportPage /></ProtectedRoute>} />
+          <Route path="/reporting/payments" element={<ProtectedRoute><PaymentsReportPage /></ProtectedRoute>} />
+          <Route path="/reporting/reconciliation" element={<ProtectedRoute><ReconciliationReportPage /></ProtectedRoute>} />
+          <Route path="/reporting/payouts" element={<ProtectedRoute><PayoutsReportPage /></ProtectedRoute>} />
+          <Route path="/reporting/exports" element={<ProtectedRoute><ExportsReportPage /></ProtectedRoute>} />
           {/* Clients */}
-          <Route path="/clients" element={<AllClientsPage />} />
-          <Route path="/clients/groups" element={<GroupsPage />} />
-          <Route path="/clients/contacts" element={<ContactsPage />} />
-          <Route path="/clients/billing" element={<BillingPage />} />
-          <Route path="/clients/activity" element={<ActivityPage />} />
+          <Route path="/clients" element={<ProtectedRoute><AllClientsPage /></ProtectedRoute>} />
+          <Route path="/clients/groups" element={<ProtectedRoute><GroupsPage /></ProtectedRoute>} />
+          <Route path="/clients/contacts" element={<ProtectedRoute><ContactsPage /></ProtectedRoute>} />
+          <Route path="/clients/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
+          <Route path="/clients/activity" element={<ProtectedRoute><ActivityPage /></ProtectedRoute>} />
           <Route path="/dashboard/clients" element={<Navigate to="/clients" replace />} />
           {/* Settings */}
-          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
           {/* Auth */}
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/register" element={<Register />} />
