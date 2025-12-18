@@ -165,7 +165,7 @@ export function AgentPricingSection({
             {/* Commission */}
             <div>
               <Label className="text-sm font-medium text-muted-foreground mb-2 block">
-                Commission
+                Your Commission
               </Label>
               <div className="flex gap-2">
                 <div className="relative flex-1" onClick={handleEditAttempt}>
