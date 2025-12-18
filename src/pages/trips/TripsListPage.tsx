@@ -7,7 +7,10 @@ import {
   MapPinIcon,
   UsersIcon,
   ChevronRightIcon,
-  XIcon
+  XIcon,
+  DownloadIcon,
+  FileSpreadsheetIcon,
+  CheckIcon
 } from "lucide-react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
@@ -15,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -22,7 +26,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Trip, TripStatus } from "@/types/trips";
+import { toast } from "sonner";
 
 // Mock data for demonstration
 const mockTrips: Trip[] = [
@@ -96,6 +107,7 @@ export default function TripsListPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedTrips, setSelectedTrips] = useState<Set<string>>(new Set());
 
   const filteredTrips = mockTrips.filter((trip) => {
     const matchesSearch = 
@@ -108,6 +120,61 @@ export default function TripsListPage() {
     
     return matchesSearch && matchesStatus;
   });
+
+  const handleSelectTrip = (tripId: string, checked: boolean) => {
+    const newSelected = new Set(selectedTrips);
+    if (checked) {
+      newSelected.add(tripId);
+    } else {
+      newSelected.delete(tripId);
+    }
+    setSelectedTrips(newSelected);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedTrips(new Set(filteredTrips.map(t => t.id)));
+    } else {
+      setSelectedTrips(new Set());
+    }
+  };
+
+  const isAllSelected = filteredTrips.length > 0 && selectedTrips.size === filteredTrips.length;
+  const isSomeSelected = selectedTrips.size > 0 && selectedTrips.size < filteredTrips.length;
+
+  const exportToCSV = () => {
+    const tripsToExport = selectedTrips.size > 0 
+      ? filteredTrips.filter(t => selectedTrips.has(t.id))
+      : filteredTrips;
+    
+    const headers = ["Order Group ID", "Trip Name", "Client Name", "Client Email", "Check-in", "Check-out", "Destinations", "Bookings", "Status", "Total Amount", "Currency"];
+    const rows = tripsToExport.map(trip => [
+      trip.id,
+      trip.name,
+      trip.clientName,
+      trip.clientEmail,
+      trip.dateRange.checkIn,
+      trip.dateRange.checkOut,
+      trip.destinations.join("; "),
+      trip.bookingsCount.toString(),
+      trip.status,
+      trip.totalAmount.toString(),
+      trip.currency
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(","))
+      .join("\n");
+    
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `trips-export-${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    
+    toast.success(`Exported ${tripsToExport.length} trip${tripsToExport.length !== 1 ? "s" : ""} to CSV`);
+  };
 
   const formatDateRange = (checkIn: string, checkOut: string) => {
     const start = new Date(checkIn);
@@ -217,11 +284,56 @@ export default function TripsListPage() {
             )}
           </div>
 
-          {/* Results count */}
-          <div className="mb-4">
-            <p className="text-sm text-muted-foreground">
-              {filteredTrips.length} trip{filteredTrips.length !== 1 ? "s" : ""} found
-            </p>
+          {/* Bulk Actions Bar */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Checkbox 
+                  id="select-all"
+                  checked={isAllSelected}
+                  onCheckedChange={handleSelectAll}
+                  className="data-[state=indeterminate]:bg-primary"
+                  {...(isSomeSelected ? { "data-state": "indeterminate" } : {})}
+                />
+                <label htmlFor="select-all" className="text-sm text-muted-foreground cursor-pointer">
+                  {selectedTrips.size > 0 
+                    ? `${selectedTrips.size} selected` 
+                    : `${filteredTrips.length} trip${filteredTrips.length !== 1 ? "s" : ""} found`
+                  }
+                </label>
+              </div>
+              
+              {selectedTrips.size > 0 && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setSelectedTrips(new Set())}
+                  className="text-muted-foreground"
+                >
+                  Clear selection
+                </Button>
+              )}
+            </div>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <DownloadIcon className="w-4 h-4" />
+                  <span className="hidden sm:inline">Export</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={exportToCSV} className="gap-2">
+                  <FileSpreadsheetIcon className="w-4 h-4" />
+                  Export as CSV
+                  {selectedTrips.size > 0 && (
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      {selectedTrips.size}
+                    </Badge>
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Trips List */}
@@ -229,13 +341,28 @@ export default function TripsListPage() {
             {filteredTrips.map((trip) => (
               <Card 
                 key={trip.id}
-                className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:border-primary/20"
-                onClick={() => navigate(`/trips/${trip.id}`)}
+                className={`group transition-all duration-300 hover:shadow-lg hover:border-primary/20 ${
+                  selectedTrips.has(trip.id) ? "border-primary/40 bg-primary/5" : ""
+                }`}
               >
                 <CardContent className="p-5">
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    {/* Checkbox */}
+                    <div 
+                      className="flex items-center"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Checkbox 
+                        checked={selectedTrips.has(trip.id)}
+                        onCheckedChange={(checked) => handleSelectTrip(trip.id, checked as boolean)}
+                      />
+                    </div>
+
                     {/* Trip Info */}
-                    <div className="flex-1 min-w-0">
+                    <div 
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => navigate(`/trips/${trip.id}`)}
+                    >
                       <div className="flex items-start gap-3 mb-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -277,7 +404,10 @@ export default function TripsListPage() {
                     </div>
 
                     {/* Stats & Actions */}
-                    <div className="flex items-center gap-6">
+                    <div 
+                      className="flex items-center gap-6 cursor-pointer"
+                      onClick={() => navigate(`/trips/${trip.id}`)}
+                    >
                       <div className="text-right">
                         <p className="text-sm text-muted-foreground mb-0.5">
                           {trip.bookingsCount} booking{trip.bookingsCount !== 1 ? "s" : ""}
