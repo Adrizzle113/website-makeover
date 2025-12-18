@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import SearchPage from "./pages/SearchPage";
 import HotelDetailsPage from "./pages/HotelDetailsPage";
 import BookingPage from "./pages/BookingPage";
@@ -28,7 +28,7 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
+    <TooltipProvider delayDuration={0}>
       <Toaster />
       <Sonner />
       <BrowserRouter>
@@ -36,6 +36,7 @@ const App = () => (
           <Route path="/" element={<SearchPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/search" element={<DashboardSearchPage />} />
+          <Route path="/dashboard/reports" element={<Navigate to="/reporting/bookings" replace />} />
           <Route path="/hotel/:id" element={<HotelDetailsPage />} />
           <Route path="/booking" element={<BookingPage />} />
           <Route path="/payment" element={<PaymentPage />} />
