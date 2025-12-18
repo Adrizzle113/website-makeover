@@ -102,7 +102,32 @@ class RateHawkApiService {
       };
     });
 
-    return this.fetchWithError<SearchResponse>(url, {
+    const rawResponse = await this.fetchWithError<{
+      success: boolean;
+      hotels: Array<{
+        id: string;
+        name: string;
+        location?: string;
+        rating?: number;
+        reviewScore?: number;
+        reviewCount?: number;
+        price?: { amount: number; currency: string; period?: string };
+        image?: string;
+        amenities?: string[];
+        description?: string;
+        ratehawk_data?: {
+          static_vm?: {
+            city?: string;
+            address?: string;
+            country?: string;
+            star_rating?: number;
+            latitude?: number;
+            longitude?: number;
+            images?: Array<{ tmpl: string }>;
+          };
+        };
+      }>;
+    }>(url, {
       method: "POST",
       body: JSON.stringify({
         userId,
@@ -112,6 +137,36 @@ class RateHawkApiService {
         guests,
       }),
     });
+
+    // Transform backend response to match Hotel type
+    const hotels: Hotel[] = (rawResponse.hotels || []).map((h) => {
+      const staticVm = h.ratehawk_data?.static_vm;
+      const amenityStrings = h.amenities || [];
+
+      return {
+        id: h.id,
+        name: h.name,
+        description: h.description || "",
+        address: h.location || staticVm?.address || "",
+        city: staticVm?.city || "",
+        country: staticVm?.country || "",
+        starRating: staticVm?.star_rating ? Math.round(staticVm.star_rating / 10) : h.rating || 0,
+        reviewScore: h.reviewScore,
+        reviewCount: h.reviewCount,
+        images: (staticVm?.images || []).slice(0, 10).map((img) => ({
+          url: img.tmpl.replace("{size}", "1024x768"),
+          alt: h.name,
+        })),
+        mainImage: h.image || (staticVm?.images?.[0]?.tmpl.replace("{size}", "1024x768")) || "/placeholder.svg",
+        amenities: amenityStrings.map((a, idx) => ({ id: `amenity-${idx}`, name: a })),
+        priceFrom: h.price?.amount || 0,
+        currency: h.price?.currency || "USD",
+        latitude: staticVm?.latitude,
+        longitude: staticVm?.longitude,
+      };
+    });
+
+    return { hotels, totalResults: hotels.length };
   }
 
   async getHotelDetails(hotelId: string, searchParams?: SearchParams): Promise<HotelDetails | null> {
