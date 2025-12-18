@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "@/config/api";
-import type { SearchParams, Hotel, HotelDetails, Destination } from "@/types/booking";
+import type { SearchParams, Hotel, HotelDetails, Destination, SearchFilters } from "@/types/booking";
 
 const API_ENDPOINTS = {
   SEARCH_HOTELS: "/api/ratehawk/search",
@@ -10,7 +10,7 @@ const getApiUrl = (endpoint: keyof typeof API_ENDPOINTS) => {
   return `${API_BASE_URL}${API_ENDPOINTS[endpoint]}`;
 };
 
-interface SearchResponse {
+export interface SearchResponse {
   hotels: Hotel[];
   totalResults: number;
   hasMore: boolean;
@@ -36,6 +36,22 @@ interface SessionsApiResponse {
     sessionAge?: string;
   }>;
   timestamp?: string;
+}
+
+// API filter format for backend
+interface ApiSearchFilters {
+  minPrice?: number;
+  maxPrice?: number;
+  starRatings?: number[];
+  freeCancellation?: boolean;
+  refundableOnly?: boolean;
+  mealPlans?: string[];
+  amenities?: string[];
+  paymentTypes?: string[];
+  rateType?: string;
+  roomTypes?: string[];
+  bedTypes?: string[];
+  residency?: string;
 }
 
 class RateHawkApiService {
@@ -88,7 +104,53 @@ class RateHawkApiService {
     }
   }
 
-  async searchHotels(params: SearchParams, page: number = 1): Promise<SearchResponse> {
+  // Convert frontend filters to API format
+  private transformFiltersForApi(filters?: SearchFilters): ApiSearchFilters | undefined {
+    if (!filters) return undefined;
+
+    const apiFilters: ApiSearchFilters = {};
+
+    // Price range
+    if (filters.priceMin !== undefined) apiFilters.minPrice = filters.priceMin;
+    if (filters.priceMax !== undefined) apiFilters.maxPrice = filters.priceMax;
+
+    // Star ratings
+    if (filters.starRatings.length > 0) apiFilters.starRatings = filters.starRatings;
+
+    // Cancellation
+    if (filters.freeCancellationOnly) apiFilters.freeCancellation = true;
+    if (filters.refundableOnly) apiFilters.refundableOnly = true;
+
+    // Meal plans
+    if (filters.mealPlans.length > 0) apiFilters.mealPlans = filters.mealPlans;
+
+    // Amenities
+    if (filters.amenities.length > 0) apiFilters.amenities = filters.amenities;
+
+    // Payment types
+    if (filters.paymentTypes.length > 0) apiFilters.paymentTypes = filters.paymentTypes;
+
+    // Rate type
+    if (filters.rateType) apiFilters.rateType = filters.rateType;
+
+    // Room types
+    if (filters.roomTypes.length > 0) apiFilters.roomTypes = filters.roomTypes;
+
+    // Bed types
+    if (filters.bedTypes.length > 0) apiFilters.bedTypes = filters.bedTypes;
+
+    // Residency
+    if (filters.residency && filters.residency !== "US") apiFilters.residency = filters.residency;
+
+    // Return undefined if no filters are active
+    return Object.keys(apiFilters).length > 0 ? apiFilters : undefined;
+  }
+
+  async searchHotels(
+    params: SearchParams, 
+    page: number = 1,
+    filters?: SearchFilters
+  ): Promise<SearchResponse> {
     const url = getApiUrl("SEARCH_HOTELS");
     const userId = this.getCurrentUserId();
 
@@ -104,6 +166,23 @@ class RateHawkApiService {
       };
     });
 
+    // Build request body with optional filters
+    const requestBody: Record<string, unknown> = {
+      userId,
+      destination: params.destinationId || params.destination,
+      checkin: params.checkIn.toISOString().split("T")[0],
+      checkout: params.checkOut.toISOString().split("T")[0],
+      guests,
+      page,
+      limit: 20,
+    };
+
+    // Add filters if provided
+    const apiFilters = this.transformFiltersForApi(filters);
+    if (apiFilters) {
+      requestBody.filters = apiFilters;
+    }
+
     const rawResponse = await this.fetchWithError<{
       success: boolean;
       hotels: Array<{
@@ -117,6 +196,9 @@ class RateHawkApiService {
         image?: string;
         amenities?: string[];
         description?: string;
+        freeCancellation?: boolean;
+        mealPlan?: string;
+        paymentType?: string;
         ratehawk_data?: {
           static_vm?: {
             city?: string;
@@ -127,27 +209,33 @@ class RateHawkApiService {
             longitude?: number;
             images?: Array<{ tmpl: string }>;
           };
+          rates?: Array<{
+            cancellationPolicy?: string;
+            mealPlan?: string;
+            paymentInfo?: {
+              allowed_payment_types?: Array<{ type: string }>;
+            };
+          }>;
         };
       }>;
       total?: number;
       hasMore?: boolean;
     }>(url, {
       method: "POST",
-      body: JSON.stringify({
-        userId,
-        destination: params.destinationId || params.destination,
-        checkin: params.checkIn.toISOString().split("T")[0],
-        checkout: params.checkOut.toISOString().split("T")[0],
-        guests,
-        page,
-        limit: 20,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     // Transform backend response to match Hotel type
     const hotels: Hotel[] = (rawResponse.hotels || []).map((h) => {
       const staticVm = h.ratehawk_data?.static_vm;
       const amenityStrings = h.amenities || [];
+      const rates = h.ratehawk_data?.rates || [];
+
+      // Extract cancellation and meal info from rates
+      const hasFreeCancellation = h.freeCancellation || 
+        rates.some(r => r.cancellationPolicy?.toLowerCase().includes('free'));
+      const mealPlan = h.mealPlan || rates[0]?.mealPlan;
+      const paymentTypes = rates[0]?.paymentInfo?.allowed_payment_types?.map(p => p.type) || [];
 
       return {
         id: h.id,
@@ -169,8 +257,13 @@ class RateHawkApiService {
         currency: h.price?.currency || "USD",
         latitude: staticVm?.latitude,
         longitude: staticVm?.longitude,
-      };
+        // Extended fields for filtering display
+        freeCancellation: hasFreeCancellation,
+        mealPlan,
+        paymentTypes,
+      } as Hotel;
     });
+
     const totalResults = rawResponse.total || hotels.length;
     const hasMore = rawResponse.hasMore ?? (hotels.length === 20);
 

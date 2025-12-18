@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useBookingStore } from "@/stores/bookingStore";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,6 +14,7 @@ import {
   SheetTitle,
   SheetTrigger,
   SheetFooter,
+  SheetClose,
 } from "@/components/ui/sheet";
 import {
   SlidersHorizontal,
@@ -57,12 +59,9 @@ const BED_TYPES: { value: BedType; label: string }[] = [
   { value: "king", label: "King" },
 ];
 
-interface AdvancedFiltersDrawerProps {
-  onApply?: () => void;
-}
-
-export function AdvancedFiltersDrawer({ onApply }: AdvancedFiltersDrawerProps) {
+export function AdvancedFiltersDrawer() {
   const { filters, setFilters, resetFilters, getActiveFilterCount } = useBookingStore();
+  const [isOpen, setIsOpen] = useState(false);
   const activeCount = getActiveFilterCount();
 
   const handleMealToggle = (meal: MealPlan) => {
@@ -98,7 +97,7 @@ export function AdvancedFiltersDrawer({ onApply }: AdvancedFiltersDrawerProps) {
   };
 
   return (
-    <Sheet>
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         <Button variant="outline" size="sm" className="h-9 gap-1.5">
           <SlidersHorizontal className="h-4 w-4" />
@@ -266,12 +265,14 @@ export function AdvancedFiltersDrawer({ onApply }: AdvancedFiltersDrawerProps) {
         </ScrollArea>
 
         <SheetFooter className="mt-6 flex-row gap-2">
-          <Button variant="outline" onClick={resetFilters} className="flex-1">
+          <Button variant="outline" onClick={() => { resetFilters(); setIsOpen(false); }} className="flex-1">
             Clear All
           </Button>
-          <Button onClick={onApply} className="flex-1">
-            Apply Filters
-          </Button>
+          <SheetClose asChild>
+            <Button className="flex-1">
+              Apply Filters
+            </Button>
+          </SheetClose>
         </SheetFooter>
       </SheetContent>
     </Sheet>
