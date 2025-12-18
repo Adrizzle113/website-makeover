@@ -1,14 +1,6 @@
-import { useState } from "react";
 import { format, differenceInDays } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Star, Utensils, RotateCcw, Users, AlertCircle } from "lucide-react";
+import { Star, Users, Calendar, Clock, Check, AlertTriangle } from "lucide-react";
 import type { HotelDetails, SearchParams, RoomSelection } from "@/types/booking";
 
 interface BookingSummaryCardProps {
@@ -16,6 +8,7 @@ interface BookingSummaryCardProps {
   rooms: RoomSelection[];
   searchParams: SearchParams | null;
   totalPrice: number;
+  isLoading?: boolean;
 }
 
 export function BookingSummaryCard({
@@ -23,28 +16,22 @@ export function BookingSummaryCard({
   rooms,
   searchParams,
   totalPrice,
+  isLoading,
 }: BookingSummaryCardProps) {
-  const [selectedCurrency, setSelectedCurrency] = useState(hotel.currency || "USD");
-
   const checkIn = searchParams?.checkIn ? new Date(searchParams.checkIn) : new Date();
   const checkOut = searchParams?.checkOut ? new Date(searchParams.checkOut) : new Date();
   const nights = differenceInDays(checkOut, checkIn) || 1;
 
-  const totalGuests = rooms.reduce(
-    (sum, r) => sum + r.quantity * 2, // Default 2 guests per room
-    0
-  );
+  const totalGuests = searchParams?.guests || rooms.reduce((sum, r) => sum + r.quantity * 2, 0);
+  const childCount = searchParams?.children || 0;
+  const adultCount = totalGuests - childCount;
 
-  // Get meal plan info from hotel rooms if available
-  const hasFreeCancellation = hotel.rooms?.some((r) =>
-    r.cancellationPolicy?.toLowerCase().includes("free")
-  ) || false;
+  // Mock cancellation policy - in real implementation, this comes from API
+  const cancellationDate = new Date(checkIn);
+  cancellationDate.setDate(cancellationDate.getDate() - 3);
+  const hasFreeCancellation = cancellationDate > new Date();
 
-  const hasBreakfast = hotel.rooms?.some((r) =>
-    r.mealPlan?.toLowerCase().includes("breakfast")
-  ) || false;
-
-  const commissionAmount = (totalPrice * 0.1).toFixed(2);
+  const commissionAmount = (totalPrice * nights * 0.1).toFixed(2);
 
   return (
     <Card className="border-0 shadow-lg sticky top-8">
@@ -70,108 +57,132 @@ export function BookingSummaryCard({
         </p>
       </div>
 
-      <CardContent className="p-4">
+      <CardContent className="p-4 space-y-4">
         {/* Check-in/Check-out */}
-        <div className="flex justify-between items-center mb-4 pb-4 border-b border-border">
+        <div className="grid grid-cols-2 gap-4 pb-4 border-b border-border">
           <div>
-            <p className="text-sm font-medium text-muted-foreground">Check-in</p>
-            <p className="text-lg font-bold text-foreground">
+            <div className="flex items-center gap-2 mb-1">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <p className="text-xs font-medium text-muted-foreground">Check-in</p>
+            </div>
+            <p className="text-base font-bold text-foreground">
               {format(checkIn, "MMM d, yyyy")}
             </p>
-            <p className="text-xs text-muted-foreground">
-              {hotel.checkInTime || "from 3:00 PM"}
-            </p>
+            <div className="flex items-center gap-1 mt-1">
+              <Clock className="h-3 w-3 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">
+                {hotel.checkInTime || "from 3:00 PM"}
+              </p>
+            </div>
           </div>
-          <div className="w-px h-12 bg-border" />
-          <div className="text-right">
-            <p className="text-sm font-medium text-muted-foreground">Check-out</p>
-            <p className="text-lg font-bold text-foreground">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <p className="text-xs font-medium text-muted-foreground">Check-out</p>
+            </div>
+            <p className="text-base font-bold text-foreground">
               {format(checkOut, "MMM d, yyyy")}
             </p>
-            <p className="text-xs text-muted-foreground">
-              {hotel.checkOutTime || "until 12:00 PM"}
-            </p>
+            <div className="flex items-center gap-1 mt-1">
+              <Clock className="h-3 w-3 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">
+                {hotel.checkOutTime || "until 12:00 PM"}
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Amenities & Policies */}
-        <div className="space-y-2 mb-4">
-          {hasBreakfast && (
-            <div className="flex items-center gap-2 text-accent">
-              <Utensils className="h-4 w-4" />
-              <span className="text-sm">Breakfast included</span>
-            </div>
-          )}
-          {hasFreeCancellation && (
-            <div className="flex items-center gap-2 text-accent">
-              <RotateCcw className="h-4 w-4" />
-              <span className="text-sm">Free cancellation available</span>
-            </div>
-          )}
-          <div className="flex items-center gap-2 text-primary">
-            <AlertCircle className="h-4 w-4" />
-            <span className="text-sm">Important information</span>
-          </div>
-        </div>
-
-        {/* Room Details */}
-        <div className="mb-4 pb-4 border-b border-border">
-          {rooms.map((selectedRoom) => (
-            <div key={selectedRoom.roomId} className="mb-2 last:mb-0">
-              <p className="text-sm font-medium text-foreground">
-                {selectedRoom.roomName} x{selectedRoom.quantity}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {hotel.currency} {selectedRoom.pricePerRoom.toFixed(2)} per room
-              </p>
-            </div>
-          ))}
-          <div className="flex items-center gap-2 mt-2">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">
-              {totalGuests} guest{totalGuests > 1 ? "s" : ""} • {nights} night
-              {nights > 1 ? "s" : ""}
+        {/* Nights & Occupancy */}
+        <div className="pb-4 border-b border-border">
+          <p className="text-sm font-medium text-foreground mb-2">
+            {nights} night{nights > 1 ? "s" : ""}
+          </p>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Users className="h-4 w-4" />
+            <span className="text-sm">
+              {adultCount} adult{adultCount !== 1 ? "s" : ""}
+              {childCount > 0 && `, ${childCount} child${childCount !== 1 ? "ren" : ""}`}
             </span>
           </div>
         </div>
 
-        {/* Payment Total */}
-        <div className="border-t border-border pt-4">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Currency</p>
-              <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
-                <SelectTrigger className="w-24">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="USD">USD</SelectItem>
-                  <SelectItem value="EUR">EUR</SelectItem>
-                  <SelectItem value="GBP">GBP</SelectItem>
-                  <SelectItem value="AED">AED</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground">Payment total</p>
-              <p className="text-2xl font-bold text-foreground">
-                {selectedCurrency} {totalPrice.toFixed(2)}
+        {/* Room Details */}
+        <div className="pb-4 border-b border-border">
+          <p className="text-xs font-medium text-muted-foreground mb-2">ROOM TYPE</p>
+          {rooms.map((selectedRoom) => (
+            <div key={selectedRoom.roomId} className="mb-2 last:mb-0">
+              <p className="text-sm font-medium text-foreground">
+                {selectedRoom.roomName} × {selectedRoom.quantity}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {hotel.currency} {selectedRoom.pricePerRoom.toFixed(2)} per night
               </p>
             </div>
+          ))}
+        </div>
+
+        {/* Cancellation Policy */}
+        <div className="pb-4 border-b border-border">
+          <p className="text-xs font-medium text-muted-foreground mb-2">CANCELLATION POLICY</p>
+          {hasFreeCancellation ? (
+            <div className="space-y-2">
+              <div className="flex items-start gap-2">
+                <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-green-700">
+                    Free cancellation available
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Until {format(cancellationDate, "MMM d, yyyy")} at 18:00 (UTC)
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-muted-foreground">
+                  After that, a cancellation fee applies
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-amber-700">
+                Non-refundable rate
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Price Summary */}
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">
+              {rooms.reduce((sum, r) => sum + r.quantity, 0)} room × {nights} night{nights > 1 ? "s" : ""}
+            </span>
+            <span className="text-sm font-medium text-foreground">
+              {hotel.currency} {(totalPrice * nights).toFixed(2)}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center pt-3 border-t border-border">
+            <span className="font-semibold text-foreground">Total Price</span>
+            <span className="text-xl font-bold text-primary">
+              {hotel.currency} {(totalPrice * nights).toFixed(2)}
+            </span>
           </div>
 
           {/* Commission Ribbon */}
-          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 mb-4 -mx-4">
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 -mx-4">
             <div className="flex justify-between items-center px-4">
               <span className="text-sm text-primary font-medium">
                 Your Commission (10%)
               </span>
-              <span className="text-lg font-bold text-primary">
-                {selectedCurrency} {commissionAmount}
+              <span className="text-base font-bold text-primary">
+                {hotel.currency} {commissionAmount}
               </span>
             </div>
           </div>
-
         </div>
       </CardContent>
     </Card>
