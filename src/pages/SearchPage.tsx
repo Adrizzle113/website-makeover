@@ -1,6 +1,5 @@
 import {
   HeroSection,
-  SearchResultsSection,
   AboutSection,
   DestinationsSection,
   TourPackagesSection,
@@ -21,7 +20,6 @@ const SearchPage = () => {
       <Header />
       <main className="flex-1">
         <HeroSection />
-        <SearchResultsSection />
         <AboutSection />
         <DestinationsSection />
         <TourPackagesSection />
