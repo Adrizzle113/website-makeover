@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "@/config/api";
-import type { SearchParams, Hotel, HotelDetails, Destination, SearchFilters } from "@/types/booking";
+import type { SearchParams, Hotel, HotelDetails, Destination, SearchFilters, RoomRate } from "@/types/booking";
 
 const API_ENDPOINTS = {
   SEARCH_HOTELS: "/api/ratehawk/search",
@@ -280,6 +280,87 @@ class RateHawkApiService {
     // Hotel data should be retrieved from localStorage (set when user clicks hotel card)
     console.warn("getHotelDetails: Backend endpoint not available. Use localStorage instead.");
     return null;
+  }
+
+  async getRoomRates(hotelId: string, searchParams: SearchParams): Promise<RoomRate[]> {
+    // Try to get room data from a dedicated endpoint or extract from search
+    // For now, we'll make a targeted search for this specific hotel
+    const url = getApiUrl("SEARCH_HOTELS");
+    
+    try {
+      const userId = this.getCurrentUserId();
+      
+      // Format guests for the API
+      const guestsPerRoom = Math.max(1, Math.floor(searchParams.guests / searchParams.rooms));
+      const guests = Array.from({ length: searchParams.rooms }, (_, index) => {
+        const baseAdults = guestsPerRoom;
+        const extraAdult = index < (searchParams.guests % searchParams.rooms) ? 1 : 0;
+        return {
+          adults: baseAdults + extraAdult,
+          children: searchParams.childrenAges || [],
+        };
+      });
+
+      const requestBody = {
+        userId,
+        destination: hotelId, // Search specifically for this hotel
+        checkin: searchParams.checkIn.toISOString().split("T")[0],
+        checkout: searchParams.checkOut.toISOString().split("T")[0],
+        guests,
+        page: 1,
+        limit: 1,
+      };
+
+      const rawResponse = await this.fetchWithError<{
+        success: boolean;
+        hotels: Array<{
+          id: string;
+          ratehawk_data?: {
+            rates?: Array<{
+              id?: string;
+              roomName?: string;
+              roomDescription?: string;
+              price?: number;
+              originalPrice?: number;
+              currency?: string;
+              maxOccupancy?: number;
+              squareFootage?: number;
+              bedType?: string;
+              amenities?: string[];
+              cancellationPolicy?: string;
+              mealPlan?: string;
+              available?: number;
+            }>;
+          };
+        }>;
+      }>(url, {
+        method: "POST",
+        body: JSON.stringify(requestBody),
+      });
+
+      // Find the matching hotel and extract room rates
+      const hotel = rawResponse.hotels?.find(h => h.id === hotelId);
+      const rates = hotel?.ratehawk_data?.rates || [];
+
+      return rates.map((rate, idx) => ({
+        id: rate.id || `room-${idx}`,
+        name: rate.roomName || `Room ${idx + 1}`,
+        description: rate.roomDescription,
+        price: rate.price || 0,
+        originalPrice: rate.originalPrice,
+        currency: rate.currency || "USD",
+        maxOccupancy: rate.maxOccupancy || 2,
+        squareFootage: rate.squareFootage,
+        bedType: rate.bedType,
+        amenities: rate.amenities,
+        cancellationPolicy: rate.cancellationPolicy,
+        mealPlan: rate.mealPlan,
+        available: rate.available || 5,
+      }));
+    } catch (error) {
+      console.error("Error fetching room rates:", error);
+      return [];
+    }
   }
 
   async getDestinations(query: string): Promise<Destination[]> {

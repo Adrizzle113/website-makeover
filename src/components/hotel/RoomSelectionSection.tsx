@@ -9,10 +9,11 @@ import { format, addDays } from "date-fns";
 interface RoomSelectionSectionProps {
   rooms: RoomRate[];
   currency: string;
+  isLoading?: boolean;
 }
 
-export function RoomSelectionSection({ rooms, currency }: RoomSelectionSectionProps) {
-  const { selectedRooms, addRoom, updateRoomQuantity, removeRoom } = useBookingStore();
+export function RoomSelectionSection({ rooms, currency, isLoading = false }: RoomSelectionSectionProps) {
+  const { selectedRooms, addRoom, updateRoomQuantity } = useBookingStore();
 
   const getSelectedQuantity = (roomId: string) => {
     const selected = selectedRooms.find((r) => r.roomId === roomId);
@@ -40,6 +41,33 @@ export function RoomSelectionSection({ rooms, currency }: RoomSelectionSectionPr
       updateRoomQuantity(room.id, currentQty - 1);
     }
   };
+
+  if (isLoading) {
+    return (
+      <section className="py-8 bg-app-white-smoke">
+        <div className="container">
+          <h2 className="font-heading text-heading-standard text-foreground mb-6">
+            Select Your Rooms
+          </h2>
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="p-4 md:p-6 animate-pulse">
+                <div className="flex flex-col lg:flex-row gap-4 lg:items-center">
+                  <div className="flex-1 space-y-3">
+                    <div className="h-6 bg-muted rounded w-1/3" />
+                    <div className="h-4 bg-muted rounded w-1/2" />
+                    <div className="h-4 bg-muted rounded w-2/3" />
+                  </div>
+                  <div className="h-10 w-32 bg-muted rounded" />
+                </div>
+              </Card>
+            ))}
+          </div>
+          <p className="text-sm text-muted-foreground mt-4">Loading room availability...</p>
+        </div>
+      </section>
+    );
+  }
 
   if (!rooms || rooms.length === 0) {
     return (

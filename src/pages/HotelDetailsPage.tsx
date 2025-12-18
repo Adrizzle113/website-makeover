@@ -13,12 +13,14 @@ import {
 } from "@/components/hotel";
 import { Footer } from "@/components/layout/Footer";
 import { useBookingStore } from "@/stores/bookingStore";
-import type { HotelDetails } from "@/types/booking";
+import { ratehawkApi } from "@/services/ratehawkApi";
+import type { HotelDetails, RoomRate } from "@/types/booking";
 
 const HotelDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
-  const { selectedHotel, setSelectedHotel, clearRoomSelection } = useBookingStore();
+  const { selectedHotel, setSelectedHotel, clearRoomSelection, searchParams } = useBookingStore();
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingRooms, setIsLoadingRooms] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,6 +60,30 @@ const HotelDetailsPage = () => {
 
     loadHotelDetails();
   }, [id, selectedHotel, setSelectedHotel, clearRoomSelection]);
+
+  // Fetch room rates when hotel is loaded and we have search params
+  useEffect(() => {
+    const fetchRoomRates = async () => {
+      if (!selectedHotel || !searchParams || !id) return;
+      
+      // Only fetch if rooms are empty (not already loaded from API)
+      if (selectedHotel.rooms && selectedHotel.rooms.length > 0) return;
+
+      setIsLoadingRooms(true);
+      try {
+        const rates = await ratehawkApi.getRoomRates(id, searchParams);
+        if (rates.length > 0) {
+          setSelectedHotel({ ...selectedHotel, rooms: rates });
+        }
+      } catch (err) {
+        console.error("Failed to fetch room rates:", err);
+      } finally {
+        setIsLoadingRooms(false);
+      }
+    };
+
+    fetchRoomRates();
+  }, [selectedHotel?.id, searchParams, id, setSelectedHotel]);
 
   if (isLoading) {
     return (
@@ -108,6 +134,7 @@ const HotelDetailsPage = () => {
         <RoomSelectionSection
           rooms={selectedHotel.rooms || []}
           currency={selectedHotel.currency}
+          isLoading={isLoadingRooms}
         />
         <HotelPoliciesSection hotel={selectedHotel} />
         <MapSection
