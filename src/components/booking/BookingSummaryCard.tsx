@@ -9,6 +9,8 @@ interface BookingSummaryCardProps {
   searchParams: SearchParams | null;
   totalPrice: number;
   isLoading?: boolean;
+  clientPrice?: number;
+  commission?: number;
 }
 
 export function BookingSummaryCard({
@@ -17,6 +19,8 @@ export function BookingSummaryCard({
   searchParams,
   totalPrice,
   isLoading,
+  clientPrice,
+  commission,
 }: BookingSummaryCardProps) {
   const checkIn = searchParams?.checkIn ? new Date(searchParams.checkIn) : new Date();
   const checkOut = searchParams?.checkOut ? new Date(searchParams.checkOut) : new Date();
@@ -31,7 +35,10 @@ export function BookingSummaryCard({
   cancellationDate.setDate(cancellationDate.getDate() - 3);
   const hasFreeCancellation = cancellationDate > new Date();
 
-  const commissionAmount = (totalPrice * nights * 0.1).toFixed(2);
+  // Use provided commission or default to 10%
+  const netPrice = totalPrice * nights;
+  const displayCommission = commission ?? netPrice * 0.1;
+  const displayClientPrice = clientPrice ?? netPrice + displayCommission;
 
   return (
     <Card className="border-0 shadow-lg sticky top-8">
@@ -158,30 +165,30 @@ export function BookingSummaryCard({
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">
-              {rooms.reduce((sum, r) => sum + r.quantity, 0)} room × {nights} night{nights > 1 ? "s" : ""}
+              ETG Net Price ({nights} night{nights > 1 ? "s" : ""})
             </span>
             <span className="text-sm font-medium text-foreground">
-              {hotel.currency} {(totalPrice * nights).toFixed(2)}
-            </span>
-          </div>
-
-          <div className="flex justify-between items-center pt-3 border-t border-border">
-            <span className="font-semibold text-foreground">Total Price</span>
-            <span className="text-xl font-bold text-primary">
-              {hotel.currency} {(totalPrice * nights).toFixed(2)}
+              {hotel.currency} {netPrice.toFixed(2)}
             </span>
           </div>
 
           {/* Commission Ribbon */}
-          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 -mx-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 -mx-4">
             <div className="flex justify-between items-center px-4">
-              <span className="text-sm text-primary font-medium">
-                Your Commission (10%)
+              <span className="text-sm text-green-700 font-medium">
+                Your Commission
               </span>
-              <span className="text-base font-bold text-primary">
-                {hotel.currency} {commissionAmount}
+              <span className="text-base font-bold text-green-600">
+                + {hotel.currency} {displayCommission.toFixed(2)}
               </span>
             </div>
+          </div>
+
+          <div className="flex justify-between items-center pt-3 border-t border-border">
+            <span className="font-semibold text-foreground">Client Price</span>
+            <span className="text-xl font-bold text-primary">
+              {hotel.currency} {displayClientPrice.toFixed(2)}
+            </span>
           </div>
         </div>
       </CardContent>

@@ -10,6 +10,7 @@ import { BookingDetailsSection } from "@/components/booking/BookingDetailsSectio
 import { BookingSummaryCard } from "@/components/booking/BookingSummaryCard";
 import { ContinueToPaymentSection } from "@/components/booking/ContinueToPaymentSection";
 import { PriceChangeModal } from "@/components/booking/PriceChangeModal";
+import { AgentPricingSection, type PricingSnapshot } from "@/components/booking/AgentPricingSection";
 import { toast } from "@/hooks/use-toast";
 import { differenceInDays } from "date-fns";
 
@@ -30,6 +31,10 @@ const BookingPage = () => {
   const [showPriceChange, setShowPriceChange] = useState(false);
   const [originalPrice, setOriginalPrice] = useState(0);
   const [newPrice, setNewPrice] = useState(0);
+
+  // Agent pricing state
+  const [isPricingLocked, setIsPricingLocked] = useState(false);
+  const [pricingSnapshot, setPricingSnapshot] = useState<PricingSnapshot | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -81,6 +86,9 @@ const BookingPage = () => {
     : 1;
   const totalWithNights = totalPrice * nights;
 
+  // Use client price if available, otherwise net price
+  const displayPrice = pricingSnapshot?.clientPrice || totalWithNights;
+
   const validateForm = (): boolean => {
     // Check lead guest
     const leadGuest = guests.find(g => g.isLead);
@@ -125,43 +133,43 @@ const BookingPage = () => {
     return true;
   };
 
+  const runPrebook = async (): Promise<{ success: boolean; priceChanged: boolean; newPrice?: number }> => {
+    // Simulate Prebook API call
+    // In real implementation, call ratehawkApi.prebook()
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Simulate price change scenario (20% chance for demo)
+    const hasPriceChanged = Math.random() < 0.2;
+    
+    if (hasPriceChanged) {
+      const priceIncrease = totalWithNights * 0.05; // 5% increase
+      return { success: true, priceChanged: true, newPrice: totalWithNights + priceIncrease };
+    }
+
+    return { success: true, priceChanged: false };
+  };
+
   const handleContinueToPayment = async () => {
     if (!validateForm()) return;
 
     setIsPrebooking(true);
 
     try {
-      // Simulate Prebook API call
-      // In real implementation, call ratehawkApi.prebook()
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Simulate price change scenario (20% chance for demo)
-      const hasPriceChanged = Math.random() < 0.2;
+      const result = await runPrebook();
       
-      if (hasPriceChanged) {
-        const priceIncrease = totalWithNights * 0.05; // 5% increase
+      if (result.priceChanged && result.newPrice) {
         setOriginalPrice(totalWithNights);
-        setNewPrice(totalWithNights + priceIncrease);
+        setNewPrice(result.newPrice);
         setShowPriceChange(true);
         setIsPrebooking(false);
         return;
       }
 
-      // Success - navigate to payment page
-      const bookingId = `BK-${Date.now()}`;
-      
-      // Store booking data (in real app, this would be saved to backend)
-      sessionStorage.setItem("pending_booking", JSON.stringify({
-        bookingId,
-        hotel: selectedHotel,
-        rooms: selectedRooms,
-        guests,
-        bookingDetails,
-        totalPrice: totalWithNights,
-        searchParams,
-      }));
+      // Lock pricing after successful prebook
+      setIsPricingLocked(true);
 
-      navigate(`/payment?booking_id=${bookingId}`);
+      // Success - navigate to payment page
+      navigateToPayment(displayPrice);
       
     } catch (error) {
       toast({
@@ -174,23 +182,44 @@ const BookingPage = () => {
     }
   };
 
-  const handleAcceptPriceChange = () => {
-    setShowPriceChange(false);
-    
+  const navigateToPayment = (finalPrice: number) => {
     const bookingId = `BK-${Date.now()}`;
     
+    // Store booking data with locked pricing snapshot
     sessionStorage.setItem("pending_booking", JSON.stringify({
       bookingId,
       hotel: selectedHotel,
       rooms: selectedRooms,
       guests,
       bookingDetails,
-      totalPrice: newPrice,
+      totalPrice: finalPrice,
       searchParams,
-      priceUpdated: true,
+      pricingSnapshot: pricingSnapshot ? {
+        ...pricingSnapshot,
+        clientPrice: finalPrice,
+      } : null,
     }));
 
     navigate(`/payment?booking_id=${bookingId}`);
+  };
+
+  const handleAcceptPriceChange = () => {
+    setShowPriceChange(false);
+    
+    // Lock pricing after accepting new price
+    setIsPricingLocked(true);
+    
+    // Update pricing snapshot with new price
+    if (pricingSnapshot) {
+      const priceDiff = newPrice - totalWithNights;
+      setPricingSnapshot({
+        ...pricingSnapshot,
+        netPrice: newPrice,
+        clientPrice: newPrice + pricingSnapshot.commission,
+      });
+    }
+
+    navigateToPayment(newPrice + (pricingSnapshot?.commission || 0));
   };
 
   const handleDeclinePriceChange = () => {
@@ -198,6 +227,19 @@ const BookingPage = () => {
     toast({
       title: "Booking Cancelled",
       description: "The booking was cancelled due to the price change.",
+    });
+  };
+
+  const handlePricingChange = (pricing: PricingSnapshot) => {
+    setPricingSnapshot(pricing);
+  };
+
+  const handleUnlockRequest = async () => {
+    // Unlock pricing and re-run prebook
+    setIsPricingLocked(false);
+    toast({
+      title: "Pricing Unlocked",
+      description: "You can now edit the commission. Click 'Continue to Payment' to re-check availability.",
     });
   };
 
@@ -245,8 +287,15 @@ const BookingPage = () => {
                 <BookingDetailsSection 
                   onDetailsChange={setBookingDetails}
                 />
+                <AgentPricingSection
+                  netPrice={totalWithNights}
+                  currency={selectedHotel.currency}
+                  isLocked={isPricingLocked}
+                  onPricingChange={handlePricingChange}
+                  onUnlockRequest={handleUnlockRequest}
+                />
                 <ContinueToPaymentSection
-                  totalPrice={totalWithNights}
+                  totalPrice={displayPrice}
                   currency={selectedHotel.currency}
                   isLoading={isPrebooking}
                   onContinue={handleContinueToPayment}
@@ -261,6 +310,8 @@ const BookingPage = () => {
                   searchParams={searchParams}
                   totalPrice={totalPrice}
                   isLoading={isPrebooking}
+                  clientPrice={pricingSnapshot?.clientPrice}
+                  commission={pricingSnapshot?.commission}
                 />
               </div>
             </div>
