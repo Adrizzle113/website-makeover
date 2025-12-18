@@ -23,6 +23,13 @@ interface SessionCheckResponse {
   };
 }
 
+interface SessionsApiResponse {
+  sessions?: Array<{
+    userId: string;
+    hasSession: boolean;
+  }>;
+}
+
 class RateHawkApiService {
   private getCurrentUserId(): string {
     const userId = localStorage.getItem('userId');
@@ -54,11 +61,18 @@ class RateHawkApiService {
   }
 
   async checkSession(userId: string): Promise<SessionCheckResponse> {
-    const url = `${API_BASE_URL}/api/sessions/${userId}`;
+    // Call GET /api/sessions to get all sessions, then filter for this user
+    const url = `${API_BASE_URL}/api/sessions`;
     
     try {
-      const response = await this.fetchWithError<SessionCheckResponse>(url);
-      return response;
+      const response = await this.fetchWithError<SessionsApiResponse>(url);
+      
+      // Find the session for this specific user
+      const userSession = response.sessions?.find(s => s.userId === userId);
+      
+      return { 
+        isLoggedIn: userSession?.hasSession || false 
+      };
     } catch (error) {
       console.error("Session check failed:", error);
       return { isLoggedIn: false };
