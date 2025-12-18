@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { Star, MapPin, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
@@ -12,7 +13,8 @@ interface HotelCardProps {
   onFocus?: (hotelId: string) => void;
 }
 
-export function HotelCard({ hotel, compact = false, onHover, onFocus }: HotelCardProps) {
+export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(
+  function HotelCard({ hotel, compact = false, onHover, onFocus }, ref) {
   const navigate = useNavigate();
   const { setSelectedHotel } = useBookingStore();
 
@@ -164,4 +166,4 @@ export function HotelCard({ hotel, compact = false, onHover, onFocus }: HotelCar
       </div>
     </Card>
   );
-}
+});
