@@ -14,9 +14,13 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const displayImages: HotelImage[] =
-    hotel.images?.length > 0 ? hotel.images : [{ url: hotel.mainImage || "/placeholder.svg", alt: hotel.name }];
+    hotel.images?.length > 0
+      ? hotel.images
+      : hotel.mainImage
+        ? [{ url: hotel.mainImage, alt: hotel.name }]
+        : [{ url: "/placeholder.svg", alt: hotel.name }];
 
-  const mainImage = hotel.mainImage || displayImages[0]?.url || "/placeholder.svg";
+  const mainImage = displayImages[0]?.url || "/placeholder.svg";
   const sideImage1 = displayImages[1]?.url || displayImages[0]?.url || "/placeholder.svg";
   const sideImage2 = displayImages[2]?.url || displayImages[0]?.url || "/placeholder.svg";
 
@@ -128,7 +132,7 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
             {/* Main Large Image */}
             <button
               onClick={() => openLightbox(0)}
-              className="md:col-span-2 h-full relative overflow-hidden rounded-2xl group"
+              className="md:col-span-2 h-full w-full relative overflow-hidden rounded-2xl group"
             >
               <img
                 src={mainImage}
@@ -144,10 +148,10 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
             </button>
 
             {/* Stacked Side Images */}
-            <div className="hidden md:flex flex-col gap-2 md:gap-3 h-full">
+            <div className="hidden md:flex flex-col gap-2 md:gap-3 h-full w-full">
               <button
                 onClick={() => openLightbox(1)}
-                className="flex-1 min-h-0 relative overflow-hidden rounded-2xl group"
+                className="flex-1 min-h-0 w-full relative overflow-hidden rounded-2xl group"
               >
                 <img
                   src={sideImage1}
@@ -166,7 +170,7 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
               </button>
               <button
                 onClick={() => openLightbox(2)}
-                className="flex-1 min-h-0 relative overflow-hidden rounded-2xl group"
+                className="flex-1 min-h-0 w-full relative overflow-hidden rounded-2xl group"
               >
                 <img
                   src={sideImage2}
