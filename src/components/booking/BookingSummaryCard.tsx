@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { format, differenceInDays } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -26,8 +24,6 @@ export function BookingSummaryCard({
   searchParams,
   totalPrice,
 }: BookingSummaryCardProps) {
-  const [promoCode, setPromoCode] = useState("");
-  const [payWithPoints, setPayWithPoints] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState(hotel.currency || "USD");
 
   const checkIn = searchParams?.checkIn ? new Date(searchParams.checkIn) : new Date();
@@ -139,41 +135,6 @@ export function BookingSummaryCard({
           </div>
         </div>
 
-        {/* Promo Code */}
-        <div className="mb-4">
-          <Input
-            value={promoCode}
-            onChange={(e) => setPromoCode(e.target.value)}
-            placeholder="Enter promo code"
-            className="border-dashed border-primary"
-          />
-        </div>
-
-        {/* Pay with Points */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="pay-points"
-              checked={payWithPoints}
-              onCheckedChange={(checked) => setPayWithPoints(checked as boolean)}
-            />
-            <label
-              htmlFor="pay-points"
-              className="text-sm text-foreground cursor-pointer"
-            >
-              Pay with points
-            </label>
-          </div>
-          <Select defaultValue="choose">
-            <SelectTrigger className="w-24 h-8">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="choose">Choose</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
         {/* Payment Total */}
         <div className="border-t border-border pt-4">
           <div className="flex justify-between items-center mb-4">
@@ -211,13 +172,6 @@ export function BookingSummaryCard({
             </div>
           </div>
 
-          {/* Loyalty Points */}
-          <div className="flex items-center gap-2 text-primary">
-            <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
-              <span className="text-primary-foreground text-xs font-bold">P</span>
-            </div>
-            <span className="text-sm">You will get 2 points</span>
-          </div>
         </div>
       </CardContent>
     </Card>
