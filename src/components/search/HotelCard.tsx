@@ -13,12 +13,23 @@ interface HotelCardProps {
   onFocus?: (hotelId: string) => void;
 }
 
-// Convert Hotel to HotelDetails with default values for extended fields
+// Convert Hotel to HotelDetails, preserving all existing data
 const convertToHotelDetails = (hotel: Hotel): HotelDetails => ({
   ...hotel,
+  // Preserve existing images, or fallback to mainImage
+  images: hotel.images && hotel.images.length > 0 
+    ? hotel.images 
+    : (hotel.mainImage ? [{ url: hotel.mainImage, alt: hotel.name }] : []),
+  // Preserve description or generate default
   description: hotel.description || `Experience exceptional hospitality at ${hotel.name}.`,
-  fullDescription: hotel.description || `${hotel.name} offers comfortable accommodations in ${hotel.city}, ${hotel.country}. Enjoy modern amenities and excellent service during your stay.`,
-  images: hotel.mainImage ? [{ url: hotel.mainImage, alt: hotel.name }] : [],
+  fullDescription: hotel.description 
+    ? `${hotel.description} Located in ${hotel.city}, ${hotel.country}.`
+    : `${hotel.name} offers comfortable accommodations in ${hotel.city}, ${hotel.country}. Enjoy modern amenities and excellent service during your stay.`,
+  // Preserve existing rooms from API
+  rooms: hotel.rooms || [],
+  // Preserve review count
+  reviewCount: hotel.reviewCount || 0,
+  // Default values for extended fields only if not present
   facilities: [],
   checkInTime: "3:00 PM",
   checkOutTime: "12:00 PM",
@@ -27,8 +38,6 @@ const convertToHotelDetails = (hotel: Hotel): HotelDetails => ({
     "Check-out by 12:00 PM",
     "Credit card required for guarantee",
   ],
-  rooms: [],
-  reviewCount: 0,
 });
 
 export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(
