@@ -118,7 +118,7 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(
     <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 bg-card border-border/50 group rounded-xl md:rounded-2xl">
       <div className="flex flex-col sm:flex-row">
         {/* Image */}
-        <div className="relative w-full sm:w-48 md:w-80 h-48 sm:h-auto flex-shrink-0 overflow-hidden">
+        <div className="relative w-full sm:w-48 md:w-80 h-48 sm:h-48 md:h-[340px] flex-shrink-0 overflow-hidden">
           <img
             src={hotel.mainImage || "/placeholder.svg"}
             alt={hotel.name}
