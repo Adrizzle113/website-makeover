@@ -4,7 +4,7 @@ import type { SearchParams, Hotel, HotelDetails, Destination } from "@/types/boo
 const API_ENDPOINTS = {
   SEARCH_HOTELS: "/api/ratehawk/search",
   GET_HOTEL_DETAILS: "/api/ratehawk/hotel",
-  GET_DESTINATIONS: "/api/ratehawk/destinations",
+  GET_DESTINATIONS: "/api/destination", // ✅ Fixed: Changed from /api/ratehawk/destinations
   INIT_SESSION: "/api/ratehawk/session",
 } as const;
 
@@ -45,7 +45,7 @@ class RateHawkApiService {
 
   async searchHotels(params: SearchParams): Promise<SearchResponse> {
     const url = getApiUrl("SEARCH_HOTELS");
-    
+
     return this.fetchWithError<SearchResponse>(url, {
       method: "POST",
       body: JSON.stringify({
@@ -63,7 +63,7 @@ class RateHawkApiService {
   async getHotelDetails(hotelId: string, searchParams?: SearchParams): Promise<HotelDetails> {
     const url = `${getApiUrl("GET_HOTEL_DETAILS")}/${hotelId}`;
     const queryParams = new URLSearchParams();
-    
+
     if (searchParams) {
       queryParams.append("checkIn", searchParams.checkIn.toISOString().split("T")[0]);
       queryParams.append("checkOut", searchParams.checkOut.toISOString().split("T")[0]);
@@ -75,10 +75,23 @@ class RateHawkApiService {
     return this.fetchWithError<HotelDetails>(fullUrl);
   }
 
+  // ✅ Fixed: Changed from GET to POST and updated to use correct endpoint
   async getDestinations(query: string): Promise<Destination[]> {
-    const url = `${getApiUrl("GET_DESTINATIONS")}?q=${encodeURIComponent(query)}`;
-    const response = await this.fetchWithError<DestinationResponse>(url);
-    return response.destinations;
+    const url = `${API_BASE_URL}/api/destination`;
+
+    try {
+      const response = await this.fetchWithError<any>(url, {
+        method: "POST",
+        body: JSON.stringify({ query }),
+      });
+
+      // Handle different response formats
+      return response.destinations || response.data || response || [];
+    } catch (error) {
+      console.error("Error fetching destinations:", error);
+      // Return empty array on error so the UI doesn't break
+      return [];
+    }
   }
 
   async initSession(): Promise<{ sessionId: string }> {
