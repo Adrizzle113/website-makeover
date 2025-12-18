@@ -180,13 +180,42 @@ class RateHawkApiService {
     const url = `${API_BASE_URL}/api/destination`;
 
     try {
-      const response = await this.fetchWithError<any>(url, {
+      const response = await this.fetchWithError<{
+        hotels?: Array<{
+          otahotel_id: string;
+          hotel_name: string;
+          region_name: string;
+          country_name: string;
+        }>;
+        regions?: Array<{
+          id: number;
+          name: string;
+          country: string;
+          type: string;
+        }>;
+      }>(url, {
         method: "POST",
         body: JSON.stringify({ query }),
       });
 
-      // Handle different response formats
-      return response.destinations || response.data || response || [];
+      // Transform regions to Destination format (prioritize regions/cities)
+      const regionDestinations: Destination[] = (response.regions || []).map((region) => ({
+        id: String(region.id),
+        name: region.name,
+        country: region.country,
+        type: region.type.toLowerCase().includes("city") ? "city" : "region",
+      }));
+
+      // Optionally include hotels as suggestions
+      const hotelDestinations: Destination[] = (response.hotels || []).slice(0, 3).map((hotel) => ({
+        id: hotel.otahotel_id,
+        name: hotel.hotel_name,
+        country: `${hotel.region_name}, ${hotel.country_name}`,
+        type: "hotel" as const,
+      }));
+
+      // Return regions first, then a few hotel suggestions
+      return [...regionDestinations, ...hotelDestinations];
     } catch (error) {
       console.error("Error fetching destinations:", error);
       return [];
