@@ -61,6 +61,7 @@ const processRooms = (hotel: HotelDetails): ProcessedRoom[] => {
   }
 
   const processedRooms: ProcessedRoom[] = [];
+  let skippedRoomGroups = 0;
 
   roomGroups.forEach((roomGroup: RateHawkRoomGroup, index: number) => {
     try {
@@ -74,6 +75,12 @@ const processRooms = (hotel: HotelDetails): ProcessedRoom[] => {
 
       // Find matching rates for this room group
       const matchingRates = rates.filter((rate: RateHawkRate) => rate.rg_hash === rgHash);
+
+      // If backend didn't return a priced rate for this room group, skip it
+      if (matchingRates.length === 0) {
+        skippedRoomGroups++;
+        return;
+      }
 
       // Get the best rate (lowest price)
       let bestRate: RateHawkRate | null = null;
@@ -98,10 +105,10 @@ const processRooms = (hotel: HotelDetails): ProcessedRoom[] => {
         }
       });
 
-      // If no matching rates, use hotel's default price
-      if (!bestRate) {
-        lowestPrice = hotel.priceFrom || 100;
-        currency = hotel.currency || "USD";
+      // If matching rates exist but none had a usable price, skip this room group
+      if (!bestRate || !Number.isFinite(lowestPrice)) {
+        skippedRoomGroups++;
+        return;
       }
 
       // Determine occupancy from room name
@@ -169,7 +176,7 @@ const processRooms = (hotel: HotelDetails): ProcessedRoom[] => {
     }
   });
 
-  console.log(`✅ Processed ${processedRooms.length} rooms from room_groups`);
+  console.log(`✅ Processed ${processedRooms.length} rooms from room_groups (skipped ${skippedRoomGroups} without rates)`);
 
   if (processedRooms.length === 0) {
     return processRoomsFromRates(hotel, rates);
