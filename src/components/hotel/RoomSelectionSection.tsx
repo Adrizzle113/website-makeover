@@ -101,15 +101,6 @@ const getOccupancyFromName = (name: string): string => {
   return "2 guests";
 };
 
-// Category-based price multipliers for fallback pricing
-const categoryPriceMultiplier: Record<RoomCategory, number> = {
-  standard: 1.0,
-  deluxe: 1.15,
-  apartment: 1.20,
-  family: 1.25,
-  suite: 1.40,
-  premium: 1.75,
-};
 
 // Extract rates from multiple possible locations in ratehawk_data
 const extractAllRates = (hotel: HotelDetails): { rates: RateHawkRate[]; processedRates: ProcessedRate[] | null; source: string } => {
@@ -300,12 +291,6 @@ const processRooms = (hotel: HotelDetails): ProcessedRoom[] => {
         currency = matchedRate.currency || "USD";
       }
 
-      // Apply category-based price adjustment for fallback pricing
-      if (isFallbackPrice && ratePrice > 0) {
-        const multiplier = categoryPriceMultiplier[category];
-        ratePrice = ratePrice * multiplier;
-        console.log(`💰 Adjusted price for ${mainName}: base * ${multiplier} = ${Math.round(ratePrice)}`);
-      }
 
       if (ratePrice <= 0) {
         skippedRoomGroups++;
