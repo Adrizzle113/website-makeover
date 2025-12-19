@@ -23,7 +23,7 @@ const HotelDetailsPage = () => {
   const [isLoadingRooms, setIsLoadingRooms] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ NEW: Function to fetch detailed rates from backend with enhanced debugging
+  // ✅ FIXED: Function to fetch detailed rates from backend with correct data formatting
   const fetchDetailedRates = async (hotelId: string) => {
     console.log("🚀 fetchDetailedRates called for:", hotelId);
 
@@ -56,22 +56,51 @@ const HotelDetailsPage = () => {
         return;
       }
 
-      console.log("✅ All prerequisites met, making API call...");
+      console.log("✅ All prerequisites met, formatting data...");
       setIsLoadingRooms(true);
+
+      // ✅ FIX: Format dates correctly (YYYY-MM-DD)
+      const formatDate = (dateString: string): string => {
+        if (!dateString) return "";
+        // If it's already in YYYY-MM-DD format, return as-is
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+          return dateString;
+        }
+        // If it's an ISO timestamp, extract the date part
+        return dateString.split("T")[0];
+      };
+
+      // ✅ FIX: Format guests correctly (array of room objects)
+      const formatGuests = (guests: any) => {
+        // If already in correct format
+        if (Array.isArray(guests) && guests[0]?.adults !== undefined) {
+          return guests;
+        }
+        // If it's formattedGuests array
+        if (Array.isArray(guests)) {
+          return guests;
+        }
+        // If it's just a number, convert to array
+        if (typeof guests === "number") {
+          return [{ adults: guests }];
+        }
+        // Default fallback
+        return [{ adults: 2 }];
+      };
 
       const requestBody = {
         userId: userId,
         hotelId: hotelId,
         searchParams: {
-          checkin: searchContext.checkin,
-          checkout: searchContext.checkout,
-          guests: searchContext.formattedGuests || searchContext.guests,
+          checkin: formatDate(searchContext.checkin),
+          checkout: formatDate(searchContext.checkout),
+          guests: formatGuests(searchContext.formattedGuests || searchContext.guests),
         },
         residency: "en-us",
         currency: "USD",
       };
 
-      console.log("📤 Request body:", requestBody);
+      console.log("📤 Formatted request body:", requestBody);
 
       const response = await fetch(`${API_BASE_URL}/api/ratehawk/hotel/details`, {
         method: "POST",
@@ -84,12 +113,18 @@ const HotelDetailsPage = () => {
       console.log("📡 Response status:", response.status);
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ API error response:", errorText);
         throw new Error(`API returned ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
 
-      console.log("📥 Full API response:", data);
+      console.log("📥 Full API response:", {
+        success: data.success,
+        ratesCount: data.data?.rates?.length || 0,
+        roomGroupsCount: data.data?.room_groups?.length || 0,
+      });
 
       if (data.success && data.data) {
         console.log(`✅ SUCCESS! Fetched ${data.data.rates?.length || 0} detailed rates for ${hotelId}`);
@@ -107,7 +142,7 @@ const HotelDetailsPage = () => {
               ...prev.ratehawk_data,
               // Merge the new detailed data
               ...data.data,
-              // Preserve enhancedData structure
+              // Preserve enhancedData structure with ALL rates
               enhancedData: {
                 room_groups: data.data.room_groups || prev.ratehawk_data?.room_groups || [],
                 rates: data.data.rates || [],
