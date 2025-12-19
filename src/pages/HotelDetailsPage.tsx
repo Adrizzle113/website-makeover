@@ -14,6 +14,7 @@ import {
 import { Footer } from "@/components/layout/Footer";
 import { useBookingStore } from "@/stores/bookingStore";
 import type { HotelDetails } from "@/types/booking";
+import { API_BASE_URL } from "@/config/api";
 
 const HotelDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,8 +23,111 @@ const HotelDetailsPage = () => {
   const [isLoadingRooms, setIsLoadingRooms] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // ✅ NEW: Function to fetch detailed rates from backend
+  const fetchDetailedRates = async (hotelId: string) => {
+    try {
+      console.log(`🔍 Fetching detailed rates for hotel: ${hotelId}`);
+
+      const userId = localStorage.getItem("userId");
+      const storedHotelData = localStorage.getItem("selectedHotel");
+
+      if (!userId) {
+        console.log("⚠️ No userId found, skipping detailed rates fetch");
+        return;
+      }
+
+      // Get search params from stored hotel data
+      let searchContext = null;
+      if (storedHotelData) {
+        try {
+          const parsed = JSON.parse(storedHotelData);
+          searchContext = parsed.searchContext;
+        } catch (e) {
+          console.error("Error parsing stored hotel data:", e);
+        }
+      }
+
+      if (!searchContext) {
+        console.log("⚠️ No search context found, skipping detailed rates fetch");
+        return;
+      }
+
+      setIsLoadingRooms(true);
+
+      const requestBody = {
+        userId: userId,
+        hotelId: hotelId,
+        searchParams: {
+          checkin: searchContext.checkin,
+          checkout: searchContext.checkout,
+          guests: searchContext.formattedGuests || searchContext.guests,
+        },
+        residency: "en-us",
+        currency: "USD",
+      };
+
+      console.log("📤 Fetching hotel details with:", requestBody);
+
+      const response = await fetch(`${API_BASE_URL}/api/ratehawk/hotel/details`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      console.log("📥 Hotel details response:", {
+        success: data.success,
+        hasData: !!data.data,
+        ratesCount: data.data?.rates?.length || 0,
+      });
+
+      if (data.success && data.data) {
+        console.log(`✅ Fetched ${data.data.rates?.length || 0} detailed rates for ${hotelId}`);
+
+        // Update the selected hotel with detailed rates
+        setSelectedHotel((prev) => {
+          if (!prev) return prev;
+
+          return {
+            ...prev,
+            ratehawk_data: {
+              ...prev.ratehawk_data,
+              // Merge the new detailed data
+              ...data.data,
+              // Preserve enhancedData structure
+              enhancedData: {
+                room_groups: data.data.room_groups || prev.ratehawk_data?.room_groups || [],
+                rates: data.data.rates || [],
+                metadata: {
+                  total_room_groups: data.data.room_groups?.length || 0,
+                  total_rates: data.data.rates?.length || 0,
+                  source: "hotel_details_api",
+                  fetched_at: new Date().toISOString(),
+                },
+              },
+            },
+          };
+        });
+      } else {
+        console.log("⚠️ No detailed rates data in response");
+      }
+    } catch (error) {
+      console.error("💥 Failed to fetch detailed rates:", error);
+      // Don't throw - we can still show the hotel with basic info
+    } finally {
+      setIsLoadingRooms(false);
+    }
+  };
+
   useEffect(() => {
-    const loadHotelDetails = () => {
+    const loadHotelDetails = async () => {
       if (!id) return;
 
       setIsLoading(true);
@@ -32,7 +136,11 @@ const HotelDetailsPage = () => {
 
       // First check if hotel is already in store (from card click)
       if (selectedHotel && selectedHotel.id === id) {
+        console.log("✅ Hotel already in store, fetching detailed rates...");
         setIsLoading(false);
+
+        // Fetch detailed rates even if hotel is in store
+        await fetchDetailedRates(id);
         return;
       }
 
@@ -42,8 +150,12 @@ const HotelDetailsPage = () => {
         if (storedData) {
           const parsed = JSON.parse(storedData);
           if (parsed.hotel && parsed.hotel.id === id) {
+            console.log("✅ Loaded hotel from localStorage, fetching detailed rates...");
             setSelectedHotel(parsed.hotel);
             setIsLoading(false);
+
+            // Fetch detailed rates
+            await fetchDetailedRates(id);
             return;
           }
         }
@@ -58,34 +170,24 @@ const HotelDetailsPage = () => {
     };
 
     loadHotelDetails();
-  }, [id, selectedHotel, setSelectedHotel, clearRoomSelection]);
+  }, [id]); // Removed other dependencies to prevent infinite loops
 
-  // Use stored rate data from search results (hotel details endpoint has CORS issues)
+  // Debug: Log selectedHotel data when it changes
   useEffect(() => {
-    if (!selectedHotel || !searchParams) return;
-    
-    // Check if we already have rooms loaded
-    if (selectedHotel.rooms && selectedHotel.rooms.length > 0) {
-      console.log(`✅ Using ${selectedHotel.rooms.length} existing rooms from store`);
-      setIsLoadingRooms(false);
-      return;
+    if (selectedHotel) {
+      console.log(`🏠 HotelDetailsPage - Rendering with hotel:`, {
+        id: selectedHotel.id,
+        name: selectedHotel.name,
+        hasRatehawkData: !!selectedHotel.ratehawk_data,
+        ratehawkDataKeys: Object.keys(selectedHotel.ratehawk_data || {}),
+        roomGroups: selectedHotel.ratehawk_data?.room_groups?.length || 0,
+        enhancedRoomGroups: selectedHotel.ratehawk_data?.enhancedData?.room_groups?.length || 0,
+        rates: selectedHotel.ratehawk_data?.rates?.length || 0,
+        enhancedRates: selectedHotel.ratehawk_data?.enhancedData?.rates?.length || 0,
+        roomsFromStore: selectedHotel.rooms?.length || 0,
+      });
     }
-    
-    // Check for rates in ratehawk_data (from search results)
-    const storedRates = selectedHotel.ratehawk_data?.rates || 
-                        selectedHotel.ratehawk_data?.enhancedData?.rates || [];
-    
-    if (storedRates.length > 0) {
-      console.log(`✅ Found ${storedRates.length} stored rates from search results`);
-      // RoomSelectionSection will process rates directly from ratehawk_data
-      setIsLoadingRooms(false);
-      return;
-    }
-    
-    // No rates available
-    console.log('⚠️ No rates available in stored hotel data');
-    setIsLoadingRooms(false);
-  }, [selectedHotel?.id, searchParams]);
+  }, [selectedHotel]);
 
   if (isLoading) {
     return (
@@ -124,32 +226,13 @@ const HotelDetailsPage = () => {
     );
   }
 
-  // Debug: Log selectedHotel data before rendering
-  console.log(`🏠 HotelDetailsPage - Rendering with hotel:`, {
-    id: selectedHotel.id,
-    name: selectedHotel.name,
-    hasRatehawkData: !!selectedHotel.ratehawk_data,
-    ratehawkDataKeys: Object.keys(selectedHotel.ratehawk_data || {}),
-    roomGroups: selectedHotel.ratehawk_data?.room_groups?.length || 0,
-    enhancedRoomGroups: selectedHotel.ratehawk_data?.enhancedData?.room_groups?.length || 0,
-    rates: selectedHotel.ratehawk_data?.rates?.length || 0,
-    enhancedRates: selectedHotel.ratehawk_data?.enhancedData?.rates?.length || 0,
-    roomsFromStore: selectedHotel.rooms?.length || 0,
-  });
-
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <main className="flex-1">
         <HotelHeroSection hotel={selectedHotel} />
-        <AmenitiesSection
-          amenities={selectedHotel.amenities}
-          facilities={selectedHotel.facilities}
-        />
+        <AmenitiesSection amenities={selectedHotel.amenities} facilities={selectedHotel.facilities} />
         <HotelInfoSection hotel={selectedHotel} />
-        <RoomSelectionSection
-          hotel={selectedHotel}
-          isLoading={isLoadingRooms}
-        />
+        <RoomSelectionSection hotel={selectedHotel} isLoading={isLoadingRooms} />
         <HotelPoliciesSection hotel={selectedHotel} />
         <MapSection
           latitude={selectedHotel.latitude}
@@ -178,8 +261,7 @@ const getMockHotel = (id: string): HotelDetails => ({
   starRating: 5,
   reviewScore: 9.2,
   reviewCount: 1250,
-  mainImage:
-    "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=2000&q=80",
+  mainImage: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=2000&q=80",
   images: [
     {
       url: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80",
@@ -215,11 +297,7 @@ const getMockHotel = (id: string): HotelDetails => ({
   longitude: 55.2744,
   checkInTime: "3:00 PM",
   checkOutTime: "12:00 PM",
-  policies: [
-    "No smoking in rooms",
-    "Pets allowed on request",
-    "Credit card required for guarantee",
-  ],
+  policies: ["No smoking in rooms", "Pets allowed on request", "Credit card required for guarantee"],
   rooms: [
     {
       id: "room-1",
