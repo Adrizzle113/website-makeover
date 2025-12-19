@@ -13,7 +13,7 @@ interface HotelCardProps {
   onFocus?: (hotelId: string) => void;
 }
 
-// Convert Hotel to HotelDetails, preserving all existing data
+// Convert Hotel to HotelDetails, preserving all existing data including ratehawk_data
 const convertToHotelDetails = (hotel: Hotel): HotelDetails => ({
   ...hotel,
   // Preserve existing images, or fallback to mainImage
@@ -27,6 +27,8 @@ const convertToHotelDetails = (hotel: Hotel): HotelDetails => ({
     : `${hotel.name} offers comfortable accommodations in ${hotel.city}, ${hotel.country}. Enjoy modern amenities and excellent service during your stay.`,
   // Preserve existing rooms from API
   rooms: hotel.rooms || [],
+  // Preserve the raw ratehawk_data for room processing
+  ratehawk_data: hotel.ratehawk_data,
   // Preserve review count
   reviewCount: hotel.reviewCount || 0,
   // Default values for extended fields only if not present
