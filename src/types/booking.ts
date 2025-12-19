@@ -83,6 +83,16 @@ export interface RateHawkRate {
   };
 }
 
+export interface ProcessedRate {
+  id: string;
+  roomName: string;
+  price: number;
+  currency: string;
+  rg_hash?: string;
+  cancellationPolicy?: string;
+  mealPlan?: string;
+}
+
 export interface RateHawkData {
   room_groups?: RateHawkRoomGroup[];
   rates?: RateHawkRate[];
@@ -93,6 +103,13 @@ export interface RateHawkData {
   enhancedData?: {
     room_groups?: RateHawkRoomGroup[];
     rates?: RateHawkRate[];
+    processed_rates?: ProcessedRate[];
+    booking_options?: Array<{
+      rateKey: string;
+      bookingUrl: string;
+      rg_hash?: string;
+    }>;
+    metadata?: Record<string, unknown>;
   };
   [key: string]: unknown;
 }
