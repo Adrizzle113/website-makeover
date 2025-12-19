@@ -13,8 +13,7 @@ import {
 } from "@/components/hotel";
 import { Footer } from "@/components/layout/Footer";
 import { useBookingStore } from "@/stores/bookingStore";
-import { ratehawkApi } from "@/services/ratehawkApi";
-import type { HotelDetails, RoomRate } from "@/types/booking";
+import type { HotelDetails } from "@/types/booking";
 
 const HotelDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -61,29 +60,32 @@ const HotelDetailsPage = () => {
     loadHotelDetails();
   }, [id, selectedHotel, setSelectedHotel, clearRoomSelection]);
 
-  // Fetch room rates when hotel is loaded and we have search params
+  // Use stored rate data from search results (hotel details endpoint has CORS issues)
   useEffect(() => {
-    const fetchRoomRates = async () => {
-      if (!selectedHotel || !searchParams || !id) return;
-      
-      // Only fetch if rooms are empty (not already loaded from API)
-      if (selectedHotel.rooms && selectedHotel.rooms.length > 0) return;
-
-      setIsLoadingRooms(true);
-      try {
-        const rates = await ratehawkApi.getRoomRates(id, searchParams);
-        if (rates.length > 0) {
-          setSelectedHotel({ ...selectedHotel, rooms: rates });
-        }
-      } catch (err) {
-        console.error("Failed to fetch room rates:", err);
-      } finally {
-        setIsLoadingRooms(false);
-      }
-    };
-
-    fetchRoomRates();
-  }, [selectedHotel?.id, searchParams, id, setSelectedHotel]);
+    if (!selectedHotel || !searchParams) return;
+    
+    // Check if we already have rooms loaded
+    if (selectedHotel.rooms && selectedHotel.rooms.length > 0) {
+      console.log(`✅ Using ${selectedHotel.rooms.length} existing rooms from store`);
+      setIsLoadingRooms(false);
+      return;
+    }
+    
+    // Check for rates in ratehawk_data (from search results)
+    const storedRates = selectedHotel.ratehawk_data?.rates || 
+                        selectedHotel.ratehawk_data?.enhancedData?.rates || [];
+    
+    if (storedRates.length > 0) {
+      console.log(`✅ Found ${storedRates.length} stored rates from search results`);
+      // RoomSelectionSection will process rates directly from ratehawk_data
+      setIsLoadingRooms(false);
+      return;
+    }
+    
+    // No rates available
+    console.log('⚠️ No rates available in stored hotel data');
+    setIsLoadingRooms(false);
+  }, [selectedHotel?.id, searchParams]);
 
   if (isLoading) {
     return (

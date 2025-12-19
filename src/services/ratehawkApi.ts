@@ -304,96 +304,11 @@ class RateHawkApiService {
   }
 
   async getRoomRates(hotelId: string, searchParams: SearchParams): Promise<RoomRate[]> {
-    // Use the dedicated hotel details endpoint to get all available rates
-    const url = `${API_BASE_URL}/api/ratehawk/hotel/details`;
-    
-    try {
-      const userId = this.getCurrentUserId();
-      
-      // Format guests for the API
-      const guestsPerRoom = Math.max(1, Math.floor(searchParams.guests / searchParams.rooms));
-      const guests = Array.from({ length: searchParams.rooms }, (_, index) => {
-        const baseAdults = guestsPerRoom;
-        const extraAdult = index < (searchParams.guests % searchParams.rooms) ? 1 : 0;
-        return {
-          adults: baseAdults + extraAdult,
-          children: searchParams.childrenAges || [],
-        };
-      });
-
-      const requestBody = {
-        userId,
-        hotelId, // Use hotelId for the hotel details endpoint
-        checkin: this.formatDate(searchParams.checkIn),
-        checkout: this.formatDate(searchParams.checkOut),
-        guests,
-      };
-
-      console.log('🔍 Fetching hotel details from API...', { hotelId, checkin: requestBody.checkin, checkout: requestBody.checkout });
-
-      const response = await this.fetchWithError<{
-        success: boolean;
-        hotel?: {
-          ratehawk_data?: {
-            rates?: RateHawkRate[];
-            room_groups?: Array<{ 
-              rg_hash: string; 
-              name_struct?: { main_name?: string };
-              images?: string[];
-            }>;
-          };
-        };
-        error?: string;
-      }>(url, {
-        method: "POST",
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.success || !response.hotel) {
-        console.warn('Hotel details API returned no data:', response.error);
-        return [];
-      }
-
-      // Extract rates from response
-      const rates = response.hotel?.ratehawk_data?.rates || [];
-      const roomGroups = response.hotel?.ratehawk_data?.room_groups || [];
-      
-      console.log(`✅ Received ${rates.length} rates from hotel details API`);
-
-      // Create a map of room group names for lookup
-      const roomGroupMap = new Map<string, string>();
-      roomGroups.forEach(rg => {
-        if (rg.rg_hash && rg.name_struct?.main_name) {
-          roomGroupMap.set(rg.rg_hash, rg.name_struct.main_name);
-        }
-      });
-
-      // Convert RateHawk rates to RoomRate format
-      return rates.map((rate, idx) => {
-        const roomName = rate.room_name || roomGroupMap.get(rate.rg_hash || '') || `Room ${idx + 1}`;
-        const price = this.extractPriceFromRate(rate);
-        const currency = this.extractCurrencyFromRate(rate);
-        
-        return {
-          id: rate.book_hash || `room-${idx}`,
-          name: roomName,
-          description: '',
-          price,
-          originalPrice: undefined,
-          currency,
-          maxOccupancy: rate.rg_ext?.capacity || 2,
-          squareFootage: undefined,
-          bedType: undefined,
-          amenities: rate.amenities_data || [],
-          cancellationPolicy: rate.cancellation_policy?.type || rate.cancellationPolicy,
-          mealPlan: rate.meal || 'nomeal',
-          available: rate.allotment || 5,
-        };
-      });
-    } catch (error) {
-      console.error("Error fetching room rates:", error);
-      return [];
-    }
+    // The hotel details endpoint has CORS issues
+    // Rates should be extracted from the hotel's ratehawk_data which is already 
+    // stored in localStorage when user clicks on a hotel from search results
+    console.log('📦 getRoomRates: Using stored rate data from hotel search results');
+    return [];
   }
 
   // Helper to extract price from rate payment options
