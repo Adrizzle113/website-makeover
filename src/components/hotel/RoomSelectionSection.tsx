@@ -45,10 +45,15 @@ const getAmenityIcon = (amenity: string) => {
 
 // Process rooms from RateHawk data structure
 const processRooms = (hotel: HotelDetails): ProcessedRoom[] => {
-  const roomGroups = hotel.ratehawk_data?.room_groups || [];
-  const rates = hotel.ratehawk_data?.rates || [];
+  // Use enhancedData first (contains full pricing), fallback to top-level data
+  const roomGroups = hotel.ratehawk_data?.enhancedData?.room_groups || 
+                     hotel.ratehawk_data?.room_groups || [];
+  
+  // CRITICAL: Use enhancedData.rates for correct per-room pricing
+  const rates = hotel.ratehawk_data?.enhancedData?.rates || 
+                hotel.ratehawk_data?.rates || [];
 
-  console.log(`🔍 Processing ${roomGroups.length} room groups with ${rates.length} rate entries`);
+  console.log(`🔍 Processing ${roomGroups.length} room groups with ${rates.length} rate entries (using enhancedData: ${!!hotel.ratehawk_data?.enhancedData})`);
 
   if (roomGroups.length === 0) {
     console.log("⚠️ No room_groups found, falling back to rates processing");

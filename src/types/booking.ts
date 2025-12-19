@@ -90,6 +90,10 @@ export interface RateHawkData {
     images?: Array<{ tmpl: string }>;
     [key: string]: unknown;
   };
+  enhancedData?: {
+    room_groups?: RateHawkRoomGroup[];
+    rates?: RateHawkRate[];
+  };
   [key: string]: unknown;
 }
 
