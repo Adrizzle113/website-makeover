@@ -132,8 +132,7 @@ const HotelDetailsPage = () => {
         />
         <HotelInfoSection hotel={selectedHotel} />
         <RoomSelectionSection
-          rooms={selectedHotel.rooms || []}
-          currency={selectedHotel.currency}
+          hotel={selectedHotel}
           isLoading={isLoadingRooms}
         />
         <HotelPoliciesSection hotel={selectedHotel} />

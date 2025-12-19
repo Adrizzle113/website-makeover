@@ -43,6 +43,56 @@ export interface RoomRate {
   available: number;
 }
 
+// RateHawk API data structures
+export interface RateHawkRoomGroup {
+  rg_hash: string;
+  name_struct?: {
+    main_name?: string;
+    bedding_type?: string;
+  };
+  room_group_id?: number;
+}
+
+export interface RateHawkRate {
+  rg_hash?: string;
+  payment_options?: {
+    payment_types?: Array<{
+      show_amount?: string;
+      amount?: string;
+      show_currency_code?: string;
+      currency_code?: string;
+      type?: string;
+    }>;
+  };
+  daily_prices?: string;
+  price?: string;
+  currency?: string;
+  amenities?: string[];
+  room_amenities?: string[];
+  rooms?: Array<{
+    amenities_data?: string[];
+    size?: string;
+  }>;
+  cancellation_policy?: {
+    type?: string;
+  };
+  cancellationPolicy?: string;
+  mealPlan?: string;
+  paymentInfo?: {
+    allowed_payment_types?: Array<{ type: string }>;
+  };
+}
+
+export interface RateHawkData {
+  room_groups?: RateHawkRoomGroup[];
+  rates?: RateHawkRate[];
+  static_vm?: {
+    images?: Array<{ tmpl: string }>;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 export interface Hotel {
   id: string;
   name: string;
@@ -61,6 +111,7 @@ export interface Hotel {
   latitude?: number;
   longitude?: number;
   rooms?: RoomRate[];
+  ratehawk_data?: RateHawkData;
 }
 
 export interface HotelDetails extends Hotel {

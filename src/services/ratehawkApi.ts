@@ -257,6 +257,8 @@ class RateHawkApiService {
         currency: h.price?.currency || "USD",
         latitude: staticVm?.latitude,
         longitude: staticVm?.longitude,
+        // Preserve the raw ratehawk_data for room processing
+        ratehawk_data: h.ratehawk_data,
         // Extended fields for filtering display
         freeCancellation: hasFreeCancellation,
         mealPlan,
