@@ -55,6 +55,20 @@ export interface RateHawkRoomGroup {
 
 export interface RateHawkRate {
   rg_hash?: string;
+  book_hash?: string;
+  match_hash?: string;
+  room_name?: string;
+  meal?: string;
+  meal_data?: {
+    has_breakfast?: boolean;
+    [key: string]: unknown;
+  };
+  rg_ext?: {
+    capacity?: number;
+    bedrooms?: number;
+    bathroom?: number;
+    [key: string]: unknown;
+  };
   payment_options?: {
     payment_types?: Array<{
       show_amount?: string;
@@ -64,11 +78,13 @@ export interface RateHawkRate {
       type?: string;
     }>;
   };
-  daily_prices?: string;
+  daily_prices?: string[] | string;
   price?: string;
   currency?: string;
   amenities?: string[];
+  amenities_data?: string[];
   room_amenities?: string[];
+  allotment?: number;
   rooms?: Array<{
     amenities_data?: string[];
     size?: string;
