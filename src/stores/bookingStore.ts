@@ -202,6 +202,7 @@ export const useBookingStore = create<BookingStore>()(
       partialize: (state) => ({
         searchParams: state.searchParams,
         searchResults: state.searchResults,
+        selectedHotel: state.selectedHotel,
         filters: state.filters,
         sortBy: state.sortBy,
       }),

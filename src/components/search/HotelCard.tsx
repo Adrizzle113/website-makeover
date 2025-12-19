@@ -50,6 +50,17 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(
   const handleViewDetails = () => {
     // Convert to HotelDetails and store in both Zustand and localStorage
     const hotelDetails = convertToHotelDetails(hotel);
+    
+    // Debug: Log ratehawk_data being passed to store
+    console.log(`🏨 HotelCard - Setting hotel ${hotel.id}:`, {
+      hasRatehawkData: !!hotelDetails.ratehawk_data,
+      ratehawkDataKeys: Object.keys(hotelDetails.ratehawk_data || {}),
+      roomGroups: hotelDetails.ratehawk_data?.room_groups?.length || 0,
+      enhancedRoomGroups: hotelDetails.ratehawk_data?.enhancedData?.room_groups?.length || 0,
+      rates: hotelDetails.ratehawk_data?.rates?.length || 0,
+      enhancedRates: hotelDetails.ratehawk_data?.enhancedData?.rates?.length || 0,
+    });
+    
     setSelectedHotel(hotelDetails);
     
     // Store in localStorage for persistence across page refreshes
@@ -65,6 +76,19 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(
       timestamp: new Date().toISOString(),
     };
     localStorage.setItem("selectedHotel", JSON.stringify(hotelDataPackage));
+    
+    // Debug: Verify localStorage was set correctly
+    const storedData = localStorage.getItem("selectedHotel");
+    if (storedData) {
+      const parsed = JSON.parse(storedData);
+      console.log(`💾 LocalStorage - Stored hotel data:`, {
+        hasRatehawkData: !!parsed.hotel?.ratehawk_data,
+        roomGroups: parsed.hotel?.ratehawk_data?.room_groups?.length || 0,
+        enhancedRoomGroups: parsed.hotel?.ratehawk_data?.enhancedData?.room_groups?.length || 0,
+        rates: parsed.hotel?.ratehawk_data?.rates?.length || 0,
+        enhancedRates: parsed.hotel?.ratehawk_data?.enhancedData?.rates?.length || 0,
+      });
+    }
     
     navigate(`/hotel/${hotel.id}`);
   };
