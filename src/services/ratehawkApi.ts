@@ -334,6 +334,30 @@ class RateHawkApiService {
     return paymentType?.show_currency_code || paymentType?.currency_code || 'USD';
   }
 
+  // Popular destinations fallback for when API has CORS issues
+  private static POPULAR_DESTINATIONS: Destination[] = [
+    { id: 'las_vegas', name: 'Las Vegas', country: 'Nevada, United States', type: 'city' },
+    { id: 'new_york', name: 'New York', country: 'New York, United States', type: 'city' },
+    { id: 'miami', name: 'Miami', country: 'Florida, United States', type: 'city' },
+    { id: 'los_angeles', name: 'Los Angeles', country: 'California, United States', type: 'city' },
+    { id: 'san_francisco', name: 'San Francisco', country: 'California, United States', type: 'city' },
+    { id: 'chicago', name: 'Chicago', country: 'Illinois, United States', type: 'city' },
+    { id: 'orlando', name: 'Orlando', country: 'Florida, United States', type: 'city' },
+    { id: 'honolulu', name: 'Honolulu', country: 'Hawaii, United States', type: 'city' },
+    { id: 'london', name: 'London', country: 'United Kingdom', type: 'city' },
+    { id: 'paris', name: 'Paris', country: 'France', type: 'city' },
+    { id: 'rome', name: 'Rome', country: 'Italy', type: 'city' },
+    { id: 'barcelona', name: 'Barcelona', country: 'Spain', type: 'city' },
+    { id: 'dubai', name: 'Dubai', country: 'United Arab Emirates', type: 'city' },
+    { id: 'tokyo', name: 'Tokyo', country: 'Japan', type: 'city' },
+    { id: 'cancun', name: 'Cancun', country: 'Mexico', type: 'city' },
+    { id: 'nassau', name: 'Nassau', country: 'Bahamas', type: 'city' },
+    { id: 'amsterdam', name: 'Amsterdam', country: 'Netherlands', type: 'city' },
+    { id: 'sydney', name: 'Sydney', country: 'Australia', type: 'city' },
+    { id: 'bangkok', name: 'Bangkok', country: 'Thailand', type: 'city' },
+    { id: 'singapore', name: 'Singapore', country: 'Singapore', type: 'city' },
+  ];
+
   async getDestinations(query: string): Promise<Destination[]> {
     const url = `${API_BASE_URL}/api/destination`;
 
@@ -376,7 +400,14 @@ class RateHawkApiService {
       return [...regionDestinations, ...hotelDestinations];
     } catch (error) {
       console.error("Error fetching destinations:", error);
-      return [];
+      
+      // Fallback: Filter popular destinations by query when API fails (CORS issues)
+      console.log('📍 Using fallback destination search for:', query);
+      const queryLower = query.toLowerCase();
+      return RateHawkApiService.POPULAR_DESTINATIONS.filter(
+        dest => dest.name.toLowerCase().includes(queryLower) ||
+                dest.country.toLowerCase().includes(queryLower)
+      );
     }
   }
 }
