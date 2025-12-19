@@ -63,6 +63,14 @@ class RateHawkApiService {
     return userId;
   }
 
+  // Safely format a date value (handles both Date objects and ISO strings from localStorage)
+  private formatDate(date: Date | string): string {
+    if (typeof date === 'string') {
+      return date.split('T')[0];
+    }
+    return date.toISOString().split('T')[0];
+  }
+
   private async fetchWithError<T>(url: string, options?: RequestInit): Promise<T> {
     try {
       const response = await fetch(url, {
@@ -170,8 +178,8 @@ class RateHawkApiService {
     const requestBody: Record<string, unknown> = {
       userId,
       destination: params.destinationId || params.destination,
-      checkin: params.checkIn.toISOString().split("T")[0],
-      checkout: params.checkOut.toISOString().split("T")[0],
+      checkin: this.formatDate(params.checkIn),
+      checkout: this.formatDate(params.checkOut),
       guests,
       page,
       limit: 20,
@@ -317,8 +325,8 @@ class RateHawkApiService {
       const requestBody = {
         userId,
         destination: hotelId, // Search specifically for this hotel
-        checkin: searchParams.checkIn.toISOString().split("T")[0],
-        checkout: searchParams.checkOut.toISOString().split("T")[0],
+        checkin: this.formatDate(searchParams.checkIn),
+        checkout: this.formatDate(searchParams.checkOut),
         guests,
         page: 1,
         limit: 1,
