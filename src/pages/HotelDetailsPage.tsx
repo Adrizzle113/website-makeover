@@ -23,7 +23,7 @@ const HotelDetailsPage = () => {
   const [isLoadingRooms, setIsLoadingRooms] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ FIXED: Function to fetch detailed rates from backend with correct data formatting
+  // ✅ FIXED: Function to fetch detailed rates from backend with DETAILED LOGGING
   const fetchDetailedRates = async (hotelId: string) => {
     console.log("🚀 fetchDetailedRates called for:", hotelId);
 
@@ -45,7 +45,7 @@ const HotelDetailsPage = () => {
         try {
           const parsed = JSON.parse(storedHotelData);
           searchContext = parsed.searchContext;
-          console.log("📋 searchContext:", searchContext);
+          console.log("📋 searchContext (RAW):", JSON.stringify(searchContext, null, 2));
         } catch (e) {
           console.error("❌ Error parsing stored hotel data:", e);
         }
@@ -72,19 +72,25 @@ const HotelDetailsPage = () => {
 
       // ✅ FIX: Format guests correctly (array of room objects)
       const formatGuests = (guests: any) => {
+        console.log("🔧 formatGuests input:", guests, "type:", typeof guests);
+
         // If already in correct format
-        if (Array.isArray(guests) && guests[0]?.adults !== undefined) {
+        if (Array.isArray(guests) && guests.length > 0 && guests[0]?.adults !== undefined) {
+          console.log("✅ Guests already in correct format");
           return guests;
         }
-        // If it's formattedGuests array
-        if (Array.isArray(guests)) {
+        // If it's formattedGuests array but might need validation
+        if (Array.isArray(guests) && guests.length > 0) {
+          console.log("✅ Guests is array, validating...");
           return guests;
         }
         // If it's just a number, convert to array
         if (typeof guests === "number") {
+          console.log("🔧 Converting number to array format");
           return [{ adults: guests }];
         }
         // Default fallback
+        console.log("⚠️ Using default fallback");
         return [{ adults: 2 }];
       };
 
@@ -100,7 +106,19 @@ const HotelDetailsPage = () => {
         currency: "USD",
       };
 
-      console.log("📤 Formatted request body:", requestBody);
+      // ✅ DETAILED LOGGING
+      console.log("📤 ========== REQUEST DETAILS ==========");
+      console.log("📤 Full request body:", JSON.stringify(requestBody, null, 2));
+      console.log("📤 API URL:", `${API_BASE_URL}/api/ratehawk/hotel/details`);
+      console.log("📤 checkin:", requestBody.searchParams.checkin, "type:", typeof requestBody.searchParams.checkin);
+      console.log("📤 checkout:", requestBody.searchParams.checkout, "type:", typeof requestBody.searchParams.checkout);
+      console.log(
+        "📤 guests:",
+        JSON.stringify(requestBody.searchParams.guests),
+        "type:",
+        typeof requestBody.searchParams.guests,
+      );
+      console.log("📤 ======================================");
 
       const response = await fetch(`${API_BASE_URL}/api/ratehawk/hotel/details`, {
         method: "POST",
@@ -111,20 +129,29 @@ const HotelDetailsPage = () => {
       });
 
       console.log("📡 Response status:", response.status);
+      console.log("📡 Response ok:", response.ok);
+      console.log("📡 Response headers:", Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ API error response:", errorText);
-        throw new Error(`API returned ${response.status}: ${response.statusText}`);
+        let errorText = "";
+        try {
+          errorText = await response.text();
+          console.error("❌ API error response (text):", errorText);
+        } catch (e) {
+          console.error("❌ Could not read error response");
+        }
+        throw new Error(`API returned ${response.status}: ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
 
-      console.log("📥 Full API response:", {
-        success: data.success,
-        ratesCount: data.data?.rates?.length || 0,
-        roomGroupsCount: data.data?.room_groups?.length || 0,
-      });
+      console.log("📥 ========== RESPONSE DETAILS ==========");
+      console.log("📥 Response success:", data.success);
+      console.log("📥 Response has data:", !!data.data);
+      console.log("📥 Rates count:", data.data?.rates?.length || 0);
+      console.log("📥 Room groups count:", data.data?.room_groups?.length || 0);
+      console.log("📥 First rate sample:", data.data?.rates?.[0]);
+      console.log("📥 =======================================");
 
       if (data.success && data.data) {
         console.log(`✅ SUCCESS! Fetched ${data.data.rates?.length || 0} detailed rates for ${hotelId}`);
@@ -156,9 +183,10 @@ const HotelDetailsPage = () => {
             },
           };
 
-          console.log("✅ Updated hotel with new rates:", {
+          console.log("✅ Updated hotel state with rates:", {
             hotelId: updated.id,
             newRatesCount: updated.ratehawk_data?.enhancedData?.rates?.length,
+            newRoomGroupsCount: updated.ratehawk_data?.enhancedData?.room_groups?.length,
           });
 
           return updated;
@@ -167,7 +195,11 @@ const HotelDetailsPage = () => {
         console.log("❌ No detailed rates data in response");
       }
     } catch (error) {
-      console.error("💥 Failed to fetch detailed rates:", error);
+      console.error("💥 ========== ERROR DETAILS ==========");
+      console.error("💥 Error type:", error?.constructor?.name);
+      console.error("💥 Error message:", error?.message);
+      console.error("💥 Full error:", error);
+      console.error("💥 ====================================");
     } finally {
       console.log("🏁 fetchDetailedRates completed");
       setIsLoadingRooms(false);
