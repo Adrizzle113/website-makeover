@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
-import { Plus, Minus, Bed, Check, Users, Maximize, Wifi, Bath, Wind, Tv, Crown, Home, Star } from "lucide-react";
+import { Plus, Minus, Bed, Check, Users, Maximize, Wifi, Bath, Wind, Tv, Crown, Home, Star, Coffee, UtensilsCrossed } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import type { HotelDetails, RateHawkRoomGroup, RateHawkRate, ProcessedRate } from "@/types/booking";
+import type { HotelDetails, RateHawkRate } from "@/types/booking";
 import { useBookingStore } from "@/stores/bookingStore";
 
 // Room category types for sorting and badges
@@ -25,6 +25,8 @@ interface ProcessedRoom {
   paymentType: string;
   availability: number;
   rgHash?: string;
+  bookHash?: string;
+  meal?: string;
   isFallbackPrice?: boolean;
   category: RoomCategory;
 }
@@ -103,12 +105,9 @@ const getOccupancyFromName = (name: string): string => {
 
 
 // Extract rates from multiple possible locations in ratehawk_data
-const extractAllRates = (hotel: HotelDetails): { rates: RateHawkRate[]; processedRates: ProcessedRate[] | null; source: string } => {
+const extractAllRates = (hotel: HotelDetails): { rates: RateHawkRate[]; source: string } => {
   const data = hotel.ratehawk_data;
-  if (!data) return { rates: [], processedRates: null, source: 'none' };
-
-  // Check for processed_rates first (has rg_hash mapping)
-  const processedRates = data.enhancedData?.processed_rates || null;
+  if (!data) return { rates: [], source: 'none' };
 
   // Try multiple locations for raw rates, prioritizing most complete data
   const possibleRateLocations = [
@@ -122,249 +121,133 @@ const extractAllRates = (hotel: HotelDetails): { rates: RateHawkRate[]; processe
   for (const location of possibleRateLocations) {
     if (Array.isArray(location.value) && location.value.length > 0) {
       console.log(`📊 Found ${location.value.length} rates at ${location.key}`);
-      return { rates: location.value, processedRates, source: location.key };
+      return { rates: location.value, source: location.key };
     }
   }
 
-  return { rates: [], processedRates, source: 'none' };
+  return { rates: [], source: 'none' };
 };
 
-// Process rooms from RateHawk data structure
+// Process rooms directly from rates (like the working frontend)
 const processRooms = (hotel: HotelDetails): ProcessedRoom[] => {
-  // Debug: Full ratehawk_data structure inspection
-  console.log(`🔍 RoomSelectionSection - Full ratehawk_data inspection:`, {
+  console.log(`🔍 RoomSelectionSection - Processing rates directly:`, {
     hasRatehawkData: !!hotel.ratehawk_data,
     topLevelKeys: Object.keys(hotel.ratehawk_data || {}),
-    hasEnhancedData: !!hotel.ratehawk_data?.enhancedData,
-    enhancedDataKeys: Object.keys(hotel.ratehawk_data?.enhancedData || {}),
-    topLevelRoomGroups: hotel.ratehawk_data?.room_groups?.length || 0,
-    topLevelRates: hotel.ratehawk_data?.rates?.length || 0,
-    enhancedRoomGroups: hotel.ratehawk_data?.enhancedData?.room_groups?.length || 0,
-    enhancedRates: hotel.ratehawk_data?.enhancedData?.rates?.length || 0,
-    staticVmRoomGroups: (hotel.ratehawk_data?.static_vm?.room_groups as unknown[])?.length || 0,
   });
 
-  // Use enhancedData first (contains full pricing), fallback to top-level data
-  const roomGroups = hotel.ratehawk_data?.enhancedData?.room_groups || 
-                     hotel.ratehawk_data?.room_groups || [];
-  
   // Extract rates from all possible locations
-  const { rates, processedRates, source: rateSource } = extractAllRates(hotel);
+  const { rates, source: rateSource } = extractAllRates(hotel);
   
-  console.log(`🔍 Using rate source: ${rateSource}`);
-  console.log(`🔍 Processing ${roomGroups.length} room groups with ${rates.length} rate entries, ${processedRates?.length || 0} processed rates`);
+  console.log(`🔍 Using rate source: ${rateSource}, found ${rates.length} rates`);
 
-  // Debug: Inspect processed_rates structure
-  if (processedRates && processedRates.length > 0) {
-    console.log(`📊 Processed rates inspection:`, {
-      count: processedRates.length,
-      hasRgHash: processedRates.some(pr => !!pr.rg_hash),
-      allRgHashes: processedRates.map(pr => pr.rg_hash).filter(Boolean),
-      sample: processedRates[0],
-    });
-  } else if (rates.length > 0) {
-    console.log(`📊 Raw rate structure:`, {
-      hasRgHash: !!rates[0]?.rg_hash,
-      hasPaymentOptions: !!rates[0]?.payment_options,
-      paymentTypesCount: rates[0]?.payment_options?.payment_types?.length || 0,
-      samplePayment: rates[0]?.payment_options?.payment_types?.[0],
-    });
-  }
-
-  if (roomGroups.length === 0) {
-    console.log("⚠️ No room_groups found, falling back to rates processing");
+  if (rates.length === 0) {
+    console.log("⚠️ No rates found, using fallback");
     return processRoomsFromRates(hotel, rates);
   }
 
-  // Calculate base price from first rate for fallback pricing
-  let basePrice = 0;
-  let baseCurrency = "USD";
-  if (rates.length > 0) {
-    const rate = rates[0];
-    if (rate.payment_options?.payment_types?.length && rate.payment_options.payment_types.length > 0) {
-      const paymentType = rate.payment_options.payment_types[0];
-      basePrice = parseFloat(paymentType.show_amount || paymentType.amount || "0");
-      baseCurrency = paymentType.show_currency_code || paymentType.currency_code || "USD";
-    } else {
-      basePrice = parseFloat(rate.daily_prices || rate.price || "0");
-      baseCurrency = rate.currency || "USD";
-    }
-  }
-
-  // Determine matching strategy
-  const canUseIndexMatching = roomGroups.length === rates.length && rates.length > 1;
-  if (canUseIndexMatching) {
-    console.log(`✅ Index-based matching available: ${roomGroups.length} room groups = ${rates.length} rates`);
-  }
-
+  // Process each rate directly as a bookable option
   const processedRooms: ProcessedRoom[] = [];
-  let skippedRoomGroups = 0;
 
-  roomGroups.forEach((roomGroup: RateHawkRoomGroup, index: number) => {
+  rates.forEach((rate: RateHawkRate, index: number) => {
     try {
-      const nameStruct = roomGroup.name_struct || {};
-      const mainName = nameStruct.main_name || `Room Type ${index + 1}`;
-      const beddingType = nameStruct.bedding_type || "";
-      const rgHash = roomGroup.rg_hash;
-      const category = getRoomCategory(mainName);
+      // Extract room name - this is the key field from the working frontend
+      const roomName = rate.room_name || `Room Option ${index + 1}`;
+      const category = getRoomCategory(roomName);
 
-      // Create full room name
-      const fullRoomName = beddingType ? `${mainName} - ${beddingType}` : mainName;
-
-      // Strategy 1: Try matching with processed_rates (has rg_hash)
-      let matchingProcessedRate = processedRates?.find(pr => pr.rg_hash === rgHash);
-      
-      // Strategy 2: Try name-based matching with processed_rates
-      if (!matchingProcessedRate && processedRates) {
-        matchingProcessedRate = processedRates.find(pr => 
-          pr.roomName?.toLowerCase().includes(mainName.toLowerCase()) ||
-          mainName.toLowerCase().includes(pr.roomName?.toLowerCase() || '')
-        );
-      }
-
-      // If we have a matching processed rate, use it directly
-      if (matchingProcessedRate) {
-        processedRooms.push({
-          id: roomGroup.room_group_id?.toString() || `room_${index}`,
-          name: fullRoomName,
-          type: mainName,
-          price: Math.round(matchingProcessedRate.price),
-          currency: matchingProcessedRate.currency || "USD",
-          bedding: beddingType || "Standard bedding",
-          occupancy: getOccupancyFromName(mainName),
-          size: "Standard size",
-          amenities: hotel.amenities?.slice(0, 3).map(a => a.name) || ["Free WiFi", "Air conditioning"],
-          cancellation: matchingProcessedRate.cancellationPolicy || "Free cancellation",
-          paymentType: "Pay at hotel",
-          availability: Math.floor(Math.random() * 8) + 1,
-          rgHash: rgHash,
-          isFallbackPrice: false,
-          category: category,
-        });
-        return;
-      }
-
-      // Strategy 3: Find matching rates from raw rates array using rg_hash
-      let matchingRates = rates.filter((rate: RateHawkRate) => rate.rg_hash === rgHash);
-      let isFallbackPrice = false;
-      let matchedRate: RateHawkRate | null = null;
-
-      // Strategy 4: Index-based assignment if counts match
-      if (matchingRates.length === 0 && canUseIndexMatching) {
-        console.log(`📌 Index-based rate assignment for room group ${index}: ${mainName}`);
-        matchingRates = [rates[index]];
-        isFallbackPrice = false; // Index-based is a valid assignment
-      }
-
-      // Strategy 5: If only 1 rate exists, use it with category-based price adjustment
-      if (matchingRates.length === 0 && rates.length === 1) {
-        console.log(`📌 Applying single rate with category adjustment to room group: ${mainName} (${category})`);
-        matchedRate = rates[0];
-        isFallbackPrice = true;
-      } else if (matchingRates.length > 0) {
-        matchedRate = matchingRates[0];
-      }
-
-      // Strategy 6: No match but we have rates - use first rate as base with adjustment
-      if (!matchedRate && rates.length > 0) {
-        console.log(`📌 Using first rate as base for: ${mainName}`);
-        matchedRate = rates[0];
-        isFallbackPrice = true;
-      }
-
-      // If still no rate found, skip
-      if (!matchedRate) {
-        skippedRoomGroups++;
-        return;
-      }
-
-      // Extract price from matched rate
-      let ratePrice = 0;
+      // Extract price from payment_options (primary source)
+      let price = 0;
       let currency = "USD";
 
-      if (matchedRate.payment_options?.payment_types?.length && matchedRate.payment_options.payment_types.length > 0) {
-        const paymentType = matchedRate.payment_options.payment_types[0];
-        ratePrice = parseFloat(paymentType.show_amount || paymentType.amount || "0");
+      if (rate.payment_options?.payment_types?.length && rate.payment_options.payment_types.length > 0) {
+        const paymentType = rate.payment_options.payment_types[0];
+        price = parseFloat(paymentType.show_amount || paymentType.amount || "0");
         currency = paymentType.show_currency_code || paymentType.currency_code || "USD";
-      } else {
-        ratePrice = parseFloat(matchedRate.daily_prices || matchedRate.price || "0");
-        currency = matchedRate.currency || "USD";
+      } else if (rate.daily_prices) {
+        // Handle daily_prices as array or string
+        const dailyPrices = Array.isArray(rate.daily_prices) 
+          ? rate.daily_prices 
+          : [rate.daily_prices];
+        price = dailyPrices.reduce((sum, p) => sum + parseFloat(p || "0"), 0);
+        currency = rate.currency || "USD";
+      } else if (rate.price) {
+        price = parseFloat(rate.price);
+        currency = rate.currency || "USD";
       }
 
-
-      if (ratePrice <= 0) {
-        skippedRoomGroups++;
+      // Skip rates with no valid price
+      if (price <= 0) {
+        console.log(`⚠️ Skipping rate ${index}: no valid price`);
         return;
       }
 
-      // Determine occupancy from room name
+      // Extract meal plan
+      const meal = rate.meal || 'nomeal';
+      const hasMealLabel = meal !== 'nomeal';
+
+      // Extract occupancy from rg_ext or room name
       let occupancy = "2 guests";
-      const lowerName = mainName.toLowerCase();
-      if (lowerName.includes("single")) occupancy = "1 guest";
-      else if (lowerName.includes("triple")) occupancy = "3 guests";
-      else if (lowerName.includes("quadruple") || lowerName.includes("quad")) occupancy = "4 guests";
-      else if (lowerName.includes("studio")) occupancy = "1-2 guests";
-      else if (lowerName.includes("family")) occupancy = "4-6 guests";
-      else if (lowerName.includes("double")) occupancy = "2 guests";
-
-      // Extract amenities from the matched rate
-      let roomAmenities: string[] = [];
-      if (matchedRate) {
-        roomAmenities = [
-          ...(matchedRate.amenities || []),
-          ...(matchedRate.room_amenities || []),
-          ...(matchedRate.rooms?.[0]?.amenities_data || []),
-        ].slice(0, 4);
+      if (rate.rg_ext?.capacity) {
+        occupancy = `${rate.rg_ext.capacity} guest${rate.rg_ext.capacity !== 1 ? 's' : ''}`;
+      } else {
+        occupancy = getOccupancyFromName(roomName);
       }
 
-      if (roomAmenities.length === 0) {
-        roomAmenities = hotel.amenities?.slice(0, 3).map(a => a.name) || ["Free WiFi", "Air conditioning", "Private bathroom"];
-      }
-
-      // Determine bedding display
-      let beddingDisplay = beddingType || "Standard bedding";
-      if (beddingType) {
-        beddingDisplay = beddingType.replace(/\b\w/g, (l: string) => l.toUpperCase());
-      } else if (lowerName.includes("twin")) {
-        beddingDisplay = "Twin beds";
-      } else if (lowerName.includes("double")) {
-        beddingDisplay = "Double bed";
-      } else if (lowerName.includes("single")) {
-        beddingDisplay = "Single bed";
-      }
+      // Extract amenities
+      const amenities = [
+        ...(rate.amenities_data || []),
+        ...(rate.amenities || []),
+        ...(rate.room_amenities || []),
+        ...(rate.rooms?.[0]?.amenities_data || []),
+      ].slice(0, 4);
 
       // Get room size
-      const roomSize = matchedRate?.rooms?.[0]?.size || "Standard size";
+      const roomSize = rate.rooms?.[0]?.size || "Standard size";
 
       // Get cancellation policy
-      const cancellationPolicy = matchedRate?.cancellation_policy?.type || "Free cancellation";
+      const cancellationPolicy = rate.cancellation_policy?.type || rate.cancellationPolicy || "Standard policy";
 
       // Get payment type
-      const paymentType = matchedRate?.payment_options?.payment_types?.[0]?.type || "Pay at hotel";
+      const paymentType = rate.payment_options?.payment_types?.[0]?.type || "Pay at hotel";
+
+      // Create unique ID using book_hash (primary) or fallback to index
+      const roomId = rate.book_hash || `rate_${index}`;
+
+      // Determine bedding from room name
+      let bedding = "Standard bedding";
+      const lowerName = roomName.toLowerCase();
+      if (lowerName.includes("twin")) bedding = "Twin beds";
+      else if (lowerName.includes("double")) bedding = "Double bed";
+      else if (lowerName.includes("single")) bedding = "Single bed";
+      else if (lowerName.includes("king")) bedding = "King bed";
+      else if (lowerName.includes("queen")) bedding = "Queen bed";
 
       processedRooms.push({
-        id: roomGroup.room_group_id?.toString() || `room_${index}`,
-        name: fullRoomName,
-        type: mainName,
-        price: Math.round(ratePrice),
+        id: roomId,
+        name: roomName,
+        type: roomName,
+        price: Math.round(price),
         currency: currency,
-        bedding: beddingDisplay,
+        bedding: bedding,
         occupancy: occupancy,
         size: roomSize,
-        amenities: roomAmenities,
+        amenities: amenities.length > 0 ? amenities : ["Free WiFi", "Air conditioning"],
         cancellation: cancellationPolicy,
         paymentType: paymentType,
-        availability: Math.floor(Math.random() * 8) + 1,
-        rgHash: rgHash,
-        isFallbackPrice: isFallbackPrice,
+        availability: rate.allotment || 5,
+        rgHash: rate.rg_hash,
+        bookHash: rate.book_hash,
+        meal: meal,
+        isFallbackPrice: false,
         category: category,
       });
+
+      console.log(`✅ Processed rate ${index}: ${roomName} - ${currency} ${Math.round(price)} (${meal})`);
     } catch (error) {
-      console.error(`Error processing room group ${index}:`, error);
+      console.error(`Error processing rate ${index}:`, error);
     }
   });
 
-  console.log(`✅ Processed ${processedRooms.length} rooms from room_groups (skipped ${skippedRoomGroups} without rates)`);
+  console.log(`✅ Processed ${processedRooms.length} rooms from ${rates.length} rates`);
 
   if (processedRooms.length === 0) {
     return processRoomsFromRates(hotel, rates);
@@ -559,7 +442,7 @@ export function RoomSelectionSection({ hotel, isLoading = false }: RoomSelection
                 <div className="flex flex-col lg:flex-row gap-4 lg:items-center">
                   {/* Room Info */}
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <h3 className="font-heading text-heading-small text-foreground">
                         {room.name}
                       </h3>
@@ -567,6 +450,12 @@ export function RoomSelectionSection({ hotel, isLoading = false }: RoomSelection
                         <Badge variant={categoryBadgeConfig[room.category].variant} className="flex items-center gap-1">
                           {categoryBadgeConfig[room.category].icon}
                           {categoryBadgeConfig[room.category].label}
+                        </Badge>
+                      )}
+                      {room.meal && room.meal !== 'nomeal' && (
+                        <Badge variant="secondary" className="flex items-center gap-1 bg-green-100 text-green-700 border-green-200">
+                          <Coffee className="w-3 h-3" />
+                          {room.meal === 'breakfast' ? 'Breakfast included' : room.meal}
                         </Badge>
                       )}
                     </div>
