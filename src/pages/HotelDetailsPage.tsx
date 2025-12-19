@@ -23,16 +23,19 @@ const HotelDetailsPage = () => {
   const [isLoadingRooms, setIsLoadingRooms] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ NEW: Function to fetch detailed rates from backend
+  // ✅ NEW: Function to fetch detailed rates from backend with enhanced debugging
   const fetchDetailedRates = async (hotelId: string) => {
-    try {
-      console.log(`🔍 Fetching detailed rates for hotel: ${hotelId}`);
+    console.log("🚀 fetchDetailedRates called for:", hotelId);
 
+    try {
       const userId = localStorage.getItem("userId");
+      console.log("👤 userId from localStorage:", userId);
+
       const storedHotelData = localStorage.getItem("selectedHotel");
+      console.log("📦 storedHotelData exists:", !!storedHotelData);
 
       if (!userId) {
-        console.log("⚠️ No userId found, skipping detailed rates fetch");
+        console.log("❌ No userId found, skipping detailed rates fetch");
         return;
       }
 
@@ -42,16 +45,18 @@ const HotelDetailsPage = () => {
         try {
           const parsed = JSON.parse(storedHotelData);
           searchContext = parsed.searchContext;
+          console.log("📋 searchContext:", searchContext);
         } catch (e) {
-          console.error("Error parsing stored hotel data:", e);
+          console.error("❌ Error parsing stored hotel data:", e);
         }
       }
 
       if (!searchContext) {
-        console.log("⚠️ No search context found, skipping detailed rates fetch");
+        console.log("❌ No search context found, skipping detailed rates fetch");
         return;
       }
 
+      console.log("✅ All prerequisites met, making API call...");
       setIsLoadingRooms(true);
 
       const requestBody = {
@@ -66,7 +71,7 @@ const HotelDetailsPage = () => {
         currency: "USD",
       };
 
-      console.log("📤 Fetching hotel details with:", requestBody);
+      console.log("📤 Request body:", requestBody);
 
       const response = await fetch(`${API_BASE_URL}/api/ratehawk/hotel/details`, {
         method: "POST",
@@ -76,26 +81,27 @@ const HotelDetailsPage = () => {
         body: JSON.stringify(requestBody),
       });
 
+      console.log("📡 Response status:", response.status);
+
       if (!response.ok) {
         throw new Error(`API returned ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
 
-      console.log("📥 Hotel details response:", {
-        success: data.success,
-        hasData: !!data.data,
-        ratesCount: data.data?.rates?.length || 0,
-      });
+      console.log("📥 Full API response:", data);
 
       if (data.success && data.data) {
-        console.log(`✅ Fetched ${data.data.rates?.length || 0} detailed rates for ${hotelId}`);
+        console.log(`✅ SUCCESS! Fetched ${data.data.rates?.length || 0} detailed rates for ${hotelId}`);
 
         // Update the selected hotel with detailed rates
         setSelectedHotel((prev) => {
-          if (!prev) return prev;
+          if (!prev) {
+            console.log("❌ No previous hotel in state");
+            return prev;
+          }
 
-          return {
+          const updated = {
             ...prev,
             ratehawk_data: {
               ...prev.ratehawk_data,
@@ -114,21 +120,33 @@ const HotelDetailsPage = () => {
               },
             },
           };
+
+          console.log("✅ Updated hotel with new rates:", {
+            hotelId: updated.id,
+            newRatesCount: updated.ratehawk_data?.enhancedData?.rates?.length,
+          });
+
+          return updated;
         });
       } else {
-        console.log("⚠️ No detailed rates data in response");
+        console.log("❌ No detailed rates data in response");
       }
     } catch (error) {
       console.error("💥 Failed to fetch detailed rates:", error);
-      // Don't throw - we can still show the hotel with basic info
     } finally {
+      console.log("🏁 fetchDetailedRates completed");
       setIsLoadingRooms(false);
     }
   };
 
   useEffect(() => {
     const loadHotelDetails = async () => {
-      if (!id) return;
+      console.log("🏨 loadHotelDetails called for id:", id);
+
+      if (!id) {
+        console.log("❌ No hotel id provided");
+        return;
+      }
 
       setIsLoading(true);
       setError(null);
@@ -136,10 +154,11 @@ const HotelDetailsPage = () => {
 
       // First check if hotel is already in store (from card click)
       if (selectedHotel && selectedHotel.id === id) {
-        console.log("✅ Hotel already in store, fetching detailed rates...");
+        console.log("✅ Hotel already in store:", selectedHotel.id);
         setIsLoading(false);
 
         // Fetch detailed rates even if hotel is in store
+        console.log("🔄 Calling fetchDetailedRates from store path...");
         await fetchDetailedRates(id);
         return;
       }
@@ -150,21 +169,22 @@ const HotelDetailsPage = () => {
         if (storedData) {
           const parsed = JSON.parse(storedData);
           if (parsed.hotel && parsed.hotel.id === id) {
-            console.log("✅ Loaded hotel from localStorage, fetching detailed rates...");
+            console.log("✅ Loaded hotel from localStorage:", parsed.hotel.id);
             setSelectedHotel(parsed.hotel);
             setIsLoading(false);
 
             // Fetch detailed rates
+            console.log("🔄 Calling fetchDetailedRates from localStorage path...");
             await fetchDetailedRates(id);
             return;
           }
         }
       } catch (err) {
-        console.error("Error parsing stored hotel data:", err);
+        console.error("❌ Error parsing stored hotel data:", err);
       }
 
       // Fallback to mock data if no stored data found
-      console.warn("No stored hotel data found, using mock data");
+      console.warn("⚠️ No stored hotel data found, using mock data");
       setSelectedHotel(getMockHotel(id));
       setIsLoading(false);
     };
@@ -232,6 +252,14 @@ const HotelDetailsPage = () => {
         <HotelHeroSection hotel={selectedHotel} />
         <AmenitiesSection amenities={selectedHotel.amenities} facilities={selectedHotel.facilities} />
         <HotelInfoSection hotel={selectedHotel} />
+
+        {isLoadingRooms && (
+          <div className="container mx-auto px-4 py-8 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+            <p className="text-muted-foreground">Loading room options...</p>
+          </div>
+        )}
+
         <RoomSelectionSection hotel={selectedHotel} isLoading={isLoadingRooms} />
         <HotelPoliciesSection hotel={selectedHotel} />
         <MapSection
