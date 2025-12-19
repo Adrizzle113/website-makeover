@@ -238,7 +238,23 @@ class RateHawkApiService {
       body: JSON.stringify(requestBody),
     });
 
-    // Debug: Log raw backend response
+    // ✅ NEW LOG - More detailed inspection (before any frontend processing)
+    console.log('🔍 RAW BACKEND RESPONSE (before any frontend processing):', {
+      success: rawResponse.success,
+      totalHotels: rawResponse.hotels?.length || 0,
+      firstHotel: {
+        id: rawResponse.hotels?.[0]?.id,
+        name: rawResponse.hotels?.[0]?.name,
+        ratehawk_data_keys: Object.keys(rawResponse.hotels?.[0]?.ratehawk_data || {}),
+        top_level_rates_count: rawResponse.hotels?.[0]?.ratehawk_data?.rates?.length || 0,
+        enhanced_rates_count: rawResponse.hotels?.[0]?.ratehawk_data?.enhancedData?.rates?.length || 0,
+        room_groups_count: rawResponse.hotels?.[0]?.ratehawk_data?.room_groups?.length || 0,
+        actual_rates_array: rawResponse.hotels?.[0]?.ratehawk_data?.rates,
+        actual_enhanced_rates: rawResponse.hotels?.[0]?.ratehawk_data?.enhancedData?.rates,
+      }
+    });
+
+    // Debug: Log raw backend response (existing log)
     console.log('🔍 RAW BACKEND RESPONSE:', {
       success: rawResponse.success,
       hotelsCount: rawResponse.hotels?.length || 0,
