@@ -43,6 +43,17 @@ const getAmenityIcon = (amenity: string) => {
   return <Check className="w-3 h-3" />;
 };
 
+// Get occupancy from room name
+const getOccupancyFromName = (name: string): string => {
+  const lowerName = name.toLowerCase();
+  if (lowerName.includes("single")) return "1 guest";
+  if (lowerName.includes("triple")) return "3 guests";
+  if (lowerName.includes("quadruple") || lowerName.includes("quad")) return "4 guests";
+  if (lowerName.includes("studio")) return "1-2 guests";
+  if (lowerName.includes("family")) return "4-6 guests";
+  return "2 guests";
+};
+
 // Process rooms from RateHawk data structure
 const processRooms = (hotel: HotelDetails): ProcessedRoom[] => {
   // Debug: Full ratehawk_data structure inspection
@@ -62,15 +73,25 @@ const processRooms = (hotel: HotelDetails): ProcessedRoom[] => {
   const roomGroups = hotel.ratehawk_data?.enhancedData?.room_groups || 
                      hotel.ratehawk_data?.room_groups || [];
   
-  // CRITICAL: Use enhancedData.rates for correct per-room pricing
+  // CRITICAL: Use processed_rates first (has rg_hash), then enhancedData.rates, then top-level
+  const processedRates = hotel.ratehawk_data?.enhancedData?.processed_rates;
   const rates = hotel.ratehawk_data?.enhancedData?.rates || 
                 hotel.ratehawk_data?.rates || [];
 
-  console.log(`🔍 Processing ${roomGroups.length} room groups with ${rates.length} rate entries (using enhancedData: ${!!hotel.ratehawk_data?.enhancedData})`);
+  const rateSource = processedRates ? 'processed_rates' : 
+                     hotel.ratehawk_data?.enhancedData?.rates ? 'enhancedData.rates' : 'top-level rates';
+  
+  console.log(`🔍 Using rate source: ${rateSource}`);
+  console.log(`🔍 Processing ${roomGroups.length} room groups with ${rates.length} rate entries, ${processedRates?.length || 0} processed rates`);
 
   // Debug: Sample rate structure if available
-  if (rates.length > 0) {
-    console.log(`📊 Sample rate structure:`, {
+  if (processedRates && processedRates.length > 0) {
+    console.log(`📊 Processed rates sample:`, {
+      hasRgHash: !!processedRates[0]?.rg_hash,
+      sample: processedRates[0],
+    });
+  } else if (rates.length > 0) {
+    console.log(`📊 Raw rate structure:`, {
       hasRgHash: !!rates[0]?.rg_hash,
       hasPaymentOptions: !!rates[0]?.payment_options,
       paymentTypesCount: rates[0]?.payment_options?.payment_types?.length || 0,
@@ -96,8 +117,45 @@ const processRooms = (hotel: HotelDetails): ProcessedRoom[] => {
       // Create full room name
       const fullRoomName = beddingType ? `${mainName} - ${beddingType}` : mainName;
 
-      // Find matching rates for this room group
-      const matchingRates = rates.filter((rate: RateHawkRate) => rate.rg_hash === rgHash);
+      // Strategy 1: Try matching with processed_rates (has rg_hash)
+      let matchingProcessedRate = processedRates?.find(pr => pr.rg_hash === rgHash);
+      
+      // Strategy 2: Try name-based matching with processed_rates
+      if (!matchingProcessedRate && processedRates) {
+        matchingProcessedRate = processedRates.find(pr => 
+          pr.roomName?.toLowerCase().includes(mainName.toLowerCase()) ||
+          mainName.toLowerCase().includes(pr.roomName?.toLowerCase() || '')
+        );
+      }
+
+      // If we have a matching processed rate, use it directly
+      if (matchingProcessedRate) {
+        processedRooms.push({
+          id: roomGroup.room_group_id?.toString() || `room_${index}`,
+          name: fullRoomName,
+          type: mainName,
+          price: Math.round(matchingProcessedRate.price),
+          currency: matchingProcessedRate.currency || "USD",
+          bedding: beddingType || "Standard bedding",
+          occupancy: getOccupancyFromName(mainName),
+          size: "Standard size",
+          amenities: hotel.amenities?.slice(0, 3).map(a => a.name) || ["Free WiFi", "Air conditioning"],
+          cancellation: matchingProcessedRate.cancellationPolicy || "Free cancellation",
+          paymentType: "Pay at hotel",
+          availability: Math.floor(Math.random() * 8) + 1,
+          rgHash: rgHash,
+        });
+        return;
+      }
+
+      // Strategy 3: Find matching rates from raw rates array using rg_hash
+      let matchingRates = rates.filter((rate: RateHawkRate) => rate.rg_hash === rgHash);
+
+      // Strategy 4: If only 1 rate exists and no rg_hash match, use it for all rooms
+      if (matchingRates.length === 0 && rates.length === 1) {
+        console.log(`📌 Applying single rate to room group: ${mainName}`);
+        matchingRates = [rates[0]];
+      }
 
       // If backend didn't return a priced rate for this room group, skip it
       if (matchingRates.length === 0) {
