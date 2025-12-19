@@ -157,40 +157,38 @@ const HotelDetailsPage = () => {
         console.log(`✅ SUCCESS! Fetched ${data.data.rates?.length || 0} detailed rates for ${hotelId}`);
 
         // Update the selected hotel with detailed rates
-        setSelectedHotel((prev) => {
-          if (!prev) {
-            console.log("❌ No previous hotel in state");
-            return prev;
-          }
+        if (!selectedHotel) {
+          console.log("❌ No previous hotel in state");
+          return;
+        }
 
-          const updated = {
-            ...prev,
-            ratehawk_data: {
-              ...prev.ratehawk_data,
-              // Merge the new detailed data
-              ...data.data,
-              // Preserve enhancedData structure with ALL rates
-              enhancedData: {
-                room_groups: data.data.room_groups || prev.ratehawk_data?.room_groups || [],
-                rates: data.data.rates || [],
-                metadata: {
-                  total_room_groups: data.data.room_groups?.length || 0,
-                  total_rates: data.data.rates?.length || 0,
-                  source: "hotel_details_api",
-                  fetched_at: new Date().toISOString(),
-                },
+        const updated = {
+          ...selectedHotel,
+          ratehawk_data: {
+            ...selectedHotel.ratehawk_data,
+            // Merge the new detailed data
+            ...data.data,
+            // Preserve enhancedData structure with ALL rates
+            enhancedData: {
+              room_groups: data.data.room_groups || selectedHotel.ratehawk_data?.room_groups || [],
+              rates: data.data.rates || [],
+              metadata: {
+                total_room_groups: data.data.room_groups?.length || 0,
+                total_rates: data.data.rates?.length || 0,
+                source: "hotel_details_api",
+                fetched_at: new Date().toISOString(),
               },
             },
-          };
+          },
+        };
 
-          console.log("✅ Updated hotel state with rates:", {
-            hotelId: updated.id,
-            newRatesCount: updated.ratehawk_data?.enhancedData?.rates?.length,
-            newRoomGroupsCount: updated.ratehawk_data?.enhancedData?.room_groups?.length,
-          });
-
-          return updated;
+        console.log("✅ Updated hotel state with rates:", {
+          hotelId: updated.id,
+          newRatesCount: updated.ratehawk_data?.enhancedData?.rates?.length,
+          newRoomGroupsCount: updated.ratehawk_data?.enhancedData?.room_groups?.length,
         });
+
+        setSelectedHotel(updated);
       } else {
         console.log("❌ No detailed rates data in response");
       }
