@@ -224,6 +224,11 @@ class RateHawkApiService {
               allowed_payment_types?: Array<{ type: string }>;
             };
           }>;
+          enhancedData?: {
+            rates?: unknown[];
+            room_groups?: unknown[];
+          };
+          room_groups?: unknown[];
         };
       }>;
       total?: number;
@@ -231,6 +236,16 @@ class RateHawkApiService {
     }>(url, {
       method: "POST",
       body: JSON.stringify(requestBody),
+    });
+
+    // Debug: Log raw backend response
+    console.log('🔍 RAW BACKEND RESPONSE:', {
+      success: rawResponse.success,
+      hotelsCount: rawResponse.hotels?.length || 0,
+      firstHotelId: rawResponse.hotels?.[0]?.id,
+      firstHotelRatesCount: rawResponse.hotels?.[0]?.ratehawk_data?.rates?.length || 0,
+      firstHotelEnhancedRatesCount: rawResponse.hotels?.[0]?.ratehawk_data?.enhancedData?.rates?.length || 0,
+      fullFirstHotelRatehawkData: rawResponse.hotels?.[0]?.ratehawk_data,
     });
 
     // Transform backend response to match Hotel type
@@ -282,6 +297,8 @@ class RateHawkApiService {
         enhancedRoomGroups: h.ratehawk_data?.enhancedData?.room_groups?.length || 0,
         rates: h.ratehawk_data?.rates?.length || 0,
         enhancedRates: h.ratehawk_data?.enhancedData?.rates?.length || 0,
+        actualRatesInObject: h.ratehawk_data?.rates,
+        actualEnhancedRates: h.ratehawk_data?.enhancedData?.rates,
       });
     });
 
