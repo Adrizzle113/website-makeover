@@ -1,10 +1,14 @@
-import { useState } from "react";
-import { Plus, Minus, Bed, Check, Users, Maximize, Wifi, Bath, Wind, Tv } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Plus, Minus, Bed, Check, Users, Maximize, Wifi, Bath, Wind, Tv, Crown, Home, Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import type { HotelDetails, RateHawkRoomGroup, RateHawkRate } from "@/types/booking";
 import { useBookingStore } from "@/stores/bookingStore";
+
+// Room category types for sorting and badges
+type RoomCategory = "standard" | "deluxe" | "suite" | "premium" | "family" | "apartment";
 
 // Processed room structure
 interface ProcessedRoom {
@@ -21,7 +25,50 @@ interface ProcessedRoom {
   paymentType: string;
   availability: number;
   rgHash?: string;
+  isFallbackPrice?: boolean;
+  category: RoomCategory;
 }
+
+// Get room category from name
+const getRoomCategory = (name: string): RoomCategory => {
+  const lowerName = name.toLowerCase();
+  if (lowerName.includes("presidential") || lowerName.includes("royal") || lowerName.includes("grand") || lowerName.includes("luxury")) {
+    return "premium";
+  }
+  if (lowerName.includes("suite") || lowerName.includes("ambassador")) {
+    return "suite";
+  }
+  if (lowerName.includes("family") || lowerName.includes("apartment") || lowerName.includes("villa")) {
+    return "family";
+  }
+  if (lowerName.includes("deluxe") || lowerName.includes("superior")) {
+    return "deluxe";
+  }
+  if (lowerName.includes("studio") || lowerName.includes("cottage") || lowerName.includes("bungalow")) {
+    return "apartment";
+  }
+  return "standard";
+};
+
+// Category sort order (standard first, premium last)
+const categorySortOrder: Record<RoomCategory, number> = {
+  standard: 0,
+  deluxe: 1,
+  apartment: 2,
+  family: 3,
+  suite: 4,
+  premium: 5,
+};
+
+// Category badge config
+const categoryBadgeConfig: Record<RoomCategory, { label: string; variant: "default" | "secondary" | "outline"; icon: React.ReactNode }> = {
+  standard: { label: "Standard", variant: "outline", icon: null },
+  deluxe: { label: "Deluxe", variant: "secondary", icon: <Star className="w-3 h-3" /> },
+  apartment: { label: "Apartment", variant: "outline", icon: <Home className="w-3 h-3" /> },
+  family: { label: "Family", variant: "secondary", icon: <Users className="w-3 h-3" /> },
+  suite: { label: "Suite", variant: "default", icon: <Crown className="w-3 h-3" /> },
+  premium: { label: "Premium", variant: "default", icon: <Crown className="w-3 h-3" /> },
+};
 
 interface RoomSelectionSectionProps {
   hotel: HotelDetails;
@@ -144,17 +191,21 @@ const processRooms = (hotel: HotelDetails): ProcessedRoom[] => {
           paymentType: "Pay at hotel",
           availability: Math.floor(Math.random() * 8) + 1,
           rgHash: rgHash,
+          isFallbackPrice: false,
+          category: getRoomCategory(mainName),
         });
         return;
       }
 
       // Strategy 3: Find matching rates from raw rates array using rg_hash
       let matchingRates = rates.filter((rate: RateHawkRate) => rate.rg_hash === rgHash);
+      let isFallbackPrice = false;
 
       // Strategy 4: If only 1 rate exists and no rg_hash match, use it for all rooms
       if (matchingRates.length === 0 && rates.length === 1) {
         console.log(`📌 Applying single rate to room group: ${mainName}`);
         matchingRates = [rates[0]];
+        isFallbackPrice = true;
       }
 
       // If backend didn't return a priced rate for this room group, skip it
@@ -251,6 +302,8 @@ const processRooms = (hotel: HotelDetails): ProcessedRoom[] => {
         paymentType: paymentType,
         availability: Math.floor(Math.random() * 8) + 1,
         rgHash: rgHash,
+        isFallbackPrice: isFallbackPrice,
+        category: getRoomCategory(mainName),
       });
     } catch (error) {
       console.error(`Error processing room group ${index}:`, error);
@@ -284,6 +337,8 @@ const processRoomsFromRates = (hotel: HotelDetails, rates: RateHawkRate[]): Proc
         cancellation: room.cancellationPolicy || "Standard cancellation",
         paymentType: "Pay at hotel",
         availability: room.available || 1,
+        isFallbackPrice: false,
+        category: getRoomCategory(room.name),
       }));
     }
 
@@ -300,6 +355,8 @@ const processRoomsFromRates = (hotel: HotelDetails, rates: RateHawkRate[]): Proc
       cancellation: "Standard cancellation",
       paymentType: "Pay at hotel",
       availability: 1,
+      isFallbackPrice: true,
+      category: "standard" as RoomCategory,
     }];
   }
 
@@ -327,6 +384,8 @@ const processRoomsFromRates = (hotel: HotelDetails, rates: RateHawkRate[]): Proc
     cancellation: "Standard cancellation",
     paymentType: "Pay at hotel",
     availability: 1,
+    isFallbackPrice: true,
+    category: "standard" as RoomCategory,
   }];
 };
 
@@ -334,10 +393,14 @@ export function RoomSelectionSection({ hotel, isLoading = false }: RoomSelection
   const { selectedRooms, addRoom, updateRoomQuantity } = useBookingStore();
   const [displayedRooms, setDisplayedRooms] = useState(6);
 
-  // Process rooms from ratehawk_data
-  const rooms = processRooms(hotel);
-  const roomsToDisplay = rooms.slice(0, displayedRooms);
-  const hasMoreRooms = rooms.length > displayedRooms;
+  // Process and sort rooms by category
+  const sortedRooms = useMemo(() => {
+    const rooms = processRooms(hotel);
+    return rooms.sort((a, b) => categorySortOrder[a.category] - categorySortOrder[b.category]);
+  }, [hotel]);
+  
+  const roomsToDisplay = sortedRooms.slice(0, displayedRooms);
+  const hasMoreRooms = sortedRooms.length > displayedRooms;
 
   const getSelectedQuantity = (roomId: string) => {
     const selected = selectedRooms.find((r) => r.roomId === roomId);
@@ -367,7 +430,7 @@ export function RoomSelectionSection({ hotel, isLoading = false }: RoomSelection
   };
 
   const handleLoadMore = () => {
-    setDisplayedRooms((prev) => Math.min(prev + 6, rooms.length));
+    setDisplayedRooms((prev) => Math.min(prev + 6, sortedRooms.length));
   };
 
   if (isLoading) {
@@ -397,7 +460,7 @@ export function RoomSelectionSection({ hotel, isLoading = false }: RoomSelection
     );
   }
 
-  if (rooms.length === 0) {
+  if (sortedRooms.length === 0) {
     return (
       <section className="py-8 bg-app-white-smoke">
         <div className="container">
@@ -418,10 +481,10 @@ export function RoomSelectionSection({ hotel, isLoading = false }: RoomSelection
             Choose Your Room
           </h2>
           <p className="text-muted-foreground">
-            Select from {rooms.length} available room type{rooms.length !== 1 ? "s" : ""}
+            Select from {sortedRooms.length} available room type{sortedRooms.length !== 1 ? "s" : ""}
             {hasMoreRooms && (
               <span className="text-primary font-medium">
-                {" "}(Showing {displayedRooms} of {rooms.length})
+                {" "}(Showing {displayedRooms} of {sortedRooms.length})
               </span>
             )}
           </p>
@@ -442,9 +505,17 @@ export function RoomSelectionSection({ hotel, isLoading = false }: RoomSelection
                 <div className="flex flex-col lg:flex-row gap-4 lg:items-center">
                   {/* Room Info */}
                   <div className="flex-1">
-                    <h3 className="font-heading text-heading-small text-foreground mb-2">
-                      {room.name}
-                    </h3>
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="font-heading text-heading-small text-foreground">
+                        {room.name}
+                      </h3>
+                      {room.category !== "standard" && (
+                        <Badge variant={categoryBadgeConfig[room.category].variant} className="flex items-center gap-1">
+                          {categoryBadgeConfig[room.category].icon}
+                          {categoryBadgeConfig[room.category].label}
+                        </Badge>
+                      )}
+                    </div>
 
                     <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-3">
                       {room.size && room.size !== "Standard size" && (
@@ -487,10 +558,11 @@ export function RoomSelectionSection({ hotel, isLoading = false }: RoomSelection
                     )}
                   </div>
 
-                  {/* Price & Selection */}
+                    {/* Price & Selection */}
                   <div className="flex items-center gap-6 lg:flex-col lg:items-end lg:gap-4">
                     <div className="text-right">
                       <p className="font-heading text-heading-standard text-primary">
+                        {room.isFallbackPrice && <span className="text-sm font-normal text-muted-foreground">From </span>}
                         {room.currency} {room.price.toLocaleString()}
                       </p>
                       <p className="text-xs text-muted-foreground">per night</p>
@@ -530,7 +602,7 @@ export function RoomSelectionSection({ hotel, isLoading = false }: RoomSelection
         {hasMoreRooms && (
           <div className="mt-6 text-center">
             <Button variant="outline" onClick={handleLoadMore}>
-              Show More Rooms ({rooms.length - displayedRooms} remaining)
+              Show More Rooms ({sortedRooms.length - displayedRooms} remaining)
             </Button>
           </div>
         )}
