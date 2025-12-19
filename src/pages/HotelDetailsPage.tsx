@@ -122,6 +122,19 @@ const HotelDetailsPage = () => {
     );
   }
 
+  // Debug: Log selectedHotel data before rendering
+  console.log(`🏠 HotelDetailsPage - Rendering with hotel:`, {
+    id: selectedHotel.id,
+    name: selectedHotel.name,
+    hasRatehawkData: !!selectedHotel.ratehawk_data,
+    ratehawkDataKeys: Object.keys(selectedHotel.ratehawk_data || {}),
+    roomGroups: selectedHotel.ratehawk_data?.room_groups?.length || 0,
+    enhancedRoomGroups: selectedHotel.ratehawk_data?.enhancedData?.room_groups?.length || 0,
+    rates: selectedHotel.ratehawk_data?.rates?.length || 0,
+    enhancedRates: selectedHotel.ratehawk_data?.enhancedData?.rates?.length || 0,
+    roomsFromStore: selectedHotel.rooms?.length || 0,
+  });
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <main className="flex-1">

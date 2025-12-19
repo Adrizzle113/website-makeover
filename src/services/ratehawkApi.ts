@@ -266,6 +266,17 @@ class RateHawkApiService {
       } as Hotel;
     });
 
+    // Debug: Log ratehawk_data presence for each hotel
+    hotels.forEach(h => {
+      console.log(`📦 API Hotel ${h.id}:`, {
+        hasRatehawkData: !!h.ratehawk_data,
+        roomGroups: h.ratehawk_data?.room_groups?.length || 0,
+        enhancedRoomGroups: h.ratehawk_data?.enhancedData?.room_groups?.length || 0,
+        rates: h.ratehawk_data?.rates?.length || 0,
+        enhancedRates: h.ratehawk_data?.enhancedData?.rates?.length || 0,
+      });
+    });
+
     const totalResults = rawResponse.total || hotels.length;
     const hasMore = rawResponse.hasMore ?? (hotels.length === 20);
 

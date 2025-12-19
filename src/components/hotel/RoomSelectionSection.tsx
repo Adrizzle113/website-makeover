@@ -45,6 +45,19 @@ const getAmenityIcon = (amenity: string) => {
 
 // Process rooms from RateHawk data structure
 const processRooms = (hotel: HotelDetails): ProcessedRoom[] => {
+  // Debug: Full ratehawk_data structure inspection
+  console.log(`🔍 RoomSelectionSection - Full ratehawk_data inspection:`, {
+    hasRatehawkData: !!hotel.ratehawk_data,
+    topLevelKeys: Object.keys(hotel.ratehawk_data || {}),
+    hasEnhancedData: !!hotel.ratehawk_data?.enhancedData,
+    enhancedDataKeys: Object.keys(hotel.ratehawk_data?.enhancedData || {}),
+    topLevelRoomGroups: hotel.ratehawk_data?.room_groups?.length || 0,
+    topLevelRates: hotel.ratehawk_data?.rates?.length || 0,
+    enhancedRoomGroups: hotel.ratehawk_data?.enhancedData?.room_groups?.length || 0,
+    enhancedRates: hotel.ratehawk_data?.enhancedData?.rates?.length || 0,
+    staticVmRoomGroups: (hotel.ratehawk_data?.static_vm?.room_groups as unknown[])?.length || 0,
+  });
+
   // Use enhancedData first (contains full pricing), fallback to top-level data
   const roomGroups = hotel.ratehawk_data?.enhancedData?.room_groups || 
                      hotel.ratehawk_data?.room_groups || [];
@@ -54,6 +67,16 @@ const processRooms = (hotel: HotelDetails): ProcessedRoom[] => {
                 hotel.ratehawk_data?.rates || [];
 
   console.log(`🔍 Processing ${roomGroups.length} room groups with ${rates.length} rate entries (using enhancedData: ${!!hotel.ratehawk_data?.enhancedData})`);
+
+  // Debug: Sample rate structure if available
+  if (rates.length > 0) {
+    console.log(`📊 Sample rate structure:`, {
+      hasRgHash: !!rates[0]?.rg_hash,
+      hasPaymentOptions: !!rates[0]?.payment_options,
+      paymentTypesCount: rates[0]?.payment_options?.payment_types?.length || 0,
+      samplePayment: rates[0]?.payment_options?.payment_types?.[0],
+    });
+  }
 
   if (roomGroups.length === 0) {
     console.log("⚠️ No room_groups found, falling back to rates processing");
