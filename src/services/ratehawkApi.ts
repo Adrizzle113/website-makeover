@@ -1,5 +1,13 @@
 import { API_BASE_URL } from "@/config/api";
-import type { SearchParams, Hotel, HotelDetails, Destination, SearchFilters, RoomRate, RateHawkRate } from "@/types/booking";
+import type {
+  SearchParams,
+  Hotel,
+  HotelDetails,
+  Destination,
+  SearchFilters,
+  RoomRate,
+  RateHawkRate,
+} from "@/types/booking";
 
 const API_ENDPOINTS = {
   SEARCH_HOTELS: "/api/ratehawk/search",
@@ -56,19 +64,19 @@ interface ApiSearchFilters {
 
 class RateHawkApiService {
   private getCurrentUserId(): string {
-    const userId = localStorage.getItem('userId');
+    const userId = localStorage.getItem("userId");
     if (!userId) {
-      throw new Error('No authenticated user found. Please log in first.');
+      throw new Error("No authenticated user found. Please log in first.");
     }
     return userId;
   }
 
   // Safely format a date value (handles both Date objects and ISO strings from localStorage)
   private formatDate(date: Date | string): string {
-    if (typeof date === 'string') {
-      return date.split('T')[0];
+    if (typeof date === "string") {
+      return date.split("T")[0];
     }
-    return date.toISOString().split('T')[0];
+    return date.toISOString().split("T")[0];
   }
 
   private async fetchWithError<T>(url: string, options?: RequestInit): Promise<T> {
@@ -99,9 +107,7 @@ class RateHawkApiService {
     try {
       const response = await this.fetchWithError<SessionsApiResponse>(url);
 
-      const userSession = response.sessions?.find(
-        (s) => s.userId === userId || (!!s.email && s.email === userId)
-      );
+      const userSession = response.sessions?.find((s) => s.userId === userId || (!!s.email && s.email === userId));
 
       return {
         isLoggedIn: !!userSession && (userSession.cookieCount == null || userSession.cookieCount > 0),
@@ -154,11 +160,7 @@ class RateHawkApiService {
     return Object.keys(apiFilters).length > 0 ? apiFilters : undefined;
   }
 
-  async searchHotels(
-    params: SearchParams, 
-    page: number = 1,
-    filters?: SearchFilters
-  ): Promise<SearchResponse> {
+  async searchHotels(params: SearchParams, page: number = 1, filters?: SearchFilters): Promise<SearchResponse> {
     const url = getApiUrl("SEARCH_HOTELS");
     const userId = this.getCurrentUserId();
 
@@ -167,7 +169,7 @@ class RateHawkApiService {
     const guests = Array.from({ length: params.rooms }, (_, index) => {
       // Distribute adults across rooms, with extra going to first rooms
       const baseAdults = guestsPerRoom;
-      const extraAdult = index < (params.guests % params.rooms) ? 1 : 0;
+      const extraAdult = index < params.guests % params.rooms ? 1 : 0;
       return {
         adults: baseAdults + extraAdult,
         children: params.childrenAges || [],
@@ -191,6 +193,8 @@ class RateHawkApiService {
       requestBody.filters = apiFilters;
     }
 
+    console.log("📤 SENDING REQUEST TO BACKEND:", requestBody);
+
     const rawResponse = await this.fetchWithError<{
       success: boolean;
       hotels: Array<{
@@ -207,29 +211,7 @@ class RateHawkApiService {
         freeCancellation?: boolean;
         mealPlan?: string;
         paymentType?: string;
-        ratehawk_data?: {
-          static_vm?: {
-            city?: string;
-            address?: string;
-            country?: string;
-            star_rating?: number;
-            latitude?: number;
-            longitude?: number;
-            images?: Array<{ tmpl: string }>;
-          };
-          rates?: Array<{
-            cancellationPolicy?: string;
-            mealPlan?: string;
-            paymentInfo?: {
-              allowed_payment_types?: Array<{ type: string }>;
-            };
-          }>;
-          enhancedData?: {
-            rates?: unknown[];
-            room_groups?: unknown[];
-          };
-          room_groups?: unknown[];
-        };
+        ratehawk_data?: any; // Keep it flexible to see full structure
       }>;
       total?: number;
       hasMore?: boolean;
@@ -238,43 +220,54 @@ class RateHawkApiService {
       body: JSON.stringify(requestBody),
     });
 
-    // ✅ NEW LOG - More detailed inspection (before any frontend processing)
-    console.log('🔍 RAW BACKEND RESPONSE (before any frontend processing):', {
-      success: rawResponse.success,
-      totalHotels: rawResponse.hotels?.length || 0,
-      firstHotel: {
-        id: rawResponse.hotels?.[0]?.id,
-        name: rawResponse.hotels?.[0]?.name,
-        ratehawk_data_keys: Object.keys(rawResponse.hotels?.[0]?.ratehawk_data || {}),
-        top_level_rates_count: rawResponse.hotels?.[0]?.ratehawk_data?.rates?.length || 0,
-        enhanced_rates_count: rawResponse.hotels?.[0]?.ratehawk_data?.enhancedData?.rates?.length || 0,
-        room_groups_count: rawResponse.hotels?.[0]?.ratehawk_data?.room_groups?.length || 0,
-        actual_rates_array: rawResponse.hotels?.[0]?.ratehawk_data?.rates,
-        actual_enhanced_rates: rawResponse.hotels?.[0]?.ratehawk_data?.enhancedData?.rates,
-      }
-    });
+    // ✅ CRITICAL DEBUG: Log EXACT response from backend
+    if (rawResponse.hotels && rawResponse.hotels.length > 0) {
+      const firstHotel = rawResponse.hotels[0];
+      console.log("🔥🔥🔥 CRITICAL - RAW BACKEND RESPONSE ANALYSIS:", {
+        hotelId: firstHotel.id,
+        hotelName: firstHotel.name,
+        ratehawk_data_structure: {
+          has_ratehawk_data: !!firstHotel.ratehawk_data,
+          top_level_keys: Object.keys(firstHotel.ratehawk_data || {}),
 
-    // Debug: Log raw backend response (existing log)
-    console.log('🔍 RAW BACKEND RESPONSE:', {
-      success: rawResponse.success,
-      hotelsCount: rawResponse.hotels?.length || 0,
-      firstHotelId: rawResponse.hotels?.[0]?.id,
-      firstHotelRatesCount: rawResponse.hotels?.[0]?.ratehawk_data?.rates?.length || 0,
-      firstHotelEnhancedRatesCount: rawResponse.hotels?.[0]?.ratehawk_data?.enhancedData?.rates?.length || 0,
-      fullFirstHotelRatehawkData: rawResponse.hotels?.[0]?.ratehawk_data,
-    });
+          // Rates analysis
+          has_rates_array: !!firstHotel.ratehawk_data?.rates,
+          rates_count: firstHotel.ratehawk_data?.rates?.length || 0,
+          rates_is_array: Array.isArray(firstHotel.ratehawk_data?.rates),
 
-    // Transform backend response to match Hotel type
+          // EnhancedData analysis
+          has_enhanced_data: !!firstHotel.ratehawk_data?.enhancedData,
+          enhanced_rates_count: firstHotel.ratehawk_data?.enhancedData?.rates?.length || 0,
+          enhanced_rates_is_array: Array.isArray(firstHotel.ratehawk_data?.enhancedData?.rates),
+
+          // Room groups analysis
+          room_groups_count: firstHotel.ratehawk_data?.room_groups?.length || 0,
+          enhanced_room_groups_count: firstHotel.ratehawk_data?.enhancedData?.room_groups?.length || 0,
+        },
+
+        // Log ACTUAL data (not just counts)
+        ACTUAL_RATES_ARRAY: firstHotel.ratehawk_data?.rates,
+        ACTUAL_ENHANCED_RATES: firstHotel.ratehawk_data?.enhancedData?.rates,
+        ACTUAL_ROOM_GROUPS: firstHotel.ratehawk_data?.room_groups,
+      });
+
+      // Also log the full ratehawk_data to see complete structure
+      console.log("📦 FULL ratehawk_data for first hotel:", JSON.parse(JSON.stringify(firstHotel.ratehawk_data)));
+    }
+
+    // Transform backend response to match Hotel type - PRESERVE EVERYTHING
     const hotels: Hotel[] = (rawResponse.hotels || []).map((h) => {
       const staticVm = h.ratehawk_data?.static_vm;
       const amenityStrings = h.amenities || [];
+
+      // ✅ DON'T filter or modify rates - keep ALL of them
       const rates = h.ratehawk_data?.rates || [];
 
       // Extract cancellation and meal info from rates
-      const hasFreeCancellation = h.freeCancellation || 
-        rates.some(r => r.cancellationPolicy?.toLowerCase().includes('free'));
+      const hasFreeCancellation =
+        h.freeCancellation || rates.some((r) => r.cancellationPolicy?.toLowerCase().includes("free"));
       const mealPlan = h.mealPlan || rates[0]?.mealPlan;
-      const paymentTypes = rates[0]?.paymentInfo?.allowed_payment_types?.map(p => p.type) || [];
+      const paymentTypes = rates[0]?.paymentInfo?.allowed_payment_types?.map((p) => p.type) || [];
 
       return {
         id: h.id,
@@ -290,13 +283,13 @@ class RateHawkApiService {
           url: img.tmpl.replace("{size}", "1024x768"),
           alt: h.name,
         })),
-        mainImage: h.image || (staticVm?.images?.[0]?.tmpl.replace("{size}", "1024x768")) || "/placeholder.svg",
+        mainImage: h.image || staticVm?.images?.[0]?.tmpl.replace("{size}", "1024x768") || "/placeholder.svg",
         amenities: amenityStrings.map((a, idx) => ({ id: `amenity-${idx}`, name: a })),
         priceFrom: h.price?.amount || 0,
         currency: h.price?.currency || "USD",
         latitude: staticVm?.latitude,
         longitude: staticVm?.longitude,
-        // Preserve the raw ratehawk_data for room processing
+        // ✅ CRITICAL: Preserve COMPLETE ratehawk_data - don't modify it
         ratehawk_data: h.ratehawk_data,
         // Extended fields for filtering display
         freeCancellation: hasFreeCancellation,
@@ -305,24 +298,22 @@ class RateHawkApiService {
       } as Hotel;
     });
 
-    // Debug: Log ratehawk_data presence for each hotel
-    hotels.forEach(h => {
-      console.log(`📦 API Hotel ${h.id}:`, {
+    // Debug: Log what we're passing to the rest of the app
+    hotels.forEach((h) => {
+      console.log(`📦 TRANSFORMED Hotel ${h.id}:`, {
         hasRatehawkData: !!h.ratehawk_data,
-        roomGroups: h.ratehawk_data?.room_groups?.length || 0,
-        enhancedRoomGroups: h.ratehawk_data?.enhancedData?.room_groups?.length || 0,
-        rates: h.ratehawk_data?.rates?.length || 0,
-        enhancedRates: h.ratehawk_data?.enhancedData?.rates?.length || 0,
-        actualRatesInObject: h.ratehawk_data?.rates,
-        actualEnhancedRates: h.ratehawk_data?.enhancedData?.rates,
+        rates_count: h.ratehawk_data?.rates?.length || 0,
+        enhanced_rates_count: h.ratehawk_data?.enhancedData?.rates?.length || 0,
+        room_groups_count: h.ratehawk_data?.room_groups?.length || 0,
+        enhanced_room_groups_count: h.ratehawk_data?.enhancedData?.room_groups?.length || 0,
       });
     });
 
     const totalResults = rawResponse.total || hotels.length;
-    const hasMore = rawResponse.hasMore ?? (hotels.length === 20);
+    const hasMore = rawResponse.hasMore ?? hotels.length === 20;
 
-    return { 
-      hotels, 
+    return {
+      hotels,
       totalResults,
       hasMore,
       nextPage: page + 1,
@@ -330,17 +321,12 @@ class RateHawkApiService {
   }
 
   async getHotelDetails(hotelId: string, searchParams?: SearchParams): Promise<HotelDetails | null> {
-    // Hotel details endpoint doesn't exist on backend
-    // Hotel data should be retrieved from localStorage (set when user clicks hotel card)
     console.warn("getHotelDetails: Backend endpoint not available. Use localStorage instead.");
     return null;
   }
 
   async getRoomRates(hotelId: string, searchParams: SearchParams): Promise<RoomRate[]> {
-    // The hotel details endpoint has CORS issues
-    // Rates should be extracted from the hotel's ratehawk_data which is already 
-    // stored in localStorage when user clicks on a hotel from search results
-    console.log('📦 getRoomRates: Using stored rate data from hotel search results');
+    console.log("📦 getRoomRates: Using stored rate data from hotel search results");
     return [];
   }
 
@@ -364,31 +350,31 @@ class RateHawkApiService {
   // Helper to extract currency from rate
   private extractCurrencyFromRate(rate: RateHawkRate): string {
     const paymentType = rate.payment_options?.payment_types?.[0];
-    return paymentType?.show_currency_code || paymentType?.currency_code || 'USD';
+    return paymentType?.show_currency_code || paymentType?.currency_code || "USD";
   }
 
   // Popular destinations fallback for when API has CORS issues
   private static POPULAR_DESTINATIONS: Destination[] = [
-    { id: 'las_vegas', name: 'Las Vegas', country: 'Nevada, United States', type: 'city' },
-    { id: 'new_york', name: 'New York', country: 'New York, United States', type: 'city' },
-    { id: 'miami', name: 'Miami', country: 'Florida, United States', type: 'city' },
-    { id: 'los_angeles', name: 'Los Angeles', country: 'California, United States', type: 'city' },
-    { id: 'san_francisco', name: 'San Francisco', country: 'California, United States', type: 'city' },
-    { id: 'chicago', name: 'Chicago', country: 'Illinois, United States', type: 'city' },
-    { id: 'orlando', name: 'Orlando', country: 'Florida, United States', type: 'city' },
-    { id: 'honolulu', name: 'Honolulu', country: 'Hawaii, United States', type: 'city' },
-    { id: 'london', name: 'London', country: 'United Kingdom', type: 'city' },
-    { id: 'paris', name: 'Paris', country: 'France', type: 'city' },
-    { id: 'rome', name: 'Rome', country: 'Italy', type: 'city' },
-    { id: 'barcelona', name: 'Barcelona', country: 'Spain', type: 'city' },
-    { id: 'dubai', name: 'Dubai', country: 'United Arab Emirates', type: 'city' },
-    { id: 'tokyo', name: 'Tokyo', country: 'Japan', type: 'city' },
-    { id: 'cancun', name: 'Cancun', country: 'Mexico', type: 'city' },
-    { id: 'nassau', name: 'Nassau', country: 'Bahamas', type: 'city' },
-    { id: 'amsterdam', name: 'Amsterdam', country: 'Netherlands', type: 'city' },
-    { id: 'sydney', name: 'Sydney', country: 'Australia', type: 'city' },
-    { id: 'bangkok', name: 'Bangkok', country: 'Thailand', type: 'city' },
-    { id: 'singapore', name: 'Singapore', country: 'Singapore', type: 'city' },
+    { id: "las_vegas", name: "Las Vegas", country: "Nevada, United States", type: "city" },
+    { id: "new_york", name: "New York", country: "New York, United States", type: "city" },
+    { id: "miami", name: "Miami", country: "Florida, United States", type: "city" },
+    { id: "los_angeles", name: "Los Angeles", country: "California, United States", type: "city" },
+    { id: "san_francisco", name: "San Francisco", country: "California, United States", type: "city" },
+    { id: "chicago", name: "Chicago", country: "Illinois, United States", type: "city" },
+    { id: "orlando", name: "Orlando", country: "Florida, United States", type: "city" },
+    { id: "honolulu", name: "Honolulu", country: "Hawaii, United States", type: "city" },
+    { id: "london", name: "London", country: "United Kingdom", type: "city" },
+    { id: "paris", name: "Paris", country: "France", type: "city" },
+    { id: "rome", name: "Rome", country: "Italy", type: "city" },
+    { id: "barcelona", name: "Barcelona", country: "Spain", type: "city" },
+    { id: "dubai", name: "Dubai", country: "United Arab Emirates", type: "city" },
+    { id: "tokyo", name: "Tokyo", country: "Japan", type: "city" },
+    { id: "cancun", name: "Cancun", country: "Mexico", type: "city" },
+    { id: "nassau", name: "Nassau", country: "Bahamas", type: "city" },
+    { id: "amsterdam", name: "Amsterdam", country: "Netherlands", type: "city" },
+    { id: "sydney", name: "Sydney", country: "Australia", type: "city" },
+    { id: "bangkok", name: "Bangkok", country: "Thailand", type: "city" },
+    { id: "singapore", name: "Singapore", country: "Singapore", type: "city" },
   ];
 
   async getDestinations(query: string): Promise<Destination[]> {
@@ -433,13 +419,12 @@ class RateHawkApiService {
       return [...regionDestinations, ...hotelDestinations];
     } catch (error) {
       console.error("Error fetching destinations:", error);
-      
+
       // Fallback: Filter popular destinations by query when API fails (CORS issues)
-      console.log('📍 Using fallback destination search for:', query);
+      console.log("📍 Using fallback destination search for:", query);
       const queryLower = query.toLowerCase();
       return RateHawkApiService.POPULAR_DESTINATIONS.filter(
-        dest => dest.name.toLowerCase().includes(queryLower) ||
-                dest.country.toLowerCase().includes(queryLower)
+        (dest) => dest.name.toLowerCase().includes(queryLower) || dest.country.toLowerCase().includes(queryLower),
       );
     }
   }
