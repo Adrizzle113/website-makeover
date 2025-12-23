@@ -145,13 +145,6 @@ const transformToHotelDetails = (hotel: Hotel): HotelDetails => {
   };
 };
 
-interface POIData {
-  nearby: Array<{ name: string; distance: string }>;
-  airports: Array<{ name: string; distance: string }>;
-  subways: Array<{ name: string; distance: string }>;
-  placesOfInterest: Array<{ name: string; distance: string }>;
-}
-
 const HotelDetailsPage = () => {
   const { hotelId } = useParams<{ hotelId: string }>();
   const navigate = useNavigate();
@@ -161,7 +154,6 @@ const HotelDetailsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
-  const [poiData, setPoiData] = useState<POIData | null>(null);
 
   useEffect(() => {
     loadHotelData();
@@ -278,36 +270,6 @@ const HotelDetailsPage = () => {
     }
   };
 
-  const fetchHotelPOI = async (hotelId: string): Promise<POIData | null> => {
-    try {
-      console.log("📍 Fetching POI data for hotel:", hotelId);
-      
-      const response = await fetch(`${API_BASE_URL}/api/ratehawk/hotel/${hotelId}/poi`);
-      
-      if (!response.ok) {
-        console.warn("⚠️ POI data not available:", response.status);
-        return null;
-      }
-      
-      const result = await response.json();
-      
-      if (result.success && result.data) {
-        console.log("✅ POI data fetched:", {
-          nearby: result.data.nearby?.length || 0,
-          airports: result.data.airports?.length || 0,
-          subways: result.data.subways?.length || 0,
-          placesOfInterest: result.data.placesOfInterest?.length || 0,
-        });
-        return result.data;
-      }
-      
-      return null;
-    } catch (error) {
-      console.error("❌ Error fetching POI:", error);
-      return null;
-    }
-  };
-
   const fetchHotelDetails = async (data: HotelData) => {
     try {
       console.log("🔍 Starting fetchHotelDetails...");
@@ -379,14 +341,7 @@ const HotelDetailsPage = () => {
         ratehawkHotelId,
       );
 
-      const poiPromise = fetchHotelPOI(ratehawkHotelId);
-
-      const [ratesResponse, staticInfo, poiInfo] = await Promise.all([ratesPromise, staticInfoPromise, poiPromise]);
-
-      // Set POI data if available
-      if (poiInfo) {
-        setPoiData(poiInfo);
-      }
+      const [ratesResponse, staticInfo] = await Promise.all([ratesPromise, staticInfoPromise]);
 
       console.log("📥 API responses received");
 
@@ -509,10 +464,6 @@ const HotelDetailsPage = () => {
             longitude={hotelDetails.longitude}
             address={hotelDetails.address}
             hotelName={hotelDetails.name}
-            nearby={poiData?.nearby}
-            airports={poiData?.airports}
-            subways={poiData?.subways}
-            placesOfInterest={poiData?.placesOfInterest}
           />
           <FacilitiesAmenitiesSection />
         </div>
