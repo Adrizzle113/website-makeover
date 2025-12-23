@@ -577,15 +577,18 @@ export function RoomSelectionSection({ hotel, isLoading = false }: RoomSelection
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      {room.amenities.slice(0, 4).map((amenity, i) => (
-                        <span
-                          key={i}
-                          className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded"
-                        >
-                          {getAmenityIcon(amenity)}
-                          {amenity}
-                        </span>
-                      ))}
+                      {room.amenities.slice(0, 4).map((amenity: string | { id?: string; name?: string }, i) => {
+                        const amenityName = typeof amenity === 'string' ? amenity : ((amenity as { name?: string; id?: string })?.name || (amenity as { name?: string; id?: string })?.id || '');
+                        return (
+                          <span
+                            key={i}
+                            className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded"
+                          >
+                            {getAmenityIcon(amenity)}
+                            {amenityName}
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
 
