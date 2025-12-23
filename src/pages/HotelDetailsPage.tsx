@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
-import { HotelDetails, HotelImage, HotelAmenity } from "../types/booking";
-import { useBookingStore } from "../stores/bookingStore";
 
 // Import components from src/components/hotel
 import { HotelHeroSection } from "../components/hotel/HotelHeroSection";
@@ -11,7 +9,7 @@ import { RoomSelectionSection } from "../components/hotel/RoomSelectionSection";
 import { FacilitiesAmenitiesSection } from "../components/hotel/FacilitiesAmenitiesSection";
 import { MapSection } from "../components/hotel/MapSection";
 import { HotelPoliciesSection } from "../components/hotel/HotelPoliciesSection";
-import { BookingSection } from "../components/hotel/BookingSection";
+import { Card, CardContent } from "../components/ui/card";
 
 interface SearchContext {
   destination: string;
@@ -25,7 +23,7 @@ interface SearchContext {
   searchTimestamp?: string;
 }
 
-interface RawHotel {
+interface Hotel {
   id: string;
   name: string;
   location?: string;
@@ -41,114 +39,35 @@ interface RawHotel {
   images?: string[];
   amenities?: string[];
   description?: string;
+  fullDescription?: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  policies?: string[];
+  address?: string;
+  city?: string;
+  country?: string;
+  phone?: string;
+  email?: string;
+  latitude?: number;
+  longitude?: number;
   ratehawk_data?: any;
 }
 
 interface HotelData {
-  hotel: RawHotel;
+  hotel: Hotel;
   searchContext: SearchContext;
   allAvailableHotels?: number;
   selectedFromPage?: number;
 }
 
-// Transform stored hotel data (from localStorage) into a valid HotelDetails shape
-const transformToHotelDetails = (hotel: any): HotelDetails => {
-  const rawLocation: string = hotel.location || hotel.address || "";
-
-  // Prefer already-structured fields if present
-  const address: string = hotel.address || rawLocation || "";
-
-  const parseLocation = (value: string) => {
-    const parts = (value || "").split(",").map((s: string) => s.trim()).filter(Boolean);
-    return {
-      city: parts[0] || hotel.city || "",
-      country: parts.length > 1 ? parts[parts.length - 1] : hotel.country || "",
-    };
-  };
-
-  const { city, country } = parseLocation(rawLocation);
-
-  // Images can be: string[], HotelImage[], or missing
-  const toHotelImages = (imgs: any): HotelImage[] => {
-    if (!Array.isArray(imgs) || imgs.length === 0) return [];
-
-    const first = imgs[0];
-    if (typeof first === "string") {
-      return (imgs as string[]).filter(Boolean).map((url, i) => ({
-        url,
-        alt: `${hotel.name} - Image ${i + 1}`,
-      }));
-    }
-
-    if (typeof first === "object" && first && "url" in first) {
-      return (imgs as HotelImage[]).filter((i) => !!i?.url);
-    }
-
-    return [];
-  };
-
-  const imagesFromList = toHotelImages(hotel.images);
-  const mainImage: string =
-    hotel.mainImage ||
-    hotel.image ||
-    imagesFromList[0]?.url ||
-    (typeof hotel.images?.[0] === "string" ? hotel.images[0] : undefined) ||
-    "/placeholder.svg";
-
-  const images: HotelImage[] =
-    imagesFromList.length > 0
-      ? imagesFromList
-      : mainImage
-        ? [{ url: mainImage, alt: hotel.name }]
-        : [{ url: "/placeholder.svg", alt: hotel.name }];
-
-  // Amenities can be: string[] or HotelAmenity[]
-  const amenities: HotelAmenity[] = Array.isArray(hotel.amenities)
-    ? typeof hotel.amenities[0] === "string"
-      ? (hotel.amenities as string[]).map((name, i) => ({ id: `amenity-${i}`, name }))
-      : (hotel.amenities as HotelAmenity[])
-    : [];
-
-  const starRatingRaw = hotel.starRating ?? hotel.rating ?? 0;
-  const starRating = Math.max(0, Math.min(5, Math.round(Number(starRatingRaw) || 0)));
-
-  return {
-    id: hotel.id,
-    name: hotel.name,
-    description: hotel.description || "",
-    address,
-    city,
-    country,
-    starRating,
-    reviewScore: typeof hotel.reviewScore === "number" ? hotel.reviewScore : undefined,
-    reviewCount: typeof hotel.reviewCount === "number" ? hotel.reviewCount : undefined,
-    images,
-    mainImage,
-    amenities,
-    priceFrom: hotel.priceFrom ?? hotel.price?.amount ?? 0,
-    currency: hotel.currency ?? hotel.price?.currency ?? "USD",
-    latitude: hotel.latitude ?? hotel.ratehawk_data?.latitude,
-    longitude: hotel.longitude ?? hotel.ratehawk_data?.longitude,
-    rooms: hotel.rooms,
-    ratehawk_data: hotel.ratehawk_data,
-    fullDescription: hotel.fullDescription,
-    checkInTime: hotel.checkInTime || "3:00 PM",
-    checkOutTime: hotel.checkOutTime || "12:00 PM",
-    policies: hotel.policies || ["Check-in from 3:00 PM", "Check-out by 12:00 PM"],
-    facilities: hotel.facilities,
-    nearbyAttractions: hotel.nearbyAttractions,
-  };
-};
-
 const HotelDetailsPage = () => {
   const { hotelId } = useParams<{ hotelId: string }>();
   const navigate = useNavigate();
-  const { setSelectedHotel, setSearchParams } = useBookingStore();
 
   const [hotelData, setHotelData] = useState<HotelData | null>(null);
-  const [hotelDetails, setHotelDetails] = useState<HotelDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     loadHotelData();
@@ -159,6 +78,7 @@ const HotelDetailsPage = () => {
       setLoading(true);
       setError(null);
 
+      console.log("🔍 Loading hotel data for ID:", hotelId);
 
       // Try to get saved hotel data from localStorage
       const savedData = localStorage.getItem("selectedHotel");
@@ -166,42 +86,15 @@ const HotelDetailsPage = () => {
 
       if (savedData) {
         const parsedData: HotelData = JSON.parse(savedData);
-
-        // Normalize IDs for comparison (handle different formats)
-        const normalizeId = (id: string) => id?.toLowerCase().replace(/[_\-\s]/g, "");
-        const savedId = normalizeId(parsedData.hotel.id);
-        const urlId = normalizeId(hotelId || "");
-
-        if (savedId === urlId || parsedData.hotel.id === hotelId) {
+        if (parsedData.hotel.id === hotelId) {
+          console.log("✅ Found saved hotel data:", {
+            hotelId: parsedData.hotel.id,
+            hotelName: parsedData.hotel.name,
+            destination: parsedData.searchContext?.destination,
+          });
           initialHotelData = parsedData;
           setHotelData(initialHotelData);
-
-          // Transform and set hotel details
-          const transformed = transformToHotelDetails(parsedData.hotel);
-          setHotelDetails(transformed);
-          setSelectedHotel(transformed);
-
-          // Set search params for BookingSidebar
-          const context = parsedData.searchContext;
-          if (context) {
-            const guestCount = Array.isArray(context.guests) 
-              ? context.guests.reduce((sum, g) => sum + (g.adults || 2), 0)
-              : context.guests || 2;
-            
-            setSearchParams({
-              destination: context.destination,
-              destinationId: context.destinationId,
-              checkIn: new Date(context.checkin),
-              checkOut: new Date(context.checkout),
-              guests: guestCount,
-              rooms: Array.isArray(context.guests) ? context.guests.length : 1,
-            });
-          }
-        } else {
-          console.warn("⚠️ Hotel ID mismatch:", { savedId: parsedData.hotel.id, urlId: hotelId });
         }
-      } else {
-        console.warn("⚠️ No selectedHotel in localStorage");
       }
 
       if (!initialHotelData) {
@@ -213,6 +106,10 @@ const HotelDetailsPage = () => {
 
       // Fetch detailed rates and update hotel data
       await fetchDetailedRates(initialHotelData);
+
+      // Check if this hotel is in favorites
+      const favorites = JSON.parse(localStorage.getItem("favoriteHotels") || "[]");
+      setIsFavorite(favorites.includes(hotelId));
 
       setLoading(false);
     } catch (err) {
@@ -284,41 +181,137 @@ const HotelDetailsPage = () => {
       const responseData = await response.json();
       console.log("📥 API Response received");
 
-      // Extract rates and room_groups
+      // Extract rates, room_groups, and other hotel information
       let rates: any[] = [];
       let room_groups: any[] = [];
+      let description: string | null = null;
+      let fullDescription: string | null = null;
+      let checkInTime: string | null = null;
+      let checkOutTime: string | null = null;
+      let policies: string[] = [];
+      let additionalInfo: any = {};
+      let staticData: any = null;
 
       if (responseData.data?.data?.hotels?.[0]) {
-        const hotelApiData = responseData.data.data.hotels[0];
-        rates = hotelApiData.rates || [];
-        room_groups = hotelApiData.room_groups || [];
+        const hotelDetails = responseData.data.data.hotels[0];
+        rates = hotelDetails.rates || [];
+        room_groups = hotelDetails.room_groups || [];
+        staticData = hotelDetails;
+
+        // Log the structure to see what's available
+        console.log("📊 Static dump structure:", {
+          topLevelKeys: Object.keys(hotelDetails),
+          hasStaticVm: !!hotelDetails.static_vm,
+          staticVmKeys: hotelDetails.static_vm ? Object.keys(hotelDetails.static_vm) : [],
+          hasFacts: !!hotelDetails.facts,
+          factsKeys: hotelDetails.facts ? Object.keys(hotelDetails.facts) : [],
+        });
+
+        // Extract description from various possible locations
+        description =
+          hotelDetails.description ||
+          hotelDetails.hotel_description ||
+          hotelDetails.static_vm?.description ||
+          hotelDetails.static_vm?.hotel_description ||
+          hotelDetails.facts?.description ||
+          hotelDetails.facts?.hotel_description ||
+          null;
+
+        // Extract full/detailed description
+        fullDescription =
+          hotelDetails.full_description ||
+          hotelDetails.static_vm?.full_description ||
+          hotelDetails.static_vm?.detailed_description ||
+          description; // Fallback to regular description
+
+        // Extract check-in/check-out times
+        checkInTime =
+          hotelDetails.check_in_time ||
+          hotelDetails.static_vm?.check_in_time ||
+          hotelDetails.facts?.check_in_time ||
+          null;
+
+        checkOutTime =
+          hotelDetails.check_out_time ||
+          hotelDetails.static_vm?.check_out_time ||
+          hotelDetails.facts?.check_out_time ||
+          null;
+
+        // Extract policies
+        if (hotelDetails.policies) {
+          policies = Array.isArray(hotelDetails.policies) ? hotelDetails.policies : [hotelDetails.policies];
+        } else if (hotelDetails.static_vm?.policies) {
+          policies = Array.isArray(hotelDetails.static_vm.policies)
+            ? hotelDetails.static_vm.policies
+            : [hotelDetails.static_vm.policies];
+        } else if (hotelDetails.facts?.policies) {
+          policies = Array.isArray(hotelDetails.facts.policies)
+            ? hotelDetails.facts.policies
+            : [hotelDetails.facts.policies];
+        }
+
+        // Extract additional useful information
+        additionalInfo = {
+          address: hotelDetails.address || hotelDetails.static_vm?.address,
+          city: hotelDetails.city || hotelDetails.static_vm?.city,
+          country: hotelDetails.country || hotelDetails.static_vm?.country,
+          phone: hotelDetails.phone || hotelDetails.static_vm?.phone || hotelDetails.facts?.phone,
+          email: hotelDetails.email || hotelDetails.static_vm?.email || hotelDetails.facts?.email,
+          star_rating: hotelDetails.star_rating || hotelDetails.static_vm?.star_rating,
+          latitude: hotelDetails.latitude || hotelDetails.static_vm?.latitude,
+          longitude: hotelDetails.longitude || hotelDetails.static_vm?.longitude,
+        };
+
         console.log(`✅ Found ${rates.length} rates and ${room_groups.length} room_groups`);
+        if (description) {
+          console.log(`📝 Description found (${description.length} chars):`, description.substring(0, 100) + "...");
+        } else {
+          console.log(`📝 Description not found. Available text fields:`, {
+            description: hotelDetails.description,
+            hotel_description: hotelDetails.hotel_description,
+            static_vm_description: hotelDetails.static_vm?.description,
+            facts_description: hotelDetails.facts?.description,
+          });
+        }
+
+        console.log(`ℹ️ Additional info extracted:`, {
+          hasCheckInTime: !!checkInTime,
+          hasCheckOutTime: !!checkOutTime,
+          policiesCount: policies.length,
+          hasAddress: !!additionalInfo.address,
+          hasCoordinates: !!(additionalInfo.latitude && additionalInfo.longitude),
+        });
       }
 
-      if (rates.length > 0 || room_groups.length > 0) {
-        // Update hotel data with fetched rates
-        const updatedRawHotel: RawHotel = {
+      // Update hotel data with all fetched information
+      const updatedHotelData: HotelData = {
+        ...data,
+        hotel: {
           ...data.hotel,
+          description: description || data.hotel.description,
+          fullDescription: fullDescription || data.hotel.fullDescription,
+          checkInTime: checkInTime || data.hotel.checkInTime,
+          checkOutTime: checkOutTime || data.hotel.checkOutTime,
+          policies: policies.length > 0 ? policies : data.hotel.policies,
+          address: additionalInfo.address || data.hotel.address,
+          city: additionalInfo.city || data.hotel.city,
+          country: additionalInfo.country || data.hotel.country,
+          phone: additionalInfo.phone || data.hotel.phone,
+          email: additionalInfo.email || data.hotel.email,
+          latitude: additionalInfo.latitude || data.hotel.latitude,
+          longitude: additionalInfo.longitude || data.hotel.longitude,
           ratehawk_data: {
             ...data.hotel.ratehawk_data,
             rates: rates,
             room_groups: room_groups,
+            static_vm: staticData?.static_vm || data.hotel.ratehawk_data?.static_vm,
+            facts: staticData?.facts || data.hotel.ratehawk_data?.facts,
           },
-        };
+        },
+      };
 
-        const updatedHotelData: HotelData = {
-          ...data,
-          hotel: updatedRawHotel,
-        };
-
-        console.log(`🔄 Updated hotel with ${rates.length} rates`);
-        setHotelData(updatedHotelData);
-
-        // Transform and update hotel details
-        const transformed = transformToHotelDetails(updatedRawHotel);
-        setHotelDetails(transformed);
-        setSelectedHotel(transformed);
-      }
+      console.log(`🔄 Updated hotel with ${rates.length} rates${description ? " and description" : ""}`);
+      setHotelData(updatedHotelData);
     } catch (error) {
       console.error("💥 Error fetching rates:", error);
     }
@@ -328,23 +321,23 @@ const HotelDetailsPage = () => {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading hotel details...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading hotel details...</p>
         </div>
       </div>
     );
   }
 
-  if (error || !hotelDetails) {
+  if (error || !hotelData) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center max-w-md">
-          <div className="text-destructive text-5xl mb-4">⚠️</div>
-          <h2 className="text-2xl font-bold text-foreground mb-2">Oops! Something went wrong</h2>
-          <p className="text-muted-foreground mb-6">{error}</p>
+          <div className="text-red-500 text-5xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Oops! Something went wrong</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
           <button
             onClick={() => navigate("/search")}
-            className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition"
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
           >
             Back to Search
           </button>
@@ -353,27 +346,35 @@ const HotelDetailsPage = () => {
     );
   }
 
+  const { hotel } = hotelData;
+
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <HotelHeroSection hotel={hotelDetails} />
+    <div className="min-h-screen bg-background">
+      <HotelHeroSection hotel={hotel} />
 
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto space-y-8">
-          <HotelInfoSection hotel={hotelDetails} />
-          <RoomSelectionSection hotel={hotelDetails} isLoading={false} />
-          <FacilitiesAmenitiesSection />
-          <HotelPoliciesSection hotel={hotelDetails} />
-          <MapSection
-            latitude={hotelDetails.latitude}
-            longitude={hotelDetails.longitude}
-            address={hotelDetails.address}
-            hotelName={hotelDetails.name}
-          />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-8">
+            <HotelInfoSection hotel={hotel} />
+            <RoomSelectionSection hotel={hotel} isLoading={false} />
+            <FacilitiesAmenitiesSection />
+          </div>
+
+          {/* Sidebar */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-4 space-y-6">
+              <HotelPoliciesSection hotel={hotel} />
+              <MapSection
+                latitude={hotel.latitude}
+                longitude={hotel.longitude}
+                address={hotel.location || hotel.address}
+                hotelName={hotel.name}
+              />
+            </div>
+          </div>
         </div>
       </div>
-
-      {/* Sticky bottom bar - only shows when rooms are selected */}
-      <BookingSection currency={hotelDetails.currency} />
     </div>
   );
 };
