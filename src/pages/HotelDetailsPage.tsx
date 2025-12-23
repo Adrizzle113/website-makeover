@@ -9,7 +9,6 @@ import { RoomSelectionSection } from "../components/hotel/RoomSelectionSection";
 import { FacilitiesAmenitiesSection } from "../components/hotel/FacilitiesAmenitiesSection";
 import { MapSection } from "../components/hotel/MapSection";
 import { HotelPoliciesSection } from "../components/hotel/HotelPoliciesSection";
-import { BookingSection } from "../components/hotel/BookingSection";
 import { Card, CardContent } from "../components/ui/card";
 
 interface SearchContext {
@@ -24,23 +23,11 @@ interface SearchContext {
   searchTimestamp?: string;
 }
 
-interface HotelImage {
-  url: string;
-  alt?: string;
-}
-
-interface HotelAmenity {
-  id: string;
-  name: string;
-  icon?: string;
-}
-
 interface Hotel {
   id: string;
   name: string;
   location?: string;
   rating?: number;
-  starRating: number;
   reviewScore?: number;
   reviewCount?: number;
   price?: {
@@ -48,20 +35,17 @@ interface Hotel {
     currency: string;
     period?: string;
   };
-  priceFrom: number;
-  currency: string;
   image?: string;
-  mainImage: string;
-  images: HotelImage[];
-  amenities: HotelAmenity[];
+  images?: string[];
+  amenities?: string[];
   description?: string;
   fullDescription?: string;
   checkInTime?: string;
   checkOutTime?: string;
   policies?: string[];
-  address: string;
-  city: string;
-  country: string;
+  address?: string;
+  city?: string;
+  country?: string;
   phone?: string;
   email?: string;
   latitude?: number;
@@ -120,8 +104,8 @@ const HotelDetailsPage = () => {
         return;
       }
 
-      // Fetch detailed rates and update hotel data
-      await fetchDetailedRates(initialHotelData);
+      // Fetch detailed rates and static info
+      await fetchHotelDetails(initialHotelData);
 
       // Check if this hotel is in favorites
       const favorites = JSON.parse(localStorage.getItem("favoriteHotels") || "[]");
@@ -135,9 +119,50 @@ const HotelDetailsPage = () => {
     }
   };
 
-  const fetchDetailedRates = async (data: HotelData) => {
+  const fetchStaticHotelInfo = async (hotelId: string) => {
     try {
-      console.log("🔍 Starting fetchDetailedRates...");
+      console.log("📚 Fetching static hotel info...");
+
+      const response = await fetch(`${API_BASE_URL}/api/ratehawk/hotel/static-info`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hotelId: hotelId,
+          residency: "en-us",
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn(`⚠️ Static info endpoint returned ${response.status}`);
+        return null;
+      }
+
+      const responseData = await response.json();
+
+      if (responseData.success && responseData.data) {
+        console.log("✅ Static info fetched successfully");
+
+        if (responseData.data.description) {
+          const preview = responseData.data.description.substring(0, 100);
+          console.log(`📝 Description found (${responseData.data.description.length} chars): ${preview}...`);
+        } else {
+          console.log("📝 No description in static info response");
+        }
+
+        return responseData.data;
+      }
+
+      console.log("⚠️ Static info response not in expected format");
+      return null;
+    } catch (error) {
+      console.error("💥 Error fetching static info:", error);
+      return null;
+    }
+  };
+
+  const fetchHotelDetails = async (data: HotelData) => {
+    try {
+      console.log("🔍 Starting fetchHotelDetails...");
 
       const context = data.searchContext;
 
@@ -181,176 +206,74 @@ const HotelDetailsPage = () => {
         currency: "USD",
       };
 
-      console.log("📤 Fetching detailed rates from API");
+      console.log("📤 Fetching rates and static info in parallel...");
 
-      const response = await fetch(`${API_BASE_URL}/api/ratehawk/hotel/details`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
+      // Fetch both rates AND static info in parallel for better performance
+      const [ratesResponse, staticInfo] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/ratehawk/hotel/details`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        }),
+        fetchStaticHotelInfo(hotelId as string),
+      ]);
 
-      if (!response.ok) {
-        console.warn(`⚠️ API returned ${response.status}`);
-        return;
-      }
+      console.log("📥 Both API responses received");
 
-      const responseData = await response.json();
-      
-      // Debug: Log the complete API response structure
-      console.log("📥 FULL API RESPONSE STRUCTURE:", JSON.stringify(responseData, null, 2));
-      console.log("📦 Response keys:", Object.keys(responseData));
-      if (responseData.data) {
-        console.log("📦 Data keys:", Object.keys(responseData.data));
-        if (responseData.data.data) {
-          console.log("📦 Inner data keys:", Object.keys(responseData.data.data));
-          if (responseData.data.data.hotels?.[0]) {
-            const h = responseData.data.data.hotels[0];
-            console.log("🏨 Hotel object keys:", Object.keys(h));
-            console.log("🏨 Hotel description fields:", {
-              description: h.description,
-              hotel_description: h.hotel_description,
-              full_description: h.full_description,
-              detailed_description: h.detailed_description,
-              static_vm: h.static_vm ? Object.keys(h.static_vm) : null,
-              facts: h.facts ? Object.keys(h.facts) : null,
-            });
-          }
-        }
-      }
-
-      // Extract rates, room_groups, and other hotel information
+      // Process rates response
       let rates: any[] = [];
       let room_groups: any[] = [];
-      let description: string | null = null;
-      let fullDescription: string | null = null;
-      let checkInTime: string | null = null;
-      let checkOutTime: string | null = null;
-      let policies: string[] = [];
-      let additionalInfo: any = {};
-      let staticData: any = null;
 
-      if (responseData.data?.data?.hotels?.[0]) {
-        const hotelDetails = responseData.data.data.hotels[0];
-        rates = hotelDetails.rates || [];
-        room_groups = hotelDetails.room_groups || [];
-        staticData = hotelDetails;
+      if (ratesResponse.ok) {
+        const ratesData = await ratesResponse.json();
 
-        // Log the structure to see what's available
-        console.log("📊 Static dump structure:", {
-          topLevelKeys: Object.keys(hotelDetails),
-          hasStaticVm: !!hotelDetails.static_vm,
-          staticVmKeys: hotelDetails.static_vm ? Object.keys(hotelDetails.static_vm) : [],
-          hasFacts: !!hotelDetails.facts,
-          factsKeys: hotelDetails.facts ? Object.keys(hotelDetails.facts) : [],
-        });
-
-        // Extract description from various possible locations
-        description =
-          hotelDetails.description ||
-          hotelDetails.hotel_description ||
-          hotelDetails.static_vm?.description ||
-          hotelDetails.static_vm?.hotel_description ||
-          hotelDetails.facts?.description ||
-          hotelDetails.facts?.hotel_description ||
-          null;
-
-        // Extract full/detailed description
-        fullDescription =
-          hotelDetails.full_description ||
-          hotelDetails.static_vm?.full_description ||
-          hotelDetails.static_vm?.detailed_description ||
-          description; // Fallback to regular description
-
-        // Extract check-in/check-out times
-        checkInTime =
-          hotelDetails.check_in_time ||
-          hotelDetails.static_vm?.check_in_time ||
-          hotelDetails.facts?.check_in_time ||
-          null;
-
-        checkOutTime =
-          hotelDetails.check_out_time ||
-          hotelDetails.static_vm?.check_out_time ||
-          hotelDetails.facts?.check_out_time ||
-          null;
-
-        // Extract policies
-        if (hotelDetails.policies) {
-          policies = Array.isArray(hotelDetails.policies) ? hotelDetails.policies : [hotelDetails.policies];
-        } else if (hotelDetails.static_vm?.policies) {
-          policies = Array.isArray(hotelDetails.static_vm.policies)
-            ? hotelDetails.static_vm.policies
-            : [hotelDetails.static_vm.policies];
-        } else if (hotelDetails.facts?.policies) {
-          policies = Array.isArray(hotelDetails.facts.policies)
-            ? hotelDetails.facts.policies
-            : [hotelDetails.facts.policies];
+        if (ratesData.data?.data?.hotels?.[0]) {
+          const hotelDetails = ratesData.data.data.hotels[0];
+          rates = hotelDetails.rates || [];
+          room_groups = hotelDetails.room_groups || [];
+          console.log(`✅ Found ${rates.length} rates and ${room_groups.length} room_groups`);
         }
-
-        // Extract additional useful information
-        additionalInfo = {
-          address: hotelDetails.address || hotelDetails.static_vm?.address,
-          city: hotelDetails.city || hotelDetails.static_vm?.city,
-          country: hotelDetails.country || hotelDetails.static_vm?.country,
-          phone: hotelDetails.phone || hotelDetails.static_vm?.phone || hotelDetails.facts?.phone,
-          email: hotelDetails.email || hotelDetails.static_vm?.email || hotelDetails.facts?.email,
-          star_rating: hotelDetails.star_rating || hotelDetails.static_vm?.star_rating,
-          latitude: hotelDetails.latitude || hotelDetails.static_vm?.latitude,
-          longitude: hotelDetails.longitude || hotelDetails.static_vm?.longitude,
-        };
-
-        console.log(`✅ Found ${rates.length} rates and ${room_groups.length} room_groups`);
-        if (description) {
-          console.log(`📝 Description found (${description.length} chars):`, description.substring(0, 100) + "...");
-        } else {
-          console.log(`📝 Description not found. Available text fields:`, {
-            description: hotelDetails.description,
-            hotel_description: hotelDetails.hotel_description,
-            static_vm_description: hotelDetails.static_vm?.description,
-            facts_description: hotelDetails.facts?.description,
-          });
-        }
-
-        console.log(`ℹ️ Additional info extracted:`, {
-          hasCheckInTime: !!checkInTime,
-          hasCheckOutTime: !!checkOutTime,
-          policiesCount: policies.length,
-          hasAddress: !!additionalInfo.address,
-          hasCoordinates: !!(additionalInfo.latitude && additionalInfo.longitude),
-        });
+      } else {
+        console.warn(`⚠️ Rates API returned ${ratesResponse.status}`);
       }
 
-      // Update hotel data with all fetched information
+      // Merge all data together
       const updatedHotelData: HotelData = {
         ...data,
         hotel: {
           ...data.hotel,
-          description: description || data.hotel.description,
-          fullDescription: fullDescription || data.hotel.fullDescription,
-          checkInTime: checkInTime || data.hotel.checkInTime,
-          checkOutTime: checkOutTime || data.hotel.checkOutTime,
-          policies: policies.length > 0 ? policies : data.hotel.policies,
-          address: additionalInfo.address || data.hotel.address,
-          city: additionalInfo.city || data.hotel.city,
-          country: additionalInfo.country || data.hotel.country,
-          phone: additionalInfo.phone || data.hotel.phone,
-          email: additionalInfo.email || data.hotel.email,
-          latitude: additionalInfo.latitude || data.hotel.latitude,
-          longitude: additionalInfo.longitude || data.hotel.longitude,
+          // Static info from API (Solution 1)
+          description: staticInfo?.description || data.hotel.description,
+          fullDescription: staticInfo?.fullDescription || data.hotel.fullDescription,
+          checkInTime: staticInfo?.checkInTime || data.hotel.checkInTime,
+          checkOutTime: staticInfo?.checkOutTime || data.hotel.checkOutTime,
+          policies: staticInfo?.policies?.length > 0 ? staticInfo.policies : data.hotel.policies,
+          address: staticInfo?.address || data.hotel.address,
+          phone: staticInfo?.phone || data.hotel.phone,
+          email: staticInfo?.email || data.hotel.email,
+          latitude: staticInfo?.coordinates?.latitude || data.hotel.latitude,
+          longitude: staticInfo?.coordinates?.longitude || data.hotel.longitude,
+          amenities: staticInfo?.amenities?.length > 0 ? staticInfo.amenities : data.hotel.amenities,
+          // Rate data
           ratehawk_data: {
             ...data.hotel.ratehawk_data,
             rates: rates,
             room_groups: room_groups,
-            static_vm: staticData?.static_vm || data.hotel.ratehawk_data?.static_vm,
-            facts: staticData?.facts || data.hotel.ratehawk_data?.facts,
+            static_info: staticInfo, // Store the full static info
           },
         },
       };
 
-      console.log(`🔄 Updated hotel with ${rates.length} rates${description ? " and description" : ""}`);
+      console.log("🔄 Updated hotel with:");
+      console.log(`   - ${rates.length} rates`);
+      console.log(`   - ${staticInfo?.description ? "Description ✅" : "Description ❌"}`);
+      console.log(`   - ${staticInfo?.checkInTime ? "Check-in time ✅" : "Check-in time ❌"}`);
+      console.log(`   - ${staticInfo?.policies?.length || 0} policies`);
+      console.log(`   - ${staticInfo?.amenities?.length || 0} amenities from static info`);
+
       setHotelData(updatedHotelData);
     } catch (error) {
-      console.error("💥 Error fetching rates:", error);
+      console.error("💥 Error fetching hotel details:", error);
     }
   };
 
@@ -390,22 +313,28 @@ const HotelDetailsPage = () => {
       <HotelHeroSection hotel={hotel} />
 
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto space-y-8">
-          <HotelInfoSection hotel={hotel} />
-          <RoomSelectionSection hotel={hotel} isLoading={false} />
-          <FacilitiesAmenitiesSection />
-          <HotelPoliciesSection hotel={hotel} />
-          <MapSection
-            latitude={hotel.latitude}
-            longitude={hotel.longitude}
-            address={hotel.location || hotel.address}
-            hotelName={hotel.name}
-          />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-8">
+            <HotelInfoSection hotel={hotel} />
+            <RoomSelectionSection hotel={hotel} isLoading={false} />
+            <FacilitiesAmenitiesSection />
+          </div>
+
+          {/* Sidebar */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-4 space-y-6">
+              <HotelPoliciesSection hotel={hotel} />
+              <MapSection
+                latitude={hotel.latitude}
+                longitude={hotel.longitude}
+                address={hotel.location || hotel.address}
+                hotelName={hotel.name}
+              />
+            </div>
+          </div>
         </div>
       </div>
-
-      {/* Sticky bottom bar - only shows when rooms are selected */}
-      <BookingSection currency={hotel.currency} />
     </div>
   );
 };
