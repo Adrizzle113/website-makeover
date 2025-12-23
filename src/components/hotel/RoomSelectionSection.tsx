@@ -144,6 +144,17 @@ const extractRoomData = (hotel: HotelDetails): { roomGroups: RateHawkRoomGroup[]
   return { roomGroups, rates };
 };
 
+// Helper to extract rg_hash from rate (may be nested)
+const getRateRgHash = (rate: RateHawkRate): string | undefined => {
+  // Try direct rg_hash first
+  if (rate.rg_hash) return rate.rg_hash;
+  // Try nested in rooms array
+  if (rate.rooms?.[0]?.rg_hash) return rate.rooms[0].rg_hash;
+  // Try rg_ext
+  if ((rate as any).rg_ext?.rg_hash) return (rate as any).rg_ext.rg_hash;
+  return undefined;
+};
+
 // Process rooms using room_groups + rg_hash matching (the working approach)
 const processRoomsWithRoomGroups = (hotel: HotelDetails): ProcessedRoom[] => {
   const { roomGroups, rates } = extractRoomData(hotel);
@@ -153,7 +164,7 @@ const processRoomsWithRoomGroups = (hotel: HotelDetails): ProcessedRoom[] => {
   // Debug: Log actual rate structure to understand the data
   if (rates.length > 0) {
     console.log('🔎 First rate structure:', JSON.stringify(rates[0], null, 2).slice(0, 500));
-    console.log('🔎 Rate rg_hash values:', rates.map(r => r.rg_hash));
+    console.log('🔎 Rate rg_hash values (resolved):', rates.map(r => getRateRgHash(r)));
   }
   if (roomGroups.length > 0) {
     console.log('🔎 RoomGroup rg_hash values:', roomGroups.slice(0, 3).map(rg => rg.rg_hash));
@@ -171,8 +182,8 @@ const processRoomsWithRoomGroups = (hotel: HotelDetails): ProcessedRoom[] => {
         const rgHash = roomGroup.rg_hash;
         const fullRoomName = beddingType ? `${mainName} - ${beddingType}` : mainName;
 
-        // Find matching rates for this room group using rg_hash
-        const matchingRates = rates.filter((rate) => rate.rg_hash === rgHash);
+        // Find matching rates for this room group using rg_hash (check nested locations)
+        const matchingRates = rates.filter((rate) => getRateRgHash(rate) === rgHash);
         console.log(`🔗 Found ${matchingRates.length} rates for: ${fullRoomName} (${rgHash})`);
 
         // Get the best rate (lowest price) for this room type
@@ -203,8 +214,7 @@ const processRoomsWithRoomGroups = (hotel: HotelDetails): ProcessedRoom[] => {
 
         // Skip if no valid price found
         if (!bestRate || lowestPrice === Infinity) {
-          console.log(`⚠️ No valid price for room group: ${fullRoomName}`);
-          return;
+          return; // Don't log every skip, reduce noise
         }
 
         // Determine occupancy
@@ -270,6 +280,9 @@ const processRoomsWithRoomGroups = (hotel: HotelDetails): ProcessedRoom[] => {
       console.log(`✅ Processed ${processedRooms.length} rooms from room_groups`);
       return processedRooms;
     }
+    
+    // If room_groups exist but no matches found, fall back to direct rate processing
+    console.log(`⚠️ No rg_hash matches found, falling back to direct rate processing`);
   }
 
   // Fallback: process rates directly if no room_groups or processing failed
