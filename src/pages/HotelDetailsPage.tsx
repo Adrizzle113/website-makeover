@@ -128,7 +128,20 @@ const HotelDetailsPage = () => {
 
       if (savedData) {
         const parsedData: HotelData = JSON.parse(savedData);
-        if (parsedData.hotel.id === hotelId) {
+        
+        // Normalize IDs for comparison (handle different formats)
+        const normalizeId = (id: string) => id?.toLowerCase().replace(/[_\-\s]/g, '');
+        const savedId = normalizeId(parsedData.hotel.id);
+        const urlId = normalizeId(hotelId || '');
+        
+        console.log("🔍 Comparing hotel IDs:", { 
+          savedId: parsedData.hotel.id, 
+          urlId: hotelId,
+          normalized: { savedId, urlId },
+          match: savedId === urlId 
+        });
+
+        if (savedId === urlId || parsedData.hotel.id === hotelId) {
           console.log("✅ Found saved hotel data:", {
             hotelId: parsedData.hotel.id,
             hotelName: parsedData.hotel.name,
@@ -139,6 +152,7 @@ const HotelDetailsPage = () => {
 
           // Transform and set hotel details
           const transformed = transformToHotelDetails(parsedData.hotel);
+          console.log("✅ Transformed hotel details:", transformed);
           setHotelDetails(transformed);
           setSelectedHotel(transformed);
 
@@ -158,7 +172,11 @@ const HotelDetailsPage = () => {
               rooms: Array.isArray(context.guests) ? context.guests.length : 1,
             });
           }
+        } else {
+          console.warn("⚠️ Hotel ID mismatch:", { savedId: parsedData.hotel.id, urlId: hotelId });
         }
+      } else {
+        console.warn("⚠️ No selectedHotel in localStorage");
       }
 
       if (!initialHotelData) {
