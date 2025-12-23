@@ -286,7 +286,7 @@ const HotelDetailsPage = () => {
           ...data.hotel,
           // Static info from API (Solution 1)
           description: staticInfo?.description || data.hotel.description,
-          fullDescription: staticInfo?.fullDescription || data.hotel.fullDescription,
+          fullDescription: staticInfo?.description || staticInfo?.fullDescription || data.hotel.fullDescription,
           checkInTime: staticInfo?.checkInTime || data.hotel.checkInTime,
           checkOutTime: staticInfo?.checkOutTime || data.hotel.checkOutTime,
           policies: staticInfo?.policies?.length > 0 ? staticInfo.policies : data.hotel.policies,
