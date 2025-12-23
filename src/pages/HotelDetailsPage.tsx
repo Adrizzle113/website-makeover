@@ -51,53 +51,92 @@ interface HotelData {
   selectedFromPage?: number;
 }
 
-// Transform raw hotel data to HotelDetails type
-const transformToHotelDetails = (hotel: RawHotel): HotelDetails => {
-  // Parse location into city and country
-  const locationParts = (hotel.location || "").split(",").map(s => s.trim());
-  const city = locationParts[0] || "";
-  const country = locationParts[locationParts.length - 1] || "";
+// Transform stored hotel data (from localStorage) into a valid HotelDetails shape
+const transformToHotelDetails = (hotel: any): HotelDetails => {
+  const rawLocation: string = hotel.location || hotel.address || "";
 
-  // Transform string[] images to HotelImage[]
-  const images: HotelImage[] = [];
-  if (hotel.image) {
-    images.push({ url: hotel.image, alt: hotel.name });
-  }
-  if (hotel.images) {
-    hotel.images.forEach((img, i) => {
-      if (img !== hotel.image) {
-        images.push({ url: img, alt: `${hotel.name} - Image ${i + 1}` });
-      }
-    });
-  }
+  // Prefer already-structured fields if present
+  const address: string = hotel.address || rawLocation || "";
 
-  // Transform string[] amenities to HotelAmenity[]
-  const amenities: HotelAmenity[] = (hotel.amenities || []).map((name, i) => ({
-    id: `amenity-${i}`,
-    name,
-  }));
+  const parseLocation = (value: string) => {
+    const parts = (value || "").split(",").map((s: string) => s.trim()).filter(Boolean);
+    return {
+      city: parts[0] || hotel.city || "",
+      country: parts.length > 1 ? parts[parts.length - 1] : hotel.country || "",
+    };
+  };
+
+  const { city, country } = parseLocation(rawLocation);
+
+  // Images can be: string[], HotelImage[], or missing
+  const toHotelImages = (imgs: any): HotelImage[] => {
+    if (!Array.isArray(imgs) || imgs.length === 0) return [];
+
+    const first = imgs[0];
+    if (typeof first === "string") {
+      return (imgs as string[]).filter(Boolean).map((url, i) => ({
+        url,
+        alt: `${hotel.name} - Image ${i + 1}`,
+      }));
+    }
+
+    if (typeof first === "object" && first && "url" in first) {
+      return (imgs as HotelImage[]).filter((i) => !!i?.url);
+    }
+
+    return [];
+  };
+
+  const imagesFromList = toHotelImages(hotel.images);
+  const mainImage: string =
+    hotel.mainImage ||
+    hotel.image ||
+    imagesFromList[0]?.url ||
+    (typeof hotel.images?.[0] === "string" ? hotel.images[0] : undefined) ||
+    "/placeholder.svg";
+
+  const images: HotelImage[] =
+    imagesFromList.length > 0
+      ? imagesFromList
+      : mainImage
+        ? [{ url: mainImage, alt: hotel.name }]
+        : [{ url: "/placeholder.svg", alt: hotel.name }];
+
+  // Amenities can be: string[] or HotelAmenity[]
+  const amenities: HotelAmenity[] = Array.isArray(hotel.amenities)
+    ? typeof hotel.amenities[0] === "string"
+      ? (hotel.amenities as string[]).map((name, i) => ({ id: `amenity-${i}`, name }))
+      : (hotel.amenities as HotelAmenity[])
+    : [];
+
+  const starRatingRaw = hotel.starRating ?? hotel.rating ?? 0;
+  const starRating = Math.max(0, Math.min(5, Math.round(Number(starRatingRaw) || 0)));
 
   return {
     id: hotel.id,
     name: hotel.name,
     description: hotel.description || "",
-    address: hotel.location || "",
+    address,
     city,
     country,
-    starRating: hotel.rating || 0,
-    reviewScore: hotel.reviewScore,
-    reviewCount: hotel.reviewCount,
-    images: images.length > 0 ? images : [{ url: "/placeholder.svg", alt: hotel.name }],
-    mainImage: hotel.image || hotel.images?.[0] || "/placeholder.svg",
+    starRating,
+    reviewScore: typeof hotel.reviewScore === "number" ? hotel.reviewScore : undefined,
+    reviewCount: typeof hotel.reviewCount === "number" ? hotel.reviewCount : undefined,
+    images,
+    mainImage,
     amenities,
-    priceFrom: hotel.price?.amount || 0,
-    currency: hotel.price?.currency || "USD",
-    latitude: hotel.ratehawk_data?.latitude,
-    longitude: hotel.ratehawk_data?.longitude,
+    priceFrom: hotel.priceFrom ?? hotel.price?.amount ?? 0,
+    currency: hotel.currency ?? hotel.price?.currency ?? "USD",
+    latitude: hotel.latitude ?? hotel.ratehawk_data?.latitude,
+    longitude: hotel.longitude ?? hotel.ratehawk_data?.longitude,
+    rooms: hotel.rooms,
     ratehawk_data: hotel.ratehawk_data,
-    checkInTime: "3:00 PM",
-    checkOutTime: "12:00 PM",
-    policies: ["Check-in from 3:00 PM", "Check-out by 12:00 PM"],
+    fullDescription: hotel.fullDescription,
+    checkInTime: hotel.checkInTime || "3:00 PM",
+    checkOutTime: hotel.checkOutTime || "12:00 PM",
+    policies: hotel.policies || ["Check-in from 3:00 PM", "Check-out by 12:00 PM"],
+    facilities: hotel.facilities,
+    nearbyAttractions: hotel.nearbyAttractions,
   };
 };
 
@@ -120,7 +159,6 @@ const HotelDetailsPage = () => {
       setLoading(true);
       setError(null);
 
-      console.log("🔍 Loading hotel data for ID:", hotelId);
 
       // Try to get saved hotel data from localStorage
       const savedData = localStorage.getItem("selectedHotel");
@@ -128,31 +166,18 @@ const HotelDetailsPage = () => {
 
       if (savedData) {
         const parsedData: HotelData = JSON.parse(savedData);
-        
+
         // Normalize IDs for comparison (handle different formats)
-        const normalizeId = (id: string) => id?.toLowerCase().replace(/[_\-\s]/g, '');
+        const normalizeId = (id: string) => id?.toLowerCase().replace(/[_\-\s]/g, "");
         const savedId = normalizeId(parsedData.hotel.id);
-        const urlId = normalizeId(hotelId || '');
-        
-        console.log("🔍 Comparing hotel IDs:", { 
-          savedId: parsedData.hotel.id, 
-          urlId: hotelId,
-          normalized: { savedId, urlId },
-          match: savedId === urlId 
-        });
+        const urlId = normalizeId(hotelId || "");
 
         if (savedId === urlId || parsedData.hotel.id === hotelId) {
-          console.log("✅ Found saved hotel data:", {
-            hotelId: parsedData.hotel.id,
-            hotelName: parsedData.hotel.name,
-            destination: parsedData.searchContext?.destination,
-          });
           initialHotelData = parsedData;
           setHotelData(initialHotelData);
 
           // Transform and set hotel details
           const transformed = transformToHotelDetails(parsedData.hotel);
-          console.log("✅ Transformed hotel details:", transformed);
           setHotelDetails(transformed);
           setSelectedHotel(transformed);
 
