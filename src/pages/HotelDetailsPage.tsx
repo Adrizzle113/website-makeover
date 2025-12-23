@@ -201,6 +201,18 @@ const HotelDetailsPage = () => {
         return;
       }
 
+      // Get the actual RateHawk hotel ID from stored data instead of URL slug
+      const ratehawkHotelId = data.hotel.ratehawk_data?.requested_hotel_id 
+        || data.hotel.ratehawk_data?.ota_hotel_id 
+        || data.hotel.ratehawk_data?.id
+        || hotelId;
+
+      console.log("🆔 Hotel ID resolution:", {
+        urlParam: hotelId,
+        ratehawkId: ratehawkHotelId,
+        fromData: data.hotel.ratehawk_data?.requested_hotel_id || data.hotel.ratehawk_data?.ota_hotel_id
+      });
+
       // Format dates helper
       const formatDate = (date: string | Date): string => {
         if (!date) return "";
@@ -226,7 +238,7 @@ const HotelDetailsPage = () => {
       };
 
       const requestBody = {
-        hotelId: hotelId,
+        hotelId: ratehawkHotelId,
         searchContext: {
           checkin: formatDate(context.checkin),
           checkout: formatDate(context.checkout),
@@ -236,7 +248,7 @@ const HotelDetailsPage = () => {
         currency: "USD",
       };
 
-      console.log("📤 Fetching rates and static info in parallel...");
+      console.log("📤 Fetching rates and static info in parallel with hotelId:", ratehawkHotelId);
 
       // Fetch both rates AND static info in parallel for better performance
       const [ratesResponse, staticInfo] = await Promise.all([
@@ -245,7 +257,7 @@ const HotelDetailsPage = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
         }),
-        fetchStaticHotelInfo(hotelId as string),
+        fetchStaticHotelInfo(ratehawkHotelId),
       ]);
 
       console.log("📥 Both API responses received");
