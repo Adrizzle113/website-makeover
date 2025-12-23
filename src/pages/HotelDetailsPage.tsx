@@ -2,6 +2,14 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
 
+// Import travelfrontend sections
+import { HeroSection } from "../screens/HotelDetails/sections/HeroSection";
+import { HotelInfoSection } from "../screens/HotelDetails/sections/HotelInfoSection";
+import { RoomSelectionSection } from "../screens/HotelDetails/sections/RoomSelectionSection";
+import { FacilitiesGridSection } from "../screens/HotelDetails/sections/FacilitiesGridSection";
+import { MapSection } from "../screens/HotelDetails/sections/MapSection";
+import { Card, CardContent } from "../components/ui/card";
+
 interface SearchContext {
   destination: string;
   destinationId?: string;
@@ -40,14 +48,22 @@ interface HotelData {
   selectedFromPage?: number;
 }
 
-interface RoomRate {
+interface ProcessedRoom {
   id: string;
-  roomName: string;
+  name: string;
+  type: string;
   price: number;
   currency: string;
-  cancellationPolicy?: string;
-  mealPlan?: string;
-  rg_hash?: string;
+  image: string;
+  bedding: string;
+  occupancy: string;
+  size: string;
+  amenities: string[];
+  cancellation: string;
+  paymentType: string;
+  availability: number;
+  originalRate?: any;
+  rgHash?: string;
 }
 
 const HotelDetailsPage = () => {
@@ -55,10 +71,11 @@ const HotelDetailsPage = () => {
   const navigate = useNavigate();
 
   const [hotelData, setHotelData] = useState<HotelData | null>(null);
-  const [rates, setRates] = useState<RoomRate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState<ProcessedRoom | null>(null);
+  const [selectedQuantity, setSelectedQuantity] = useState(1);
 
   useEffect(() => {
     loadHotelData();
@@ -73,7 +90,7 @@ const HotelDetailsPage = () => {
 
       // Try to get saved hotel data from localStorage
       const savedData = localStorage.getItem("selectedHotel");
-      let hotelData: HotelData | null = null;
+      let initialHotelData: HotelData | null = null;
 
       if (savedData) {
         const parsedData: HotelData = JSON.parse(savedData);
@@ -83,20 +100,20 @@ const HotelDetailsPage = () => {
             hotelName: parsedData.hotel.name,
             destination: parsedData.searchContext?.destination,
           });
-          hotelData = parsedData;
-          setHotelData(hotelData);
+          initialHotelData = parsedData;
+          setHotelData(initialHotelData);
         }
       }
 
-      if (!hotelData) {
+      if (!initialHotelData) {
         console.warn("⚠️ No saved hotel data found for ID:", hotelId);
         setError("Hotel data not found. Please search for hotels again.");
         setLoading(false);
         return;
       }
 
-      // Fetch detailed rates
-      await fetchDetailedRates(hotelData);
+      // Fetch detailed rates and update hotel data
+      await fetchDetailedRates(initialHotelData);
 
       // Check if this hotel is in favorites
       const favorites = JSON.parse(localStorage.getItem("favoriteHotels") || "[]");
@@ -197,51 +214,39 @@ const HotelDetailsPage = () => {
 
       const responseData = await response.json();
       console.log("📥 Response received:", responseData);
-      console.log("📥 Response keys:", Object.keys(responseData));
 
-      // Extract rates from response
-      let extractedRates: RoomRate[] = [];
-      let rawRates: any[] = [];
+      // Extract rates and room_groups from response
+      let rates: any[] = [];
+      let room_groups: any[] = [];
 
-      // Primary path: data.data.hotels[0].rates (your actual response structure)
-      if (responseData.data?.data?.hotels?.[0]?.rates) {
-        rawRates = responseData.data.data.hotels[0].rates;
-        console.log(`✅ Found ${rawRates.length} rates in data.data.hotels[0].rates`);
-      }
-      // Fallback: data.hotels[0].rates
-      else if (responseData.data?.hotels?.[0]?.rates) {
-        rawRates = responseData.data.hotels[0].rates;
-        console.log(`✅ Found ${rawRates.length} rates in data.hotels[0].rates`);
-      }
-      // Fallback: data.rates
-      else if (responseData.data?.rates) {
-        rawRates = responseData.data.rates;
-        console.log(`✅ Found ${rawRates.length} rates in data.rates`);
-      }
-      // Fallback: direct rates array
-      else if (responseData.rates && Array.isArray(responseData.rates)) {
-        rawRates = responseData.rates;
-        console.log(`✅ Found ${rawRates.length} rates in responseData.rates`);
+      // Primary path: data.data.hotels[0]
+      if (responseData.data?.data?.hotels?.[0]) {
+        const hotelDetails = responseData.data.data.hotels[0];
+        rates = hotelDetails.rates || [];
+        room_groups = hotelDetails.room_groups || [];
+        console.log(`✅ Found ${rates.length} rates and ${room_groups.length} room_groups`);
       }
 
-      if (rawRates.length > 0) {
-        console.log(`🔄 Processing ${rawRates.length} raw rates...`);
-        console.log(`📊 Sample raw rate:`, rawRates[0]);
-        extractedRates = processRates(rawRates);
-        console.log(`✅ Successfully processed ${extractedRates.length} rates`);
-        if (extractedRates.length > 0) {
-          console.log("✅ Sample processed rate:", extractedRates[0]);
-          setRates(extractedRates);
-        }
+      if (rates.length > 0 || room_groups.length > 0) {
+        console.log(`🔄 Updating hotel ratehawk_data with fetched rates...`);
+
+        // Update the hotel data with fetched rates and room_groups
+        const updatedHotelData: HotelData = {
+          ...data,
+          hotel: {
+            ...data.hotel,
+            ratehawk_data: {
+              ...data.hotel.ratehawk_data,
+              rates: rates,
+              room_groups: room_groups,
+            },
+          },
+        };
+
+        console.log(`✅ Updated hotel data with ${rates.length} rates and ${room_groups.length} room_groups`);
+        setHotelData(updatedHotelData);
       } else {
-        console.warn("⚠️ No rates found in response");
-        console.warn("⚠️ Response structure:", {
-          hasData: !!responseData.data,
-          hasDataData: !!responseData.data?.data,
-          hasHotels: !!responseData.data?.data?.hotels,
-          hotelsLength: responseData.data?.data?.hotels?.length,
-          firstHotelKeys: responseData.data?.data?.hotels?.[0] ? Object.keys(responseData.data.data.hotels[0]) : [],
-        });
+        console.warn("⚠️ No rates or room_groups found in response");
       }
     } catch (error) {
       console.error("💥 ========== ERROR DETAILS ==========");
@@ -252,50 +257,20 @@ const HotelDetailsPage = () => {
     }
   };
 
-  const processRates = (rawRates: any[]): RoomRate[] => {
-    if (!Array.isArray(rawRates)) {
-      console.warn("⚠️ rawRates is not an array:", rawRates);
-      return [];
-    }
+  const handleRoomSelect = (room: ProcessedRoom, quantity: number) => {
+    console.log("🛏️ Room selected:", room, "Quantity:", quantity);
+    setSelectedRoom(room);
+    setSelectedQuantity(quantity);
 
-    return rawRates
-      .map((rate, index) => {
-        try {
-          // Extract price
-          let price = 0;
-          if (rate.payment_options?.payment_types?.[0]?.show_amount) {
-            price = parseFloat(rate.payment_options.payment_types[0].show_amount);
-          } else if (rate.price) {
-            price = parseFloat(rate.price);
-          }
-
-          // Extract currency
-          const currency = rate.payment_options?.payment_types?.[0]?.show_currency_code || rate.currency || "USD";
-
-          // Extract room name
-          const roomName = rate.room_name || rate.name || rate.rg_ext?.name || `Room Type ${index + 1}`;
-
-          // Extract meal plan
-          const mealPlan = rate.meal || rate.mealPlan || "Room Only";
-
-          // Extract cancellation policy
-          const cancellationPolicy = rate.cancellation_policy?.type || rate.cancellationPolicy || "Unknown";
-
-          return {
-            id: rate.book_hash || rate.match_hash || rate.rg_hash || `rate_${index}`,
-            roomName,
-            price,
-            currency,
-            cancellationPolicy,
-            mealPlan,
-            rg_hash: rate.rg_hash,
-          };
-        } catch (err) {
-          console.error("Error processing rate:", err, rate);
-          return null;
-        }
-      })
-      .filter((rate): rate is NonNullable<typeof rate> => rate !== null) as RoomRate[];
+    // Navigate to booking or handle selection
+    navigate(`/booking/${hotelId}`, {
+      state: {
+        hotel: hotelData?.hotel,
+        room,
+        quantity,
+        searchContext: hotelData?.searchContext,
+      },
+    });
   };
 
   const toggleFavorite = () => {
@@ -312,16 +287,18 @@ const HotelDetailsPage = () => {
     }
   };
 
-  const handleBookNow = (rate: RoomRate) => {
-    console.log("📝 Booking room:", rate);
-    // Navigate to booking page with rate info
-    navigate(`/booking/${hotelId}`, {
-      state: {
-        hotel: hotelData?.hotel,
-        rate,
-        searchContext: hotelData?.searchContext,
-      },
-    });
+  const shareHotel = () => {
+    if (navigator.share && hotelData) {
+      navigator.share({
+        title: hotelData.hotel.name,
+        text: `Check out ${hotelData.hotel.name}`,
+        url: window.location.href,
+      });
+    }
+  };
+
+  const handleBackToResults = () => {
+    navigate(-1);
   };
 
   if (loading) {
@@ -353,125 +330,81 @@ const HotelDetailsPage = () => {
     );
   }
 
-  const { hotel } = hotelData;
+  const { hotel, searchContext } = hotelData;
+
+  // Prepare images for hero section
+  const heroImages = [
+    { src: hotel.image || "", alt: hotel.name },
+    // Add more images if available from ratehawk_data
+    ...(hotel.ratehawk_data?.static_vm?.images?.slice(0, 4).map((img: any, index: number) => ({
+      src: img.tmpl?.replace("{size}", "1024x768") || img.url || hotel.image,
+      alt: `${hotel.name} - Image ${index + 2}`,
+    })) || []),
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Hotel Header */}
-      <div className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <button onClick={() => navigate(-1)} className="flex items-center text-gray-600 hover:text-gray-900 mb-4">
-            <span className="mr-2">←</span> Back to results
-          </button>
+    <div className="min-h-screen bg-[#f3ecdc]">
+      {/* Hero Section - Full Width */}
+      <HeroSection
+        hotel={hotel}
+        searchContext={searchContext}
+        images={heroImages}
+        onBack={handleBackToResults}
+        onShare={shareHotel}
+        onToggleFavorite={toggleFavorite}
+        isFavorite={isFavorite}
+      />
 
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">{hotel.name}</h1>
-              {hotel.location && <p className="text-gray-600 mt-2">{hotel.location}</p>}
-              {hotel.rating && (
-                <div className="flex items-center mt-2">
-                  <span className="text-yellow-500">★</span>
-                  <span className="ml-1 font-semibold">{hotel.rating}</span>
-                  {hotel.reviewCount && <span className="ml-2 text-gray-600">({hotel.reviewCount} reviews)</span>}
-                </div>
-              )}
-            </div>
-            <button onClick={toggleFavorite} className="p-3 rounded-full hover:bg-gray-100 transition">
-              <span className="text-2xl">{isFavorite ? "❤️" : "🤍"}</span>
-            </button>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-8">
+            {/* Hotel Details Section */}
+            <HotelInfoSection hotel={hotel} searchContext={searchContext} />
+
+            {/* Room Selection Section */}
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">Choose Your Rooms</h2>
+                <RoomSelectionSection
+                  hotel={hotel}
+                  searchContext={searchContext}
+                  onRoomSelect={handleRoomSelect}
+                  selectedRoomId={selectedRoom?.id}
+                  selectedQuantity={selectedQuantity}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Facilities Section */}
+            {hotel.amenities && hotel.amenities.length > 0 && <FacilitiesGridSection amenities={hotel.amenities} />}
           </div>
-        </div>
-      </div>
 
-      {/* Hotel Image */}
-      {(hotel.image || hotel.images?.[0]) && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <img
-            src={hotel.image || hotel.images?.[0]}
-            alt={hotel.name}
-            className="w-full h-96 object-cover rounded-lg shadow-lg"
-          />
-        </div>
-      )}
-
-      {/* Hotel Description */}
-      {hotel.description && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">About this property</h2>
-            <p className="text-gray-700 leading-relaxed">{hotel.description}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Amenities */}
-      {hotel.amenities && hotel.amenities.length > 0 && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Amenities</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {hotel.amenities.map((amenity, index) => {
-                // Handle both string amenities and object amenities with {id, name}
-                const amenityName = typeof amenity === "string" ? amenity : (amenity as any)?.name || "";
-                if (!amenityName) return null;
-                return (
-                  <div key={index} className="flex items-center text-gray-700">
-                    <span className="mr-2">✓</span>
-                    <span>{amenityName}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Available Rooms */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Available Rooms</h2>
-
-          {rates.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-600">Loading room rates... Please wait.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {rates.map((rate) => (
-                <div key={rate.id} className="border border-gray-200 rounded-lg p-6 hover:border-blue-500 transition">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">{rate.roomName}</h3>
-                      <div className="space-y-1 text-sm text-gray-600">
-                        {rate.mealPlan && (
-                          <p>
-                            <span className="font-medium">Meal:</span> {rate.mealPlan}
-                          </p>
-                        )}
-                        {rate.cancellationPolicy && (
-                          <p>
-                            <span className="font-medium">Cancellation:</span> {rate.cancellationPolicy}
-                          </p>
-                        )}
-                      </div>
+          {/* Sidebar */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-4 space-y-6">
+              {/* Hotel Policies */}
+              <Card>
+                <CardContent className="p-6">
+                  <h3 className="text-xl font-bold text-gray-900 mb-4">Hotel Policies</h3>
+                  <div className="space-y-3 text-sm text-gray-600">
+                    <div>
+                      <span className="font-medium">Check-in:</span> 3:00 PM
                     </div>
-                    <div className="text-right ml-6">
-                      <div className="text-3xl font-bold text-gray-900">
-                        {rate.currency} {rate.price.toFixed(2)}
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">per night</p>
-                      <button
-                        onClick={() => handleBookNow(rate)}
-                        className="mt-4 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
-                      >
-                        Book Now
-                      </button>
+                    <div>
+                      <span className="font-medium">Check-out:</span> 12:00 PM
+                    </div>
+                    <div>
+                      <span className="font-medium">Cancellation:</span> Free cancellation available on select rooms
                     </div>
                   </div>
-                </div>
-              ))}
+                </CardContent>
+              </Card>
+
+              {/* Map Section */}
+              {hotel.location && <MapSection location={hotel.location} hotelName={hotel.name} />}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
