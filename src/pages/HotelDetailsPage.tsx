@@ -459,13 +459,13 @@ const HotelDetailsPage = () => {
           <div className="lg:col-span-2 space-y-8">
             <HotelInfoSection hotel={hotelDetails} />
             <RoomSelectionSection hotel={hotelDetails} isLoading={false} />
+            <HotelPoliciesSection hotel={hotelDetails} />
             <FacilitiesAmenitiesSection />
           </div>
 
           {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="sticky top-4 space-y-6">
-              <HotelPoliciesSection hotel={hotelDetails} />
               <MapSection
                 latitude={hotelDetails.latitude}
                 longitude={hotelDetails.longitude}
