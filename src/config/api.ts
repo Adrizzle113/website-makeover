@@ -13,7 +13,7 @@ const API_CONFIG = {
 };
 
 // Export the base URL based on current environment
-export const API_BASE_URL = API_CONFIG[API_CONFIG.current];
+export const API_BASE_URL = "https://travelapi-bg6t.onrender.com";
 
 // Export the full config object for reference
 export default API_CONFIG;
