@@ -398,12 +398,17 @@ const HotelDetailsPage = () => {
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Amenities</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {hotel.amenities.map((amenity, index) => (
-                <div key={index} className="flex items-center text-gray-700">
-                  <span className="mr-2">✓</span>
-                  <span>{amenity}</span>
-                </div>
-              ))}
+              {hotel.amenities.map((amenity, index) => {
+                // Handle both string amenities and object amenities with {id, name}
+                const amenityName = typeof amenity === 'string' ? amenity : (amenity as any)?.name || '';
+                if (!amenityName) return null;
+                return (
+                  <div key={index} className="flex items-center text-gray-700">
+                    <span className="mr-2">✓</span>
+                    <span>{amenityName}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
