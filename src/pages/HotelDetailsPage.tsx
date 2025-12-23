@@ -1,124 +1,184 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import { Loader2 } from "lucide-react";
-import {
-  HotelHeroSection,
-  RoomSelectionSection,
-  BookingSection,
-  AmenitiesSection,
-  MapSection,
-  HotelInfoSection,
-  HotelPoliciesSection,
-  FacilitiesAmenitiesSection,
-} from "@/components/hotel";
-import { Footer } from "@/components/layout/Footer";
-import { useBookingStore } from "@/stores/bookingStore";
-import type { HotelDetails } from "@/types/booking";
-import { API_BASE_URL } from "@/config/api";
+import { useParams, useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../config/api";
+
+interface SearchContext {
+  destination: string;
+  destinationId?: string;
+  checkin: string | Date;
+  checkout: string | Date;
+  guests: number | Array<{ adults: number }>;
+  formattedGuests?: Array<{ adults: number }>;
+  totalHotels?: number;
+  availableHotels?: number;
+  searchTimestamp?: string;
+}
+
+interface Hotel {
+  id: string;
+  name: string;
+  location?: string;
+  rating?: number;
+  reviewScore?: number;
+  reviewCount?: number;
+  price?: {
+    amount: number;
+    currency: string;
+    period?: string;
+  };
+  image?: string;
+  images?: string[];
+  amenities?: string[];
+  description?: string;
+  ratehawk_data?: any;
+}
+
+interface HotelData {
+  hotel: Hotel;
+  searchContext: SearchContext;
+  allAvailableHotels?: number;
+  selectedFromPage?: number;
+}
+
+interface RoomRate {
+  id: string;
+  roomName: string;
+  price: number;
+  currency: string;
+  cancellationPolicy?: string;
+  mealPlan?: string;
+  rg_hash?: string;
+}
 
 const HotelDetailsPage = () => {
-  const { id } = useParams<{ id: string }>();
-  const { selectedHotel, setSelectedHotel, clearRoomSelection, searchParams } = useBookingStore();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingRooms, setIsLoadingRooms] = useState(false);
+  const { hotelId } = useParams<{ hotelId: string }>();
+  const navigate = useNavigate();
+
+  const [hotelData, setHotelData] = useState<HotelData | null>(null);
+  const [rates, setRates] = useState<RoomRate[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFavorite, setIsFavorite] = useState(false);
 
-  // ✅ FIXED: Function to fetch detailed rates from backend with DETAILED LOGGING
-  const fetchDetailedRates = async (hotelId: string) => {
-    console.log("🚀 fetchDetailedRates called for:", hotelId);
+  useEffect(() => {
+    loadHotelData();
+  }, [hotelId]);
 
+  const loadHotelData = async () => {
     try {
-      const userId = localStorage.getItem("userId");
-      console.log("👤 userId from localStorage:", userId);
+      setLoading(true);
+      setError(null);
 
-      const storedHotelData = localStorage.getItem("selectedHotel");
-      console.log("📦 storedHotelData exists:", !!storedHotelData);
+      console.log("🔍 Loading hotel data for ID:", hotelId);
 
-      if (!userId) {
-        console.log("❌ No userId found, skipping detailed rates fetch");
-        return;
-      }
+      // Try to get saved hotel data from localStorage
+      const savedData = localStorage.getItem("selectedHotel");
+      let hotelData: HotelData | null = null;
 
-      // Get search params from stored hotel data
-      let searchContext = null;
-      if (storedHotelData) {
-        try {
-          const parsed = JSON.parse(storedHotelData);
-          searchContext = parsed.searchContext;
-          console.log("📋 searchContext (RAW):", JSON.stringify(searchContext, null, 2));
-        } catch (e) {
-          console.error("❌ Error parsing stored hotel data:", e);
+      if (savedData) {
+        const parsedData: HotelData = JSON.parse(savedData);
+        if (parsedData.hotel.id === hotelId) {
+          console.log("✅ Found saved hotel data:", {
+            hotelId: parsedData.hotel.id,
+            hotelName: parsedData.hotel.name,
+            destination: parsedData.searchContext?.destination,
+          });
+          hotelData = parsedData;
+          setHotelData(hotelData);
         }
       }
 
-      if (!searchContext) {
-        console.log("❌ No search context found, skipping detailed rates fetch");
+      if (!hotelData) {
+        console.warn("⚠️ No saved hotel data found for ID:", hotelId);
+        setError("Hotel data not found. Please search for hotels again.");
+        setLoading(false);
         return;
       }
 
-      console.log("✅ All prerequisites met, formatting data...");
-      setIsLoadingRooms(true);
+      // Fetch detailed rates
+      await fetchDetailedRates(hotelData);
 
-      // ✅ FIX: Format dates correctly (YYYY-MM-DD)
-      const formatDate = (dateString: string): string => {
-        if (!dateString) return "";
-        // If it's already in YYYY-MM-DD format, return as-is
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-          return dateString;
+      // Check if this hotel is in favorites
+      const favorites = JSON.parse(localStorage.getItem("favoriteHotels") || "[]");
+      setIsFavorite(favorites.includes(hotelId));
+
+      setLoading(false);
+    } catch (err) {
+      console.error("💥 Error loading hotel data:", err);
+      setError(err instanceof Error ? err.message : "Failed to load hotel information. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  const fetchDetailedRates = async (data: HotelData) => {
+    try {
+      console.log("🔍 Starting fetchDetailedRates...");
+      console.log("📦 hotelData:", data);
+      console.log("📦 searchContext:", data.searchContext);
+
+      // Get searchContext from hotelData
+      const context = data.searchContext;
+
+      // Validate that we have the required data
+      if (!context) {
+        console.warn("⚠️ Missing searchContext, skipping detailed rates fetch");
+        return;
+      }
+
+      if (!context.checkin || !context.checkout) {
+        console.warn("⚠️ Missing dates in searchContext, skipping detailed rates fetch");
+        return;
+      }
+
+      // Format dates helper
+      const formatDate = (date: string | Date): string => {
+        if (!date) return "";
+
+        if (typeof date === "string") {
+          // If it's an ISO string, extract YYYY-MM-DD
+          if (date.includes("T")) {
+            return date.split("T")[0];
+          }
+          // If already in YYYY-MM-DD format, return as-is
+          if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            return date;
+          }
         }
-        // If it's an ISO timestamp, extract the date part
-        return dateString.split("T")[0];
+
+        if (date instanceof Date) {
+          return date.toISOString().split("T")[0];
+        }
+
+        return String(date);
       };
 
-      // ✅ FIX: Format guests correctly (array of room objects)
-      const formatGuests = (guests: any) => {
-        console.log("🔧 formatGuests input:", guests, "type:", typeof guests);
-
-        // If already in correct format
-        if (Array.isArray(guests) && guests.length > 0 && guests[0]?.adults !== undefined) {
-          console.log("✅ Guests already in correct format");
-          return guests;
+      // Format guests helper
+      const formatGuests = (guests: any): Array<{ adults: number }> => {
+        if (Array.isArray(guests)) {
+          return guests.map((g) => ({
+            adults: typeof g === "object" ? g.adults || 2 : g || 2,
+          }));
         }
-        // If it's formattedGuests array but might need validation
-        if (Array.isArray(guests) && guests.length > 0) {
-          console.log("✅ Guests is array, validating...");
-          return guests;
-        }
-        // If it's just a number, convert to array
         if (typeof guests === "number") {
-          console.log("🔧 Converting number to array format");
-          return [{ adults: guests }];
+          return [{ adults: Math.max(1, guests) }];
         }
-        // Default fallback
-        console.log("⚠️ Using default fallback");
         return [{ adults: 2 }];
       };
 
       const requestBody = {
         hotelId: hotelId,
         searchContext: {
-          // Changed from searchParams to searchContext
-          checkin: formatDate(searchContext.checkin),
-          checkout: formatDate(searchContext.checkout),
-          guests: formatGuests(searchContext.formattedGuests || searchContext.guests),
+          checkin: formatDate(context.checkin),
+          checkout: formatDate(context.checkout),
+          guests: formatGuests(context.guests),
         },
         residency: "en-us",
         currency: "USD",
       };
 
-      // ✅ DETAILED LOGGING
-      console.log("📤 ========== REQUEST DETAILS ==========");
-      console.log("📤 Full request body:", JSON.stringify(requestBody, null, 2));
-      console.log("📤 API URL:", `${API_BASE_URL}/api/ratehawk/hotel/details`);
-      console.log("📤 checkin:", requestBody.searchParams.checkin, "type:", typeof requestBody.searchParams.checkin);
-      console.log("📤 checkout:", requestBody.searchParams.checkout, "type:", typeof requestBody.searchParams.checkout);
-      console.log(
-        "📤 guests:",
-        JSON.stringify(requestBody.searchParams.guests),
-        "type:",
-        typeof requestBody.searchParams.guests,
-      );
-      console.log("📤 ======================================");
+      console.log("📤 Sending request to fetch detailed rates");
+      console.log("📤 Request body:", JSON.stringify(requestBody, null, 2));
+      console.log("📤 Endpoint:", `${API_BASE_URL}/api/ratehawk/hotel/details`);
 
       const response = await fetch(`${API_BASE_URL}/api/ratehawk/hotel/details`, {
         method: "POST",
@@ -128,314 +188,277 @@ const HotelDetailsPage = () => {
         body: JSON.stringify(requestBody),
       });
 
-      console.log("📡 Response status:", response.status);
-      console.log("📡 Response ok:", response.ok);
-      console.log("📡 Response headers:", Object.fromEntries(response.headers.entries()));
+      console.log("📥 Response status:", response.status);
 
       if (!response.ok) {
-        let errorText = "";
-        try {
-          errorText = await response.text();
-          console.error("❌ API error response (text):", errorText);
-        } catch (e) {
-          console.error("❌ Could not read error response");
-        }
-        throw new Error(`API returned ${response.status}: ${response.statusText} - ${errorText}`);
+        console.warn(`⚠️ Hotel details endpoint returned ${response.status}, continuing with existing data`);
+        return;
       }
 
-      const data = await response.json();
+      const responseData = await response.json();
+      console.log("📥 Response received:", responseData);
 
-      console.log("📥 ========== RESPONSE DETAILS ==========");
-      console.log("📥 Response success:", data.success);
-      console.log("📥 Response has data:", !!data.data);
-      console.log("📥 Rates count:", data.data?.rates?.length || 0);
-      console.log("📥 Room groups count:", data.data?.room_groups?.length || 0);
-      console.log("📥 First rate sample:", data.data?.rates?.[0]);
-      console.log("📥 =======================================");
+      // Extract rates from response
+      let extractedRates: RoomRate[] = [];
 
-      if (data.success && data.data) {
-        console.log(`✅ SUCCESS! Fetched ${data.data.rates?.length || 0} detailed rates for ${hotelId}`);
-
-        // Update the selected hotel with detailed rates
-        if (!selectedHotel) {
-          console.log("❌ No previous hotel in state");
-          return;
+      // Try different response structures
+      if (responseData.success && responseData.data) {
+        // Handle nested structure: data.data.hotels[0].rates
+        if (responseData.data.data?.hotels?.[0]?.rates) {
+          extractedRates = processRates(responseData.data.data.hotels[0].rates);
+          console.log("✅ Found rates in data.data.hotels[0].rates");
         }
+        // Handle structure: data.rates
+        else if (responseData.data.rates) {
+          extractedRates = processRates(responseData.data.rates);
+          console.log("✅ Found rates in data.rates");
+        }
+        // Handle structure: data.hotels[0].rates
+        else if (responseData.data.hotels?.[0]?.rates) {
+          extractedRates = processRates(responseData.data.hotels[0].rates);
+          console.log("✅ Found rates in data.hotels[0].rates");
+        }
+      }
+      // Handle direct rates array
+      else if (responseData.rates) {
+        extractedRates = processRates(responseData.rates);
+        console.log("✅ Found rates in direct rates array");
+      }
 
-        const updated = {
-          ...selectedHotel,
-          ratehawk_data: {
-            ...selectedHotel.ratehawk_data,
-            // Merge the new detailed data
-            ...data.data,
-            // Preserve enhancedData structure with ALL rates
-            enhancedData: {
-              room_groups: data.data.room_groups || selectedHotel.ratehawk_data?.room_groups || [],
-              rates: data.data.rates || [],
-              metadata: {
-                total_room_groups: data.data.room_groups?.length || 0,
-                total_rates: data.data.rates?.length || 0,
-                source: "hotel_details_api",
-                fetched_at: new Date().toISOString(),
-              },
-            },
-          },
-        };
-
-        console.log("✅ Updated hotel state with rates:", {
-          hotelId: updated.id,
-          newRatesCount: updated.ratehawk_data?.enhancedData?.rates?.length,
-          newRoomGroupsCount: updated.ratehawk_data?.enhancedData?.room_groups?.length,
-        });
-
-        setSelectedHotel(updated);
+      if (extractedRates.length > 0) {
+        console.log(`✅ Successfully extracted ${extractedRates.length} rates`);
+        setRates(extractedRates);
       } else {
-        console.log("❌ No detailed rates data in response");
+        console.warn("⚠️ No rates found in response");
       }
     } catch (error) {
       console.error("💥 ========== ERROR DETAILS ==========");
       console.error("💥 Error type:", error?.constructor?.name);
-      console.error("💥 Error message:", error?.message);
+      console.error("💥 Error message:", error instanceof Error ? error.message : String(error));
       console.error("💥 Full error:", error);
       console.error("💥 ====================================");
-    } finally {
-      console.log("🏁 fetchDetailedRates completed");
-      setIsLoadingRooms(false);
     }
   };
 
-  useEffect(() => {
-    const loadHotelDetails = async () => {
-      console.log("🏨 loadHotelDetails called for id:", id);
-
-      if (!id) {
-        console.log("❌ No hotel id provided");
-        return;
-      }
-
-      setIsLoading(true);
-      setError(null);
-      clearRoomSelection();
-
-      // First check if hotel is already in store (from card click)
-      if (selectedHotel && selectedHotel.id === id) {
-        console.log("✅ Hotel already in store:", selectedHotel.id);
-        setIsLoading(false);
-
-        // Fetch detailed rates even if hotel is in store
-        console.log("🔄 Calling fetchDetailedRates from store path...");
-        await fetchDetailedRates(id);
-        return;
-      }
-
-      // Try to load from localStorage (for page refresh or direct URL access)
-      try {
-        const storedData = localStorage.getItem("selectedHotel");
-        if (storedData) {
-          const parsed = JSON.parse(storedData);
-          if (parsed.hotel && parsed.hotel.id === id) {
-            console.log("✅ Loaded hotel from localStorage:", parsed.hotel.id);
-            setSelectedHotel(parsed.hotel);
-            setIsLoading(false);
-
-            // Fetch detailed rates
-            console.log("🔄 Calling fetchDetailedRates from localStorage path...");
-            await fetchDetailedRates(id);
-            return;
-          }
-        }
-      } catch (err) {
-        console.error("❌ Error parsing stored hotel data:", err);
-      }
-
-      // Fallback to mock data if no stored data found
-      console.warn("⚠️ No stored hotel data found, using mock data");
-      setSelectedHotel(getMockHotel(id));
-      setIsLoading(false);
-    };
-
-    loadHotelDetails();
-  }, [id]); // Removed other dependencies to prevent infinite loops
-
-  // Debug: Log selectedHotel data when it changes
-  useEffect(() => {
-    if (selectedHotel) {
-      console.log(`🏠 HotelDetailsPage - Rendering with hotel:`, {
-        id: selectedHotel.id,
-        name: selectedHotel.name,
-        hasRatehawkData: !!selectedHotel.ratehawk_data,
-        ratehawkDataKeys: Object.keys(selectedHotel.ratehawk_data || {}),
-        roomGroups: selectedHotel.ratehawk_data?.room_groups?.length || 0,
-        enhancedRoomGroups: selectedHotel.ratehawk_data?.enhancedData?.room_groups?.length || 0,
-        rates: selectedHotel.ratehawk_data?.rates?.length || 0,
-        enhancedRates: selectedHotel.ratehawk_data?.enhancedData?.rates?.length || 0,
-        roomsFromStore: selectedHotel.rooms?.length || 0,
-      });
+  const processRates = (rawRates: any[]): RoomRate[] => {
+    if (!Array.isArray(rawRates)) {
+      console.warn("⚠️ rawRates is not an array:", rawRates);
+      return [];
     }
-  }, [selectedHotel]);
 
-  if (isLoading) {
+    return rawRates
+      .map((rate, index) => {
+        try {
+          // Extract price
+          let price = 0;
+          if (rate.payment_options?.payment_types?.[0]?.show_amount) {
+            price = parseFloat(rate.payment_options.payment_types[0].show_amount);
+          } else if (rate.price) {
+            price = parseFloat(rate.price);
+          }
+
+          // Extract currency
+          const currency = rate.payment_options?.payment_types?.[0]?.show_currency_code || rate.currency || "USD";
+
+          // Extract room name
+          const roomName = rate.room_name || rate.name || rate.rg_ext?.name || `Room Type ${index + 1}`;
+
+          // Extract meal plan
+          const mealPlan = rate.meal || rate.mealPlan || "Room Only";
+
+          // Extract cancellation policy
+          const cancellationPolicy = rate.cancellation_policy?.type || rate.cancellationPolicy || "Unknown";
+
+          return {
+            id: rate.book_hash || rate.match_hash || rate.rg_hash || `rate_${index}`,
+            roomName,
+            price,
+            currency,
+            cancellationPolicy,
+            mealPlan,
+            rg_hash: rate.rg_hash,
+          };
+        } catch (err) {
+          console.error("Error processing rate:", err, rate);
+          return null;
+        }
+      })
+      .filter((rate): rate is RoomRate => rate !== null);
+  };
+
+  const toggleFavorite = () => {
+    const favorites = JSON.parse(localStorage.getItem("favoriteHotels") || "[]");
+
+    if (isFavorite) {
+      const updated = favorites.filter((id: string) => id !== hotelId);
+      localStorage.setItem("favoriteHotels", JSON.stringify(updated));
+      setIsFavorite(false);
+    } else {
+      favorites.push(hotelId);
+      localStorage.setItem("favoriteHotels", JSON.stringify(favorites));
+      setIsFavorite(true);
+    }
+  };
+
+  const handleBookNow = (rate: RoomRate) => {
+    console.log("📝 Booking room:", rate);
+    // Navigate to booking page with rate info
+    navigate(`/booking/${hotelId}`, {
+      state: {
+        hotel: hotelData?.hotel,
+        rate,
+        searchContext: hotelData?.searchContext,
+      },
+    });
+  };
+
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading hotel details...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading hotel details...</p>
         </div>
       </div>
     );
   }
 
-  if (error && !selectedHotel) {
+  if (error || !hotelData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <p className="text-destructive text-lg mb-4">{error}</p>
-          <a href="/dashboard/search" className="text-primary hover:underline">
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center max-w-md">
+          <div className="text-red-500 text-5xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Oops! Something went wrong</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={() => navigate("/search")}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
             Back to Search
-          </a>
+          </button>
         </div>
       </div>
     );
   }
 
-  if (!selectedHotel) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <p className="text-muted-foreground text-lg">Hotel not found</p>
-          <a href="/dashboard/search" className="text-primary hover:underline">
-            Back to Search
-          </a>
-        </div>
-      </div>
-    );
-  }
+  const { hotel } = hotelData;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <main className="flex-1">
-        <HotelHeroSection hotel={selectedHotel} />
-        <AmenitiesSection amenities={selectedHotel.amenities} facilities={selectedHotel.facilities} />
-        <HotelInfoSection hotel={selectedHotel} />
+    <div className="min-h-screen bg-gray-50">
+      {/* Hotel Header */}
+      <div className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <button onClick={() => navigate(-1)} className="flex items-center text-gray-600 hover:text-gray-900 mb-4">
+            <span className="mr-2">←</span> Back to results
+          </button>
 
-        {isLoadingRooms && (
-          <div className="container mx-auto px-4 py-8 text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-            <p className="text-muted-foreground">Loading room options...</p>
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">{hotel.name}</h1>
+              {hotel.location && <p className="text-gray-600 mt-2">{hotel.location}</p>}
+              {hotel.rating && (
+                <div className="flex items-center mt-2">
+                  <span className="text-yellow-500">★</span>
+                  <span className="ml-1 font-semibold">{hotel.rating}</span>
+                  {hotel.reviewCount && <span className="ml-2 text-gray-600">({hotel.reviewCount} reviews)</span>}
+                </div>
+              )}
+            </div>
+            <button onClick={toggleFavorite} className="p-3 rounded-full hover:bg-gray-100 transition">
+              <span className="text-2xl">{isFavorite ? "❤️" : "🤍"}</span>
+            </button>
           </div>
-        )}
+        </div>
+      </div>
 
-        <RoomSelectionSection hotel={selectedHotel} isLoading={isLoadingRooms} />
-        <HotelPoliciesSection hotel={selectedHotel} />
-        <MapSection
-          latitude={selectedHotel.latitude}
-          longitude={selectedHotel.longitude}
-          address={`${selectedHotel.address}, ${selectedHotel.city}, ${selectedHotel.country}`}
-          hotelName={selectedHotel.name}
-        />
-        <FacilitiesAmenitiesSection />
-        <BookingSection currency={selectedHotel.currency} />
-      </main>
-      <Footer />
+      {/* Hotel Image */}
+      {(hotel.image || hotel.images?.[0]) && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <img
+            src={hotel.image || hotel.images?.[0]}
+            alt={hotel.name}
+            className="w-full h-96 object-cover rounded-lg shadow-lg"
+          />
+        </div>
+      )}
+
+      {/* Hotel Description */}
+      {hotel.description && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">About this property</h2>
+            <p className="text-gray-700 leading-relaxed">{hotel.description}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Amenities */}
+      {hotel.amenities && hotel.amenities.length > 0 && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Amenities</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {hotel.amenities.map((amenity, index) => (
+                <div key={index} className="flex items-center text-gray-700">
+                  <span className="mr-2">✓</span>
+                  <span>{amenity}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Available Rooms */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Available Rooms</h2>
+
+          {rates.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-600">Loading room rates... Please wait.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {rates.map((rate) => (
+                <div key={rate.id} className="border border-gray-200 rounded-lg p-6 hover:border-blue-500 transition">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">{rate.roomName}</h3>
+                      <div className="space-y-1 text-sm text-gray-600">
+                        {rate.mealPlan && (
+                          <p>
+                            <span className="font-medium">Meal:</span> {rate.mealPlan}
+                          </p>
+                        )}
+                        {rate.cancellationPolicy && (
+                          <p>
+                            <span className="font-medium">Cancellation:</span> {rate.cancellationPolicy}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right ml-6">
+                      <div className="text-3xl font-bold text-gray-900">
+                        {rate.currency} {rate.price.toFixed(2)}
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">per night</p>
+                      <button
+                        onClick={() => handleBookNow(rate)}
+                        className="mt-4 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+                      >
+                        Book Now
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
-
-// Mock hotel data for development/fallback
-const getMockHotel = (id: string): HotelDetails => ({
-  id,
-  name: "Grand Luxury Resort & Spa",
-  description: "Experience unparalleled luxury at our award-winning resort.",
-  fullDescription:
-    "Nestled in a prime location, the Grand Luxury Resort & Spa offers an exceptional blend of sophisticated elegance and modern comfort. Our meticulously designed rooms and suites provide a serene sanctuary, while world-class dining options tantalize your taste buds. Unwind at our renowned spa or take a refreshing dip in our infinity pool overlooking breathtaking views.",
-  address: "123 Luxury Avenue",
-  city: "Dubai",
-  country: "United Arab Emirates",
-  starRating: 5,
-  reviewScore: 9.2,
-  reviewCount: 1250,
-  mainImage: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=2000&q=80",
-  images: [
-    {
-      url: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80",
-      alt: "Hotel exterior",
-    },
-    {
-      url: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80",
-      alt: "Luxury room",
-    },
-    {
-      url: "https://images.unsplash.com/photo-1584132967334-10e028bd69f7?auto=format&fit=crop&w=800&q=80",
-      alt: "Pool area",
-    },
-    {
-      url: "https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=800&q=80",
-      alt: "Restaurant",
-    },
-  ],
-  amenities: [
-    { id: "1", name: "Free WiFi" },
-    { id: "2", name: "Swimming Pool" },
-    { id: "3", name: "Spa & Wellness" },
-    { id: "4", name: "Fitness Center" },
-    { id: "5", name: "Restaurant" },
-    { id: "6", name: "Room Service" },
-    { id: "7", name: "Parking" },
-    { id: "8", name: "Air Conditioning" },
-  ],
-  facilities: ["Business Center", "Conference Rooms", "Concierge Service", "Laundry Service"],
-  priceFrom: 450,
-  currency: "USD",
-  latitude: 25.1972,
-  longitude: 55.2744,
-  checkInTime: "3:00 PM",
-  checkOutTime: "12:00 PM",
-  policies: ["No smoking in rooms", "Pets allowed on request", "Credit card required for guarantee"],
-  rooms: [
-    {
-      id: "room-1",
-      name: "Deluxe King Room",
-      description: "Spacious room with king bed and city views",
-      price: 450,
-      currency: "USD",
-      maxOccupancy: 2,
-      squareFootage: 450,
-      bedType: "King Bed",
-      amenities: ["Free WiFi", "Mini Bar", "Safe", "Air Conditioning", "Coffee Maker", "Flat Screen TV"],
-      mealPlan: "Breakfast Included",
-      cancellationPolicy: "Free cancellation until 24h before check-in",
-      available: 5,
-    },
-    {
-      id: "room-2",
-      name: "Premium Suite",
-      description: "Luxurious suite with separate living area",
-      price: 750,
-      originalPrice: 850,
-      currency: "USD",
-      maxOccupancy: 4,
-      squareFootage: 850,
-      bedType: "King Bed + Sofa Bed",
-      amenities: ["Free WiFi", "Mini Bar", "Safe", "Balcony", "Living Area", "Jacuzzi", "Butler Service"],
-      mealPlan: "Half Board",
-      cancellationPolicy: "Free cancellation until 48h before check-in",
-      available: 3,
-    },
-    {
-      id: "room-3",
-      name: "Family Room",
-      description: "Perfect for families with two queen beds",
-      price: 550,
-      currency: "USD",
-      maxOccupancy: 4,
-      squareFootage: 550,
-      bedType: "2 Queen Beds",
-      amenities: ["Free WiFi", "Mini Bar", "Safe", "Air Conditioning", "Connecting Rooms Available"],
-      mealPlan: "Room Only",
-      cancellationPolicy: "Non-refundable",
-      available: 2,
-    },
-  ],
-});
 
 export default HotelDetailsPage;
