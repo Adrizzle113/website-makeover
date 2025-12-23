@@ -303,16 +303,18 @@ const HotelDetailsPage = () => {
       };
 
       // Format guests helper
-      const formatGuests = (guests: any): Array<{ adults: number }> => {
+      const formatGuests = (guests: any): Array<{ adults: number; children: number[] }> => {
         if (Array.isArray(guests)) {
-          return guests.map((g) => ({
-            adults: typeof g === "object" ? g.adults || 2 : g || 2,
-          }));
+          return guests.map((g) => {
+            const adults = typeof g === "object" ? g.adults || 2 : g || 2;
+            const children = typeof g === "object" && Array.isArray(g.children) ? g.children : [];
+            return { adults, children };
+          });
         }
         if (typeof guests === "number") {
-          return [{ adults: Math.max(1, guests) }];
+          return [{ adults: Math.max(1, guests), children: [] }];
         }
-        return [{ adults: 2 }];
+        return [{ adults: 2, children: [] }];
       };
 
       const staticInfoPromise = fetchStaticHotelInfo(ratehawkHotelId);
@@ -349,7 +351,7 @@ const HotelDetailsPage = () => {
       let rates: any[] = [];
       let room_groups: any[] = [];
 
-      if (ratesResponse.ok) {
+      if (ratesResponse && ratesResponse.ok) {
         const ratesData = await ratesResponse.json();
 
         if (ratesData.data?.data?.hotels?.[0]) {
@@ -358,8 +360,10 @@ const HotelDetailsPage = () => {
           room_groups = hotelDetails.room_groups || [];
           console.log(`✅ Found ${rates.length} rates and ${room_groups.length} room_groups`);
         }
-      } else {
+      } else if (ratesResponse) {
         console.warn(`⚠️ Rates API returned ${ratesResponse.status}`);
+      } else {
+        console.warn("⚠️ Rates API not called (missing search dates)");
       }
 
       // Merge all data together
@@ -398,8 +402,8 @@ const HotelDetailsPage = () => {
           // Rate data
           ratehawk_data: {
             ...data.hotel.ratehawk_data,
-            rates: rates,
-            room_groups: room_groups,
+            ...(rates.length > 0 ? { rates } : {}),
+            ...(room_groups.length > 0 ? { room_groups } : {}),
             static_info: staticInfo, // Store the full static info
           },
         },
