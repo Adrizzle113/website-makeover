@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
+import { HotelDetails } from "@/types/booking";
 
 // Import components from src/components/hotel
 import { HotelHeroSection } from "../components/hotel/HotelHeroSection";
@@ -59,6 +60,35 @@ interface HotelData {
   allAvailableHotels?: number;
   selectedFromPage?: number;
 }
+
+// Transform local Hotel interface to global HotelDetails type
+const transformToHotelDetails = (hotel: Hotel): HotelDetails => ({
+  id: hotel.id,
+  name: hotel.name,
+  description: hotel.description || '',
+  fullDescription: hotel.fullDescription || hotel.description || '',
+  address: hotel.address || hotel.location || '',
+  city: hotel.city || '',
+  country: hotel.country || '',
+  starRating: hotel.rating || 0,
+  reviewScore: hotel.reviewScore || 0,
+  reviewCount: hotel.reviewCount || 0,
+  images: Array.isArray(hotel.images) 
+    ? hotel.images.map((img) => 
+        typeof img === 'string' ? { url: img } : { url: img }
+      )
+    : [],
+  mainImage: hotel.image || hotel.images?.[0] || '',
+  amenities: hotel.amenities?.map((name) => ({ id: name, name })) || [],
+  priceFrom: hotel.price?.amount || 0,
+  currency: hotel.price?.currency || 'USD',
+  latitude: hotel.latitude || 0,
+  longitude: hotel.longitude || 0,
+  checkInTime: hotel.checkInTime,
+  checkOutTime: hotel.checkOutTime,
+  policies: hotel.policies,
+  ratehawk_data: hotel.ratehawk_data,
+});
 
 const HotelDetailsPage = () => {
   const { hotelId } = useParams<{ hotelId: string }>();
@@ -307,29 +337,30 @@ const HotelDetailsPage = () => {
   }
 
   const { hotel } = hotelData;
+  const hotelDetails = transformToHotelDetails(hotel);
 
   return (
     <div className="min-h-screen bg-background">
-      <HotelHeroSection hotel={hotel} />
+      <HotelHeroSection hotel={hotelDetails} />
 
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
-            <HotelInfoSection hotel={hotel} />
-            <RoomSelectionSection hotel={hotel} isLoading={false} />
+            <HotelInfoSection hotel={hotelDetails} />
+            <RoomSelectionSection hotel={hotelDetails} isLoading={false} />
             <FacilitiesAmenitiesSection />
           </div>
 
           {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="sticky top-4 space-y-6">
-              <HotelPoliciesSection hotel={hotel} />
+              <HotelPoliciesSection hotel={hotelDetails} />
               <MapSection
-                latitude={hotel.latitude}
-                longitude={hotel.longitude}
-                address={hotel.location || hotel.address}
-                hotelName={hotel.name}
+                latitude={hotelDetails.latitude}
+                longitude={hotelDetails.longitude}
+                address={hotelDetails.address}
+                hotelName={hotelDetails.name}
               />
             </div>
           </div>
