@@ -31,11 +31,6 @@ type AnyHotelImage =
   | { url: string; alt?: string }
   | { tmpl: string };
 
-interface NearbyPOI {
-  name: string;
-  distance: string;
-}
-
 interface Hotel {
   id: string;
   name: string;
@@ -70,15 +65,6 @@ interface Hotel {
   latitude?: number;
   longitude?: number;
   ratehawk_data?: any;
-  // POI data from API
-  poi?: {
-    nearby?: NearbyPOI[];
-    restaurants?: NearbyPOI[];
-    airports?: NearbyPOI[];
-    trainStations?: NearbyPOI[];
-    metroStations?: NearbyPOI[];
-    attractions?: NearbyPOI[];
-  };
 }
 
 interface HotelData {
@@ -156,8 +142,7 @@ const transformToHotelDetails = (hotel: Hotel): HotelDetails => {
     checkOutTime: hotel.checkOutTime,
     policies: hotel.policies,
     ratehawk_data: hotel.ratehawk_data,
-    poi: hotel.poi,
-  } as HotelDetails & { poi?: Hotel["poi"] };
+  };
 };
 
 const HotelDetailsPage = () => {
@@ -395,9 +380,6 @@ const HotelDetailsPage = () => {
           longitude: staticInfo?.coordinates?.longitude || data.hotel.longitude,
           amenities: staticInfo?.amenities?.length > 0 ? staticInfo.amenities : data.hotel.amenities,
 
-          // POI data from API
-          poi: staticInfo?.poi || data.hotel.poi,
-
           // Ensure hero images + star rating are available even if stored data is missing them
           starRating: staticInfo?.starRating ?? data.hotel.starRating,
           rating: staticInfo?.starRating ?? data.hotel.rating,
@@ -482,7 +464,6 @@ const HotelDetailsPage = () => {
             longitude={hotelDetails.longitude}
             address={hotelDetails.address}
             hotelName={hotelDetails.name}
-            poi={(hotelDetails as any).poi}
           />
           <FacilitiesAmenitiesSection />
         </div>
