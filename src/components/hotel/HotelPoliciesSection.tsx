@@ -140,12 +140,18 @@ export function HotelPoliciesSection({
                 <h3 className="font-semibold text-foreground">Hotel Policies</h3>
               </div>
               <ul className="space-y-2">
-                {hotel.policies!.map((policy, idx) => (
-                  <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                    <span className="text-primary mt-0.5">•</span>
-                    {policy}
-                  </li>
-                ))}
+                {hotel.policies!.map((policy, idx) => {
+                  // Handle both string and object policies
+                  const policyText = typeof policy === 'string' 
+                    ? policy 
+                    : ((policy as { title?: string; content?: string })?.content || (policy as { title?: string; content?: string })?.title || '');
+                  return (
+                    <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <span className="text-primary mt-0.5">•</span>
+                      {policyText}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
