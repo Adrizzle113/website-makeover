@@ -43,7 +43,7 @@ export interface RoomRate {
   available: number;
 }
 
-// RateHawk API data structures
+// RateHawk API data structures - Enhanced for room_groups matching
 export interface RateHawkRoomGroup {
   rg_hash: string;
   name_struct?: {
@@ -126,6 +126,18 @@ export interface RateHawkData {
       rg_hash?: string;
     }>;
     metadata?: Record<string, unknown>;
+  };
+  // Support nested data structures from API
+  data?: {
+    data?: {
+      hotels?: Array<{
+        rates?: RateHawkRate[];
+        room_groups?: RateHawkRoomGroup[];
+        [key: string]: unknown;
+      }>;
+    };
+    rates?: RateHawkRate[];
+    room_groups?: RateHawkRoomGroup[];
   };
   [key: string]: unknown;
 }

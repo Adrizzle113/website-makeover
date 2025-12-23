@@ -23,16 +23,13 @@ const HotelDetailsPage = () => {
   const [isLoadingRooms, setIsLoadingRooms] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ FIXED: Function to fetch detailed rates from backend with DETAILED LOGGING
+  // Function to fetch detailed rates from backend using room_groups + rg_hash matching
   const fetchDetailedRates = async (hotelId: string) => {
     console.log("🚀 fetchDetailedRates called for:", hotelId);
 
     try {
       const userId = localStorage.getItem("userId");
-      console.log("👤 userId from localStorage:", userId);
-
       const storedHotelData = localStorage.getItem("selectedHotel");
-      console.log("📦 storedHotelData exists:", !!storedHotelData);
 
       if (!userId) {
         console.log("❌ No userId found, skipping detailed rates fetch");
@@ -45,7 +42,7 @@ const HotelDetailsPage = () => {
         try {
           const parsed = JSON.parse(storedHotelData);
           searchContext = parsed.searchContext;
-          console.log("📋 searchContext (RAW):", JSON.stringify(searchContext, null, 2));
+          console.log("📋 searchContext:", searchContext);
         } catch (e) {
           console.error("❌ Error parsing stored hotel data:", e);
         }
@@ -56,41 +53,26 @@ const HotelDetailsPage = () => {
         return;
       }
 
-      console.log("✅ All prerequisites met, formatting data...");
       setIsLoadingRooms(true);
 
-      // ✅ FIX: Format dates correctly (YYYY-MM-DD)
+      // Format dates correctly (YYYY-MM-DD)
       const formatDate = (dateString: string): string => {
         if (!dateString) return "";
-        // If it's already in YYYY-MM-DD format, return as-is
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-          return dateString;
-        }
-        // If it's an ISO timestamp, extract the date part
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return dateString;
         return dateString.split("T")[0];
       };
 
-      // ✅ FIX: Format guests correctly (array of room objects)
+      // Format guests correctly (array of room objects)
       const formatGuests = (guests: any) => {
-        console.log("🔧 formatGuests input:", guests, "type:", typeof guests);
-
-        // If already in correct format
         if (Array.isArray(guests) && guests.length > 0 && guests[0]?.adults !== undefined) {
-          console.log("✅ Guests already in correct format");
           return guests;
         }
-        // If it's formattedGuests array but might need validation
         if (Array.isArray(guests) && guests.length > 0) {
-          console.log("✅ Guests is array, validating...");
           return guests;
         }
-        // If it's just a number, convert to array
         if (typeof guests === "number") {
-          console.log("🔧 Converting number to array format");
           return [{ adults: guests }];
         }
-        // Default fallback
-        console.log("⚠️ Using default fallback");
         return [{ adults: 2 }];
       };
 
@@ -106,100 +88,75 @@ const HotelDetailsPage = () => {
         currency: "USD",
       };
 
-      // ✅ DETAILED LOGGING
-      console.log("📤 ========== REQUEST DETAILS ==========");
-      console.log("📤 Full request body:", JSON.stringify(requestBody, null, 2));
-      console.log("📤 API URL:", `${API_BASE_URL}/api/ratehawk/hotel/details`);
-      console.log("📤 checkin:", requestBody.searchParams.checkin, "type:", typeof requestBody.searchParams.checkin);
-      console.log("📤 checkout:", requestBody.searchParams.checkout, "type:", typeof requestBody.searchParams.checkout);
-      console.log(
-        "📤 guests:",
-        JSON.stringify(requestBody.searchParams.guests),
-        "type:",
-        typeof requestBody.searchParams.guests,
-      );
-      console.log("📤 ======================================");
+      console.log("📤 Fetching hotel details:", `${API_BASE_URL}/api/ratehawk/hotel/details`);
 
       const response = await fetch(`${API_BASE_URL}/api/ratehawk/hotel/details`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
       });
 
-      console.log("📡 Response status:", response.status);
-      console.log("📡 Response ok:", response.ok);
-      console.log("📡 Response headers:", Object.fromEntries(response.headers.entries()));
-
       if (!response.ok) {
-        let errorText = "";
-        try {
-          errorText = await response.text();
-          console.error("❌ API error response (text):", errorText);
-        } catch (e) {
-          console.error("❌ Could not read error response");
-        }
-        throw new Error(`API returned ${response.status}: ${response.statusText} - ${errorText}`);
+        const errorText = await response.text();
+        throw new Error(`API returned ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
 
-      console.log("📥 ========== RESPONSE DETAILS ==========");
-      console.log("📥 Response success:", data.success);
-      console.log("📥 Response has data:", !!data.data);
-      console.log("📥 Rates count:", data.data?.rates?.length || 0);
-      console.log("📥 Room groups count:", data.data?.room_groups?.length || 0);
-      console.log("📥 First rate sample:", data.data?.rates?.[0]);
-      console.log("📥 =======================================");
+      console.log("📥 Response received:", {
+        success: data.success,
+        hasData: !!data.data,
+        ratesCount: data.data?.rates?.length || 0,
+        roomGroupsCount: data.data?.room_groups?.length || 0,
+      });
 
-      if (data.success && data.data) {
-        console.log(`✅ SUCCESS! Fetched ${data.data.rates?.length || 0} detailed rates for ${hotelId}`);
+      // Handle the new API format: data.data.data.hotels[0] contains room_groups and rates
+      let ratehawkData = null;
+      if (data.data?.data?.hotels?.[0]) {
+        ratehawkData = data.data.data.hotels[0];
+        console.log("✅ Found rates in new API format (data.data.data.hotels[0])");
+      } else if (data.data?.rates) {
+        ratehawkData = data.data;
+        console.log("✅ Found rates in standard format (data.data.rates)");
+      }
 
-        // Update the selected hotel with detailed rates
-        if (!selectedHotel) {
-          console.log("❌ No previous hotel in state");
-          return;
-        }
-
+      if (ratehawkData && selectedHotel) {
         const updated = {
           ...selectedHotel,
           ratehawk_data: {
             ...selectedHotel.ratehawk_data,
-            // Merge the new detailed data
-            ...data.data,
-            // Preserve enhancedData structure with ALL rates
+            // Store rates and room_groups at the top level for easy access
+            rates: ratehawkData.rates || [],
+            room_groups: ratehawkData.room_groups || [],
+            // Also store in enhancedData for backward compatibility
             enhancedData: {
-              room_groups: data.data.room_groups || selectedHotel.ratehawk_data?.room_groups || [],
-              rates: data.data.rates || [],
+              room_groups: ratehawkData.room_groups || [],
+              rates: ratehawkData.rates || [],
               metadata: {
-                total_room_groups: data.data.room_groups?.length || 0,
-                total_rates: data.data.rates?.length || 0,
+                total_room_groups: ratehawkData.room_groups?.length || 0,
+                total_rates: ratehawkData.rates?.length || 0,
                 source: "hotel_details_api",
                 fetched_at: new Date().toISOString(),
               },
             },
+            // Store full nested data for reference
+            data: data.data,
           },
         };
 
-        console.log("✅ Updated hotel state with rates:", {
+        console.log("✅ Updated hotel with rates:", {
           hotelId: updated.id,
-          newRatesCount: updated.ratehawk_data?.enhancedData?.rates?.length,
-          newRoomGroupsCount: updated.ratehawk_data?.enhancedData?.room_groups?.length,
+          ratesCount: updated.ratehawk_data?.rates?.length,
+          roomGroupsCount: updated.ratehawk_data?.room_groups?.length,
         });
 
         setSelectedHotel(updated);
       } else {
-        console.log("❌ No detailed rates data in response");
+        console.log("❌ No rates data in response");
       }
     } catch (error) {
-      console.error("💥 ========== ERROR DETAILS ==========");
-      console.error("💥 Error type:", error?.constructor?.name);
-      console.error("💥 Error message:", error?.message);
-      console.error("💥 Full error:", error);
-      console.error("💥 ====================================");
+      console.error("💥 Error fetching rates:", error);
     } finally {
-      console.log("🏁 fetchDetailedRates completed");
       setIsLoadingRooms(false);
     }
   };
@@ -208,10 +165,7 @@ const HotelDetailsPage = () => {
     const loadHotelDetails = async () => {
       console.log("🏨 loadHotelDetails called for id:", id);
 
-      if (!id) {
-        console.log("❌ No hotel id provided");
-        return;
-      }
+      if (!id) return;
 
       setIsLoading(true);
       setError(null);
@@ -221,9 +175,6 @@ const HotelDetailsPage = () => {
       if (selectedHotel && selectedHotel.id === id) {
         console.log("✅ Hotel already in store:", selectedHotel.id);
         setIsLoading(false);
-
-        // Fetch detailed rates even if hotel is in store
-        console.log("🔄 Calling fetchDetailedRates from store path...");
         await fetchDetailedRates(id);
         return;
       }
@@ -237,9 +188,6 @@ const HotelDetailsPage = () => {
             console.log("✅ Loaded hotel from localStorage:", parsed.hotel.id);
             setSelectedHotel(parsed.hotel);
             setIsLoading(false);
-
-            // Fetch detailed rates
-            console.log("🔄 Calling fetchDetailedRates from localStorage path...");
             await fetchDetailedRates(id);
             return;
           }
@@ -255,21 +203,17 @@ const HotelDetailsPage = () => {
     };
 
     loadHotelDetails();
-  }, [id]); // Removed other dependencies to prevent infinite loops
+  }, [id]);
 
-  // Debug: Log selectedHotel data when it changes
+  // Debug logging
   useEffect(() => {
     if (selectedHotel) {
-      console.log(`🏠 HotelDetailsPage - Rendering with hotel:`, {
+      console.log(`🏠 Hotel state updated:`, {
         id: selectedHotel.id,
         name: selectedHotel.name,
-        hasRatehawkData: !!selectedHotel.ratehawk_data,
-        ratehawkDataKeys: Object.keys(selectedHotel.ratehawk_data || {}),
         roomGroups: selectedHotel.ratehawk_data?.room_groups?.length || 0,
-        enhancedRoomGroups: selectedHotel.ratehawk_data?.enhancedData?.room_groups?.length || 0,
         rates: selectedHotel.ratehawk_data?.rates?.length || 0,
         enhancedRates: selectedHotel.ratehawk_data?.enhancedData?.rates?.length || 0,
-        roomsFromStore: selectedHotel.rooms?.length || 0,
       });
     }
   }, [selectedHotel]);
@@ -346,8 +290,7 @@ const getMockHotel = (id: string): HotelDetails => ({
   id,
   name: "Grand Luxury Resort & Spa",
   description: "Experience unparalleled luxury at our award-winning resort.",
-  fullDescription:
-    "Nestled in a prime location, the Grand Luxury Resort & Spa offers an exceptional blend of sophisticated elegance and modern comfort. Our meticulously designed rooms and suites provide a serene sanctuary, while world-class dining options tantalize your taste buds. Unwind at our renowned spa or take a refreshing dip in our infinity pool overlooking breathtaking views.",
+  fullDescription: "Nestled in a prime location, the Grand Luxury Resort & Spa offers an exceptional blend of sophisticated elegance and modern comfort.",
   address: "123 Luxury Avenue",
   city: "Dubai",
   country: "United Arab Emirates",
@@ -356,86 +299,23 @@ const getMockHotel = (id: string): HotelDetails => ({
   reviewCount: 1250,
   mainImage: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=2000&q=80",
   images: [
-    {
-      url: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80",
-      alt: "Hotel exterior",
-    },
-    {
-      url: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80",
-      alt: "Luxury room",
-    },
-    {
-      url: "https://images.unsplash.com/photo-1584132967334-10e028bd69f7?auto=format&fit=crop&w=800&q=80",
-      alt: "Pool area",
-    },
-    {
-      url: "https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=800&q=80",
-      alt: "Restaurant",
-    },
+    { url: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80", alt: "Hotel exterior" },
+    { url: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80", alt: "Luxury room" },
   ],
   amenities: [
     { id: "1", name: "Free WiFi" },
     { id: "2", name: "Swimming Pool" },
     { id: "3", name: "Spa & Wellness" },
-    { id: "4", name: "Fitness Center" },
-    { id: "5", name: "Restaurant" },
-    { id: "6", name: "Room Service" },
-    { id: "7", name: "Parking" },
-    { id: "8", name: "Air Conditioning" },
   ],
-  facilities: ["Business Center", "Conference Rooms", "Concierge Service", "Laundry Service"],
+  facilities: ["Business Center", "Conference Rooms"],
   priceFrom: 450,
   currency: "USD",
   latitude: 25.1972,
   longitude: 55.2744,
   checkInTime: "3:00 PM",
   checkOutTime: "12:00 PM",
-  policies: ["No smoking in rooms", "Pets allowed on request", "Credit card required for guarantee"],
-  rooms: [
-    {
-      id: "room-1",
-      name: "Deluxe King Room",
-      description: "Spacious room with king bed and city views",
-      price: 450,
-      currency: "USD",
-      maxOccupancy: 2,
-      squareFootage: 450,
-      bedType: "King Bed",
-      amenities: ["Free WiFi", "Mini Bar", "Safe", "Air Conditioning", "Coffee Maker", "Flat Screen TV"],
-      mealPlan: "Breakfast Included",
-      cancellationPolicy: "Free cancellation until 24h before check-in",
-      available: 5,
-    },
-    {
-      id: "room-2",
-      name: "Premium Suite",
-      description: "Luxurious suite with separate living area",
-      price: 750,
-      originalPrice: 850,
-      currency: "USD",
-      maxOccupancy: 4,
-      squareFootage: 850,
-      bedType: "King Bed + Sofa Bed",
-      amenities: ["Free WiFi", "Mini Bar", "Safe", "Balcony", "Living Area", "Jacuzzi", "Butler Service"],
-      mealPlan: "Half Board",
-      cancellationPolicy: "Free cancellation until 48h before check-in",
-      available: 3,
-    },
-    {
-      id: "room-3",
-      name: "Family Room",
-      description: "Perfect for families with two queen beds",
-      price: 550,
-      currency: "USD",
-      maxOccupancy: 4,
-      squareFootage: 550,
-      bedType: "2 Queen Beds",
-      amenities: ["Free WiFi", "Mini Bar", "Safe", "Air Conditioning", "Connecting Rooms Available"],
-      mealPlan: "Room Only",
-      cancellationPolicy: "Non-refundable",
-      available: 2,
-    },
-  ],
+  policies: ["No smoking in rooms"],
+  rooms: [],
 });
 
 export default HotelDetailsPage;
