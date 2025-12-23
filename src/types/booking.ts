@@ -88,6 +88,7 @@ export interface RateHawkRate {
   rooms?: Array<{
     amenities_data?: string[];
     size?: string;
+    rg_hash?: string;
   }>;
   cancellation_policy?: {
     type?: string;

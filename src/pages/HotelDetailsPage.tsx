@@ -96,9 +96,11 @@ const HotelDetailsPage = () => {
         body: JSON.stringify(requestBody),
       });
 
+      // Handle non-OK responses gracefully
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API returned ${response.status}: ${errorText}`);
+        const status = response.status;
+        console.warn(`⚠️ Hotel details endpoint returned ${status}, continuing with existing data`);
+        return; // Don't throw, just exit gracefully
       }
 
       const data = await response.json();
@@ -194,6 +196,27 @@ const HotelDetailsPage = () => {
         }
       } catch (err) {
         console.error("❌ Error parsing stored hotel data:", err);
+      }
+
+      // Try to find hotel in cached search results
+      try {
+        const cachedResults = localStorage.getItem("booking-storage");
+        if (cachedResults) {
+          const parsed = JSON.parse(cachedResults);
+          const searchResults = parsed.state?.searchResults;
+          if (Array.isArray(searchResults)) {
+            const foundHotel = searchResults.find((h: any) => h.id === id);
+            if (foundHotel) {
+              console.log("✅ Found hotel in search results cache:", foundHotel.id);
+              setSelectedHotel(foundHotel);
+              setIsLoading(false);
+              await fetchDetailedRates(id);
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("❌ Error searching cached results:", err);
       }
 
       // Fallback to mock data if no stored data found
