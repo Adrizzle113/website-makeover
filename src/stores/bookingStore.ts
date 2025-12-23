@@ -76,12 +76,20 @@ export const useBookingStore = create<BookingStore>()(
 
       setSearchParams: (params) => set({ searchParams: params, currentPage: 1 }),
 
-      setSearchResults: (results, hasMore = false, total = 0) => set({ 
-        searchResults: results, 
-        hasMoreResults: hasMore,
-        totalResults: total || results.length,
-        currentPage: 1,
-      }),
+      setSearchResults: (results, hasMore = false, total = 0) => {
+        // Clear old selectedHotel from localStorage to free space
+        try {
+          localStorage.removeItem("selectedHotel");
+        } catch (e) {
+          console.warn("Failed to clear localStorage:", e);
+        }
+        set({ 
+          searchResults: results, 
+          hasMoreResults: hasMore,
+          totalResults: total || results.length,
+          currentPage: 1,
+        });
+      },
 
       appendSearchResults: (results, hasMore = false) => set((state) => ({
         searchResults: [...state.searchResults, ...results],
@@ -201,8 +209,7 @@ export const useBookingStore = create<BookingStore>()(
       name: "booking-storage",
       partialize: (state) => ({
         searchParams: state.searchParams,
-        searchResults: state.searchResults,
-        selectedHotel: state.selectedHotel,
+        // Exclude searchResults and selectedHotel - too large for localStorage
         filters: state.filters,
         sortBy: state.sortBy,
       }),

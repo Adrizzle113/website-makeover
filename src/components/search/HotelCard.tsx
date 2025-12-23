@@ -65,8 +65,18 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
     setSelectedHotel(hotelDetails);
 
     // Store in localStorage for persistence across page refreshes
+    // Optimize by stripping large ratehawk_data arrays to avoid quota exceeded
+    const optimizedHotel = {
+      ...hotelDetails,
+      ratehawk_data: hotelDetails.ratehawk_data ? {
+        requested_hotel_id: hotelDetails.ratehawk_data.requested_hotel_id,
+        ota_hotel_id: hotelDetails.ratehawk_data.ota_hotel_id,
+        // Omit room_groups and rates - will be fetched fresh from API
+      } : undefined,
+    };
+    
     const hotelDataPackage = {
-      hotel: hotelDetails,
+      hotel: optimizedHotel,
       searchContext: searchParams
         ? {
             destination: searchParams.destination,
@@ -78,19 +88,12 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
         : null,
       timestamp: new Date().toISOString(),
     };
-    localStorage.setItem("selectedHotel", JSON.stringify(hotelDataPackage));
-
-    // Debug: Verify localStorage was set correctly
-    const storedData = localStorage.getItem("selectedHotel");
-    if (storedData) {
-      const parsed = JSON.parse(storedData);
-      console.log(`💾 LocalStorage - Stored hotel data:`, {
-        hasRatehawkData: !!parsed.hotel?.ratehawk_data,
-        roomGroups: parsed.hotel?.ratehawk_data?.room_groups?.length || 0,
-        enhancedRoomGroups: parsed.hotel?.ratehawk_data?.enhancedData?.room_groups?.length || 0,
-        rates: parsed.hotel?.ratehawk_data?.rates?.length || 0,
-        enhancedRates: parsed.hotel?.ratehawk_data?.enhancedData?.rates?.length || 0,
-      });
+    
+    try {
+      localStorage.setItem("selectedHotel", JSON.stringify(hotelDataPackage));
+    } catch (e) {
+      console.warn("Failed to cache hotel in localStorage:", e);
+      // Still works - data is in Zustand store
     }
 
     navigate(`/hoteldetails/${hotel.id}`);
