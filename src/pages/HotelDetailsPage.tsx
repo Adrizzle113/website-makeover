@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
+import { HotelDetails, HotelImage, HotelAmenity } from "../types/booking";
+import { useBookingStore } from "../stores/bookingStore";
 
 // Import components from src/components/hotel
 import { HotelHeroSection } from "../components/hotel/HotelHeroSection";
@@ -9,7 +11,7 @@ import { RoomSelectionSection } from "../components/hotel/RoomSelectionSection";
 import { FacilitiesAmenitiesSection } from "../components/hotel/FacilitiesAmenitiesSection";
 import { MapSection } from "../components/hotel/MapSection";
 import { HotelPoliciesSection } from "../components/hotel/HotelPoliciesSection";
-import { Card, CardContent } from "../components/ui/card";
+import { BookingSidebar } from "../components/hotel/BookingSidebar";
 
 interface SearchContext {
   destination: string;
@@ -23,7 +25,7 @@ interface SearchContext {
   searchTimestamp?: string;
 }
 
-interface Hotel {
+interface RawHotel {
   id: string;
   name: string;
   location?: string;
@@ -43,20 +45,71 @@ interface Hotel {
 }
 
 interface HotelData {
-  hotel: Hotel;
+  hotel: RawHotel;
   searchContext: SearchContext;
   allAvailableHotels?: number;
   selectedFromPage?: number;
 }
 
+// Transform raw hotel data to HotelDetails type
+const transformToHotelDetails = (hotel: RawHotel): HotelDetails => {
+  // Parse location into city and country
+  const locationParts = (hotel.location || "").split(",").map(s => s.trim());
+  const city = locationParts[0] || "";
+  const country = locationParts[locationParts.length - 1] || "";
+
+  // Transform string[] images to HotelImage[]
+  const images: HotelImage[] = [];
+  if (hotel.image) {
+    images.push({ url: hotel.image, alt: hotel.name });
+  }
+  if (hotel.images) {
+    hotel.images.forEach((img, i) => {
+      if (img !== hotel.image) {
+        images.push({ url: img, alt: `${hotel.name} - Image ${i + 1}` });
+      }
+    });
+  }
+
+  // Transform string[] amenities to HotelAmenity[]
+  const amenities: HotelAmenity[] = (hotel.amenities || []).map((name, i) => ({
+    id: `amenity-${i}`,
+    name,
+  }));
+
+  return {
+    id: hotel.id,
+    name: hotel.name,
+    description: hotel.description || "",
+    address: hotel.location || "",
+    city,
+    country,
+    starRating: hotel.rating || 0,
+    reviewScore: hotel.reviewScore,
+    reviewCount: hotel.reviewCount,
+    images: images.length > 0 ? images : [{ url: "/placeholder.svg", alt: hotel.name }],
+    mainImage: hotel.image || hotel.images?.[0] || "/placeholder.svg",
+    amenities,
+    priceFrom: hotel.price?.amount || 0,
+    currency: hotel.price?.currency || "USD",
+    latitude: hotel.ratehawk_data?.latitude,
+    longitude: hotel.ratehawk_data?.longitude,
+    ratehawk_data: hotel.ratehawk_data,
+    checkInTime: "3:00 PM",
+    checkOutTime: "12:00 PM",
+    policies: ["Check-in from 3:00 PM", "Check-out by 12:00 PM"],
+  };
+};
+
 const HotelDetailsPage = () => {
   const { hotelId } = useParams<{ hotelId: string }>();
   const navigate = useNavigate();
+  const { setSelectedHotel, setSearchParams } = useBookingStore();
 
   const [hotelData, setHotelData] = useState<HotelData | null>(null);
+  const [hotelDetails, setHotelDetails] = useState<HotelDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     loadHotelData();
@@ -83,6 +136,28 @@ const HotelDetailsPage = () => {
           });
           initialHotelData = parsedData;
           setHotelData(initialHotelData);
+
+          // Transform and set hotel details
+          const transformed = transformToHotelDetails(parsedData.hotel);
+          setHotelDetails(transformed);
+          setSelectedHotel(transformed);
+
+          // Set search params for BookingSidebar
+          const context = parsedData.searchContext;
+          if (context) {
+            const guestCount = Array.isArray(context.guests) 
+              ? context.guests.reduce((sum, g) => sum + (g.adults || 2), 0)
+              : context.guests || 2;
+            
+            setSearchParams({
+              destination: context.destination,
+              destinationId: context.destinationId,
+              checkIn: new Date(context.checkin),
+              checkOut: new Date(context.checkout),
+              guests: guestCount,
+              rooms: Array.isArray(context.guests) ? context.guests.length : 1,
+            });
+          }
         }
       }
 
@@ -95,10 +170,6 @@ const HotelDetailsPage = () => {
 
       // Fetch detailed rates and update hotel data
       await fetchDetailedRates(initialHotelData);
-
-      // Check if this hotel is in favorites
-      const favorites = JSON.parse(localStorage.getItem("favoriteHotels") || "[]");
-      setIsFavorite(favorites.includes(hotelId));
 
       setLoading(false);
     } catch (err) {
@@ -175,28 +246,35 @@ const HotelDetailsPage = () => {
       let room_groups: any[] = [];
 
       if (responseData.data?.data?.hotels?.[0]) {
-        const hotelDetails = responseData.data.data.hotels[0];
-        rates = hotelDetails.rates || [];
-        room_groups = hotelDetails.room_groups || [];
+        const hotelApiData = responseData.data.data.hotels[0];
+        rates = hotelApiData.rates || [];
+        room_groups = hotelApiData.room_groups || [];
         console.log(`✅ Found ${rates.length} rates and ${room_groups.length} room_groups`);
       }
 
       if (rates.length > 0 || room_groups.length > 0) {
         // Update hotel data with fetched rates
+        const updatedRawHotel: RawHotel = {
+          ...data.hotel,
+          ratehawk_data: {
+            ...data.hotel.ratehawk_data,
+            rates: rates,
+            room_groups: room_groups,
+          },
+        };
+
         const updatedHotelData: HotelData = {
           ...data,
-          hotel: {
-            ...data.hotel,
-            ratehawk_data: {
-              ...data.hotel.ratehawk_data,
-              rates: rates,
-              room_groups: room_groups,
-            },
-          },
+          hotel: updatedRawHotel,
         };
 
         console.log(`🔄 Updated hotel with ${rates.length} rates`);
         setHotelData(updatedHotelData);
+
+        // Transform and update hotel details
+        const transformed = transformToHotelDetails(updatedRawHotel);
+        setHotelDetails(transformed);
+        setSelectedHotel(transformed);
       }
     } catch (error) {
       console.error("💥 Error fetching rates:", error);
@@ -207,23 +285,23 @@ const HotelDetailsPage = () => {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading hotel details...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading hotel details...</p>
         </div>
       </div>
     );
   }
 
-  if (error || !hotelData) {
+  if (error || !hotelDetails) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center max-w-md">
-          <div className="text-red-500 text-5xl mb-4">⚠️</div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Oops! Something went wrong</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="text-destructive text-5xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-foreground mb-2">Oops! Something went wrong</h2>
+          <p className="text-muted-foreground mb-6">{error}</p>
           <button
             onClick={() => navigate("/search")}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition"
           >
             Back to Search
           </button>
@@ -232,31 +310,30 @@ const HotelDetailsPage = () => {
     );
   }
 
-  const { hotel } = hotelData;
-
   return (
     <div className="min-h-screen bg-background">
-      <HotelHeroSection hotel={hotel} />
+      <HotelHeroSection hotel={hotelDetails} />
 
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
-            <HotelInfoSection hotel={hotel} />
-            <RoomSelectionSection hotel={hotel} isLoading={false} />
+            <HotelInfoSection hotel={hotelDetails} />
+            <RoomSelectionSection hotel={hotelDetails} isLoading={false} />
             <FacilitiesAmenitiesSection />
+            <HotelPoliciesSection hotel={hotelDetails} />
+            <MapSection
+              latitude={hotelDetails.latitude}
+              longitude={hotelDetails.longitude}
+              address={hotelDetails.address}
+              hotelName={hotelDetails.name}
+            />
           </div>
 
           {/* Sidebar */}
           <div className="lg:col-span-1">
-            <div className="sticky top-4 space-y-6">
-              <HotelPoliciesSection hotel={hotel} />
-              <MapSection
-                latitude={hotel.latitude}
-                longitude={hotel.longitude}
-                address={hotel.location || hotel.address}
-                hotelName={hotel.name}
-              />
+            <div className="sticky top-4">
+              <BookingSidebar currency={hotelDetails.currency} />
             </div>
           </div>
         </div>
