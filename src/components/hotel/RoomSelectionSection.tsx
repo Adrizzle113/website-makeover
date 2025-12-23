@@ -77,8 +77,12 @@ interface RoomSelectionSectionProps {
 }
 
 // Get amenity icon based on name
-const getAmenityIcon = (amenity: string) => {
-  const lowerAmenity = amenity.toLowerCase();
+const getAmenityIcon = (amenity: string | { id?: string; name?: string }) => {
+  // Handle both string and object amenities
+  const amenityName = typeof amenity === 'string' ? amenity : (amenity?.name || amenity?.id || '');
+  if (!amenityName) return <Check className="w-3 h-3" />;
+  
+  const lowerAmenity = amenityName.toLowerCase();
   if (lowerAmenity.includes("wifi") || lowerAmenity.includes("internet")) {
     return <Wifi className="w-3 h-3" />;
   } else if (lowerAmenity.includes("bath") || lowerAmenity.includes("shower")) {
