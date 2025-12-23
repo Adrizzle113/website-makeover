@@ -195,7 +195,28 @@ const HotelDetailsPage = () => {
       }
 
       const responseData = await response.json();
-      console.log("📥 API Response received");
+      
+      // Debug: Log the complete API response structure
+      console.log("📥 FULL API RESPONSE STRUCTURE:", JSON.stringify(responseData, null, 2));
+      console.log("📦 Response keys:", Object.keys(responseData));
+      if (responseData.data) {
+        console.log("📦 Data keys:", Object.keys(responseData.data));
+        if (responseData.data.data) {
+          console.log("📦 Inner data keys:", Object.keys(responseData.data.data));
+          if (responseData.data.data.hotels?.[0]) {
+            const h = responseData.data.data.hotels[0];
+            console.log("🏨 Hotel object keys:", Object.keys(h));
+            console.log("🏨 Hotel description fields:", {
+              description: h.description,
+              hotel_description: h.hotel_description,
+              full_description: h.full_description,
+              detailed_description: h.detailed_description,
+              static_vm: h.static_vm ? Object.keys(h.static_vm) : null,
+              facts: h.facts ? Object.keys(h.facts) : null,
+            });
+          }
+        }
+      }
 
       // Extract rates, room_groups, and other hotel information
       let rates: any[] = [];
