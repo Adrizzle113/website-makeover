@@ -149,6 +149,15 @@ const processRoomsWithRoomGroups = (hotel: HotelDetails): ProcessedRoom[] => {
   const { roomGroups, rates } = extractRoomData(hotel);
   
   console.log(`🔍 Processing rooms: ${roomGroups.length} room_groups, ${rates.length} rates`);
+  
+  // Debug: Log actual rate structure to understand the data
+  if (rates.length > 0) {
+    console.log('🔎 First rate structure:', JSON.stringify(rates[0], null, 2).slice(0, 500));
+    console.log('🔎 Rate rg_hash values:', rates.map(r => r.rg_hash));
+  }
+  if (roomGroups.length > 0) {
+    console.log('🔎 RoomGroup rg_hash values:', roomGroups.slice(0, 3).map(rg => rg.rg_hash));
+  }
 
   // If we have room_groups, use them with rg_hash matching
   if (roomGroups.length > 0 && rates.length > 0) {
