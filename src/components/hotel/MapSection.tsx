@@ -6,49 +6,29 @@ interface NearbyItem {
   distance: string;
 }
 
+interface POIData {
+  nearby?: NearbyItem[];
+  restaurants?: NearbyItem[];
+  airports?: NearbyItem[];
+  trainStations?: NearbyItem[];
+  metroStations?: NearbyItem[];
+  attractions?: NearbyItem[];
+}
+
 interface MapSectionProps {
   latitude?: number;
   longitude?: number;
   address: string;
   hotelName: string;
-  nearby?: NearbyItem[];
-  placesOfInterest?: NearbyItem[];
-  airports?: NearbyItem[];
-  subways?: NearbyItem[];
+  poi?: POIData;
 }
-
-const defaultNearby: NearbyItem[] = [
-  { name: "Central Park", distance: "0.3 km" },
-  { name: "Shopping Mall", distance: "0.5 km" },
-  { name: "Restaurant District", distance: "0.2 km" },
-];
-
-const defaultPlacesOfInterest: NearbyItem[] = [
-  { name: "City Museum", distance: "1.2 km" },
-  { name: "Art Gallery", distance: "0.8 km" },
-  { name: "Historic Square", distance: "1.0 km" },
-];
-
-const defaultAirports: NearbyItem[] = [
-  { name: "International Airport", distance: "25 km" },
-  { name: "Domestic Airport", distance: "15 km" },
-];
-
-const defaultSubways: NearbyItem[] = [
-  { name: "Central Station", distance: "0.2 km" },
-  { name: "Park Avenue Station", distance: "0.4 km" },
-  { name: "Downtown Station", distance: "0.6 km" },
-];
 
 export function MapSection({
   latitude,
   longitude,
   address,
   hotelName,
-  nearby = defaultNearby,
-  placesOfInterest = defaultPlacesOfInterest,
-  airports = defaultAirports,
-  subways = defaultSubways,
+  poi,
 }: MapSectionProps) {
   const hasCoordinates = latitude && longitude;
 
@@ -60,6 +40,14 @@ export function MapSection({
     ? `https://maps.google.com/maps?q=${latitude},${longitude}&z=15&output=embed`
     : `https://maps.google.com/maps?q=${encodeURIComponent(address)}&z=15&output=embed`;
 
+  // Combine POI data into display categories
+  const nearby = poi?.nearby || poi?.restaurants || [];
+  const attractions = poi?.attractions || [];
+  const airports = poi?.airports || [];
+  const transit = poi?.metroStations || poi?.trainStations || [];
+
+  const hasPOIData = nearby.length > 0 || attractions.length > 0 || airports.length > 0 || transit.length > 0;
+
   const LocationColumn = ({
     title,
     icon: Icon,
@@ -68,22 +56,26 @@ export function MapSection({
     title: string;
     icon: React.ElementType;
     items: NearbyItem[];
-  }) => (
-    <div>
-      <div className="flex items-center gap-2 mb-3">
-        <Icon className="h-4 w-4 text-primary" />
-        <h4 className="font-medium text-foreground text-sm">{title}</h4>
+  }) => {
+    if (items.length === 0) return null;
+    
+    return (
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <Icon className="h-4 w-4 text-primary" />
+          <h4 className="font-medium text-foreground text-sm">{title}</h4>
+        </div>
+        <ul className="space-y-2">
+          {items.slice(0, 5).map((item, idx) => (
+            <li key={idx} className="flex justify-between text-sm">
+              <span className="text-muted-foreground">{item.name}</span>
+              <span className="text-foreground font-medium">{item.distance}</span>
+            </li>
+          ))}
+        </ul>
       </div>
-      <ul className="space-y-2">
-        {items.map((item, idx) => (
-          <li key={idx} className="flex justify-between text-sm">
-            <span className="text-muted-foreground">{item.name}</span>
-            <span className="text-foreground font-medium">{item.distance}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
+    );
+  };
 
   return (
     <section className="py-8 bg-app-white-smoke">
@@ -123,13 +115,15 @@ export function MapSection({
           />
         </div>
 
-        {/* Nearby Locations Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <LocationColumn title="What's Nearby" icon={Store} items={nearby} />
-          <LocationColumn title="Places of Interest" icon={Landmark} items={placesOfInterest} />
-          <LocationColumn title="Airports" icon={Plane} items={airports} />
-          <LocationColumn title="Subway" icon={TrainFront} items={subways} />
-        </div>
+        {/* Nearby Locations Grid - Only show if we have POI data */}
+        {hasPOIData && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <LocationColumn title="What's Nearby" icon={Store} items={nearby} />
+            <LocationColumn title="Attractions" icon={Landmark} items={attractions} />
+            <LocationColumn title="Airports" icon={Plane} items={airports} />
+            <LocationColumn title="Transit" icon={TrainFront} items={transit} />
+          </div>
+        )}
       </div>
     </section>
   );
