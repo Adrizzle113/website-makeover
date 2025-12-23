@@ -11,7 +11,7 @@ import { RoomSelectionSection } from "../components/hotel/RoomSelectionSection";
 import { FacilitiesAmenitiesSection } from "../components/hotel/FacilitiesAmenitiesSection";
 import { MapSection } from "../components/hotel/MapSection";
 import { HotelPoliciesSection } from "../components/hotel/HotelPoliciesSection";
-import { BookingSidebar } from "../components/hotel/BookingSidebar";
+import { BookingSection } from "../components/hotel/BookingSection";
 
 interface SearchContext {
   destination: string;
@@ -354,33 +354,26 @@ const HotelDetailsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-24">
       <HotelHeroSection hotel={hotelDetails} />
 
       <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            <HotelInfoSection hotel={hotelDetails} />
-            <RoomSelectionSection hotel={hotelDetails} isLoading={false} />
-            <FacilitiesAmenitiesSection />
-            <HotelPoliciesSection hotel={hotelDetails} />
-            <MapSection
-              latitude={hotelDetails.latitude}
-              longitude={hotelDetails.longitude}
-              address={hotelDetails.address}
-              hotelName={hotelDetails.name}
-            />
-          </div>
-
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-4">
-              <BookingSidebar currency={hotelDetails.currency} />
-            </div>
-          </div>
+        <div className="max-w-4xl mx-auto space-y-8">
+          <HotelInfoSection hotel={hotelDetails} />
+          <RoomSelectionSection hotel={hotelDetails} isLoading={false} />
+          <FacilitiesAmenitiesSection />
+          <HotelPoliciesSection hotel={hotelDetails} />
+          <MapSection
+            latitude={hotelDetails.latitude}
+            longitude={hotelDetails.longitude}
+            address={hotelDetails.address}
+            hotelName={hotelDetails.name}
+          />
         </div>
       </div>
+
+      {/* Sticky bottom bar - only shows when rooms are selected */}
+      <BookingSection currency={hotelDetails.currency} />
     </div>
   );
 };
