@@ -11,6 +11,7 @@ import { RoomSelectionSection } from "../components/hotel/RoomSelectionSection";
 import { FacilitiesAmenitiesSection } from "../components/hotel/FacilitiesAmenitiesSection";
 import { MapSection } from "../components/hotel/MapSection";
 import { HotelPoliciesSection } from "../components/hotel/HotelPoliciesSection";
+import { StickyBookingBar } from "../components/hotel/StickyBookingBar";
 import { Card, CardContent } from "../components/ui/card";
 
 interface SearchContext {
@@ -450,7 +451,7 @@ const HotelDetailsPage = () => {
   const hotelDetails = transformToHotelDetails(hotel);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-24">
       <HotelHeroSection hotel={hotelDetails} />
 
       <div className="container mx-auto px-4 py-8">
@@ -467,6 +468,8 @@ const HotelDetailsPage = () => {
           <FacilitiesAmenitiesSection />
         </div>
       </div>
+
+      <StickyBookingBar hotelId={hotelDetails.id} hotelName={hotelDetails.name} />
     </div>
   );
 };
