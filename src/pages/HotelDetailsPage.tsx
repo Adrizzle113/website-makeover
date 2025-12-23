@@ -283,7 +283,7 @@ const HotelDetailsPage = () => {
           return null;
         }
       })
-      .filter((rate): rate is RoomRate => rate !== null);
+      .filter((rate): rate is NonNullable<typeof rate> => rate !== null) as RoomRate[];
   };
 
   const toggleFavorite = () => {
