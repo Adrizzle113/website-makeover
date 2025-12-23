@@ -9,6 +9,7 @@ import { RoomSelectionSection } from "../components/hotel/RoomSelectionSection";
 import { FacilitiesAmenitiesSection } from "../components/hotel/FacilitiesAmenitiesSection";
 import { MapSection } from "../components/hotel/MapSection";
 import { HotelPoliciesSection } from "../components/hotel/HotelPoliciesSection";
+import { BookingSection } from "../components/hotel/BookingSection";
 import { Card, CardContent } from "../components/ui/card";
 
 interface SearchContext {
@@ -23,11 +24,23 @@ interface SearchContext {
   searchTimestamp?: string;
 }
 
+interface HotelImage {
+  url: string;
+  alt?: string;
+}
+
+interface HotelAmenity {
+  id: string;
+  name: string;
+  icon?: string;
+}
+
 interface Hotel {
   id: string;
   name: string;
   location?: string;
   rating?: number;
+  starRating: number;
   reviewScore?: number;
   reviewCount?: number;
   price?: {
@@ -35,17 +48,20 @@ interface Hotel {
     currency: string;
     period?: string;
   };
+  priceFrom: number;
+  currency: string;
   image?: string;
-  images?: string[];
-  amenities?: string[];
+  mainImage: string;
+  images: HotelImage[];
+  amenities: HotelAmenity[];
   description?: string;
   fullDescription?: string;
   checkInTime?: string;
   checkOutTime?: string;
   policies?: string[];
-  address?: string;
-  city?: string;
-  country?: string;
+  address: string;
+  city: string;
+  country: string;
   phone?: string;
   email?: string;
   latitude?: number;
@@ -353,28 +369,22 @@ const HotelDetailsPage = () => {
       <HotelHeroSection hotel={hotel} />
 
       <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            <HotelInfoSection hotel={hotel} />
-            <RoomSelectionSection hotel={hotel} isLoading={false} />
-            <FacilitiesAmenitiesSection />
-          </div>
-
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-4 space-y-6">
-              <HotelPoliciesSection hotel={hotel} />
-              <MapSection
-                latitude={hotel.latitude}
-                longitude={hotel.longitude}
-                address={hotel.location || hotel.address}
-                hotelName={hotel.name}
-              />
-            </div>
-          </div>
+        <div className="max-w-4xl mx-auto space-y-8">
+          <HotelInfoSection hotel={hotel} />
+          <RoomSelectionSection hotel={hotel} isLoading={false} />
+          <FacilitiesAmenitiesSection />
+          <HotelPoliciesSection hotel={hotel} />
+          <MapSection
+            latitude={hotel.latitude}
+            longitude={hotel.longitude}
+            address={hotel.location || hotel.address}
+            hotelName={hotel.name}
+          />
         </div>
       </div>
+
+      {/* Sticky bottom bar - only shows when rooms are selected */}
+      <BookingSection currency={hotel.currency} />
     </div>
   );
 };
