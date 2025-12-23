@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
 import { HotelDetails } from "@/types/booking";
+import { useBookingStore } from "@/stores/bookingStore";
 
 // Import components from src/components/hotel
 import { HotelHeroSection } from "../components/hotel/HotelHeroSection";
@@ -24,11 +25,19 @@ interface SearchContext {
   searchTimestamp?: string;
 }
 
+type AnyHotelImage =
+  | string
+  | { url: string; alt?: string }
+  | { tmpl: string };
+
 interface Hotel {
   id: string;
   name: string;
   location?: string;
+  /** Legacy field from some API responses (stars) */
   rating?: number;
+  /** Preferred field used by our global HotelDetails model (stars) */
+  starRating?: number;
   reviewScore?: number;
   reviewCount?: number;
   price?: {
@@ -36,14 +45,17 @@ interface Hotel {
     currency: string;
     period?: string;
   };
+  /** Legacy main image field */
   image?: string;
-  images?: string[];
-  amenities?: string[];
+  /** Preferred main image field */
+  mainImage?: string;
+  images?: AnyHotelImage[];
+  amenities?: Array<string | { id?: string; name?: string }>;
   description?: string;
   fullDescription?: string;
   checkInTime?: string;
   checkOutTime?: string;
-  policies?: string[];
+  policies?: any;
   address?: string;
   city?: string;
   country?: string;
@@ -62,37 +74,80 @@ interface HotelData {
 }
 
 // Transform local Hotel interface to global HotelDetails type
-const transformToHotelDetails = (hotel: Hotel): HotelDetails => ({
-  id: hotel.id,
-  name: hotel.name,
-  description: hotel.description || '',
-  fullDescription: hotel.fullDescription || hotel.description || '',
-  address: hotel.address || hotel.location || '',
-  city: hotel.city || '',
-  country: hotel.country || '',
-  starRating: hotel.rating || 0,
-  reviewScore: hotel.reviewScore || 0,
-  reviewCount: hotel.reviewCount || 0,
-  images: Array.isArray(hotel.images) 
-    ? hotel.images.map((img) => 
-        typeof img === 'string' ? { url: img } : { url: img }
+const transformToHotelDetails = (hotel: Hotel): HotelDetails => {
+  const anyHotel = hotel as any;
+
+  const normalizeImageUrl = (url: string) => url.replace("{size}", "1024x768");
+
+  const images: HotelDetails["images"] = Array.isArray(anyHotel.images)
+    ? anyHotel.images
+        .map((img: AnyHotelImage, index: number) => {
+          if (typeof img === "string") {
+            return { url: normalizeImageUrl(img), alt: `${hotel.name} - Photo ${index + 1}` };
+          }
+
+          if (img && typeof img === "object") {
+            if ("url" in img && typeof (img as any).url === "string") {
+              const url = normalizeImageUrl((img as any).url);
+              return { url, alt: (img as any).alt || `${hotel.name} - Photo ${index + 1}` };
+            }
+
+            if ("tmpl" in img && typeof (img as any).tmpl === "string") {
+              const url = normalizeImageUrl((img as any).tmpl);
+              return { url, alt: `${hotel.name} - Photo ${index + 1}` };
+            }
+          }
+
+          return null;
+        })
+        .filter(Boolean)
+    : [];
+
+  const mainImage =
+    (typeof anyHotel.mainImage === "string" && anyHotel.mainImage) ||
+    (typeof anyHotel.image === "string" && anyHotel.image) ||
+    images[0]?.url ||
+    "/placeholder.svg";
+
+  const amenities: HotelDetails["amenities"] = Array.isArray(anyHotel.amenities)
+    ? anyHotel.amenities.map((a: any, idx: number) =>
+        typeof a === "string"
+          ? { id: `amenity-${idx}`, name: a }
+          : { id: a?.id ? String(a.id) : `amenity-${idx}`, name: a?.name ? String(a.name) : String(a) },
       )
-    : [],
-  mainImage: hotel.image || hotel.images?.[0] || '',
-  amenities: hotel.amenities?.map((name) => ({ id: name, name })) || [],
-  priceFrom: hotel.price?.amount || 0,
-  currency: hotel.price?.currency || 'USD',
-  latitude: hotel.latitude || 0,
-  longitude: hotel.longitude || 0,
-  checkInTime: hotel.checkInTime,
-  checkOutTime: hotel.checkOutTime,
-  policies: hotel.policies,
-  ratehawk_data: hotel.ratehawk_data,
-});
+    : [];
+
+  const starRating = Number(anyHotel.starRating ?? anyHotel.rating ?? 0);
+
+  return {
+    id: hotel.id,
+    name: hotel.name,
+    description: hotel.description || "",
+    fullDescription: hotel.fullDescription || hotel.description || "",
+    address: hotel.address || hotel.location || "",
+    city: hotel.city || "",
+    country: hotel.country || "",
+    starRating,
+    reviewScore: hotel.reviewScore || 0,
+    reviewCount: hotel.reviewCount || 0,
+    images,
+    mainImage,
+    amenities,
+    priceFrom: hotel.price?.amount || 0,
+    currency: hotel.price?.currency || "USD",
+    latitude: hotel.latitude || 0,
+    longitude: hotel.longitude || 0,
+    checkInTime: hotel.checkInTime,
+    checkOutTime: hotel.checkOutTime,
+    policies: hotel.policies,
+    ratehawk_data: hotel.ratehawk_data,
+  };
+};
 
 const HotelDetailsPage = () => {
   const { hotelId } = useParams<{ hotelId: string }>();
   const navigate = useNavigate();
+  const { selectedHotel, searchParams, searchResults } = useBookingStore();
 
   const [hotelData, setHotelData] = useState<HotelData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -123,6 +178,30 @@ const HotelDetailsPage = () => {
             destination: parsedData.searchContext?.destination,
           });
           initialHotelData = parsedData;
+          setHotelData(initialHotelData);
+        }
+      }
+
+      // Fallback: use in-memory store data (covers cases where localStorage was cleared)
+      if (!initialHotelData) {
+        const storeHotel =
+          (selectedHotel && selectedHotel.id === hotelId ? selectedHotel : null) ||
+          (searchResults?.find((h) => h.id === hotelId) as any) ||
+          null;
+
+        if (storeHotel) {
+          console.log("✅ Using in-memory hotel data from store for:", hotelId);
+          initialHotelData = {
+            hotel: storeHotel as any,
+            searchContext: searchParams
+              ? {
+                  destination: searchParams.destination,
+                  checkin: searchParams.checkIn,
+                  checkout: searchParams.checkOut,
+                  guests: searchParams.guests,
+                }
+              : (null as any),
+          } as any;
           setHotelData(initialHotelData);
         }
       }
@@ -196,22 +275,20 @@ const HotelDetailsPage = () => {
 
       const context = data.searchContext;
 
-      if (!context || !context.checkin || !context.checkout) {
-        console.warn("⚠️ Missing search context or dates");
-        return;
-      }
-
       // Get the actual RateHawk hotel ID from stored data instead of URL slug
-      const ratehawkHotelId = data.hotel.ratehawk_data?.requested_hotel_id 
-        || data.hotel.ratehawk_data?.ota_hotel_id 
-        || data.hotel.ratehawk_data?.id
-        || hotelId;
+      const ratehawkHotelId =
+        data.hotel.ratehawk_data?.requested_hotel_id ||
+        data.hotel.ratehawk_data?.ota_hotel_id ||
+        data.hotel.ratehawk_data?.id ||
+        hotelId;
 
       console.log("🆔 Hotel ID resolution:", {
         urlParam: hotelId,
         ratehawkId: ratehawkHotelId,
-        fromData: data.hotel.ratehawk_data?.requested_hotel_id || data.hotel.ratehawk_data?.ota_hotel_id
+        fromData: data.hotel.ratehawk_data?.requested_hotel_id || data.hotel.ratehawk_data?.ota_hotel_id,
       });
+
+      const canFetchRates = !!context?.checkin && !!context?.checkout;
 
       // Format dates helper
       const formatDate = (date: string | Date): string => {
@@ -237,30 +314,35 @@ const HotelDetailsPage = () => {
         return [{ adults: 2 }];
       };
 
-      const requestBody = {
-        hotelId: ratehawkHotelId,
-        searchContext: {
-          checkin: formatDate(context.checkin),
-          checkout: formatDate(context.checkout),
-          guests: formatGuests(context.guests),
-        },
-        residency: "en-us",
-        currency: "USD",
-      };
+      const staticInfoPromise = fetchStaticHotelInfo(ratehawkHotelId);
 
-      console.log("📤 Fetching rates and static info in parallel with hotelId:", ratehawkHotelId);
+      const ratesPromise: Promise<Response | null> = canFetchRates
+        ? fetch(`${API_BASE_URL}/api/ratehawk/hotel/details`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              hotelId: ratehawkHotelId,
+              searchContext: {
+                checkin: formatDate(context.checkin),
+                checkout: formatDate(context.checkout),
+                guests: formatGuests(context.guests),
+              },
+              residency: "en-us",
+              currency: "USD",
+            }),
+          })
+        : Promise.resolve(null);
 
-      // Fetch both rates AND static info in parallel for better performance
-      const [ratesResponse, staticInfo] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/ratehawk/hotel/details`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestBody),
-        }),
-        fetchStaticHotelInfo(ratehawkHotelId),
-      ]);
+      console.log(
+        canFetchRates
+          ? "📤 Fetching rates and static info in parallel with hotelId:"
+          : "📤 Fetching static hotel info (no search dates available) with hotelId:",
+        ratehawkHotelId,
+      );
 
-      console.log("📥 Both API responses received");
+      const [ratesResponse, staticInfo] = await Promise.all([ratesPromise, staticInfoPromise]);
+
+      console.log("📥 API responses received");
 
       // Process rates response
       let rates: any[] = [];
@@ -296,6 +378,22 @@ const HotelDetailsPage = () => {
           latitude: staticInfo?.coordinates?.latitude || data.hotel.latitude,
           longitude: staticInfo?.coordinates?.longitude || data.hotel.longitude,
           amenities: staticInfo?.amenities?.length > 0 ? staticInfo.amenities : data.hotel.amenities,
+
+          // Ensure hero images + star rating are available even if stored data is missing them
+          starRating: staticInfo?.starRating ?? data.hotel.starRating,
+          rating: staticInfo?.starRating ?? data.hotel.rating,
+          images:
+            Array.isArray((data.hotel as any).images) && (data.hotel as any).images.length > 0
+              ? (data.hotel as any).images
+              : (staticInfo?.images || []).map((u: string) => String(u).replace("{size}", "1024x768")),
+          mainImage:
+            (data.hotel as any).mainImage ||
+            data.hotel.image ||
+            (staticInfo?.images?.[0] ? String(staticInfo.images[0]).replace("{size}", "1024x768") : undefined),
+          image:
+            data.hotel.image ||
+            (staticInfo?.images?.[0] ? String(staticInfo.images[0]).replace("{size}", "1024x768") : undefined),
+
           // Rate data
           ratehawk_data: {
             ...data.hotel.ratehawk_data,
