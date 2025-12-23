@@ -17,12 +17,15 @@ interface HotelCardProps {
 const convertToHotelDetails = (hotel: Hotel): HotelDetails => ({
   ...hotel,
   // Preserve existing images, or fallback to mainImage
-  images: hotel.images && hotel.images.length > 0 
-    ? hotel.images 
-    : (hotel.mainImage ? [{ url: hotel.mainImage, alt: hotel.name }] : []),
+  images:
+    hotel.images && hotel.images.length > 0
+      ? hotel.images
+      : hotel.mainImage
+        ? [{ url: hotel.mainImage, alt: hotel.name }]
+        : [],
   // Preserve description or generate default
   description: hotel.description || `Experience exceptional hospitality at ${hotel.name}.`,
-  fullDescription: hotel.description 
+  fullDescription: hotel.description
     ? `${hotel.description} Located in ${hotel.city}, ${hotel.country}.`
     : `${hotel.name} offers comfortable accommodations in ${hotel.city}, ${hotel.country}. Enjoy modern amenities and excellent service during your stay.`,
   // Preserve existing rooms from API
@@ -35,22 +38,20 @@ const convertToHotelDetails = (hotel: Hotel): HotelDetails => ({
   facilities: [],
   checkInTime: "3:00 PM",
   checkOutTime: "12:00 PM",
-  policies: [
-    "Check-in from 3:00 PM",
-    "Check-out by 12:00 PM",
-    "Credit card required for guarantee",
-  ],
+  policies: ["Check-in from 3:00 PM", "Check-out by 12:00 PM", "Credit card required for guarantee"],
 });
 
-export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(
-  function HotelCard({ hotel, compact = false, onHover, onFocus }, ref) {
+export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function HotelCard(
+  { hotel, compact = false, onHover, onFocus },
+  ref,
+) {
   const navigate = useNavigate();
   const { setSelectedHotel, searchParams } = useBookingStore();
 
   const handleViewDetails = () => {
     // Convert to HotelDetails and store in both Zustand and localStorage
     const hotelDetails = convertToHotelDetails(hotel);
-    
+
     // Debug: Log ratehawk_data being passed to store
     console.log(`🏨 HotelCard - Setting hotel ${hotel.id}:`, {
       hasRatehawkData: !!hotelDetails.ratehawk_data,
@@ -60,23 +61,25 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(
       rates: hotelDetails.ratehawk_data?.rates?.length || 0,
       enhancedRates: hotelDetails.ratehawk_data?.enhancedData?.rates?.length || 0,
     });
-    
+
     setSelectedHotel(hotelDetails);
-    
+
     // Store in localStorage for persistence across page refreshes
     const hotelDataPackage = {
       hotel: hotelDetails,
-      searchContext: searchParams ? {
-        destination: searchParams.destination,
-        checkin: searchParams.checkIn,
-        checkout: searchParams.checkOut,
-        guests: searchParams.guests,
-        rooms: searchParams.rooms,
-      } : null,
+      searchContext: searchParams
+        ? {
+            destination: searchParams.destination,
+            checkin: searchParams.checkIn,
+            checkout: searchParams.checkOut,
+            guests: searchParams.guests,
+            rooms: searchParams.rooms,
+          }
+        : null,
       timestamp: new Date().toISOString(),
     };
     localStorage.setItem("selectedHotel", JSON.stringify(hotelDataPackage));
-    
+
     // Debug: Verify localStorage was set correctly
     const storedData = localStorage.getItem("selectedHotel");
     if (storedData) {
@@ -89,8 +92,8 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(
         enhancedRates: parsed.hotel?.ratehawk_data?.enhancedData?.rates?.length || 0,
       });
     }
-    
-    navigate(`/hotel/${hotel.id}`);
+
+    navigate(`/hoteldetails/${hotel.id}`);
   };
 
   const handleClick = () => {
@@ -103,8 +106,8 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(
 
   if (compact) {
     return (
-      <Card 
-        className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-card border-border/50 group rounded-xl cursor-pointer" 
+      <Card
+        className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-card border-border/50 group rounded-xl cursor-pointer"
         onClick={handleClick}
         onMouseEnter={() => onHover?.(hotel.id)}
         onMouseLeave={() => onHover?.(null)}
@@ -139,7 +142,7 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(
             </div>
             <div className="flex items-center justify-between">
               <p className="font-heading text-xs sm:text-sm text-primary font-semibold">
-                {hotel.priceFrom ? `$${hotel.priceFrom.toLocaleString()}` : 'Price on request'}
+                {hotel.priceFrom ? `$${hotel.priceFrom.toLocaleString()}` : "Price on request"}
               </p>
               <ArrowRight className="h-3 sm:h-4 w-3 sm:w-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
             </div>
@@ -172,10 +175,7 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(
             {/* Stars */}
             <div className="flex items-center gap-0.5 md:gap-1 mb-2 md:mb-3">
               {Array.from({ length: hotel.starRating || 0 }).map((_, i) => (
-                <Star
-                  key={i}
-                  className="w-3 md:w-4 h-3 md:h-4 fill-amber-400 text-amber-400"
-                />
+                <Star key={i} className="w-3 md:w-4 h-3 md:h-4 fill-amber-400 text-amber-400" />
               ))}
             </div>
 
@@ -219,7 +219,9 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(
                 Starting from
               </p>
               <p className="font-heading text-lg md:text-heading-medium text-primary">
-                {hotel.priceFrom ? `${hotel.currency || 'USD'} ${hotel.priceFrom.toLocaleString()}` : 'Price on request'}
+                {hotel.priceFrom
+                  ? `${hotel.currency || "USD"} ${hotel.priceFrom.toLocaleString()}`
+                  : "Price on request"}
               </p>
               <p className="text-[10px] md:text-body-sm text-muted-foreground">per night</p>
             </div>
