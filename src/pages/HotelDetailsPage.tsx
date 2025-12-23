@@ -454,26 +454,17 @@ const HotelDetailsPage = () => {
       <HotelHeroSection hotel={hotelDetails} />
 
       <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            <HotelInfoSection hotel={hotelDetails} />
-            <RoomSelectionSection hotel={hotelDetails} isLoading={false} />
-            <HotelPoliciesSection hotel={hotelDetails} />
-            <FacilitiesAmenitiesSection />
-          </div>
-
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-4 space-y-6">
-              <MapSection
-                latitude={hotelDetails.latitude}
-                longitude={hotelDetails.longitude}
-                address={hotelDetails.address}
-                hotelName={hotelDetails.name}
-              />
-            </div>
-          </div>
+        <div className="space-y-8">
+          <HotelInfoSection hotel={hotelDetails} />
+          <RoomSelectionSection hotel={hotelDetails} isLoading={false} />
+          <HotelPoliciesSection hotel={hotelDetails} />
+          <MapSection
+            latitude={hotelDetails.latitude}
+            longitude={hotelDetails.longitude}
+            address={hotelDetails.address}
+            hotelName={hotelDetails.name}
+          />
+          <FacilitiesAmenitiesSection />
         </div>
       </div>
     </div>
