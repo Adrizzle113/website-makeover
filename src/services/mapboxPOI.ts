@@ -28,8 +28,28 @@ interface TilequeryResponse {
   features: TilequeryFeature[];
 }
 
+interface SearchFeature {
+  type: "Feature";
+  geometry: {
+    type: "Point";
+    coordinates: [number, number];
+  };
+  properties: {
+    name: string;
+    name_preferred?: string;
+    full_address?: string;
+    distance?: number;
+    maki?: string;
+    poi_category?: string[];
+  };
+}
+
+interface SearchResponse {
+  type: "FeatureCollection";
+  features: SearchFeature[];
+}
+
 // Categories for classification
-const AIRPORT_TYPES = ["airport", "aerodrome", "heliport"];
 const TRANSIT_TYPES = ["subway", "rail", "metro", "train", "station", "transit"];
 const ATTRACTION_TYPES = ["museum", "monument", "attraction", "gallery", "historic", "castle", "theatre", "stadium"];
 
@@ -40,18 +60,24 @@ function formatDistance(meters: number): string {
   return `${(meters / 1000).toFixed(1)} km`;
 }
 
-function categorizeFeature(feature: TilequeryFeature): "nearby" | "placesOfInterest" | "airports" | "subways" | null {
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000; // Earth's radius in meters
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function categorizeFeature(feature: TilequeryFeature): "nearby" | "placesOfInterest" | "subways" | null {
   const props = feature.properties;
   const maki = props.maki?.toLowerCase() || "";
   const type = props.type?.toLowerCase() || "";
   const className = props.class?.toLowerCase() || "";
   const category = props.category_en?.toLowerCase() || "";
   const layer = props.tilequery?.layer || "";
-
-  // Check for airports
-  if (layer === "airport_label" || AIRPORT_TYPES.some(t => maki.includes(t) || type.includes(t) || category.includes(t))) {
-    return "airports";
-  }
 
   // Check for transit/subway
   if (layer === "transit_stop_label" || TRANSIT_TYPES.some(t => maki.includes(t) || type.includes(t) || className.includes(t))) {
@@ -71,39 +97,68 @@ function categorizeFeature(feature: TilequeryFeature): "nearby" | "placesOfInter
   return null;
 }
 
+async function fetchAirportsViaSearch(latitude: number, longitude: number): Promise<{ name: string; distance: string }[]> {
+  try {
+    // Use Mapbox Search API to find airports
+    const response = await fetch(
+      `https://api.mapbox.com/search/searchbox/v1/category/airport?proximity=${longitude},${latitude}&limit=5&access_token=${MAPBOX_TOKEN}`
+    );
+    
+    if (!response.ok) {
+      console.warn("Airport search failed:", response.status);
+      return [];
+    }
+    
+    const data = await response.json() as SearchResponse;
+    
+    return data.features
+      .map(feature => {
+        const [lon, lat] = feature.geometry.coordinates;
+        const distance = calculateDistance(latitude, longitude, lat, lon);
+        return {
+          name: feature.properties.name_preferred || feature.properties.name,
+          distance: formatDistance(distance),
+          distanceMeters: distance,
+        };
+      })
+      .filter(airport => airport.distanceMeters <= 60000) // Only airports within 60km
+      .sort((a, b) => a.distanceMeters - b.distanceMeters)
+      .slice(0, 5)
+      .map(({ name, distance }) => ({ name, distance }));
+  } catch (error) {
+    console.error("Error fetching airports:", error);
+    return [];
+  }
+}
+
 export async function fetchMapboxPOI(latitude: number, longitude: number): Promise<POIData | null> {
   try {
     console.log(`📍 Fetching POI from Mapbox for coordinates: ${latitude}, ${longitude}`);
 
     const nearbyRadius = 5000; // 5km for nearby places
-    const airportRadius = 50000; // 50km for airports
     const limit = 50;
 
-    // Fetch POI and transit at 5km, airports at 50km
-    const requests = [
+    // Fetch POI, transit via Tilequery, and airports via Search API in parallel
+    const [poiResponse, transitResponse, airports] = await Promise.all([
       fetch(
         `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${longitude},${latitude}.json?radius=${nearbyRadius}&limit=${limit}&layers=poi_label&access_token=${MAPBOX_TOKEN}`
       ).then(res => res.json() as Promise<TilequeryResponse>),
       fetch(
         `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${longitude},${latitude}.json?radius=${nearbyRadius}&limit=${limit}&layers=transit_stop_label&access_token=${MAPBOX_TOKEN}`
       ).then(res => res.json() as Promise<TilequeryResponse>),
-      fetch(
-        `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${longitude},${latitude}.json?radius=${airportRadius}&limit=${limit}&layers=airport_label&access_token=${MAPBOX_TOKEN}`
-      ).then(res => res.json() as Promise<TilequeryResponse>),
-    ];
+      fetchAirportsViaSearch(latitude, longitude),
+    ]);
 
-    const responses = await Promise.all(requests);
-    
-    // Combine all features
-    const allFeatures = responses.flatMap(r => r.features || []);
+    // Combine POI and transit features
+    const allFeatures = [...(poiResponse.features || []), ...(transitResponse.features || [])];
 
-    console.log(`📍 Mapbox returned ${allFeatures.length} POI features`);
+    console.log(`📍 Mapbox returned ${allFeatures.length} POI features and ${airports.length} airports`);
 
     // Categorize and deduplicate
     const categorized: POIData = {
       nearby: [],
       placesOfInterest: [],
-      airports: [],
+      airports: airports,
       subways: [],
     };
 
