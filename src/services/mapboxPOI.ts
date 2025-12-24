@@ -51,32 +51,35 @@ interface SearchResponse {
 
 // Categories for classification
 const TRANSIT_TYPES = ["subway", "rail", "metro", "train", "station", "transit"];
-const ATTRACTION_TYPES = [
-  // Cultural/Historical
-  "museum", "monument", "attraction", "gallery", "historic", "castle", "theatre", "stadium",
-  // Parks & Nature
-  "park", "garden", "zoo", "aquarium", "beach", "viewpoint", "nature",
-  // Dining
-  "restaurant", "cafe", "bar", "bakery", "food", "dining",
-  // Shopping
-  "shop", "shopping", "mall", "market", "store", "boutique",
-  // Entertainment
-  "cinema", "nightclub", "entertainment", "casino", "bowling", "arcade", "amusement"
+
+// What's Nearby - Dining/casual establishments (walking distance)
+const NEARBY_TYPES = [
+  "restaurant", "cafe", "bar", "bakery", "food", "dining", "pub", "bistro", "coffee"
+];
+
+// Places of Interest - Major landmarks only (driving distance)
+const LANDMARK_TYPES = [
+  "museum", "monument", "attraction", "gallery", "historic", "castle", 
+  "theatre", "theater", "stadium", "zoo", "aquarium", "park", "garden", "viewpoint",
+  "landmark", "memorial", "palace", "cathedral", "church", "temple", "library"
+];
+
+// Exclude these from results (military, private facilities)
+const EXCLUDED_KEYWORDS = [
+  "military", "army", "navy", "air force", "afb", "base", "private", "restricted",
+  "national guard", "coast guard", "marines", "air national"
 ];
 
 // Priority ranking for POIs (lower number = more important, shown first)
 const POI_PRIORITY: Record<string, number> = {
-  // Priority 1 - Major Landmarks & Cultural Venues
-  "museum": 1, "stadium": 1, "castle": 1, "monument": 1, "theatre": 1, "historic": 1,
-  // Priority 2 - Parks & Nature Attractions  
-  "zoo": 2, "aquarium": 2, "park": 2, "garden": 2, "beach": 2, "viewpoint": 2,
-  // Priority 3 - Entertainment & Attractions
-  "attraction": 3, "gallery": 3, "cinema": 3, "amusement": 3,
-  // Priority 4 - Shopping
-  "mall": 4, "shopping": 4, "market": 4, "shop": 4, "store": 4, "boutique": 4,
-  // Priority 5 - Dining & Nightlife (lowest priority)
-  "restaurant": 5, "cafe": 5, "bar": 5, "bakery": 5, "food": 5, "dining": 5,
-  "nightclub": 5, "casino": 5, "bowling": 5, "arcade": 5, "entertainment": 5,
+  // Priority 1 - World-class landmarks
+  "museum": 1, "stadium": 1, "monument": 1, "theatre": 1, "theater": 1, "palace": 1,
+  // Priority 2 - Major attractions
+  "zoo": 2, "aquarium": 2, "castle": 2, "memorial": 2, "cathedral": 2,
+  // Priority 3 - Parks & gardens
+  "park": 3, "garden": 3, "viewpoint": 3,
+  // Priority 4 - Other attractions
+  "gallery": 4, "attraction": 4, "landmark": 4, "library": 4,
 };
 
 function getPOIPriority(feature: TilequeryFeature): number {
@@ -94,6 +97,11 @@ function getPOIPriority(feature: TilequeryFeature): number {
   }
   
   return bestPriority;
+}
+
+function isExcluded(name: string): boolean {
+  const lowerName = name.toLowerCase();
+  return EXCLUDED_KEYWORDS.some(keyword => lowerName.includes(keyword));
 }
 
 function formatDistance(meters: number): string {
@@ -114,25 +122,31 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 function categorizeFeature(feature: TilequeryFeature): "nearby" | "placesOfInterest" | "subways" | null {
   const props = feature.properties;
+  const name = (props.name || props.name_en || "").toLowerCase();
   const maki = props.maki?.toLowerCase() || "";
   const type = props.type?.toLowerCase() || "";
   const className = props.class?.toLowerCase() || "";
   const category = props.category_en?.toLowerCase() || "";
   const layer = props.tilequery?.layer || "";
 
+  // Filter out military/private facilities
+  if (isExcluded(name)) {
+    return null;
+  }
+
   // Check for transit/subway
   if (layer === "transit_stop_label" || TRANSIT_TYPES.some(t => maki.includes(t) || type.includes(t) || className.includes(t))) {
     return "subways";
   }
 
-  // Check for attractions/landmarks
-  if (ATTRACTION_TYPES.some(t => maki.includes(t) || type.includes(t) || category.includes(t))) {
-    return "placesOfInterest";
+  // What's Nearby - Restaurants, bars, cafes ONLY
+  if (NEARBY_TYPES.some(t => maki.includes(t) || type.includes(t) || category.includes(t))) {
+    return "nearby";
   }
 
-  // Everything else is "nearby"
-  if (props.name || props.name_en) {
-    return "nearby";
+  // Places of Interest - Major landmarks ONLY
+  if (LANDMARK_TYPES.some(t => maki.includes(t) || type.includes(t) || category.includes(t))) {
+    return "placesOfInterest";
   }
 
   return null;
@@ -140,9 +154,9 @@ function categorizeFeature(feature: TilequeryFeature): "nearby" | "placesOfInter
 
 async function fetchAirportsViaSearch(latitude: number, longitude: number): Promise<{ name: string; distance: string }[]> {
   try {
-    // Use Mapbox Search API to find airports (search wider radius for major airports)
+    // Use Mapbox Search API to find airports
     const response = await fetch(
-      `https://api.mapbox.com/search/searchbox/v1/category/airport?proximity=${longitude},${latitude}&limit=10&access_token=${MAPBOX_TOKEN}`
+      `https://api.mapbox.com/search/searchbox/v1/category/airport?proximity=${longitude},${latitude}&limit=15&access_token=${MAPBOX_TOKEN}`
     );
     
     if (!response.ok) {
@@ -157,29 +171,30 @@ async function fetchAirportsViaSearch(latitude: number, longitude: number): Prom
         const [lon, lat] = feature.geometry.coordinates;
         const distance = calculateDistance(latitude, longitude, lat, lon);
         const name = feature.properties.name_preferred || feature.properties.name;
-        const isMajor = /international|intl|major/i.test(name);
+        const isMajor = /international|intl/i.test(name);
+        const isMilitary = isExcluded(name);
         return {
           name,
           distance: formatDistance(distance),
           distanceMeters: distance,
           isMajor,
+          isMilitary,
         };
       })
-      .filter(airport => airport.distanceMeters <= 100000); // 100km radius for major airports
+      // Filter: 30-80km range, no military bases
+      .filter(airport => 
+        airport.distanceMeters >= 30000 && 
+        airport.distanceMeters <= 80000 && 
+        !airport.isMilitary
+      );
 
-    // Separate major and smaller airports
-    const majorAirports = allAirports.filter(a => a.isMajor).sort((a, b) => a.distanceMeters - b.distanceMeters);
-    const smallerAirports = allAirports.filter(a => !a.isMajor && a.distanceMeters <= 60000).sort((a, b) => a.distanceMeters - b.distanceMeters);
+    // Sort: major airports first, then by distance
+    const sorted = allAirports.sort((a, b) => {
+      if (a.isMajor !== b.isMajor) return a.isMajor ? -1 : 1;
+      return a.distanceMeters - b.distanceMeters;
+    });
 
-    // Prioritize major airports, fallback to smaller ones
-    let result: typeof allAirports;
-    if (majorAirports.length > 0) {
-      result = [...majorAirports, ...smallerAirports];
-    } else {
-      result = smallerAirports;
-    }
-
-    return result.slice(0, 5).map(({ name, distance }) => ({ name, distance }));
+    return sorted.slice(0, 5).map(({ name, distance }) => ({ name, distance }));
   } catch (error) {
     console.error("Error fetching airports:", error);
     return [];
@@ -190,13 +205,17 @@ export async function fetchMapboxPOI(latitude: number, longitude: number): Promi
   try {
     console.log(`📍 Fetching POI from Mapbox for coordinates: ${latitude}, ${longitude}`);
 
-    const nearbyRadius = 5000; // 5km for nearby places
+    const nearbyRadius = 2000; // 2km for restaurants/bars (walking distance)
+    const landmarkRadius = 50000; // 50km for places of interest (driving distance)
     const limit = 50;
 
-    // Fetch POI, transit via Tilequery, and airports via Search API in parallel
-    const [poiResponse, transitResponse, airports] = await Promise.all([
+    // Fetch nearby POI, landmarks, transit, and airports in parallel
+    const [nearbyResponse, landmarkResponse, transitResponse, airports] = await Promise.all([
       fetch(
         `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${longitude},${latitude}.json?radius=${nearbyRadius}&limit=${limit}&layers=poi_label&access_token=${MAPBOX_TOKEN}`
+      ).then(res => res.json() as Promise<TilequeryResponse>),
+      fetch(
+        `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${longitude},${latitude}.json?radius=${landmarkRadius}&limit=${limit}&layers=poi_label&access_token=${MAPBOX_TOKEN}`
       ).then(res => res.json() as Promise<TilequeryResponse>),
       fetch(
         `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${longitude},${latitude}.json?radius=${nearbyRadius}&limit=${limit}&layers=transit_stop_label&access_token=${MAPBOX_TOKEN}`
@@ -204,8 +223,12 @@ export async function fetchMapboxPOI(latitude: number, longitude: number): Promi
       fetchAirportsViaSearch(latitude, longitude),
     ]);
 
-    // Combine POI and transit features
-    const allFeatures = [...(poiResponse.features || []), ...(transitResponse.features || [])];
+    // Combine all features
+    const allFeatures = [
+      ...(nearbyResponse.features || []), 
+      ...(landmarkResponse.features || []),
+      ...(transitResponse.features || [])
+    ];
 
     console.log(`📍 Mapbox returned ${allFeatures.length} POI features and ${airports.length} airports`);
 
