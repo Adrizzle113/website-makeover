@@ -272,12 +272,22 @@ const HotelDetailsPage = () => {
     }
   };
 
-  const fetchHotelPOI = async (hotelId: string): Promise<POIData | null> => {
+  const fetchHotelPOI = async (hotelId: string, retryCount = 0): Promise<POIData | null> => {
+    const maxRetries = 3;
+    const baseDelay = 1000;
+
     try {
-      console.log("📍 Fetching POI data for hotel:", hotelId);
+      console.log(`📍 Fetching POI data for hotel: ${hotelId} (attempt ${retryCount + 1}/${maxRetries + 1})`);
       setPoiLoading(true);
 
-      const response = await fetch(`${API_BASE_URL}/api/ratehawk/hotel/${hotelId}/poi`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(`${API_BASE_URL}/api/ratehawk/hotel/${hotelId}/poi`, {
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -300,11 +310,22 @@ const HotelDetailsPage = () => {
       }
 
       return null;
-    } catch (error) {
-      console.error("❌ Error fetching POI:", error);
+    } catch (error: any) {
+      const isNetworkError = error.name === 'AbortError' || error.message?.includes('Failed to fetch');
+      
+      if (isNetworkError && retryCount < maxRetries) {
+        const delay = baseDelay * Math.pow(2, retryCount);
+        console.log(`🔄 POI fetch failed, retrying in ${delay}ms... (${retryCount + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return fetchHotelPOI(hotelId, retryCount + 1);
+      }
+      
+      console.error("❌ Error fetching POI after retries:", error);
       return null;
     } finally {
-      setPoiLoading(false);
+      if (retryCount === 0 || retryCount >= maxRetries) {
+        setPoiLoading(false);
+      }
     }
   };
 
