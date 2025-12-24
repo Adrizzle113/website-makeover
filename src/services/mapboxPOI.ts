@@ -75,16 +75,22 @@ export async function fetchMapboxPOI(latitude: number, longitude: number): Promi
   try {
     console.log(`📍 Fetching POI from Mapbox for coordinates: ${latitude}, ${longitude}`);
 
-    // Fetch from multiple layers in parallel
-    const layers = ["poi_label", "airport_label", "transit_stop_label"];
-    const radius = 5000; // 5km radius
+    const nearbyRadius = 5000; // 5km for nearby places
+    const airportRadius = 50000; // 50km for airports
     const limit = 50;
 
-    const requests = layers.map(layer =>
+    // Fetch POI and transit at 5km, airports at 50km
+    const requests = [
       fetch(
-        `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${longitude},${latitude}.json?radius=${radius}&limit=${limit}&layers=${layer}&access_token=${MAPBOX_TOKEN}`
-      ).then(res => res.json() as Promise<TilequeryResponse>)
-    );
+        `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${longitude},${latitude}.json?radius=${nearbyRadius}&limit=${limit}&layers=poi_label&access_token=${MAPBOX_TOKEN}`
+      ).then(res => res.json() as Promise<TilequeryResponse>),
+      fetch(
+        `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${longitude},${latitude}.json?radius=${nearbyRadius}&limit=${limit}&layers=transit_stop_label&access_token=${MAPBOX_TOKEN}`
+      ).then(res => res.json() as Promise<TilequeryResponse>),
+      fetch(
+        `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${longitude},${latitude}.json?radius=${airportRadius}&limit=${limit}&layers=airport_label&access_token=${MAPBOX_TOKEN}`
+      ).then(res => res.json() as Promise<TilequeryResponse>),
+    ];
 
     const responses = await Promise.all(requests);
     
