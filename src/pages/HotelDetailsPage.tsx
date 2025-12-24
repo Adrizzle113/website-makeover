@@ -290,12 +290,6 @@ const HotelDetailsPage = () => {
     }
   };
 
-  const handleRetryPOI = () => {
-    if (hotelData?.hotel?.latitude && hotelData?.hotel?.longitude) {
-      fetchPOIData(hotelData.hotel.latitude, hotelData.hotel.longitude);
-    }
-  };
-
   const fetchHotelDetails = async (data: HotelData) => {
     try {
       console.log("🔍 Starting fetchHotelDetails...");
@@ -506,7 +500,6 @@ const HotelDetailsPage = () => {
             subways={poiData?.subways}
             placesOfInterest={poiData?.placesOfInterest}
             isLoading={poiLoading}
-            onRetryPOI={handleRetryPOI}
           />
           <FacilitiesAmenitiesSection />
         </div>

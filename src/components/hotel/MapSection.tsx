@@ -1,9 +1,6 @@
-import { useState } from "react";
-import { MapPin, ExternalLink, Store, Landmark, Plane, TrainFront, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { MapPin, ExternalLink, Store, Landmark, Plane, TrainFront, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { hasMapboxToken, saveMapboxToken } from "@/config/mapbox";
 
 interface NearbyItem {
   name: string;
@@ -20,7 +17,6 @@ interface MapSectionProps {
   airports?: NearbyItem[];
   subways?: NearbyItem[];
   isLoading?: boolean;
-  onRetryPOI?: () => void;
 }
 
 export function MapSection({
@@ -33,11 +29,7 @@ export function MapSection({
   airports = [],
   subways = [],
   isLoading = false,
-  onRetryPOI,
 }: MapSectionProps) {
-  const [tokenInput, setTokenInput] = useState("");
-  const [tokenSaved, setTokenSaved] = useState(false);
-
   const hasCoordinates = latitude && longitude;
 
   const googleMapsUrl = hasCoordinates
@@ -93,76 +85,9 @@ export function MapSection({
       </div>
     </div>
   );
-  const handleSaveToken = () => {
-    if (tokenInput.trim().startsWith("pk.")) {
-      saveMapboxToken(tokenInput.trim());
-      setTokenSaved(true);
-      // Trigger retry after a short delay
-      setTimeout(() => {
-        onRetryPOI?.();
-      }, 100);
-    }
-  };
+
 
   const hasPOIData = nearby.length > 0 || placesOfInterest.length > 0 || airports.length > 0 || subways.length > 0;
-  const showTokenSetup = !isLoading && !hasPOIData && !hasMapboxToken();
-
-  const EmptyState = () => (
-    <div className="bg-muted/50 border border-border rounded-lg p-6 text-center">
-      <div className="flex items-center justify-center gap-2 text-muted-foreground mb-3">
-        <AlertCircle className="h-5 w-5" />
-        <span className="font-medium">Nearby places unavailable</span>
-      </div>
-      {showTokenSetup ? (
-        <div className="max-w-md mx-auto space-y-4">
-          <p className="text-sm text-muted-foreground">
-            To display nearby places, airports, and landmarks, please enter your Mapbox public token.
-          </p>
-          <div className="flex gap-2">
-            <Input
-              placeholder="pk.eyJ1..."
-              value={tokenInput}
-              onChange={(e) => setTokenInput(e.target.value)}
-              className="flex-1"
-            />
-            <Button
-              onClick={handleSaveToken}
-              disabled={!tokenInput.trim().startsWith("pk.")}
-              size="sm"
-            >
-              Save & Retry
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Get your free token at{" "}
-            <a
-              href="https://account.mapbox.com/access-tokens/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary underline"
-            >
-              mapbox.com
-            </a>
-          </p>
-          {tokenSaved && (
-            <p className="text-sm text-green-600">Token saved! Retrying...</p>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            POI data could not be loaded. This may be a temporary issue.
-          </p>
-          {onRetryPOI && (
-            <Button variant="outline" size="sm" onClick={onRetryPOI}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Retry
-            </Button>
-          )}
-        </div>
-      )}
-    </div>
-  );
 
   return (
     <section className="py-8 bg-app-white-smoke">
@@ -212,9 +137,7 @@ export function MapSection({
             {airports.length > 0 && <LocationColumn title="Airports" icon={Plane} items={airports} />}
             {subways.length > 0 && <LocationColumn title="Subway" icon={TrainFront} items={subways} />}
           </div>
-        ) : (
-          <EmptyState />
-        )}
+        ) : null}
       </div>
     </section>
   );

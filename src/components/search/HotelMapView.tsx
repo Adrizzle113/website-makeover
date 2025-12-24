@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import type { Hotel } from "@/types/booking";
-import { getMapboxToken } from "@/config/mapbox";
 
 interface HotelMapViewProps {
   hotels: Hotel[];
@@ -11,16 +10,17 @@ interface HotelMapViewProps {
   onHotelSelect?: (hotel: Hotel) => void;
 }
 
+const MAPBOX_TOKEN = "pk.eyJ1IjoiYm91Z2llYmFja3BhY2tlciIsImEiOiJjbWphZWgyZG4wNHN4M2RweWVjdzVpY3kyIn0.otTqyXhQRvR8qYCHhD8wqg";
+
 export function HotelMapView({ hotels, highlightedHotelId, focusedHotelId, onHotelSelect }: HotelMapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; element: HTMLDivElement }>>(new Map());
 
   useEffect(() => {
-    const token = getMapboxToken();
-    if (!mapContainer.current || hotels.length === 0 || !token) return;
+    if (!mapContainer.current || hotels.length === 0) return;
 
-    mapboxgl.accessToken = token;
+    mapboxgl.accessToken = MAPBOX_TOKEN;
 
     const validHotels = hotels.filter(h => h.latitude && h.longitude);
     if (validHotels.length === 0) return;
