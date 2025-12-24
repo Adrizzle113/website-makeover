@@ -139,12 +139,7 @@ export const Register = (): JSX.Element => {
     <main className="flex min-h-screen">
       {/* Left side - Decorative */}
       <div 
-        className="hidden lg:flex lg:w-1/2 bg-primary relative overflow-hidden"
-        style={{
-          backgroundImage: "url('/images/Header.png')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
-        }}
+        className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary/90 to-accent relative overflow-hidden"
       >
         <div className="absolute inset-0 bg-gradient-to-br from-primary/90 via-primary/70 to-transparent" />
         <div className="relative z-10 flex flex-col justify-center p-16 text-primary-foreground">
