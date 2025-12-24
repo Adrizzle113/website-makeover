@@ -1,5 +1,6 @@
 import { MapPin, ExternalLink, Store, Landmark, Plane, TrainFront } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface NearbyItem {
   name: string;
@@ -15,40 +16,19 @@ interface MapSectionProps {
   placesOfInterest?: NearbyItem[];
   airports?: NearbyItem[];
   subways?: NearbyItem[];
+  isLoading?: boolean;
 }
-
-const defaultNearby: NearbyItem[] = [
-  { name: "Central Park", distance: "0.3 km" },
-  { name: "Shopping Mall", distance: "0.5 km" },
-  { name: "Restaurant District", distance: "0.2 km" },
-];
-
-const defaultPlacesOfInterest: NearbyItem[] = [
-  { name: "City Museum", distance: "1.2 km" },
-  { name: "Art Gallery", distance: "0.8 km" },
-  { name: "Historic Square", distance: "1.0 km" },
-];
-
-const defaultAirports: NearbyItem[] = [
-  { name: "International Airport", distance: "25 km" },
-  { name: "Domestic Airport", distance: "15 km" },
-];
-
-const defaultSubways: NearbyItem[] = [
-  { name: "Central Station", distance: "0.2 km" },
-  { name: "Park Avenue Station", distance: "0.4 km" },
-  { name: "Downtown Station", distance: "0.6 km" },
-];
 
 export function MapSection({
   latitude,
   longitude,
   address,
   hotelName,
-  nearby = defaultNearby,
-  placesOfInterest = defaultPlacesOfInterest,
-  airports = defaultAirports,
-  subways = defaultSubways,
+  nearby = [],
+  placesOfInterest = [],
+  airports = [],
+  subways = [],
+  isLoading = false,
 }: MapSectionProps) {
   const hasCoordinates = latitude && longitude;
 
@@ -84,6 +64,23 @@ export function MapSection({
       </ul>
     </div>
   );
+
+  const LoadingSkeleton = () => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="space-y-3">
+          <Skeleton className="h-5 w-32" />
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const hasPOIData = nearby.length > 0 || placesOfInterest.length > 0 || airports.length > 0 || subways.length > 0;
 
   return (
     <section className="py-8 bg-app-white-smoke">
@@ -124,12 +121,20 @@ export function MapSection({
         </div>
 
         {/* Nearby Locations Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <LocationColumn title="What's Nearby" icon={Store} items={nearby} />
-          <LocationColumn title="Places of Interest" icon={Landmark} items={placesOfInterest} />
-          <LocationColumn title="Airports" icon={Plane} items={airports} />
-          <LocationColumn title="Subway" icon={TrainFront} items={subways} />
-        </div>
+        {isLoading ? (
+          <LoadingSkeleton />
+        ) : hasPOIData ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {nearby.length > 0 && <LocationColumn title="What's Nearby" icon={Store} items={nearby} />}
+            {placesOfInterest.length > 0 && <LocationColumn title="Places of Interest" icon={Landmark} items={placesOfInterest} />}
+            {airports.length > 0 && <LocationColumn title="Airports" icon={Plane} items={airports} />}
+            {subways.length > 0 && <LocationColumn title="Subway" icon={TrainFront} items={subways} />}
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-sm text-center py-4">
+            No nearby places information available for this hotel.
+          </p>
+        )}
       </div>
     </section>
   );
