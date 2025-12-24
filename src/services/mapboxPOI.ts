@@ -10,12 +10,12 @@ import { POIData } from "@/types/booking";
  * - Distances are computed using haversine (Search Box doesn't always return distance)
  */
 
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || "";
 
 if (!MAPBOX_TOKEN) {
   // eslint-disable-next-line no-console
   console.warn(
-    "⚠️ Missing NEXT_PUBLIC_MAPBOX_TOKEN. Mapbox Nearby will not work until it is set."
+    "⚠️ Missing VITE_MAPBOX_TOKEN. Mapbox Nearby will not work until it is set."
   );
 }
 
