@@ -1,4 +1,3 @@
-This is the current tsx and its not filtering well. 
 import { POIData } from "@/types/booking";
 
 const MAPBOX_TOKEN = "pk.eyJ1IjoiYm91Z2llYmFja3BhY2tlciIsImEiOiJjbWphZWgyZG4wNHN4M2RweWVjdzVpY3kyIn0.otTqyXhQRvR8qYCHhD8wqg";
@@ -65,6 +64,38 @@ const ATTRACTION_TYPES = [
   "cinema", "nightclub", "entertainment", "casino", "bowling", "arcade", "amusement"
 ];
 
+// Priority ranking for POIs (lower number = more important, shown first)
+const POI_PRIORITY: Record<string, number> = {
+  // Priority 1 - Major Landmarks & Cultural Venues
+  "museum": 1, "stadium": 1, "castle": 1, "monument": 1, "theatre": 1, "historic": 1,
+  // Priority 2 - Parks & Nature Attractions  
+  "zoo": 2, "aquarium": 2, "park": 2, "garden": 2, "beach": 2, "viewpoint": 2,
+  // Priority 3 - Entertainment & Attractions
+  "attraction": 3, "gallery": 3, "cinema": 3, "amusement": 3,
+  // Priority 4 - Shopping
+  "mall": 4, "shopping": 4, "market": 4, "shop": 4, "store": 4, "boutique": 4,
+  // Priority 5 - Dining & Nightlife (lowest priority)
+  "restaurant": 5, "cafe": 5, "bar": 5, "bakery": 5, "food": 5, "dining": 5,
+  "nightclub": 5, "casino": 5, "bowling": 5, "arcade": 5, "entertainment": 5,
+};
+
+function getPOIPriority(feature: TilequeryFeature): number {
+  const props = feature.properties;
+  const maki = props.maki?.toLowerCase() || "";
+  const type = props.type?.toLowerCase() || "";
+  const category = props.category_en?.toLowerCase() || "";
+  
+  let bestPriority = 10; // Default lowest priority
+  
+  for (const [key, priority] of Object.entries(POI_PRIORITY)) {
+    if (maki.includes(key) || type.includes(key) || category.includes(key)) {
+      bestPriority = Math.min(bestPriority, priority);
+    }
+  }
+  
+  return bestPriority;
+}
+
 function formatDistance(meters: number): string {
   const km = meters / 1000;
   return `${km.toFixed(2)} km`;
@@ -109,9 +140,9 @@ function categorizeFeature(feature: TilequeryFeature): "nearby" | "placesOfInter
 
 async function fetchAirportsViaSearch(latitude: number, longitude: number): Promise<{ name: string; distance: string }[]> {
   try {
-    // Use Mapbox Search API to find airports
+    // Use Mapbox Search API to find airports (search wider radius for major airports)
     const response = await fetch(
-      `https://api.mapbox.com/search/searchbox/v1/category/airport?proximity=${longitude},${latitude}&limit=5&access_token=${MAPBOX_TOKEN}`
+      `https://api.mapbox.com/search/searchbox/v1/category/airport?proximity=${longitude},${latitude}&limit=10&access_token=${MAPBOX_TOKEN}`
     );
     
     if (!response.ok) {
@@ -121,20 +152,34 @@ async function fetchAirportsViaSearch(latitude: number, longitude: number): Prom
     
     const data = await response.json() as SearchResponse;
     
-    return data.features
+    const allAirports = data.features
       .map(feature => {
         const [lon, lat] = feature.geometry.coordinates;
         const distance = calculateDistance(latitude, longitude, lat, lon);
+        const name = feature.properties.name_preferred || feature.properties.name;
+        const isMajor = /international|intl|major/i.test(name);
         return {
-          name: feature.properties.name_preferred || feature.properties.name,
+          name,
           distance: formatDistance(distance),
           distanceMeters: distance,
+          isMajor,
         };
       })
-      .filter(airport => airport.distanceMeters <= 60000) // Only airports within 60km
-      .sort((a, b) => a.distanceMeters - b.distanceMeters)
-      .slice(0, 5)
-      .map(({ name, distance }) => ({ name, distance }));
+      .filter(airport => airport.distanceMeters <= 100000); // 100km radius for major airports
+
+    // Separate major and smaller airports
+    const majorAirports = allAirports.filter(a => a.isMajor).sort((a, b) => a.distanceMeters - b.distanceMeters);
+    const smallerAirports = allAirports.filter(a => !a.isMajor && a.distanceMeters <= 60000).sort((a, b) => a.distanceMeters - b.distanceMeters);
+
+    // Prioritize major airports, fallback to smaller ones
+    let result: typeof allAirports;
+    if (majorAirports.length > 0) {
+      result = [...majorAirports, ...smallerAirports];
+    } else {
+      result = smallerAirports;
+    }
+
+    return result.slice(0, 5).map(({ name, distance }) => ({ name, distance }));
   } catch (error) {
     console.error("Error fetching airports:", error);
     return [];
@@ -174,12 +219,21 @@ export async function fetchMapboxPOI(latitude: number, longitude: number): Promi
 
     const seenNames = new Set<string>();
 
-    // Sort by distance first
+    // Sort by priority first, then distance
     const sortedFeatures = allFeatures
       .filter(f => f.properties.name || f.properties.name_en)
-      .sort((a, b) => (a.properties.tilequery?.distance || 0) - (b.properties.tilequery?.distance || 0));
+      .map(f => ({ feature: f, priority: getPOIPriority(f) }))
+      .sort((a, b) => {
+        // First sort by priority (lower = more important)
+        if (a.priority !== b.priority) {
+          return a.priority - b.priority;
+        }
+        // Then by distance as tiebreaker
+        return (a.feature.properties.tilequery?.distance || 0) - 
+               (b.feature.properties.tilequery?.distance || 0);
+      });
 
-    for (const feature of sortedFeatures) {
+    for (const { feature } of sortedFeatures) {
       const name = feature.properties.name_en || feature.properties.name || "";
       const distance = feature.properties.tilequery?.distance || 0;
       
