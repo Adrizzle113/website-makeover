@@ -1,4 +1,4 @@
-import { MapPin, ExternalLink, Store, Landmark, Plane, TrainFront } from "lucide-react";
+import { MapPin, ExternalLink, Store, Landmark, Plane, TrainFront, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -17,6 +17,8 @@ interface MapSectionProps {
   airports?: NearbyItem[];
   subways?: NearbyItem[];
   isLoading?: boolean;
+  hasFailed?: boolean;
+  onRetry?: () => void;
 }
 
 export function MapSection({
@@ -29,6 +31,8 @@ export function MapSection({
   airports = [],
   subways = [],
   isLoading = false,
+  hasFailed = false,
+  onRetry,
 }: MapSectionProps) {
   const hasCoordinates = latitude && longitude;
 
@@ -66,17 +70,37 @@ export function MapSection({
   );
 
   const LoadingSkeleton = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="space-y-3">
-          <Skeleton className="h-5 w-32" />
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-3/4" />
+    <div className="space-y-4">
+      <div className="flex items-center justify-center gap-2 text-muted-foreground py-2">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span className="text-sm">Loading nearby places... This may take a moment.</span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="space-y-3">
+            <Skeleton className="h-5 w-32" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
+    </div>
+  );
+
+  const FailedState = () => (
+    <div className="flex flex-col items-center justify-center py-8 text-center">
+      <p className="text-muted-foreground text-sm mb-4">
+        Unable to load nearby places. The server may be warming up.
+      </p>
+      {onRetry && (
+        <Button variant="outline" size="sm" onClick={onRetry}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Retry Loading
+        </Button>
+      )}
     </div>
   );
 
@@ -123,6 +147,8 @@ export function MapSection({
         {/* Nearby Locations Grid */}
         {isLoading ? (
           <LoadingSkeleton />
+        ) : hasFailed ? (
+          <FailedState />
         ) : hasPOIData ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {nearby.length > 0 && <LocationColumn title="What's Nearby" icon={Store} items={nearby} />}

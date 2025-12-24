@@ -156,6 +156,8 @@ const HotelDetailsPage = () => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [poiData, setPoiData] = useState<POIData | null>(null);
   const [poiLoading, setPoiLoading] = useState(false);
+  const [poiFailed, setPoiFailed] = useState(false);
+  const [currentRatehawkId, setCurrentRatehawkId] = useState<string | null>(null);
 
   useEffect(() => {
     loadHotelData();
@@ -274,14 +276,15 @@ const HotelDetailsPage = () => {
 
   const fetchHotelPOI = async (hotelId: string, retryCount = 0): Promise<POIData | null> => {
     const maxRetries = 3;
-    const baseDelay = 1000;
+    const baseDelay = 2000;
 
     try {
       console.log(`📍 Fetching POI data for hotel: ${hotelId} (attempt ${retryCount + 1}/${maxRetries + 1})`);
       setPoiLoading(true);
+      setPoiFailed(false);
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for cold starts
 
       const response = await fetch(`${API_BASE_URL}/api/ratehawk/hotel/${hotelId}/poi`, {
         signal: controller.signal,
@@ -306,6 +309,7 @@ const HotelDetailsPage = () => {
           subways: result.data.subways?.length || 0,
           placesOfInterest: result.data.placesOfInterest?.length || 0,
         });
+        setPoiData(result.data);
         return result.data;
       }
 
@@ -321,6 +325,7 @@ const HotelDetailsPage = () => {
       }
       
       console.error("❌ Error fetching POI after retries:", error);
+      setPoiFailed(true);
       return null;
     } finally {
       if (retryCount === 0 || retryCount >= maxRetries) {
@@ -402,17 +407,15 @@ const HotelDetailsPage = () => {
         ratehawkHotelId,
       );
 
-      // Add POI fetch in parallel
-      const poiPromise = fetchHotelPOI(ratehawkHotelId);
+      // Store the ratehawk ID for retry functionality
+      setCurrentRatehawkId(ratehawkHotelId);
 
-      const [ratesResponse, staticInfo, poiInfo] = await Promise.all([ratesPromise, staticInfoPromise, poiPromise]);
+      // Fetch POI separately (non-blocking) so it doesn't delay page load
+      fetchHotelPOI(ratehawkHotelId);
+
+      const [ratesResponse, staticInfo] = await Promise.all([ratesPromise, staticInfoPromise]);
 
       console.log("📥 API responses received");
-
-      // Set POI data if available
-      if (poiInfo) {
-        setPoiData(poiInfo);
-      }
 
       // Process rates response
       let rates: any[] = [];
@@ -540,6 +543,8 @@ const HotelDetailsPage = () => {
             subways={poiData?.subways}
             placesOfInterest={poiData?.placesOfInterest}
             isLoading={poiLoading}
+            hasFailed={poiFailed}
+            onRetry={currentRatehawkId ? () => fetchHotelPOI(currentRatehawkId) : undefined}
           />
           <FacilitiesAmenitiesSection />
         </div>
