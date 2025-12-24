@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
-import { HotelDetails, POIData, POIResponse } from "@/types/booking";
+import { HotelDetails, POIData } from "@/types/booking";
 import { useBookingStore } from "@/stores/bookingStore";
+import { fetchMapboxPOI } from "@/services/mapboxPOI";
 
 // Import components from src/components/hotel
 import { HotelHeroSection } from "../components/hotel/HotelHeroSection";
@@ -156,8 +157,6 @@ const HotelDetailsPage = () => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [poiData, setPoiData] = useState<POIData | null>(null);
   const [poiLoading, setPoiLoading] = useState(false);
-  const [poiFailed, setPoiFailed] = useState(false);
-  const [currentRatehawkId, setCurrentRatehawkId] = useState<string | null>(null);
 
   useEffect(() => {
     loadHotelData();
@@ -274,63 +273,20 @@ const HotelDetailsPage = () => {
     }
   };
 
-  const fetchHotelPOI = async (hotelId: string, retryCount = 0): Promise<POIData | null> => {
-    const maxRetries = 3;
-    const baseDelay = 2000;
+  const fetchPOIData = async (latitude: number, longitude: number): Promise<void> => {
+    if (!latitude || !longitude) {
+      console.log("⚠️ No coordinates available for POI fetch");
+      return;
+    }
 
+    setPoiLoading(true);
     try {
-      console.log(`📍 Fetching POI data for hotel: ${hotelId} (attempt ${retryCount + 1}/${maxRetries + 1})`);
-      setPoiLoading(true);
-      setPoiFailed(false);
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for cold starts
-
-      const response = await fetch(`${API_BASE_URL}/api/ratehawk/hotel/${hotelId}/poi`, {
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          console.warn("⚠️ POI data not available for this hotel");
-          return null;
-        }
-        throw new Error(`POI fetch failed: ${response.status}`);
-      }
-
-      const result: POIResponse = await response.json();
-
-      if (result.success && result.data) {
-        console.log("✅ POI data fetched:", {
-          nearby: result.data.nearby?.length || 0,
-          airports: result.data.airports?.length || 0,
-          subways: result.data.subways?.length || 0,
-          placesOfInterest: result.data.placesOfInterest?.length || 0,
-        });
-        setPoiData(result.data);
-        return result.data;
-      }
-
-      return null;
-    } catch (error: any) {
-      const isNetworkError = error.name === 'AbortError' || error.message?.includes('Failed to fetch');
-      
-      if (isNetworkError && retryCount < maxRetries) {
-        const delay = baseDelay * Math.pow(2, retryCount);
-        console.log(`🔄 POI fetch failed, retrying in ${delay}ms... (${retryCount + 1}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return fetchHotelPOI(hotelId, retryCount + 1);
-      }
-      
-      console.error("❌ Error fetching POI after retries:", error);
-      setPoiFailed(true);
-      return null;
+      const data = await fetchMapboxPOI(latitude, longitude);
+      setPoiData(data);
+    } catch (error) {
+      console.error("❌ Error fetching POI:", error);
     } finally {
-      if (retryCount === 0 || retryCount >= maxRetries) {
-        setPoiLoading(false);
-      }
+      setPoiLoading(false);
     }
   };
 
@@ -407,13 +363,14 @@ const HotelDetailsPage = () => {
         ratehawkHotelId,
       );
 
-      // Store the ratehawk ID for retry functionality
-      setCurrentRatehawkId(ratehawkHotelId);
-
-      // Fetch POI separately (non-blocking) so it doesn't delay page load
-      fetchHotelPOI(ratehawkHotelId);
-
       const [ratesResponse, staticInfo] = await Promise.all([ratesPromise, staticInfoPromise]);
+
+      // Fetch POI using Mapbox (non-blocking) so it doesn't delay page load
+      const lat = staticInfo?.coordinates?.latitude || data.hotel.latitude;
+      const lng = staticInfo?.coordinates?.longitude || data.hotel.longitude;
+      if (lat && lng) {
+        fetchPOIData(lat, lng);
+      }
 
       console.log("📥 API responses received");
 
@@ -543,8 +500,6 @@ const HotelDetailsPage = () => {
             subways={poiData?.subways}
             placesOfInterest={poiData?.placesOfInterest}
             isLoading={poiLoading}
-            hasFailed={poiFailed}
-            onRetry={currentRatehawkId ? () => fetchHotelPOI(currentRatehawkId) : undefined}
           />
           <FacilitiesAmenitiesSection />
         </div>
