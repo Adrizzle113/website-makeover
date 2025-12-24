@@ -1,7 +1,47 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
 import { HotelDetails, POIData } from "@/types/booking";
+
+// Categorize flat amenities into grouped structure for display
+const categorizeAmenities = (
+  flatAmenities: Array<{ id: string; name: string }>
+): Record<string, string[]> => {
+  const categoryKeywords: Record<string, string[]> = {
+    popular: ["wifi", "pool", "spa", "fitness", "restaurant", "air conditioning", "breakfast"],
+    general: ["elevator", "heating", "non-smoking", "family room", "soundproof"],
+    rooms: ["tv", "minibar", "coffee", "safe", "desk", "wardrobe", "iron"],
+    accessibility: ["wheelchair", "accessible", "disability", "mobility"],
+    services: ["concierge", "luggage", "laundry", "dry cleaning", "room service", "24-hour", "front desk"],
+    meals: ["breakfast", "restaurant", "bar", "dining", "kitchen", "meal"],
+    internet: ["wifi", "internet", "broadband"],
+    transfer: ["shuttle", "airport", "car rental", "taxi", "transfer"],
+    parking: ["parking", "valet", "garage", "electric vehicle"],
+    poolBeach: ["pool", "beach", "jacuzzi", "hot tub", "sun lounger"],
+    sports: ["fitness", "gym", "tennis", "golf", "sport"],
+    beautyWellness: ["spa", "massage", "sauna", "steam", "beauty", "wellness"],
+    kids: ["kids", "children", "playground", "babysitting", "family"],
+    pets: ["pet", "dog", "cat", "animal"],
+    healthSafety: ["housekeeping", "sanitizer", "first aid", "security", "fire"],
+  };
+
+  const categories: Record<string, string[]> = {};
+
+  flatAmenities.forEach(({ name }) => {
+    const lowerName = name.toLowerCase();
+    for (const [category, keywords] of Object.entries(categoryKeywords)) {
+      if (keywords.some(kw => lowerName.includes(kw))) {
+        if (!categories[category]) categories[category] = [];
+        if (!categories[category].includes(name)) {
+          categories[category].push(name);
+        }
+        break;
+      }
+    }
+  });
+
+  return categories;
+};
 import { useBookingStore } from "@/stores/bookingStore";
 import { fetchMapboxPOI } from "@/services/mapboxPOI";
 
@@ -481,6 +521,12 @@ const HotelDetailsPage = () => {
   const { hotel } = hotelData;
   const hotelDetails = transformToHotelDetails(hotel);
 
+  // Categorize amenities from API for display
+  const categorizedAmenities = useMemo(() => 
+    categorizeAmenities(hotelDetails.amenities || []), 
+    [hotelDetails.amenities]
+  );
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <HotelHeroSection hotel={hotelDetails} />
@@ -501,7 +547,7 @@ const HotelDetailsPage = () => {
             placesOfInterest={poiData?.placesOfInterest}
             isLoading={poiLoading}
           />
-          <FacilitiesAmenitiesSection />
+          <FacilitiesAmenitiesSection amenities={categorizedAmenities} />
         </div>
       </div>
 
