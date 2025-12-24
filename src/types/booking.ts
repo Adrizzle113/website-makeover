@@ -305,3 +305,30 @@ export const DEFAULT_FILTERS: SearchFilters = {
   bedTypes: [],
   residency: "US",
 };
+
+// POI (Points of Interest) Types
+export interface POIItem {
+  name: string;
+  distance: string;
+  type?: string;
+  subtype?: string;
+}
+
+export interface POIData {
+  nearby: POIItem[];
+  airports: POIItem[];
+  subways: POIItem[];
+  placesOfInterest: POIItem[];
+}
+
+export interface POIResponse {
+  success: boolean;
+  data: POIData;
+  metadata?: {
+    hotelId: string;
+    poisFound: number;
+    source: string;
+    timestamp: string;
+    duration: string;
+  };
+}
