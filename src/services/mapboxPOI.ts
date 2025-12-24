@@ -1,21 +1,13 @@
 import { POIData } from "@/types/booking";
+import { getMapboxToken } from "@/config/mapbox";
 
 /**
  * Hybrid approach (Option C):
  * - Use Mapbox Search Box "category" endpoint for clean, reliable category results (primary)
  * - Use Tilequery only as a fallback when Search Box yields sparse results
  *
- * Vite ENV:
- * - Set VITE_MAPBOX_TOKEN in Render
- * - Access via import.meta.env.VITE_MAPBOX_TOKEN
+ * Token is resolved from env or localStorage via shared helper.
  */
-
-const MAPBOX_TOKEN = (import.meta as any).env?.VITE_MAPBOX_TOKEN as string | undefined;
-
-if (!MAPBOX_TOKEN) {
-  // eslint-disable-next-line no-console
-  console.warn("⚠️ Missing VITE_MAPBOX_TOKEN. Mapbox Nearby will not work until it is set.");
-}
 
 interface TilequeryFeature {
   type: "Feature";
@@ -108,7 +100,8 @@ async function fetchSearchBoxCategory(
   longitude: number,
   options?: { limit?: number; maxMeters?: number },
 ): Promise<(NearbyItem & { meters: number })[]> {
-  if (!MAPBOX_TOKEN) return [];
+  const token = getMapboxToken();
+  if (!token) return [];
 
   const limit = options?.limit ?? 8;
   const maxMeters = options?.maxMeters;
@@ -117,7 +110,7 @@ async function fetchSearchBoxCategory(
     `https://api.mapbox.com/search/searchbox/v1/category/${encodeURIComponent(category)}` +
     `?proximity=${longitude},${latitude}` +
     `&limit=${limit}` +
-    `&access_token=${MAPBOX_TOKEN}`;
+    `&access_token=${token}`;
 
   const res = await fetch(url);
   if (!res.ok) return [];
@@ -143,14 +136,15 @@ async function fetchTilequeryFallbackPOI(
   radiusMeters: number,
   limit = 30,
 ): Promise<(NearbyItem & { meters: number })[]> {
-  if (!MAPBOX_TOKEN) return [];
+  const token = getMapboxToken();
+  if (!token) return [];
 
   const url =
     `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${longitude},${latitude}.json` +
     `?radius=${radiusMeters}` +
     `&limit=${limit}` +
     `&layers=poi_label` +
-    `&access_token=${MAPBOX_TOKEN}`;
+    `&access_token=${token}`;
 
   const res = await fetch(url);
   if (!res.ok) return [];
