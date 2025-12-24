@@ -51,7 +51,18 @@ interface SearchResponse {
 
 // Categories for classification
 const TRANSIT_TYPES = ["subway", "rail", "metro", "train", "station", "transit"];
-const ATTRACTION_TYPES = ["museum", "monument", "attraction", "gallery", "historic", "castle", "theatre", "stadium"];
+const ATTRACTION_TYPES = [
+  // Cultural/Historical
+  "museum", "monument", "attraction", "gallery", "historic", "castle", "theatre", "stadium",
+  // Parks & Nature
+  "park", "garden", "zoo", "aquarium", "beach", "viewpoint", "nature",
+  // Dining
+  "restaurant", "cafe", "bar", "bakery", "food", "dining",
+  // Shopping
+  "shop", "shopping", "mall", "market", "store", "boutique",
+  // Entertainment
+  "cinema", "nightclub", "entertainment", "casino", "bowling", "arcade", "amusement"
+];
 
 function formatDistance(meters: number): string {
   const km = meters / 1000;
