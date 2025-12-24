@@ -521,11 +521,8 @@ const HotelDetailsPage = () => {
   const { hotel } = hotelData;
   const hotelDetails = transformToHotelDetails(hotel);
 
-  // Categorize amenities from API for display
-  const categorizedAmenities = useMemo(() => 
-    categorizeAmenities(hotelDetails.amenities || []), 
-    [hotelDetails.amenities]
-  );
+  // Categorize amenities from API for display (inline, no hook needed)
+  const categorizedAmenities = categorizeAmenities(hotelDetails.amenities || []);
 
   return (
     <div className="min-h-screen bg-background pb-24">
