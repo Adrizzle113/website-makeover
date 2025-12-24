@@ -8,21 +8,43 @@ const categorizeAmenities = (
   flatAmenities: Array<{ id: string; name: string }>
 ): Record<string, string[]> => {
   const categoryKeywords: Record<string, string[]> = {
-    popular: ["wifi", "pool", "spa", "fitness", "restaurant", "air conditioning", "breakfast"],
-    general: ["elevator", "heating", "non-smoking", "family room", "soundproof"],
-    rooms: ["tv", "minibar", "coffee", "safe", "desk", "wardrobe", "iron"],
-    accessibility: ["wheelchair", "accessible", "disability", "mobility"],
-    services: ["concierge", "luggage", "laundry", "dry cleaning", "room service", "24-hour", "front desk"],
-    meals: ["breakfast", "restaurant", "bar", "dining", "kitchen", "meal"],
-    internet: ["wifi", "internet", "broadband"],
-    transfer: ["shuttle", "airport", "car rental", "taxi", "transfer"],
-    parking: ["parking", "valet", "garage", "electric vehicle"],
-    poolBeach: ["pool", "beach", "jacuzzi", "hot tub", "sun lounger"],
-    sports: ["fitness", "gym", "tennis", "golf", "sport"],
-    beautyWellness: ["spa", "massage", "sauna", "steam", "beauty", "wellness"],
-    kids: ["kids", "children", "playground", "babysitting", "family"],
+    popular: ["wifi", "pool", "spa", "fitness", "restaurant", "breakfast", "gym"],
+    general: [
+      "24-hour", "reception", "atm", "air conditioning", "non-smoking", "smoke-free", 
+      "currency exchange", "electric car", "charging", "elevator", "lift", "express check", 
+      "garden", "gift shop", "heating", "newspaper", "shopping", "terrace"
+    ],
+    rooms: [
+      "cable tv", "flat-screen", "hairdryer", "hair dryer", "fireplace", "non-smoking room", 
+      "room service", "shower", "bathtub", "toiletries", "minibar", "safe", "desk", "wardrobe", "iron"
+    ],
+    accessibility: ["wheelchair", "accessible", "accessibility", "disability", "mobility"],
+    services: [
+      "concierge", "dry-cleaning", "dry cleaning", "iron and board", "laundry", 
+      "luggage storage", "luggage", "safe-deposit", "shoe shine", "telephone", "wake-up", "wake up"
+    ],
+    meals: ["bar", "breakfast", "coffeemaker", "coffee maker", "restaurant", "dining", "kitchen", "meal"],
+    internet: ["wifi", "wi-fi", "internet", "broadband"],
+    transfer: ["car rental", "shuttle", "airport", "taxi", "transfer"],
+    languages: ["english", "french", "german", "spanish", "multi-language", "chinese", "italian", "portuguese"],
+    recreation: ["bike rental", "fishing", "hiking", "sun deck", "library", "game room"],
+    parking: ["parking", "valet", "garage"],
+    poolBeach: [
+      "heated swimming", "indoor pool", "outdoor pool", "pool facilities", "spa tub", 
+      "swimming pool", "pool", "beach", "jacuzzi", "hot tub", "sun lounger"
+    ],
+    business: [
+      "business center", "conference", "event facilities", "fax", "copy machine", 
+      "meeting", "presentation"
+    ],
+    sports: ["cycling", "fitness", "gym", "tennis", "golf", "sport", "water sport"],
+    beautyWellness: ["doctor", "first aid", "massage", "sauna", "spa", "steam room", "beauty", "wellness"],
+    kids: ["babysitting", "childcare", "playground", "playroom", "kids", "children"],
     pets: ["pet", "dog", "cat", "animal"],
-    healthSafety: ["housekeeping", "sanitizer", "first aid", "security", "fire"],
+    healthSafety: [
+      "covid", "contactless", "decontamination", "protection equipment", 
+      "housekeeping", "sanitizer", "security", "fire extinguisher"
+    ],
   };
 
   const categories: Record<string, string[]> = {};
