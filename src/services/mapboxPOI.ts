@@ -1,4 +1,3 @@
-```tsx
 import { POIData } from "@/types/booking";
 
 /**
@@ -361,4 +360,3 @@ export async function fetchMapboxPOI(latitude: number, longitude: number): Promi
     return null;
   }
 }
-```
