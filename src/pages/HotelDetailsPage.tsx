@@ -29,13 +29,24 @@ const categorizeAmenities = (
 
   flatAmenities.forEach(({ name }) => {
     const lowerName = name.toLowerCase();
+    let matched = false;
+    
     for (const [category, keywords] of Object.entries(categoryKeywords)) {
       if (keywords.some(kw => lowerName.includes(kw))) {
         if (!categories[category]) categories[category] = [];
         if (!categories[category].includes(name)) {
           categories[category].push(name);
         }
+        matched = true;
         break;
+      }
+    }
+    
+    // Add to uncategorized if no match found
+    if (!matched) {
+      if (!categories.uncategorized) categories.uncategorized = [];
+      if (!categories.uncategorized.includes(name)) {
+        categories.uncategorized.push(name);
       }
     }
   });

@@ -18,6 +18,7 @@ import {
   Baby,
   PawPrint,
   ShieldCheck,
+  MoreHorizontal,
 } from "lucide-react";
 
 interface FacilitiesAmenitiesSectionProps {
@@ -44,6 +45,7 @@ const categoryConfig: { key: string; title: string; icon: React.ElementType }[] 
   { key: "kids", title: "Kids", icon: Baby },
   { key: "pets", title: "Pets", icon: PawPrint },
   { key: "healthSafety", title: "Health and Safety Measures", icon: ShieldCheck },
+  { key: "uncategorized", title: "Other Amenities", icon: MoreHorizontal },
 ];
 
 export function FacilitiesAmenitiesSection({ amenities }: FacilitiesAmenitiesSectionProps) {
