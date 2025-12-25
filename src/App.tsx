@@ -7,6 +7,7 @@ import SearchPage from "./pages/SearchPage";
 import HotelDetailsPage from "./pages/HotelDetailsPage";
 import BookingPage from "./pages/BookingPage";
 import PaymentPage from "./pages/PaymentPage";
+import ProcessingPage from "./pages/ProcessingPage";
 import Dashboard from "./pages/Dashboard";
 import DashboardSearchPage from "./pages/dashboard/SearchPage";
 import { TripsListPage, TripDetailsPage } from "./pages/trips";
@@ -50,6 +51,7 @@ const App = () => (
           <Route path="/hoteldetails/:hotelId" element={<HotelDetailsPage />} />
           <Route path="/booking" element={<ProtectedRoute><BookingPage /></ProtectedRoute>} />
           <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
+          <Route path="/processing/:orderId" element={<ProtectedRoute><ProcessingPage /></ProtectedRoute>} />
           {/* Trips */}
           <Route path="/trips" element={<ProtectedRoute><TripsListPage /></ProtectedRoute>} />
           <Route path="/trips/:orderGroupId" element={<ProtectedRoute><TripDetailsPage /></ProtectedRoute>} />

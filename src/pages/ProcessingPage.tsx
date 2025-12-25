@@ -1,0 +1,256 @@
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Loader2, CheckCircle, XCircle, Clock, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Footer } from "@/components/layout/Footer";
+import { bookingApi } from "@/services/bookingApi";
+import { useBookingStore } from "@/stores/bookingStore";
+import { toast } from "@/hooks/use-toast";
+import type { OrderStatus } from "@/types/etgBooking";
+
+const MAX_POLL_ATTEMPTS = 20;
+const POLL_INTERVAL_MS = 3000;
+
+type ProcessingStatus = "polling" | "confirmed" | "failed" | "timeout";
+
+export default function ProcessingPage() {
+  const { orderId } = useParams<{ orderId: string }>();
+  const navigate = useNavigate();
+  const { setOrderId, setOrderStatus } = useBookingStore();
+
+  const [status, setStatus] = useState<ProcessingStatus>("polling");
+  const [attempts, setAttempts] = useState(0);
+  const [confirmationNumber, setConfirmationNumber] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const progress = Math.min((attempts / MAX_POLL_ATTEMPTS) * 100, 100);
+
+  const pollStatus = useCallback(async () => {
+    if (!orderId) {
+      setStatus("failed");
+      setErrorMessage("No order ID provided");
+      return;
+    }
+
+    let currentAttempt = 0;
+
+    while (currentAttempt < MAX_POLL_ATTEMPTS) {
+      currentAttempt++;
+      setAttempts(currentAttempt);
+
+      try {
+        const response = await bookingApi.getOrderStatus(orderId);
+        const orderStatus = response.data?.status;
+
+        console.log(`📊 Status poll #${currentAttempt}:`, orderStatus);
+
+        if (orderStatus === "confirmed") {
+          setStatus("confirmed");
+          setConfirmationNumber(response.data?.confirmation_number || orderId);
+          setOrderId(orderId);
+          setOrderStatus("confirmed");
+          
+          // Clear pending booking from session
+          sessionStorage.removeItem("pending_booking");
+          
+          toast({
+            title: "Booking Confirmed!",
+            description: `Confirmation: ${response.data?.confirmation_number || orderId}`,
+          });
+          
+          return;
+        }
+
+        if (orderStatus === "failed" || orderStatus === "cancelled") {
+          setStatus("failed");
+          setErrorMessage(response.error?.message || "Booking could not be completed");
+          setOrderStatus("failed");
+          return;
+        }
+
+        // Still processing - wait and try again
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+        
+      } catch (error) {
+        console.error(`Poll attempt ${currentAttempt} error:`, error);
+        
+        // Network errors - wait and retry
+        if (currentAttempt < MAX_POLL_ATTEMPTS) {
+          await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+        }
+      }
+    }
+
+    // Timeout reached
+    setStatus("timeout");
+    setOrderStatus("processing");
+    
+  }, [orderId, setOrderId, setOrderStatus]);
+
+  useEffect(() => {
+    pollStatus();
+  }, [pollStatus]);
+
+  const handleRetry = () => {
+    setStatus("polling");
+    setAttempts(0);
+    setErrorMessage(null);
+    pollStatus();
+  };
+
+  const handleViewConfirmation = () => {
+    navigate(`/orders/${orderId}/confirmation`);
+  };
+
+  const handleGoToDashboard = () => {
+    navigate("/dashboard");
+  };
+
+  const handleContactSupport = () => {
+    window.location.href = `mailto:support@travelhub.com?subject=Booking Issue - Order ${orderId}`;
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      <main className="flex-1 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full border-0 shadow-xl">
+          <CardContent className="p-8">
+            {/* Polling State */}
+            {status === "polling" && (
+              <div className="text-center">
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
+                  <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                </div>
+                <h1 className="font-heading text-2xl font-bold text-foreground mb-2">
+                  Processing Your Booking
+                </h1>
+                <p className="text-muted-foreground mb-6">
+                  Please wait while we confirm your reservation...
+                </p>
+                
+                <div className="space-y-2">
+                  <Progress value={progress} className="h-2" />
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span>Checking status... ({attempts}/{MAX_POLL_ATTEMPTS})</span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground mt-6">
+                  This may take up to a minute. Please don't close this page.
+                </p>
+              </div>
+            )}
+
+            {/* Confirmed State */}
+            {status === "confirmed" && (
+              <div className="text-center">
+                <div className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-6">
+                  <CheckCircle className="w-10 h-10 text-emerald-500" />
+                </div>
+                <h1 className="font-heading text-2xl font-bold text-foreground mb-2">
+                  Booking Confirmed!
+                </h1>
+                <p className="text-muted-foreground mb-4">
+                  Your reservation has been successfully confirmed.
+                </p>
+                
+                {confirmationNumber && (
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 mb-6">
+                    <p className="text-sm text-muted-foreground">Confirmation Number</p>
+                    <p className="font-heading text-xl text-primary font-bold">
+                      {confirmationNumber}
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <Button onClick={handleViewConfirmation} className="w-full">
+                    View Confirmation Details
+                  </Button>
+                  <Button variant="outline" onClick={handleGoToDashboard} className="w-full">
+                    Go to Dashboard
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Failed State */}
+            {status === "failed" && (
+              <div className="text-center">
+                <div className="w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-6">
+                  <XCircle className="w-10 h-10 text-destructive" />
+                </div>
+                <h1 className="font-heading text-2xl font-bold text-foreground mb-2">
+                  Booking Failed
+                </h1>
+                <p className="text-muted-foreground mb-4">
+                  {errorMessage || "We couldn't complete your booking. Please try again or contact support."}
+                </p>
+
+                <div className="space-y-3">
+                  <Button onClick={handleRetry} className="w-full">
+                    Try Again
+                  </Button>
+                  <Button variant="outline" onClick={handleContactSupport} className="w-full">
+                    Contact Support
+                  </Button>
+                  <Button variant="ghost" onClick={handleGoToDashboard} className="w-full">
+                    Back to Dashboard
+                  </Button>
+                </div>
+
+                {orderId && (
+                  <p className="text-xs text-muted-foreground mt-4">
+                    Reference: {orderId}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Timeout State */}
+            {status === "timeout" && (
+              <div className="text-center">
+                <div className="w-20 h-20 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-6">
+                  <AlertTriangle className="w-10 h-10 text-amber-500" />
+                </div>
+                <h1 className="font-heading text-2xl font-bold text-foreground mb-2">
+                  Taking Longer Than Expected
+                </h1>
+                <p className="text-muted-foreground mb-4">
+                  Your booking is still being processed. This can happen during high demand periods.
+                </p>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 text-left">
+                  <p className="text-sm text-amber-800">
+                    <strong>Don't worry!</strong> Your booking request has been submitted. 
+                    You'll receive an email confirmation once it's processed.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <Button onClick={handleRetry} className="w-full">
+                    Check Status Again
+                  </Button>
+                  <Button variant="outline" onClick={handleGoToDashboard} className="w-full">
+                    Go to Dashboard
+                  </Button>
+                </div>
+
+                {orderId && (
+                  <p className="text-xs text-muted-foreground mt-4">
+                    Order ID: {orderId}
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </main>
+
+      <Footer />
+    </div>
+  );
+}
