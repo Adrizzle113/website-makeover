@@ -257,112 +257,115 @@ const PaymentPage = () => {
           <div className="container mx-auto px-4 max-w-7xl">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Left Side - Payment Form */}
-              {/* Payment Method Selector */}
-              <PaymentMethodSelector
-                value={paymentType}
-                onChange={setPaymentType}
-                availableMethods={["deposit", "hotel"]}
-                disabled={isProcessing}
-              />
+              <div className="lg:col-span-2 space-y-6">
+                {/* Payment Method Selector */}
+                <PaymentMethodSelector
+                  value={paymentType}
+                  onChange={setPaymentType}
+                  availableMethods={["deposit", "hotel"]}
+                  disabled={isProcessing}
+                />
 
-              {/* Card Payment Form - Only show for "now" payment type */}
-              {paymentType === "now" && (
-                  <CardContent className="p-6 lg:p-8">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="p-2 rounded-full bg-primary/10">
-                        <CreditCard className="h-5 w-5 text-primary" />
-                      </div>
-                      <h2 className="font-heading text-2xl font-bold text-foreground">
-                        Card Payment
-                      </h2>
-                    </div>
-
-                    <div className="space-y-6">
-                      {/* Card Number */}
-                      <div>
-                        <Label htmlFor="cardNumber" className="text-sm font-medium">
-                          Card Number <span className="text-destructive">*</span>
-                        </Label>
-                        <div className="relative mt-2">
-                          <Input
-                            id="cardNumber"
-                            value={cardNumber}
-                            onChange={handleCardNumberChange}
-                            placeholder="1234 5678 9012 3456"
-                            className="pl-12 h-12 text-lg font-mono"
-                          />
-                          <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                {/* Card Payment Form - Only show for "now" payment type */}
+                {paymentType === "now" && (
+                  <Card className="border-0 shadow-lg">
+                    <CardContent className="p-6 lg:p-8">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2 rounded-full bg-primary/10">
+                          <CreditCard className="h-5 w-5 text-primary" />
                         </div>
+                        <h2 className="font-heading text-2xl font-bold text-foreground">
+                          Card Payment
+                        </h2>
                       </div>
 
-                      {/* Cardholder Name */}
-                      <div>
-                        <Label htmlFor="cardholderName" className="text-sm font-medium">
-                          Cardholder Name <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                          id="cardholderName"
-                          value={cardholderName}
-                          onChange={(e) => setCardholderName(e.target.value.toUpperCase())}
-                          placeholder="JOHN DOE"
-                          className="mt-2 h-12 text-lg uppercase"
-                        />
-                      </div>
-
-                      {/* Expiry & CVV */}
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-6">
+                        {/* Card Number */}
                         <div>
-                          <Label htmlFor="expiryDate" className="text-sm font-medium">
-                            Expiry Date <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            id="expiryDate"
-                            value={expiryDate}
-                            onChange={handleExpiryChange}
-                            placeholder="MM/YY"
-                            className="mt-2 h-12 text-lg font-mono"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="cvv" className="text-sm font-medium">
-                            CVV <span className="text-destructive">*</span>
+                          <Label htmlFor="cardNumber" className="text-sm font-medium">
+                            Card Number <span className="text-destructive">*</span>
                           </Label>
                           <div className="relative mt-2">
                             <Input
-                              id="cvv"
-                              type="password"
-                              value={cvv}
-                              onChange={handleCvvChange}
-                              placeholder="•••"
-                              className="h-12 text-lg font-mono"
+                              id="cardNumber"
+                              value={cardNumber}
+                              onChange={handleCardNumberChange}
+                              placeholder="1234 5678 9012 3456"
+                              className="pl-12 h-12 text-lg font-mono"
                             />
-                            <Lock className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                           </div>
                         </div>
-                      </div>
 
-                      {/* Save Card */}
-                      <div className="flex items-center gap-3">
-                        <Checkbox
-                          id="saveCard"
-                          checked={saveCard}
-                          onCheckedChange={(checked) => setSaveCard(checked as boolean)}
-                        />
-                        <Label htmlFor="saveCard" className="text-sm cursor-pointer">
-                          Save this card for future bookings
-                        </Label>
-                      </div>
+                        {/* Cardholder Name */}
+                        <div>
+                          <Label htmlFor="cardholderName" className="text-sm font-medium">
+                            Cardholder Name <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            id="cardholderName"
+                            value={cardholderName}
+                            onChange={(e) => setCardholderName(e.target.value.toUpperCase())}
+                            placeholder="JOHN DOE"
+                            className="mt-2 h-12 text-lg uppercase"
+                          />
+                        </div>
 
-                      {/* Security Note */}
-                      <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-                        <Shield className="h-5 w-5 text-green-600 flex-shrink-0" />
-                        <p className="text-sm text-green-800">
-                          Your payment information is encrypted and secure. We never store your full card details.
-                        </p>
+                        {/* Expiry & CVV */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="expiryDate" className="text-sm font-medium">
+                              Expiry Date <span className="text-destructive">*</span>
+                            </Label>
+                            <Input
+                              id="expiryDate"
+                              value={expiryDate}
+                              onChange={handleExpiryChange}
+                              placeholder="MM/YY"
+                              className="mt-2 h-12 text-lg font-mono"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="cvv" className="text-sm font-medium">
+                              CVV <span className="text-destructive">*</span>
+                            </Label>
+                            <div className="relative mt-2">
+                              <Input
+                                id="cvv"
+                                type="password"
+                                value={cvv}
+                                onChange={handleCvvChange}
+                                placeholder="•••"
+                                className="h-12 text-lg font-mono"
+                              />
+                              <Lock className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Save Card */}
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            id="saveCard"
+                            checked={saveCard}
+                            onCheckedChange={(checked) => setSaveCard(checked as boolean)}
+                          />
+                          <Label htmlFor="saveCard" className="text-sm cursor-pointer">
+                            Save this card for future bookings
+                          </Label>
+                        </div>
+
+                        {/* Security Note */}
+                        <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                          <Shield className="h-5 w-5 text-green-600 flex-shrink-0" />
+                          <p className="text-sm text-green-800">
+                            Your payment information is encrypted and secure. We never store your full card details.
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Pay Button */}
                 <Card className="border-0 shadow-lg">
@@ -391,12 +394,16 @@ const PaymentPage = () => {
                       {isProcessing ? (
                         <>
                           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                          Processing Payment...
+                          Processing...
                         </>
                       ) : (
                         <>
                           <Lock className="mr-2 h-5 w-5" />
-                          Pay {hotel.currency} {totalPrice.toFixed(2)}
+                          {paymentType === "now" 
+                            ? `Pay ${hotel.currency} ${totalPrice.toFixed(2)}`
+                            : paymentType === "deposit"
+                            ? "Confirm Deposit Booking"
+                            : "Confirm Pay at Hotel"}
                         </>
                       )}
                     </Button>
@@ -507,7 +514,7 @@ const PaymentPage = () => {
                     </div>
 
                     {/* Price Updated Notice */}
-                    {bookingData.priceUpdated && (
+                    {(bookingData as any).priceUpdated && (
                       <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                         <p className="text-xs text-amber-800">
                           <strong>Note:</strong> Price was updated during availability check.
