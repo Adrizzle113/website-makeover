@@ -9,6 +9,7 @@ import type {
   SortOption,
 } from "@/types/booking";
 import { DEFAULT_FILTERS } from "@/types/booking";
+import type { OrderStatus, PaymentType } from "@/types/etgBooking";
 
 interface BookingStore {
   // State
@@ -26,6 +27,14 @@ interface BookingStore {
   // Filter & Sort State
   filters: SearchFilters;
   sortBy: SortOption;
+
+  // ETG Booking State
+  bookingHash: string | null;
+  orderId: string | null;
+  orderGroupId: string | null;
+  orderStatus: OrderStatus;
+  paymentType: PaymentType | null;
+  residency: string;
 
   // Actions
   setSearchParams: (params: SearchParams) => void;
@@ -48,6 +57,15 @@ interface BookingStore {
   resetFilters: () => void;
   setSortBy: (sort: SortOption) => void;
 
+  // ETG Booking Actions
+  setBookingHash: (hash: string | null) => void;
+  setOrderId: (id: string | null) => void;
+  setOrderGroupId: (id: string | null) => void;
+  setOrderStatus: (status: OrderStatus) => void;
+  setPaymentType: (type: PaymentType | null) => void;
+  setResidency: (residency: string) => void;
+  clearBookingState: () => void;
+
   // Computed
   getTotalPrice: () => number;
   getTotalRooms: () => number;
@@ -67,6 +85,13 @@ const initialState = {
   totalResults: 0,
   filters: DEFAULT_FILTERS,
   sortBy: "popularity" as SortOption,
+  // ETG Booking State
+  bookingHash: null as string | null,
+  orderId: null as string | null,
+  orderGroupId: null as string | null,
+  orderStatus: "idle" as OrderStatus,
+  paymentType: null as PaymentType | null,
+  residency: "US",
 };
 
 export const useBookingStore = create<BookingStore>()(
@@ -173,6 +198,27 @@ export const useBookingStore = create<BookingStore>()(
       
       setSortBy: (sort) => set({ sortBy: sort }),
 
+      // ETG Booking Actions
+      setBookingHash: (hash) => set({ bookingHash: hash }),
+      
+      setOrderId: (id) => set({ orderId: id }),
+      
+      setOrderGroupId: (id) => set({ orderGroupId: id }),
+      
+      setOrderStatus: (status) => set({ orderStatus: status }),
+      
+      setPaymentType: (type) => set({ paymentType: type }),
+      
+      setResidency: (residency) => set({ residency }),
+      
+      clearBookingState: () => set({
+        bookingHash: null,
+        orderId: null,
+        orderGroupId: null,
+        orderStatus: "idle",
+        paymentType: null,
+      }),
+
       getTotalPrice: () => {
         const state = get();
         return state.selectedRooms.reduce(
@@ -212,6 +258,7 @@ export const useBookingStore = create<BookingStore>()(
         // Exclude searchResults and selectedHotel - too large for localStorage
         filters: state.filters,
         sortBy: state.sortBy,
+        residency: state.residency,
       }),
     }
   )
