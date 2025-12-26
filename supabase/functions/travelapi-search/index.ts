@@ -9,12 +9,35 @@ const corsHeaders = {
 const RENDER_API_URL = "https://travelapi-bg6t.onrender.com";
 const MAX_RETRIES = 5;
 const INITIAL_RETRY_DELAY_MS = 3000;
+const RENDER_HEALTH_URL = `${RENDER_API_URL}/api/health`;
+const WARMUP_TIMEOUT_MS = 8000;
 
 // Helper to delay execution
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Exponential backoff: 3s, 6s, 12s, 24s (total ~45s wait time to cover cold starts)
 const getRetryDelay = (attempt: number) => INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+
+// Quick warm-up ping (Render free-tier instances may be asleep)
+async function warmUpRender(): Promise<void> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), WARMUP_TIMEOUT_MS);
+
+  try {
+    console.log(`🔥 Warming Render via ${RENDER_HEALTH_URL}`);
+    const res = await fetch(RENDER_HEALTH_URL, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: controller.signal,
+    });
+    console.log(`🔥 Warmup status: ${res.status}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`⚠️ Warmup failed (continuing anyway): ${message}`);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 // Helper to make request with retries for transient errors (502, 503, 504)
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = MAX_RETRIES): Promise<Response> {
@@ -103,6 +126,9 @@ serve(async (req) => {
     }
 
     // Forward to Render API with retry logic for cold starts
+    // (Render free-tier apps can be asleep even after DNS resolves)
+    await warmUpRender();
+
     console.log('📤 Forwarding to Render:', `${RENDER_API_URL}/api/ratehawk/search`);
     
     let renderResponse = await fetchWithRetry(`${RENDER_API_URL}/api/ratehawk/search`, {
