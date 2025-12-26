@@ -165,13 +165,13 @@ class RateHawkApiService {
     });
 
     // Build request body with optional filters
-    // Use regionId for numeric IDs, destination for text-based search
+    // Use regionId for numeric IDs, destination (city name) for text-based search
     const isNumericId = params.destinationId && /^\d+$/.test(params.destinationId);
     const requestBody: Record<string, unknown> = {
       userId,
       ...(isNumericId 
         ? { regionId: parseInt(params.destinationId!, 10) }
-        : { destination: params.destinationId || params.destination }
+        : { destination: params.destination }  // Use city name, not slug
       ),
       checkin: this.formatDate(params.checkIn),
       checkout: this.formatDate(params.checkOut),
