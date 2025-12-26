@@ -45,9 +45,9 @@ export function DestinationAutocomplete({
         setIsOpen(true);
       } catch (error) {
         console.error("Error fetching destinations:", error);
-        // Use mock data as fallback
+        // Use the query as destination name (no ID) so search uses name resolution
         setSuggestions([
-          { id: "1", name: query, country: "Popular Destination", type: "city" },
+          { id: "", name: query, country: "Search this location", type: "city" },
         ]);
         setIsOpen(true);
       } finally {
