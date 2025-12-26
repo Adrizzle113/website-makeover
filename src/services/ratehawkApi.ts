@@ -387,21 +387,26 @@ class RateHawkApiService {
           hotel_name: string;
           region_name: string;
           country_name: string;
+          slug?: string;
         }>;
         regions?: Array<{
           id: number;
           name: string;
           country: string;
           type: string;
+          slug?: string;
         }>;
       }>(url, {
         method: "POST",
         body: JSON.stringify({ query }),
       });
 
+      console.log('🔍 Destination API response:', response);
+
       // Transform regions to Destination format (prioritize regions/cities)
+      // Use slug as the ID since the search API expects the slug format
       const regionDestinations: Destination[] = (response.regions || []).map((region) => ({
-        id: String(region.id),
+        id: region.slug || String(region.id),
         name: region.name,
         country: region.country,
         type: region.type.toLowerCase().includes("city") ? "city" : "region",
