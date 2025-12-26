@@ -165,9 +165,14 @@ class RateHawkApiService {
     });
 
     // Build request body with optional filters
+    // Use regionId for numeric IDs, destination for text-based search
+    const isNumericId = params.destinationId && /^\d+$/.test(params.destinationId);
     const requestBody: Record<string, unknown> = {
       userId,
-      destination: params.destinationId || params.destination,
+      ...(isNumericId 
+        ? { regionId: parseInt(params.destinationId!, 10) }
+        : { destination: params.destinationId || params.destination }
+      ),
       checkin: this.formatDate(params.checkIn),
       checkout: this.formatDate(params.checkOut),
       guests,
@@ -405,9 +410,9 @@ class RateHawkApiService {
       console.log('🔍 Destination API response:', response);
 
       // Transform regions to Destination format (prioritize regions/cities)
-      // Use slug as the ID since the search API expects the slug format
+      // Use numeric ID since the search API expects region_id (not slug)
       const regionDestinations: Destination[] = (response.regions || []).map((region) => ({
-        id: region.slug || String(region.id),
+        id: String(region.id),
         name: region.name,
         country: region.country,
         type: region.type.toLowerCase().includes("city") ? "city" : "region",
