@@ -11,7 +11,7 @@ import type {
 
 const API_ENDPOINTS = {
   SEARCH_HOTELS: "/api/ratehawk/search",
-  GET_DESTINATIONS: "/api/destination",
+  GET_DESTINATIONS: "/api/destinations",
 } as const;
 
 const getApiUrl = (endpoint: keyof typeof API_ENDPOINTS) => {
