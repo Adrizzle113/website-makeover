@@ -152,6 +152,20 @@ class RateHawkApiService {
   async searchHotels(params: SearchParams, page: number = 1, filters?: SearchFilters): Promise<SearchResponse> {
     const userId = this.getCurrentUserId();
 
+    // VALIDATION: Fail early with helpful errors
+    const destination = params.destination?.trim();
+    if (!destination) {
+      throw new Error('Please select a destination');
+    }
+
+    if (!params.checkIn || !params.checkOut) {
+      throw new Error('Please select check-in and check-out dates');
+    }
+
+    if (new Date(this.formatDate(params.checkIn)) >= new Date(this.formatDate(params.checkOut))) {
+      throw new Error('Check-out must be after check-in');
+    }
+
     // Format guests as array of room objects (required by backend)
     const guestsPerRoom = Math.max(1, Math.floor(params.guests / params.rooms));
     const guests = Array.from({ length: params.rooms }, (_, index) => {
@@ -164,21 +178,25 @@ class RateHawkApiService {
       };
     });
 
-    // Build request body with optional filters
-    // Use regionId for numeric IDs, destination (city name) for text-based search
-    const isNumericId = params.destinationId && /^\d+$/.test(params.destinationId);
+    // Build request body - ALWAYS include destination string
     const requestBody: Record<string, unknown> = {
       userId,
-      ...(isNumericId 
-        ? { regionId: parseInt(params.destinationId!, 10) }
-        : { destination: params.destination }  // Use city name, not slug
-      ),
+      destination, // ALWAYS send city name (required by backend)
       checkin: this.formatDate(params.checkIn),
       checkout: this.formatDate(params.checkOut),
       guests,
       page,
       limit: 20,
+      currency: 'USD',
+      residency: 'us',
     };
+
+    // If destinationId is numeric, ALSO include regionId for faster lookup
+    const isNumericId = params.destinationId && /^\d+$/.test(params.destinationId);
+    if (isNumericId) {
+      requestBody.regionId = parseInt(params.destinationId!, 10);
+      console.log(`✅ Including regionId: ${requestBody.regionId}`);
+    }
 
     // Add filters if provided
     const apiFilters = this.transformFiltersForApi(filters);
