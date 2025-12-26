@@ -225,7 +225,7 @@ export function SearchResultsSection() {
 
   // Calculate price range from results
   const priceRange = useMemo(() => {
-    const baseHotels = searchResults.length > 0 ? searchResults : mockHotels;
+    const baseHotels = searchResults;
     const prices = baseHotels.map((h) => h.priceFrom);
     return {
       min: Math.min(...prices, 0),
@@ -235,8 +235,8 @@ export function SearchResultsSection() {
 
   // Apply client-side sorting (filtering is server-side now)
   const hotels = useMemo(() => {
-    const baseHotels = searchResults.length > 0 ? searchResults : mockHotels;
-    
+    const baseHotels = searchResults;
+
     // Apply sorting only - filtering is done server-side
     return [...baseHotels].sort((a, b) => {
       switch (sortBy) {

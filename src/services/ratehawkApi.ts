@@ -215,39 +215,40 @@ class RateHawkApiService {
     console.log("📤 SENDING REQUEST TO EDGE FUNCTION:", requestBody);
 
     // Call Supabase edge function to proxy to Render (avoids CORS)
-    const { data, error } = await supabase.functions.invoke('travelapi-search', {
+    const { data, error, response } = await supabase.functions.invoke('travelapi-search', {
       body: requestBody,
     });
 
     if (error) {
       console.error("❌ Edge function error:", error);
-      
-      // Try to extract the actual error message from the response
-      let errorMessage = "Search failed";
-      try {
-        // The error context may contain the JSON body from the edge function
-        if (error.context && typeof error.context === 'object') {
-          const ctx = error.context as { error?: string; details?: string };
-          errorMessage = ctx.error || ctx.details || errorMessage;
-        } else if (error.message) {
-          // Try to parse JSON from error message
-          const jsonMatch = error.message.match(/\{.*\}/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            errorMessage = parsed.error || parsed.details || errorMessage;
+
+      // Prefer parsing the HTTP response body (Supabase FunctionsHttpError provides Response)
+      let errorMessage = error.message || "Search failed";
+
+      if (response) {
+        try {
+          const res = response.clone();
+          const contentType = res.headers.get("content-type") || "";
+
+          if (contentType.includes("application/json")) {
+            const body = await res.json();
+            if (body && typeof body === "object") {
+              errorMessage = (body as any).error || (body as any).details || errorMessage;
+            }
           } else {
-            errorMessage = error.message;
+            const text = await res.text();
+            if (text) errorMessage = text;
           }
+        } catch {
+          // ignore parsing errors; keep fallback message
         }
-      } catch {
-        // Use default message if parsing fails
       }
-      
+
       throw new Error(errorMessage);
     }
 
     // Check if response indicates an error (edge function returned error JSON with 2xx)
-    if (data && typeof data === 'object' && 'error' in data && !('hotels' in data && (data as any).hotels?.length > 0)) {
+    if (data && typeof data === 'object' && 'error' in data) {
       const errorData = data as { error: string; details?: string };
       throw new Error(errorData.error || errorData.details || "Search failed");
     }

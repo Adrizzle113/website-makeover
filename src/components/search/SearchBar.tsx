@@ -104,10 +104,11 @@ export function SearchBar() {
       }, 100);
     } catch (error) {
       console.error("Search error:", error);
-      setError("Failed to search hotels. Please try again.");
+      const message = error instanceof Error ? error.message : "Failed to search hotels. Please try again.";
+      setError(message);
       toast({
         title: "Search failed",
-        description: "Unable to find hotels. Please try again.",
+        description: message,
         variant: "destructive",
       });
     } finally {
