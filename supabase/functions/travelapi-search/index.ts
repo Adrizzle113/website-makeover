@@ -11,8 +11,6 @@ const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
 const REQUEST_TIMEOUT_MS = 45000; // 45 seconds
 const WARMUP_TIMEOUT_MS = 10000; // 10 seconds
-const SESSIONS_TIMEOUT_MS = 8000; // 8 seconds
-
 // Helper to delay execution
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -36,46 +34,6 @@ async function warmupServer(): Promise<{ ok: boolean; status: number }> {
     const message = error instanceof Error ? error.message : String(error);
     console.warn('⚠️ Warmup failed:', message);
     return { ok: false, status: 0 };
-  }
-}
-
-type SessionsApiResponse = {
-  activeSessions?: number;
-  sessions?: Array<{
-    userId: string;
-    email?: string;
-    loginTime?: string;
-    lastUsed?: string;
-    cookieCount?: number;
-    sessionAge?: string;
-  }>;
-  timestamp?: string;
-};
-
-async function fetchSessions(): Promise<SessionsApiResponse | null> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), SESSIONS_TIMEOUT_MS);
-
-  try {
-    const res = await fetch(`${RENDER_API_URL}/api/sessions`, {
-      method: "GET",
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!res.ok) {
-      console.warn(`⚠️ Sessions endpoint returned ${res.status}`);
-      return null;
-    }
-
-    const json = (await res.json()) as SessionsApiResponse;
-    return json;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    const message = error instanceof Error ? error.message : String(error);
-    console.warn("⚠️ Sessions fetch failed:", message);
-    return null;
   }
 }
 
@@ -168,39 +126,7 @@ serve(async (req) => {
     console.log('📋 Payload keys:', Object.keys(requestBody));
     console.log('📍 destination:', requestBody.destination);
     console.log('🆔 regionId:', requestBody.regionId ?? requestBody.region_id);
-
-    // Guest-mode diagnostics: confirm backend has an active session we can use.
-    const originalUserId = String(requestBody.userId ?? "");
-    if (originalUserId === "guest_shared_session" || originalUserId.startsWith("anon_")) {
-      const sessions = await fetchSessions();
-      const activeSessions = (sessions?.sessions || []).filter(
-        (s) => !!s.userId && (s.cookieCount == null || s.cookieCount > 0)
-      );
-
-      const hasExact = activeSessions.some((s) => s.userId === originalUserId);
-
-      if (hasExact) {
-        console.log(`✅ Guest session is active for userId: ${originalUserId}`);
-      } else if (activeSessions.length > 0) {
-        const fallbackUserId = activeSessions[0].userId;
-        requestBody.userId = fallbackUserId;
-        console.log(
-          `🔁 Guest mode fallback: using active session userId "${fallbackUserId}" instead of "${originalUserId}"`
-        );
-      } else {
-        console.warn('🚫 No active sessions available on backend for guest search');
-        return new Response(
-          JSON.stringify({
-            error: 'Backend has no active RateHawk session yet.',
-            details:
-              'Guest searches require at least one active session on the backend. Seed a session in the Render backend and try again.',
-            hotels: [],
-            totalHotels: 0,
-          }),
-          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    }
+    console.log('👤 userId:', requestBody.userId);
 
     // Validate - destination is required
     if (!requestBody.destination && !requestBody.regionId && !requestBody.region_id) {
