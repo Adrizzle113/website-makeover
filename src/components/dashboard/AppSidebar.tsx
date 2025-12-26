@@ -1,4 +1,4 @@
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import {
   LayoutDashboardIcon,
   SearchIcon,
@@ -6,7 +6,6 @@ import {
   FileTextIcon,
   UsersIcon,
   SettingsIcon,
-  LogOutIcon,
   GlobeIcon,
   HelpCircleIcon,
   Sparkles,
@@ -41,20 +40,9 @@ const secondaryNavItems = [
 ];
 
 export function AppSidebar() {
-  const navigate = useNavigate();
   const location = useLocation();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-
-  const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("userEmail");
-    localStorage.removeItem("ratehawkSessionId");
-    localStorage.removeItem("ratehawkLoginUrl");
-    localStorage.removeItem("userId");
-    localStorage.removeItem("ratehawkAuthTimestamp");
-    navigate("/auth/login");
-  };
 
   const isActive = (url: string) => location.pathname === url;
 
@@ -206,18 +194,6 @@ export function AppSidebar() {
         {!collapsed && (
           <div className="mb-4 h-px bg-gradient-to-r from-transparent via-primary-foreground/20 to-transparent" />
         )}
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={handleLogout}
-              tooltip="Logout"
-              className="group/logout flex items-center gap-3 px-3 py-3 rounded-lg text-primary-foreground/60 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300 w-full"
-            >
-              <LogOutIcon className="w-5 h-5 shrink-0 transition-all duration-300 group-hover/logout:scale-110 group-hover/logout:rotate-[-10deg]" />
-              {!collapsed && <span className="font-medium">Logout</span>}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
   );

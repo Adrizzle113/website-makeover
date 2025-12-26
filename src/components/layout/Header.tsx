@@ -1,7 +1,7 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, ChevronDown, LogOut } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Menu, X, ChevronDown } from "lucide-react";
+import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,29 +11,6 @@ import {
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const checkAuth = () => {
-      setIsLoggedIn(localStorage.getItem("isLoggedIn") === "true");
-    };
-    checkAuth();
-    window.addEventListener("storage", checkAuth);
-    return () => window.removeEventListener("storage", checkAuth);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("userEmail");
-    localStorage.removeItem("ratehawkSessionId");
-    localStorage.removeItem("ratehawkLoginUrl");
-    localStorage.removeItem("userId");
-    localStorage.removeItem("ratehawkAuthTimestamp");
-    setIsLoggedIn(false);
-    setIsMenuOpen(false);
-    navigate("/auth/login");
-  };
 
   const scrollToSection = (sectionId: string) => {
     const section = document.getElementById(sectionId);
@@ -100,45 +77,15 @@ export function Header() {
             </button>
           </nav>
 
-          {/* CTA Buttons */}
+          {/* CTA Button */}
           <div className="hidden lg:flex items-center gap-3">
-            {isLoggedIn ? (
-              <>
-                <Link to="/dashboard">
-                  <Button 
-                    variant="ghost"
-                    className="text-white hover:bg-white/10 rounded-full px-6"
-                  >
-                    Dashboard
-                  </Button>
-                </Link>
-                <Button 
-                  onClick={handleLogout}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-6"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
-                </Button>
-              </>
-            ) : (
-              <>
-                <Link to="/auth/login">
-                  <Button 
-                    variant="ghost"
-                    className="text-white hover:bg-white/10 rounded-full px-6"
-                  >
-                    Login
-                  </Button>
-                </Link>
-                <Link to="/auth/register">
-                  <Button 
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-6"
-                  >
-                    Register
-                  </Button>
-                </Link>
-              </>
-            )}
+            <Link to="/dashboard">
+              <Button 
+                className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-6"
+              >
+                Dashboard
+              </Button>
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -191,43 +138,13 @@ export function Header() {
                 Contact
               </button>
               <div className="pt-4 border-t border-white/20 flex flex-col gap-2">
-                {isLoggedIn ? (
-                  <>
-                    <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
-                      <Button 
-                        variant="outline"
-                        className="w-full border-white text-white hover:bg-white/10 rounded-full"
-                      >
-                        Dashboard
-                      </Button>
-                    </Link>
-                    <Button 
-                      onClick={handleLogout}
-                      className="w-full bg-cream text-primary hover:bg-cream/90 rounded-full"
-                    >
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Logout
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Link to="/auth/login" onClick={() => setIsMenuOpen(false)}>
-                      <Button 
-                        variant="outline"
-                        className="w-full border-white text-white hover:bg-white/10 rounded-full"
-                      >
-                        Login
-                      </Button>
-                    </Link>
-                    <Link to="/auth/register" onClick={() => setIsMenuOpen(false)}>
-                      <Button 
-                        className="w-full bg-cream text-primary hover:bg-cream/90 rounded-full"
-                      >
-                        Register
-                      </Button>
-                    </Link>
-                  </>
-                )}
+                <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
+                  <Button 
+                    className="w-full bg-cream text-primary hover:bg-cream/90 rounded-full"
+                  >
+                    Dashboard
+                  </Button>
+                </Link>
               </div>
             </nav>
           </div>

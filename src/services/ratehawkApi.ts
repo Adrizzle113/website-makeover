@@ -150,14 +150,7 @@ class RateHawkApiService {
   }
 
   async searchHotels(params: SearchParams, page: number = 1, filters?: SearchFilters): Promise<SearchResponse> {
-    let userId = this.getCurrentUserId();
-    
-    // GUEST MODE: Map anonymous users to a shared guest session
-    // This allows searches to work without authentication by using a shared backend session
-    if (userId.startsWith("anon_")) {
-      userId = "guest_shared_session";
-      console.log("🔓 Guest mode: Using shared session for anonymous user");
-    }
+    const userId = this.getCurrentUserId();
 
     // VALIDATION: Fail early with helpful errors
     const rawDestination = params.destination?.trim();
