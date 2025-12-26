@@ -13,14 +13,14 @@ import DashboardSearchPage from "./pages/dashboard/SearchPage";
 import { TripsListPage, TripDetailsPage } from "./pages/trips";
 import { OrderDetailsPage, BookingConfirmationPage } from "./pages/orders";
 import { DocumentsViewerPage } from "./pages/documents";
-import { 
-  BookingsReportPage, 
-  RevenueReportPage, 
-  InvoicesReportPage, 
-  PaymentsReportPage, 
-  ReconciliationReportPage, 
-  PayoutsReportPage, 
-  ExportsReportPage 
+import {
+  BookingsReportPage,
+  RevenueReportPage,
+  InvoicesReportPage,
+  PaymentsReportPage,
+  ReconciliationReportPage,
+  PayoutsReportPage,
+  ExportsReportPage,
 } from "./pages/reporting";
 import {
   AllClientsPage,
@@ -33,6 +33,7 @@ import { SettingsPage } from "./pages/settings";
 import NotFound from "./pages/NotFound";
 import { Login, Register, EmailVerification, PendingApproval } from "./pages/auth";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -46,7 +47,14 @@ const App = () => (
           <Route path="/" element={<SearchPage />} />
           {/* Dashboard Routes */}
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/dashboard/search" element={<DashboardSearchPage />} />
+          <Route
+            path="/dashboard/search"
+            element={
+              <ErrorBoundary title="Search temporarily unavailable">
+                <DashboardSearchPage />
+              </ErrorBoundary>
+            }
+          />
           <Route path="/dashboard/reports" element={<Navigate to="/reporting/bookings" replace />} />
           <Route path="/hoteldetails/:hotelId" element={<HotelDetailsPage />} />
           <Route path="/booking" element={<BookingPage />} />
