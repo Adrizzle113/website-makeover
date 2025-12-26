@@ -7,11 +7,14 @@ const corsHeaders = {
 };
 
 const RENDER_API_URL = "https://travelapi-bg6t.onrender.com";
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 2000;
+const MAX_RETRIES = 5;
+const INITIAL_RETRY_DELAY_MS = 3000;
 
 // Helper to delay execution
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Exponential backoff: 3s, 6s, 12s, 24s (total ~45s wait time to cover cold starts)
+const getRetryDelay = (attempt: number) => INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
 
 // Helper to make request with retries for transient errors (502, 503, 504)
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = MAX_RETRIES): Promise<Response> {
@@ -19,13 +22,14 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = MA
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
+      const retryDelay = getRetryDelay(attempt);
       console.log(`📤 Attempt ${attempt}/${maxRetries} to ${url}`);
       const response = await fetch(url, options);
       
-      // If it's a transient error (502, 503, 504), retry
+      // If it's a transient error (502, 503, 504), retry with exponential backoff
       if ([502, 503, 504].includes(response.status) && attempt < maxRetries) {
-        console.log(`⚠️ Got ${response.status}, retrying in ${RETRY_DELAY_MS}ms...`);
-        await delay(RETRY_DELAY_MS);
+        console.log(`⚠️ Got ${response.status}, server may be waking up. Retrying in ${retryDelay}ms...`);
+        await delay(retryDelay);
         continue;
       }
       
@@ -35,8 +39,9 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = MA
       console.error(`❌ Fetch attempt ${attempt} failed:`, lastError.message);
       
       if (attempt < maxRetries) {
-        console.log(`⏳ Retrying in ${RETRY_DELAY_MS}ms...`);
-        await delay(RETRY_DELAY_MS);
+        const retryDelay = getRetryDelay(attempt);
+        console.log(`⏳ Retrying in ${retryDelay}ms...`);
+        await delay(retryDelay);
       }
     }
   }
