@@ -285,12 +285,45 @@ export function SearchResultsSection() {
     );
   }
 
+  // Retry handler for 503 errors
+  const handleRetrySearch = useCallback(async () => {
+    if (!searchParams) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await ratehawkApi.searchHotels(searchParams, 1, filters);
+      setSearchResults(response.hotels, response.hasMore, response.totalResults);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Search failed";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }, [searchParams, filters, setLoading, setError, setSearchResults]);
+
   if (error) {
+    const isServiceUnavailable = error.toLowerCase().includes('temporarily') || 
+                                  error.toLowerCase().includes('unavailable') ||
+                                  error.toLowerCase().includes('try again');
+    
     return (
       <section id="search-results" className="py-16 bg-cream/30">
         <div className="container">
-          <div className="text-center py-20">
+          <div className="text-center py-20 space-y-4">
             <p className="text-destructive text-body-lg">{error}</p>
+            {isServiceUnavailable && (
+              <div className="space-y-2">
+                <p className="text-muted-foreground text-sm">
+                  The hotel search service is warming up. This usually takes 20-30 seconds.
+                </p>
+                <Button onClick={handleRetrySearch} variant="outline">
+                  <Loader2 className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : 'hidden'}`} />
+                  Try Again
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </section>
