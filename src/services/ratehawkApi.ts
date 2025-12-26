@@ -1,4 +1,6 @@
 import { API_BASE_URL } from "@/config/api";
+import { supabase } from "@/integrations/supabase/client";
+import { getOrCreateUserId } from "@/lib/getOrCreateUserId";
 import type {
   SearchParams,
   Hotel,
@@ -8,15 +10,6 @@ import type {
   RoomRate,
   RateHawkRate,
 } from "@/types/booking";
-
-const API_ENDPOINTS = {
-  SEARCH_HOTELS: "/api/ratehawk/search",
-  GET_DESTINATIONS: "/api/destination",
-} as const;
-
-const getApiUrl = (endpoint: keyof typeof API_ENDPOINTS) => {
-  return `${API_BASE_URL}${API_ENDPOINTS[endpoint]}`;
-};
 
 export interface SearchResponse {
   hotels: Hotel[];
@@ -64,11 +57,7 @@ interface ApiSearchFilters {
 
 class RateHawkApiService {
   private getCurrentUserId(): string {
-    const userId = localStorage.getItem("userId");
-    if (!userId) {
-      throw new Error("No authenticated user found. Please log in first.");
-    }
-    return userId;
+    return getOrCreateUserId();
   }
 
   // Safely format a date value (handles both Date objects and ISO strings from localStorage)
@@ -161,7 +150,6 @@ class RateHawkApiService {
   }
 
   async searchHotels(params: SearchParams, page: number = 1, filters?: SearchFilters): Promise<SearchResponse> {
-    const url = getApiUrl("SEARCH_HOTELS");
     const userId = this.getCurrentUserId();
 
     // Format guests as array of room objects (required by backend)
@@ -193,9 +181,20 @@ class RateHawkApiService {
       requestBody.filters = apiFilters;
     }
 
-    console.log("📤 SENDING REQUEST TO BACKEND:", requestBody);
+    console.log("📤 SENDING REQUEST TO EDGE FUNCTION:", requestBody);
 
-    const rawResponse = await this.fetchWithError<{
+    // Call Supabase edge function to proxy to Render (avoids CORS)
+    const { data, error } = await supabase.functions.invoke('travelapi-search', {
+      body: requestBody,
+    });
+
+    if (error) {
+      console.error("❌ Edge function error:", error);
+      throw new Error(error.message || "Search failed");
+    }
+
+    // Type the response
+    const rawResponse = data as {
       success: boolean;
       hotels: Array<{
         id: string;
@@ -211,14 +210,11 @@ class RateHawkApiService {
         freeCancellation?: boolean;
         mealPlan?: string;
         paymentType?: string;
-        ratehawk_data?: any; // Keep it flexible to see full structure
+        ratehawk_data?: any;
       }>;
       total?: number;
       hasMore?: boolean;
-    }>(url, {
-      method: "POST",
-      body: JSON.stringify(requestBody),
-    });
+    };
 
     // ✅ CRITICAL DEBUG: Log EXACT response from backend
     if (rawResponse.hotels && rawResponse.hotels.length > 0) {
@@ -378,10 +374,18 @@ class RateHawkApiService {
   ];
 
   async getDestinations(query: string): Promise<Destination[]> {
-    const url = `${API_BASE_URL}/api/destination`;
-
     try {
-      const response = await this.fetchWithError<{
+      // Call Supabase edge function to proxy to Render (avoids CORS)
+      const { data, error } = await supabase.functions.invoke('travelapi-destination', {
+        body: { query },
+      });
+
+      if (error) {
+        console.error("❌ Destination edge function error:", error);
+        throw error;
+      }
+
+      const response = data as {
         hotels?: Array<{
           otahotel_id: string;
           hotel_name: string;
@@ -396,10 +400,7 @@ class RateHawkApiService {
           type: string;
           slug?: string;
         }>;
-      }>(url, {
-        method: "POST",
-        body: JSON.stringify({ query }),
-      });
+      };
 
       console.log('🔍 Destination API response:', response);
 

@@ -1,5 +1,6 @@
 // ETG / RateHawk Booking API Service
 import { API_BASE_URL } from "@/config/api";
+import { getOrCreateUserId } from "@/lib/getOrCreateUserId";
 import type {
   PrebookParams,
   PrebookResponse,
@@ -46,11 +47,7 @@ class BookingApiService {
   }
 
   private getCurrentUserId(): string {
-    const userId = localStorage.getItem("userId");
-    if (!userId) {
-      throw new Error("No authenticated user found. Please log in first.");
-    }
-    return userId;
+    return getOrCreateUserId();
   }
 
   /**
