@@ -7,6 +7,42 @@ const corsHeaders = {
 };
 
 const RENDER_API_URL = "https://travelapi-bg6t.onrender.com";
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 2000;
+
+// Helper to delay execution
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Helper to make request with retries for transient errors (502, 503, 504)
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = MAX_RETRIES): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`📤 Attempt ${attempt}/${maxRetries} to ${url}`);
+      const response = await fetch(url, options);
+      
+      // If it's a transient error (502, 503, 504), retry
+      if ([502, 503, 504].includes(response.status) && attempt < maxRetries) {
+        console.log(`⚠️ Got ${response.status}, retrying in ${RETRY_DELAY_MS}ms...`);
+        await delay(RETRY_DELAY_MS);
+        continue;
+      }
+      
+      return response;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.error(`❌ Fetch attempt ${attempt} failed:`, lastError.message);
+      
+      if (attempt < maxRetries) {
+        console.log(`⏳ Retrying in ${RETRY_DELAY_MS}ms...`);
+        await delay(RETRY_DELAY_MS);
+      }
+    }
+  }
+  
+  throw lastError || new Error('All retry attempts failed');
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -61,10 +97,10 @@ serve(async (req) => {
       );
     }
 
-    // Forward to Render API
+    // Forward to Render API with retry logic for cold starts
     console.log('📤 Forwarding to Render:', `${RENDER_API_URL}/api/ratehawk/search`);
     
-    let renderResponse = await fetch(`${RENDER_API_URL}/api/ratehawk/search`, {
+    let renderResponse = await fetchWithRetry(`${RENDER_API_URL}/api/ratehawk/search`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -89,7 +125,7 @@ serve(async (req) => {
       
       console.log('📤 Retry payload:', JSON.stringify(retryBody));
       
-      const retryResponse = await fetch(`${RENDER_API_URL}/api/ratehawk/search`, {
+      const retryResponse = await fetchWithRetry(`${RENDER_API_URL}/api/ratehawk/search`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -123,6 +159,22 @@ serve(async (req) => {
           }),
           {
             status: 400, // Change to 400 - it's a client-side issue
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
+      // For 502/503/504 after all retries, give a clearer message
+      if ([502, 503, 504].includes(renderResponse.status)) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'The hotel search service is temporarily unavailable. Please try again in a moment.',
+            status: renderResponse.status,
+            hotels: [],
+            totalHotels: 0
+          }),
+          {
+            status: 503,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         );
