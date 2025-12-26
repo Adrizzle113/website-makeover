@@ -68,34 +68,11 @@ export function SearchBar() {
       return;
     }
 
-    // Check for valid RateHawk session
-    const userId = localStorage.getItem('userId');
-    if (!userId) {
-      toast({
-        title: "Please log in first",
-        description: "You need to be logged in to search for hotels.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsSearching(true);
     setLoading(true);
     setError(null);
 
     try {
-      // Verify RateHawk session before searching
-      const sessionCheck = await ratehawkApi.checkSession(userId);
-      if (!sessionCheck.isLoggedIn) {
-        toast({
-          title: "RateHawk session required",
-          description: "Please connect to RateHawk from the dashboard first.",
-          variant: "destructive",
-        });
-        setIsSearching(false);
-        setLoading(false);
-        return;
-      }
 
       const searchParams = {
         destination,
