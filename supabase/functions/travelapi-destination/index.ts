@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 const RENDER_API_URL = "https://travelapi-bg6t.onrender.com";
+const REQUEST_TIMEOUT_MS = 10000; // 10 seconds
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -17,33 +18,72 @@ serve(async (req) => {
   try {
     const { query } = await req.json();
     
-    console.log("📍 Destination search for:", query);
-
-    const response = await fetch(`${RENDER_API_URL}/api/destination`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("❌ Render API error:", response.status, errorText);
-      throw new Error(`API Error: ${response.status}`);
+    // Return empty array for empty/short queries
+    if (!query || query.trim().length < 2) {
+      return new Response(JSON.stringify({ regions: [], hotels: [] }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const data = await response.json();
-    console.log("✅ Destination results:", data?.regions?.length || 0, "regions,", data?.hotels?.length || 0, "hotels");
+    console.log("📍 Destination search for:", query);
 
-    return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    // Create abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(`${RENDER_API_URL}/api/destination`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      const responseText = await response.text();
+      console.log(`📨 Render response: ${response.status}`);
+
+      // For 5xx errors, return empty array (graceful degradation)
+      if (response.status >= 500) {
+        console.warn(`⚠️ Upstream error ${response.status}, returning empty results`);
+        return new Response(JSON.stringify({ regions: [], hotels: [], upstream_status: response.status }), {
+          status: 200, // Return 200 so autocomplete doesn't break
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // For success or client errors, pass through the response
+      const data = responseText ? JSON.parse(responseText) : { regions: [], hotels: [] };
+      console.log("✅ Destination results:", data?.regions?.length || 0, "regions,", data?.hotels?.length || 0, "hotels");
+
+      return new Response(JSON.stringify(data), {
+        status: response.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      const message = fetchError instanceof Error ? fetchError.message : String(fetchError);
+      console.error("❌ Fetch error:", message);
+      
+      // Graceful degradation - return empty results instead of error
+      return new Response(JSON.stringify({ regions: [], hotels: [], error: message }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
   } catch (error) {
     console.error("💥 Destination proxy error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
+    
+    // Graceful degradation for any error
+    return new Response(JSON.stringify({ regions: [], hotels: [] }), {
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

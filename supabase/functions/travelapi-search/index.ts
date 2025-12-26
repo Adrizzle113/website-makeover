@@ -7,90 +7,105 @@ const corsHeaders = {
 };
 
 const RENDER_API_URL = "https://travelapi-bg6t.onrender.com";
-const MAX_RETRIES = 5;
-const INITIAL_RETRY_DELAY_MS = 3000;
-const RENDER_HEALTH_URL = `${RENDER_API_URL}/api/health`;
-const WARMUP_TIMEOUT_MS = 8000;
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 2000;
+const REQUEST_TIMEOUT_MS = 45000; // 45 seconds
+const WARMUP_TIMEOUT_MS = 10000; // 10 seconds
 
 // Helper to delay execution
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Exponential backoff: 3s, 6s, 12s, 24s (total ~45s wait time to cover cold starts)
-const getRetryDelay = (attempt: number) => INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
-
-// Quick warm-up ping (Render free-tier instances may be asleep)
-async function warmUpRender(): Promise<void> {
+// Warmup function - pings health endpoint to wake up Render
+async function warmupServer(): Promise<{ ok: boolean; status: number }> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), WARMUP_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), WARMUP_TIMEOUT_MS);
 
   try {
-    console.log(`🔥 Warming Render via ${RENDER_HEALTH_URL}`);
-    const res = await fetch(RENDER_HEALTH_URL, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
+    console.log('🔥 Warming up Render server...');
+    const response = await fetch(`${RENDER_API_URL}/api/health`, {
       signal: controller.signal,
     });
-    console.log(`🔥 Warmup status: ${res.status}`);
+    
+    clearTimeout(timeoutId);
+    const isHealthy = response.ok;
+    console.log(`${isHealthy ? '✅' : '❌'} Health check: ${response.status}`);
+    return { ok: isHealthy, status: response.status };
   } catch (error) {
+    clearTimeout(timeoutId);
     const message = error instanceof Error ? error.message : String(error);
-    console.log(`⚠️ Warmup failed (continuing anyway): ${message}`);
-  } finally {
-    clearTimeout(timeout);
+    console.warn('⚠️ Warmup failed:', message);
+    return { ok: false, status: 0 };
   }
 }
 
-// Helper to make request with retries for transient errors (502, 503, 504)
-async function fetchWithRetry(url: string, options: RequestInit, maxRetries = MAX_RETRIES): Promise<Response> {
-  let lastError: Error | null = null;
+// Retry with linear backoff (simpler, faster feedback)
+async function fetchWithRetry(
+  url: string, 
+  options: RequestInit, 
+  maxRetries: number
+): Promise<{ response: Response | null; attempts: number; lastStatus: number }> {
+  let lastStatus = 0;
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const retryDelay = getRetryDelay(attempt);
-      console.log(`📤 Attempt ${attempt}/${maxRetries} to ${url}`);
-      const response = await fetch(url, options);
+      console.log(`🔄 Attempt ${attempt}/${maxRetries}: ${url}`);
       
-      // If it's a transient error (502, 503, 504), retry with exponential backoff
-      if ([502, 503, 504].includes(response.status) && attempt < maxRetries) {
-        console.log(`⚠️ Got ${response.status}, server may be waking up. Retrying in ${retryDelay}ms...`);
-        await delay(retryDelay);
-        continue;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      lastStatus = response.status;
+      
+      // Success or client error (4xx) - don't retry
+      if (response.ok || (response.status >= 400 && response.status < 500)) {
+        return { response, attempts: attempt, lastStatus };
       }
       
-      return response;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(`❌ Fetch attempt ${attempt} failed:`, lastError.message);
+      // Server error - retry
+      console.log(`⚠️ Server error ${response.status}, will retry...`);
       
       if (attempt < maxRetries) {
-        const retryDelay = getRetryDelay(attempt);
-        console.log(`⏳ Retrying in ${retryDelay}ms...`);
-        await delay(retryDelay);
+        const waitTime = RETRY_DELAY_MS * attempt;
+        console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+        await delay(waitTime);
+      }
+      
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Attempt ${attempt} failed:`, message);
+      
+      if (attempt < maxRetries) {
+        const waitTime = RETRY_DELAY_MS * attempt;
+        await delay(waitTime);
       }
     }
   }
   
-  throw lastError || new Error('All retry attempts failed');
+  return { response: null, attempts: maxRetries, lastStatus };
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const requestStart = Date.now();
+
   try {
     // Parse request body
     const bodyText = await req.text();
-    console.log(`📥 Raw body length: ${bodyText.length} chars`);
+    console.log(`📥 Request body length: ${bodyText.length} chars`);
 
     if (!bodyText || bodyText.length === 0) {
-      console.error('❌ Empty request body');
       return new Response(
         JSON.stringify({ error: 'Empty request body' }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -98,147 +113,112 @@ serve(async (req) => {
     try {
       requestBody = JSON.parse(bodyText);
     } catch (parseError) {
-      console.error('❌ JSON parse error:', parseError);
+      console.error('❌ JSON parse error');
       return new Response(
-        JSON.stringify({ error: 'Invalid JSON in request body' }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        JSON.stringify({ error: 'Invalid JSON' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('📋 Request keys:', Object.keys(requestBody));
-    console.log('📍 Destination:', requestBody.destination);
-    console.log('🆔 RegionId:', requestBody.regionId);
-    console.log('📅 Dates:', requestBody.checkin, '->', requestBody.checkout);
+    console.log('📋 Payload keys:', Object.keys(requestBody));
+    console.log('📍 destination:', requestBody.destination);
+    console.log('🆔 regionId:', requestBody.regionId);
 
-    // Validation - destination is required
-    if (!requestBody.destination) {
-      console.error('❌ Missing destination in payload');
+    // Validate - destination is required
+    if (!requestBody.destination && !requestBody.regionId) {
       return new Response(
-        JSON.stringify({ error: 'destination is required' }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        JSON.stringify({ error: 'destination or regionId is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Forward to Render API with retry logic for cold starts
-    // (Render free-tier apps can be asleep even after DNS resolves)
-    await warmUpRender();
+    // Warmup server first
+    const warmup = await warmupServer();
 
-    console.log('📤 Forwarding to Render:', `${RENDER_API_URL}/api/ratehawk/search`);
-    
-    let renderResponse = await fetchWithRetry(`${RENDER_API_URL}/api/ratehawk/search`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    let responseText = await renderResponse.text();
-    console.log(`📨 Render response status: ${renderResponse.status}`);
-    console.log(`📨 Render response preview: ${responseText.substring(0, 300)}`);
-
-    // If "Destination not found" error and we have a regionId, try with just the regionId
-    if (!renderResponse.ok && responseText.includes('Destination not found') && requestBody.regionId) {
-      console.log('🔄 Retrying with regionId-only search...');
-      
-      // Create a modified payload using regionId as the primary lookup
-      const retryBody = {
-        ...requestBody,
-        destination: `region_${requestBody.regionId}`, // Signal to use regionId
-        useRegionId: true,
-      };
-      
-      console.log('📤 Retry payload:', JSON.stringify(retryBody));
-      
-      const retryResponse = await fetchWithRetry(`${RENDER_API_URL}/api/ratehawk/search`, {
+    // Call Render API with retry
+    const { response: renderResponse, attempts, lastStatus } = await fetchWithRetry(
+      `${RENDER_API_URL}/api/ratehawk/search`,
+      {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(retryBody),
-      });
-      
-      const retryText = await retryResponse.text();
-      console.log(`📨 Retry response status: ${retryResponse.status}`);
-      console.log(`📨 Retry response preview: ${retryText.substring(0, 300)}`);
-      
-      // If retry succeeded, use that response
-      if (retryResponse.ok) {
-        renderResponse = retryResponse;
-        responseText = retryText;
-      }
-    }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      },
+      MAX_RETRIES
+    );
 
-    if (!renderResponse.ok) {
-      console.error(`❌ Render API error: ${renderResponse.status}`);
-      
-      // Provide a more helpful error message for "Destination not found"
-      if (responseText.includes('Destination not found')) {
-        const destination = requestBody.destination;
-        return new Response(
-          JSON.stringify({ 
-            error: `"${destination}" is not available for search. Try a major city nearby (e.g., Los Angeles, New York).`,
-            originalError: responseText,
-            hotels: [],
-            totalHotels: 0
-          }),
-          {
-            status: 400, // Change to 400 - it's a client-side issue
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-      }
-      
-      // For 502/503/504 after all retries, give a clearer message
-      if ([502, 503, 504].includes(renderResponse.status)) {
-        return new Response(
-          JSON.stringify({ 
-            error: 'The hotel search service is temporarily unavailable. Please try again in a moment.',
-            status: renderResponse.status,
-            hotels: [],
-            totalHotels: 0
-          }),
-          {
-            status: 503,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-      }
-      
+    const duration = Date.now() - requestStart;
+
+    // All retries failed
+    if (!renderResponse) {
+      console.error('💥 All retries failed');
       return new Response(
-        responseText || JSON.stringify({ error: `Render API error: ${renderResponse.status}` }),
-        {
-          status: renderResponse.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        JSON.stringify({
+          error: 'Service temporarily unavailable. Please try again in 30 seconds.',
+          details: warmup.ok 
+            ? 'Backend is online but search endpoint is not responding'
+            : 'Backend server is waking up',
+          wasWarm: warmup.ok,
+          warmupStatus: warmup.status,
+          attempts,
+          lastStatus,
+          duration_ms: duration,
+          hotels: [],
+          totalHotels: 0,
+        }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Return successful response
+    const responseText = await renderResponse.text();
+    console.log(`📨 Render response: ${renderResponse.status} (${duration}ms)`);
+    console.log(`📨 Response preview: ${responseText.substring(0, 200)}`);
+
+    // Handle server errors after retries succeeded but got error
+    if (renderResponse.status >= 500) {
+      return new Response(
+        JSON.stringify({
+          error: 'Backend service error. Please try again.',
+          upstream_status: renderResponse.status,
+          duration_ms: duration,
+          wasWarm: warmup.ok,
+          hotels: [],
+          totalHotels: 0,
+        }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle "Destination not found" as client error
+    if (!renderResponse.ok && responseText.includes('Destination not found')) {
+      const destination = requestBody.destination;
+      return new Response(
+        JSON.stringify({
+          error: `"${destination}" is not available for search. Try a major city nearby.`,
+          hotels: [],
+          totalHotels: 0,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Return response (success or other client error)
     return new Response(responseText, {
-      status: 200,
+      status: renderResponse.status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
+    const duration = Date.now() - requestStart;
     console.error('💥 Edge function error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
+    
     return new Response(
-      JSON.stringify({ 
-        error: 'Internal server error',
+      JSON.stringify({
+        error: 'Internal error',
         message,
-        timestamp: new Date().toISOString()
+        duration_ms: duration,
       }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

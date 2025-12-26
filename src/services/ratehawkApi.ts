@@ -221,7 +221,35 @@ class RateHawkApiService {
 
     if (error) {
       console.error("❌ Edge function error:", error);
-      throw new Error(error.message || "Search failed");
+      
+      // Try to extract the actual error message from the response
+      let errorMessage = "Search failed";
+      try {
+        // The error context may contain the JSON body from the edge function
+        if (error.context && typeof error.context === 'object') {
+          const ctx = error.context as { error?: string; details?: string };
+          errorMessage = ctx.error || ctx.details || errorMessage;
+        } else if (error.message) {
+          // Try to parse JSON from error message
+          const jsonMatch = error.message.match(/\{.*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            errorMessage = parsed.error || parsed.details || errorMessage;
+          } else {
+            errorMessage = error.message;
+          }
+        }
+      } catch {
+        // Use default message if parsing fails
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    // Check if response indicates an error (edge function returned error JSON with 2xx)
+    if (data && typeof data === 'object' && 'error' in data && !('hotels' in data && (data as any).hotels?.length > 0)) {
+      const errorData = data as { error: string; details?: string };
+      throw new Error(errorData.error || errorData.details || "Search failed");
     }
 
     // Type the response
