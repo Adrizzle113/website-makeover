@@ -153,8 +153,8 @@ class RateHawkApiService {
     const userId = this.getCurrentUserId();
 
     // VALIDATION: Fail early with helpful errors
-    const destination = params.destination?.trim();
-    if (!destination) {
+    const rawDestination = params.destination?.trim();
+    if (!rawDestination) {
       throw new Error('Please select a destination');
     }
 
@@ -164,6 +164,14 @@ class RateHawkApiService {
 
     if (new Date(this.formatDate(params.checkIn)) >= new Date(this.formatDate(params.checkOut))) {
       throw new Error('Check-out must be after check-in');
+    }
+
+    // Simplify destination: Remove state/region suffix if present
+    // e.g., "New York, New York" → "New York" (Render backend can't resolve full region names)
+    let searchDestination = rawDestination;
+    if (rawDestination.includes(',')) {
+      searchDestination = rawDestination.split(',')[0].trim();
+      console.log(`📍 Simplified destination: "${rawDestination}" → "${searchDestination}"`);
     }
 
     // Format guests as array of room objects (required by backend)
@@ -178,10 +186,10 @@ class RateHawkApiService {
       };
     });
 
-    // Build request body - ALWAYS include destination string
+    // Build request body - ALWAYS include simplified destination string
     const requestBody: Record<string, unknown> = {
       userId,
-      destination, // ALWAYS send city name (required by backend)
+      destination: searchDestination, // Simplified city name (required by backend)
       checkin: this.formatDate(params.checkIn),
       checkout: this.formatDate(params.checkOut),
       guests,
