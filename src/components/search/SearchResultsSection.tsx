@@ -403,13 +403,30 @@ export function SearchResultsSection() {
 
         {/* No Results */}
         {hotels.length === 0 && (
-          <div className="text-center py-20">
-            <p className="text-muted-foreground text-body-lg mb-4">
-              No properties match your current filters.
-            </p>
-            <Button variant="outline" onClick={() => useBookingStore.getState().resetFilters()}>
-              Clear All Filters
-            </Button>
+          <div className="text-center py-20 space-y-4">
+            {isFiltered ? (
+              <>
+                <p className="text-muted-foreground text-body-lg">
+                  No properties match your current filters.
+                </p>
+                <Button variant="outline" onClick={() => useBookingStore.getState().resetFilters()}>
+                  Clear All Filters
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-muted-foreground text-body-lg">
+                  No hotels found for "{searchParams.destination}" with these dates.
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  Try adjusting your dates or searching for a nearby city.
+                </p>
+                <Button variant="outline" onClick={handleRetrySearch} disabled={isLoading}>
+                  {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Search Again
+                </Button>
+              </>
+            )}
           </div>
         )}
 
