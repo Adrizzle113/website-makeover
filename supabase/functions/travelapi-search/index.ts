@@ -64,7 +64,7 @@ serve(async (req) => {
     // Forward to Render API
     console.log('📤 Forwarding to Render:', `${RENDER_API_URL}/api/ratehawk/search`);
     
-    const renderResponse = await fetch(`${RENDER_API_URL}/api/ratehawk/search`, {
+    let renderResponse = await fetch(`${RENDER_API_URL}/api/ratehawk/search`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -72,12 +72,62 @@ serve(async (req) => {
       body: JSON.stringify(requestBody),
     });
 
-    const responseText = await renderResponse.text();
+    let responseText = await renderResponse.text();
     console.log(`📨 Render response status: ${renderResponse.status}`);
     console.log(`📨 Render response preview: ${responseText.substring(0, 300)}`);
 
+    // If "Destination not found" error and we have a regionId, try with just the regionId
+    if (!renderResponse.ok && responseText.includes('Destination not found') && requestBody.regionId) {
+      console.log('🔄 Retrying with regionId-only search...');
+      
+      // Create a modified payload using regionId as the primary lookup
+      const retryBody = {
+        ...requestBody,
+        destination: `region_${requestBody.regionId}`, // Signal to use regionId
+        useRegionId: true,
+      };
+      
+      console.log('📤 Retry payload:', JSON.stringify(retryBody));
+      
+      const retryResponse = await fetch(`${RENDER_API_URL}/api/ratehawk/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(retryBody),
+      });
+      
+      const retryText = await retryResponse.text();
+      console.log(`📨 Retry response status: ${retryResponse.status}`);
+      console.log(`📨 Retry response preview: ${retryText.substring(0, 300)}`);
+      
+      // If retry succeeded, use that response
+      if (retryResponse.ok) {
+        renderResponse = retryResponse;
+        responseText = retryText;
+      }
+    }
+
     if (!renderResponse.ok) {
       console.error(`❌ Render API error: ${renderResponse.status}`);
+      
+      // Provide a more helpful error message for "Destination not found"
+      if (responseText.includes('Destination not found')) {
+        const destination = requestBody.destination;
+        return new Response(
+          JSON.stringify({ 
+            error: `"${destination}" is not available for search. Try a major city nearby (e.g., Los Angeles, New York).`,
+            originalError: responseText,
+            hotels: [],
+            totalHotels: 0
+          }),
+          {
+            status: 400, // Change to 400 - it's a client-side issue
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
       return new Response(
         responseText || JSON.stringify({ error: `Render API error: ${renderResponse.status}` }),
         {
