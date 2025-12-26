@@ -65,15 +65,19 @@ async function fetchWithRetry(
       if (response.ok || (response.status >= 400 && response.status < 500)) {
         return { response, attempts: attempt, lastStatus };
       }
-      
-      // Server error - retry
-      console.log(`⚠️ Server error ${response.status}, will retry...`);
-      
+
+      // Server error
       if (attempt < maxRetries) {
+        console.log(`⚠️ Server error ${response.status}, will retry...`);
         const waitTime = RETRY_DELAY_MS * attempt;
         console.log(`⏳ Waiting ${waitTime}ms before retry...`);
         await delay(waitTime);
+        continue;
       }
+
+      // Final attempt: return the response so we can surface upstream details
+      console.log(`💥 Server error ${response.status} on final attempt`);
+      return { response, attempts: attempt, lastStatus };
       
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
