@@ -9,66 +9,103 @@ const corsHeaders = {
 const RENDER_API_URL = "https://travelapi-bg6t.onrender.com";
 
 serve(async (req) => {
-  // Handle CORS preflight
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Safely parse request body
+    // Parse request body
+    const bodyText = await req.text();
+    console.log(`📥 Raw body length: ${bodyText.length} chars`);
+
+    if (!bodyText || bodyText.length === 0) {
+      console.error('❌ Empty request body');
+      return new Response(
+        JSON.stringify({ error: 'Empty request body' }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
     let requestBody;
     try {
-      const text = await req.text();
-      if (!text || text.trim() === '') {
-        console.error("❌ Empty request body received");
-        return new Response(JSON.stringify({ error: "Empty request body" }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      requestBody = JSON.parse(text);
+      requestBody = JSON.parse(bodyText);
     } catch (parseError) {
-      console.error("❌ Failed to parse request body:", parseError);
-      return new Response(JSON.stringify({ error: "Invalid JSON in request body" }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      console.error('❌ JSON parse error:', parseError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
-    
-    console.log("🔍 Hotel search request:", {
-      regionId: requestBody.regionId,
-      destination: requestBody.destination,
-      checkin: requestBody.checkin,
-      checkout: requestBody.checkout,
-      rooms: requestBody.guests?.length,
-    });
 
-    const response = await fetch(`${RENDER_API_URL}/api/ratehawk/search`, {
-      method: "POST",
+    console.log('📋 Request keys:', Object.keys(requestBody));
+    console.log('📍 Destination:', requestBody.destination);
+    console.log('🆔 RegionId:', requestBody.regionId);
+    console.log('📅 Dates:', requestBody.checkin, '->', requestBody.checkout);
+
+    // Validation - destination is required
+    if (!requestBody.destination) {
+      console.error('❌ Missing destination in payload');
+      return new Response(
+        JSON.stringify({ error: 'destination is required' }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // Forward to Render API
+    console.log('📤 Forwarding to Render:', `${RENDER_API_URL}/api/ratehawk/search`);
+    
+    const renderResponse = await fetch(`${RENDER_API_URL}/api/ratehawk/search`, {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("❌ Render API error:", response.status, errorText);
-      throw new Error(`API Error: ${response.status} - ${errorText}`);
+    const responseText = await renderResponse.text();
+    console.log(`📨 Render response status: ${renderResponse.status}`);
+    console.log(`📨 Render response preview: ${responseText.substring(0, 300)}`);
+
+    if (!renderResponse.ok) {
+      console.error(`❌ Render API error: ${renderResponse.status}`);
+      return new Response(
+        responseText || JSON.stringify({ error: `Render API error: ${renderResponse.status}` }),
+        {
+          status: renderResponse.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    const data = await response.json();
-    console.log("✅ Hotel search results:", data?.hotels?.length || 0, "hotels found");
+    // Return successful response
+    return new Response(responseText, {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
-    return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
   } catch (error) {
-    console.error("💥 Search proxy error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('💥 Edge function error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(
+      JSON.stringify({ 
+        error: 'Internal server error',
+        message,
+        timestamp: new Date().toISOString()
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
   }
 });
