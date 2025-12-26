@@ -15,9 +15,28 @@ serve(async (req) => {
   }
 
   try {
-    const requestBody = await req.json();
+    // Safely parse request body
+    let requestBody;
+    try {
+      const text = await req.text();
+      if (!text || text.trim() === '') {
+        console.error("❌ Empty request body received");
+        return new Response(JSON.stringify({ error: "Empty request body" }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      requestBody = JSON.parse(text);
+    } catch (parseError) {
+      console.error("❌ Failed to parse request body:", parseError);
+      return new Response(JSON.stringify({ error: "Invalid JSON in request body" }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     
     console.log("🔍 Hotel search request:", {
+      regionId: requestBody.regionId,
       destination: requestBody.destination,
       checkin: requestBody.checkin,
       checkout: requestBody.checkout,
