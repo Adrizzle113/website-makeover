@@ -263,6 +263,24 @@ export function SearchResultsSection() {
     });
   }, [searchResults, sortBy]);
 
+  // Retry handler for 503 errors - MUST be before any early returns
+  const handleRetrySearch = useCallback(async () => {
+    if (!searchParams) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await ratehawkApi.searchHotels(searchParams, 1, filters);
+      setSearchResults(response.hotels, response.hasMore, response.totalResults);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Search failed";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }, [searchParams, filters, setLoading, setError, setSearchResults]);
+
   const activeFilterCount = getActiveFilterCount();
   const isFiltered = activeFilterCount > 0;
 
@@ -285,23 +303,6 @@ export function SearchResultsSection() {
     );
   }
 
-  // Retry handler for 503 errors
-  const handleRetrySearch = useCallback(async () => {
-    if (!searchParams) return;
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await ratehawkApi.searchHotels(searchParams, 1, filters);
-      setSearchResults(response.hotels, response.hasMore, response.totalResults);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Search failed";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [searchParams, filters, setLoading, setError, setSearchResults]);
 
   if (error) {
     const isServiceUnavailable = error.toLowerCase().includes('temporarily') || 
