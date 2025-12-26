@@ -232,15 +232,16 @@ class RateHawkApiService {
           const res = response.clone();
           const contentType = res.headers.get("content-type") || "";
 
-          if (contentType.includes("application/json")) {
-            const body = await res.json();
-            if (body && typeof body === "object") {
-              errorMessage = (body as any).error || (body as any).details || errorMessage;
+            if (contentType.includes("application/json")) {
+              const body = await res.json();
+              if (body && typeof body === "object") {
+                // Prefer `details` when present (often contains the real upstream error)
+                errorMessage = (body as any).details || (body as any).error || errorMessage;
+              }
+            } else {
+              const text = await res.text();
+              if (text) errorMessage = text;
             }
-          } else {
-            const text = await res.text();
-            if (text) errorMessage = text;
-          }
         } catch {
           // ignore parsing errors; keep fallback message
         }
