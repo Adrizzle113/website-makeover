@@ -14,7 +14,129 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      destination_cache: {
+        Row: {
+          created_at: string
+          destination_name: string
+          id: string
+          last_verified: string
+          region_id: number
+          region_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          destination_name: string
+          id?: string
+          last_verified?: string
+          region_id: number
+          region_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          destination_name?: string
+          id?: string
+          last_verified?: string
+          region_id?: number
+          region_name?: string | null
+        }
+        Relationships: []
+      }
+      hotel_static_cache: {
+        Row: {
+          address: string | null
+          amenities: Json | null
+          cached_at: string
+          city: string | null
+          coordinates: Json | null
+          country: string | null
+          description: string | null
+          expires_at: string
+          hotel_id: string
+          id: string
+          images: Json | null
+          language: string
+          name: string | null
+          raw_data: Json | null
+          star_rating: number | null
+        }
+        Insert: {
+          address?: string | null
+          amenities?: Json | null
+          cached_at?: string
+          city?: string | null
+          coordinates?: Json | null
+          country?: string | null
+          description?: string | null
+          expires_at: string
+          hotel_id: string
+          id?: string
+          images?: Json | null
+          language?: string
+          name?: string | null
+          raw_data?: Json | null
+          star_rating?: number | null
+        }
+        Update: {
+          address?: string | null
+          amenities?: Json | null
+          cached_at?: string
+          city?: string | null
+          coordinates?: Json | null
+          country?: string | null
+          description?: string | null
+          expires_at?: string
+          hotel_id?: string
+          id?: string
+          images?: Json | null
+          language?: string
+          name?: string | null
+          raw_data?: Json | null
+          star_rating?: number | null
+        }
+        Relationships: []
+      }
+      search_cache: {
+        Row: {
+          cached_at: string
+          etg_search_id: string | null
+          expires_at: string
+          hit_count: number
+          hotel_ids: string[]
+          id: string
+          rates_index: Json
+          region_id: number
+          search_params: Json
+          search_signature: string
+          total_hotels: number
+        }
+        Insert: {
+          cached_at?: string
+          etg_search_id?: string | null
+          expires_at: string
+          hit_count?: number
+          hotel_ids: string[]
+          id?: string
+          rates_index: Json
+          region_id: number
+          search_params: Json
+          search_signature: string
+          total_hotels: number
+        }
+        Update: {
+          cached_at?: string
+          etg_search_id?: string | null
+          expires_at?: string
+          hit_count?: number
+          hotel_ids?: string[]
+          id?: string
+          rates_index?: Json
+          region_id?: number
+          search_params?: Json
+          search_signature?: string
+          total_hotels?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
