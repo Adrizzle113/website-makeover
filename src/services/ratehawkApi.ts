@@ -153,8 +153,8 @@ class RateHawkApiService {
     const userId = this.getCurrentUserId();
 
     // VALIDATION: Fail early with helpful errors
-    const destination = params.destination?.trim();
-    if (!destination) {
+    const rawDestination = params.destination?.trim();
+    if (!rawDestination) {
       throw new Error("Please select a destination");
     }
 
@@ -164,6 +164,13 @@ class RateHawkApiService {
 
     if (new Date(this.formatDate(params.checkIn)) >= new Date(this.formatDate(params.checkOut))) {
       throw new Error("Check-out must be after check-in");
+    }
+
+    // Prefer sending a plain city name to the backend (it often fails on "City, State")
+    let destination = rawDestination;
+    if (rawDestination.includes(",")) {
+      destination = rawDestination.split(",")[0].trim();
+      console.log(`📍 Simplified destination: "${rawDestination}" → "${destination}"`);
     }
 
     // Format guests as array of room objects (required by backend)
@@ -178,10 +185,10 @@ class RateHawkApiService {
       };
     });
 
-    // Build request body - ALWAYS include the full destination string
+    // Build request body - ALWAYS include a destination string
     const requestBody: Record<string, unknown> = {
       userId,
-      destination, // Keep full value (e.g., "West Hollywood, California")
+      destination,
       checkin: this.formatDate(params.checkIn),
       checkout: this.formatDate(params.checkOut),
       guests,
@@ -191,11 +198,14 @@ class RateHawkApiService {
       residency: "us",
     };
 
-    // If destinationId is numeric, ALSO include regionId for faster lookup
+    // If destinationId is numeric, ALSO include regionId (and region_id for compatibility)
     const isNumericId = params.destinationId && /^\d+$/.test(params.destinationId);
     if (isNumericId) {
-      requestBody.regionId = parseInt(params.destinationId!, 10);
-      console.log(`✅ Including regionId: ${requestBody.regionId}`);
+      const regionId = parseInt(params.destinationId!, 10);
+      requestBody.regionId = regionId;
+      // Some upstream implementations expect snake_case
+      requestBody.region_id = regionId;
+      console.log(`✅ Including regionId: ${regionId}`);
     }
 
     // Add filters if provided

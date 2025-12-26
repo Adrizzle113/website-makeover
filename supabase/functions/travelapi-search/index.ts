@@ -126,10 +126,10 @@ serve(async (req) => {
 
     console.log('📋 Payload keys:', Object.keys(requestBody));
     console.log('📍 destination:', requestBody.destination);
-    console.log('🆔 regionId:', requestBody.regionId);
+    console.log('🆔 regionId:', requestBody.regionId ?? requestBody.region_id);
 
     // Validate - destination is required
-    if (!requestBody.destination && !requestBody.regionId) {
+    if (!requestBody.destination && !requestBody.regionId && !requestBody.region_id) {
       return new Response(
         JSON.stringify({ error: 'destination or regionId is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -177,24 +177,9 @@ serve(async (req) => {
     console.log(`📨 Render response: ${renderResponse.status} (${duration}ms)`);
     console.log(`📨 Response preview: ${responseText.substring(0, 200)}`);
 
-    // Handle server errors after retries succeeded but got error
-    if (renderResponse.status >= 500) {
-      return new Response(
-        JSON.stringify({
-          error: 'Backend service error. Please try again.',
-          upstream_status: renderResponse.status,
-          duration_ms: duration,
-          wasWarm: warmup.ok,
-          hotels: [],
-          totalHotels: 0,
-        }),
-        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Handle "Destination not found" as client error
-    if (!renderResponse.ok && responseText.includes('Destination not found')) {
-      const destination = requestBody.destination;
+    // Handle "Destination not found" as client error (even if upstream mistakenly returns 5xx)
+    if (responseText.includes('Destination not found')) {
+      const destination = String((requestBody as any).destination ?? "");
       return new Response(
         JSON.stringify({
           error: `"${destination}" is not available for search. Try a major city nearby.`,
@@ -202,6 +187,43 @@ serve(async (req) => {
           totalHotels: 0,
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle server errors after retries succeeded but got error
+    if (renderResponse.status >= 500) {
+      // Try to surface upstream error details to the client for debugging
+      let upstreamDetails: string | null = null;
+
+      try {
+        const maybeJson = JSON.parse(responseText);
+        if (maybeJson && typeof maybeJson === "object") {
+          upstreamDetails =
+            (maybeJson as any).error ||
+            (maybeJson as any).message ||
+            (maybeJson as any).details ||
+            null;
+        }
+      } catch {
+        // not JSON
+      }
+
+      const upstreamPreview = (upstreamDetails || responseText || "").toString().slice(0, 1500);
+
+      return new Response(
+        JSON.stringify({
+          error: "Backend service error. Please try again.",
+          details: upstreamPreview || "Upstream returned a 5xx without a body",
+          upstream_status: renderResponse.status,
+          attempts,
+          lastStatus: renderResponse.status,
+          duration_ms: duration,
+          wasWarm: warmup.ok,
+          warmupStatus: warmup.status,
+          hotels: [],
+          totalHotels: 0,
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
