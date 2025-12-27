@@ -436,12 +436,22 @@ class RateHawkApiService {
     { id: "singapore", name: "Singapore", country: "Singapore", type: "city" },
   ];
 
-  async getDestinations(query: string): Promise<Destination[]> {
+  async getDestinations(query: string, signal?: AbortSignal): Promise<Destination[]> {
+    // Check if already aborted before making request
+    if (signal?.aborted) {
+      throw new DOMException('Aborted', 'AbortError');
+    }
+
     try {
       // Call Supabase edge function to proxy to Render (avoids CORS)
       const { data, error } = await supabase.functions.invoke('travelapi-destination', {
         body: { query },
       });
+
+      // Check if aborted after request completes (before processing)
+      if (signal?.aborted) {
+        throw new DOMException('Aborted', 'AbortError');
+      }
 
       if (error) {
         console.error("❌ Destination edge function error:", error);
