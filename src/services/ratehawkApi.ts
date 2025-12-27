@@ -458,6 +458,30 @@ class RateHawkApiService {
         throw error;
       }
 
+      // Handle new structured response format from backend
+      // Format: { status: "ok", data: { destinations: [...] }, meta: { from_cache, duration_ms } }
+      const isNewFormat = data?.status === 'ok' && data?.data?.destinations;
+      
+      if (isNewFormat) {
+        const meta = data.meta || {};
+        console.log(`🔍 Destination API response (cache: ${meta.from_cache}, ${meta.duration_ms}ms):`, data.data.destinations.length, 'results');
+        
+        // Transform new format destinations
+        return (data.data.destinations || []).map((dest: {
+          label: string;
+          region_id: number;
+          type: string;
+          country_code?: string;
+          country_name?: string;
+        }) => ({
+          id: String(dest.region_id),
+          name: dest.label.split(',')[0].trim(), // Extract city name from label
+          country: dest.country_name || dest.label.split(',').slice(1).join(',').trim() || '',
+          type: dest.type?.toLowerCase().includes('city') ? 'city' : 'region',
+        }));
+      }
+
+      // Legacy response format handling
       const response = data as {
         hotels?: Array<{
           otahotel_id: string;
@@ -475,10 +499,9 @@ class RateHawkApiService {
         }>;
       };
 
-      console.log('🔍 Destination API response:', response);
+      console.log('🔍 Destination API response (legacy format):', response);
 
       // Transform regions to Destination format (prioritize regions/cities)
-      // Use numeric ID since the search API expects region_id (not slug)
       const regionDestinations: Destination[] = (response.regions || []).map((region) => ({
         id: String(region.id),
         name: region.name,
