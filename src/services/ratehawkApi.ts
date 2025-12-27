@@ -412,29 +412,53 @@ class RateHawkApiService {
     return paymentType?.show_currency_code || paymentType?.currency_code || "USD";
   }
 
-  // Popular destinations fallback for when API has CORS issues
+  // Popular destinations fallback for when API has CORS issues or returns empty
   private static POPULAR_DESTINATIONS: Destination[] = [
-    { id: "las_vegas", name: "Las Vegas", country: "Nevada, United States", type: "city" },
-    { id: "new_york", name: "New York", country: "New York, United States", type: "city" },
-    { id: "miami", name: "Miami", country: "Florida, United States", type: "city" },
-    { id: "los_angeles", name: "Los Angeles", country: "California, United States", type: "city" },
-    { id: "san_francisco", name: "San Francisco", country: "California, United States", type: "city" },
-    { id: "chicago", name: "Chicago", country: "Illinois, United States", type: "city" },
-    { id: "orlando", name: "Orlando", country: "Florida, United States", type: "city" },
-    { id: "honolulu", name: "Honolulu", country: "Hawaii, United States", type: "city" },
-    { id: "london", name: "London", country: "United Kingdom", type: "city" },
-    { id: "paris", name: "Paris", country: "France", type: "city" },
-    { id: "rome", name: "Rome", country: "Italy", type: "city" },
-    { id: "barcelona", name: "Barcelona", country: "Spain", type: "city" },
-    { id: "dubai", name: "Dubai", country: "United Arab Emirates", type: "city" },
-    { id: "tokyo", name: "Tokyo", country: "Japan", type: "city" },
-    { id: "cancun", name: "Cancun", country: "Mexico", type: "city" },
-    { id: "nassau", name: "Nassau", country: "Bahamas", type: "city" },
-    { id: "amsterdam", name: "Amsterdam", country: "Netherlands", type: "city" },
-    { id: "sydney", name: "Sydney", country: "Australia", type: "city" },
-    { id: "bangkok", name: "Bangkok", country: "Thailand", type: "city" },
-    { id: "singapore", name: "Singapore", country: "Singapore", type: "city" },
+    { id: "2011", name: "Las Vegas", country: "Nevada, United States", type: "city" },
+    { id: "2007", name: "New York", country: "New York, United States", type: "city" },
+    { id: "2008", name: "Miami", country: "Florida, United States", type: "city" },
+    { id: "2621", name: "Los Angeles", country: "California, United States", type: "city" },
+    { id: "2012", name: "San Francisco", country: "California, United States", type: "city" },
+    { id: "2015", name: "Chicago", country: "Illinois, United States", type: "city" },
+    { id: "2620", name: "Orlando", country: "Florida, United States", type: "city" },
+    { id: "2622", name: "Honolulu", country: "Hawaii, United States", type: "city" },
+    { id: "2114", name: "London", country: "United Kingdom", type: "city" },
+    { id: "2734", name: "Paris", country: "France", type: "city" },
+    { id: "2741", name: "Rome", country: "Italy", type: "city" },
+    { id: "2731", name: "Barcelona", country: "Spain", type: "city" },
+    { id: "3014", name: "Dubai", country: "United Arab Emirates", type: "city" },
+    { id: "3016", name: "Tokyo", country: "Japan", type: "city" },
+    { id: "2629", name: "Cancun", country: "Mexico", type: "city" },
+    { id: "2933", name: "Nassau", country: "Bahamas", type: "city" },
+    { id: "2739", name: "Amsterdam", country: "Netherlands", type: "city" },
+    { id: "3224", name: "Sydney", country: "Australia", type: "city" },
+    { id: "3108", name: "Bangkok", country: "Thailand", type: "city" },
+    { id: "3125", name: "Singapore", country: "Singapore", type: "city" },
   ];
+
+  // Get fallback destinations when API returns empty or fails
+  private getFallbackDestinations(query: string): Destination[] {
+    const queryLower = query.toLowerCase().trim();
+    
+    // Filter popular destinations by query
+    const matches = RateHawkApiService.POPULAR_DESTINATIONS.filter(
+      (dest) => 
+        dest.name.toLowerCase().includes(queryLower) || 
+        dest.country.toLowerCase().includes(queryLower)
+    );
+
+    // If we found matches, return them
+    if (matches.length > 0) {
+      console.log(`📍 Fallback: Found ${matches.length} matching destinations for "${query}"`);
+      return matches;
+    }
+
+    // No matches - return a "search this location" option so user can still proceed
+    console.log(`📍 Fallback: No matches for "${query}", returning search option`);
+    return [
+      { id: "", name: query, country: "Search this location", type: "city" }
+    ];
+  }
 
   async getDestinations(query: string, signal?: AbortSignal): Promise<Destination[]> {
     // Check if already aborted before making request
@@ -473,12 +497,14 @@ class RateHawkApiService {
       // Format: { status: "ok", data: { destinations: [...] }, meta: { from_cache, duration_ms } }
       const isNewFormat = data?.status === 'ok' && data?.data?.destinations;
       
+      let suggestions: Destination[] = [];
+      
       if (isNewFormat) {
         const meta = data.meta || {};
         console.log(`🔍 Destination API response (cache: ${meta.from_cache}, ${meta.duration_ms}ms):`, data.data.destinations.length, 'results');
         
         // Transform new format destinations
-        return (data.data.destinations || []).map((dest: {
+        suggestions = (data.data.destinations || []).map((dest: {
           label: string;
           region_id: number;
           type: string;
@@ -490,55 +516,65 @@ class RateHawkApiService {
           country: dest.country_name || dest.label.split(',').slice(1).join(',').trim() || '',
           type: dest.type?.toLowerCase().includes('city') ? 'city' : 'region',
         }));
+      } else {
+        // Legacy response format handling
+        const response = data as {
+          hotels?: Array<{
+            otahotel_id: string;
+            hotel_name: string;
+            region_name: string;
+            country_name: string;
+            slug?: string;
+          }>;
+          regions?: Array<{
+            id: number;
+            name: string;
+            country: string;
+            type: string;
+            slug?: string;
+          }>;
+        };
+
+        console.log('🔍 Destination API response (legacy format):', response);
+
+        // Transform regions to Destination format (prioritize regions/cities)
+        const regionDestinations: Destination[] = (response.regions || []).map((region) => ({
+          id: String(region.id),
+          name: region.name,
+          country: region.country,
+          type: region.type.toLowerCase().includes("city") ? "city" : "region",
+        }));
+
+        // Optionally include hotels as suggestions
+        const hotelDestinations: Destination[] = (response.hotels || []).slice(0, 3).map((hotel) => ({
+          id: hotel.otahotel_id,
+          name: hotel.hotel_name,
+          country: `${hotel.region_name}, ${hotel.country_name}`,
+          type: "hotel" as const,
+        }));
+
+        // Return regions first, then a few hotel suggestions
+        suggestions = [...regionDestinations, ...hotelDestinations];
       }
 
-      // Legacy response format handling
-      const response = data as {
-        hotels?: Array<{
-          otahotel_id: string;
-          hotel_name: string;
-          region_name: string;
-          country_name: string;
-          slug?: string;
-        }>;
-        regions?: Array<{
-          id: number;
-          name: string;
-          country: string;
-          type: string;
-          slug?: string;
-        }>;
-      };
+      // CRITICAL: If API returned empty results, use local fallback
+      if (suggestions.length === 0) {
+        console.log(`⚠️ API returned 0 results for "${query}", using local fallback`);
+        return this.getFallbackDestinations(query);
+      }
 
-      console.log('🔍 Destination API response (legacy format):', response);
-
-      // Transform regions to Destination format (prioritize regions/cities)
-      const regionDestinations: Destination[] = (response.regions || []).map((region) => ({
-        id: String(region.id),
-        name: region.name,
-        country: region.country,
-        type: region.type.toLowerCase().includes("city") ? "city" : "region",
-      }));
-
-      // Optionally include hotels as suggestions
-      const hotelDestinations: Destination[] = (response.hotels || []).slice(0, 3).map((hotel) => ({
-        id: hotel.otahotel_id,
-        name: hotel.hotel_name,
-        country: `${hotel.region_name}, ${hotel.country_name}`,
-        type: "hotel" as const,
-      }));
-
-      // Return regions first, then a few hotel suggestions
-      return [...regionDestinations, ...hotelDestinations];
+      return suggestions;
     } catch (error) {
+      // Re-throw AbortError so frontend can handle it properly
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw error;
+      }
+
       console.error("Error fetching destinations:", error);
 
-      // Fallback: Filter popular destinations by query when API fails (CORS issues)
+      // Fallback: Use local popular destinations when API fails
       console.log("📍 Using fallback destination search for:", query);
-      const queryLower = query.toLowerCase();
-      return RateHawkApiService.POPULAR_DESTINATIONS.filter(
-        (dest) => dest.name.toLowerCase().includes(queryLower) || dest.country.toLowerCase().includes(queryLower),
-      );
+      return this.getFallbackDestinations(query);
     }
   }
 }
