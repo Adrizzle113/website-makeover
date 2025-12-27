@@ -71,7 +71,16 @@ serve(async (req) => {
       const message = fetchError instanceof Error ? fetchError.message : String(fetchError);
       console.error("❌ Fetch error:", message);
       
-      // Graceful degradation - return empty results instead of error
+      // For abort/timeout errors, return clean empty result without error field
+      // This prevents the frontend from showing abort errors to users
+      if (message.includes('aborted') || message.includes('Aborted') || message.includes('timeout')) {
+        return new Response(JSON.stringify({ regions: [], hotels: [] }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // For other errors, include error message for debugging
       return new Response(JSON.stringify({ regions: [], hotels: [], error: message }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
