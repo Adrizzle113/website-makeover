@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { ratehawkApi } from "@/services/ratehawkApi";
-import { useDebounce } from "@/hooks/useDebounce";
+import { useDestinationAutocomplete } from "@/hooks/useDestinationAutocomplete";
 import type { Destination } from "@/types/booking";
 
 interface DestinationAutocompleteProps {
@@ -16,15 +15,17 @@ export function DestinationAutocomplete({
   onChange,
   placeholder = "Where are you going?",
 }: DestinationAutocompleteProps) {
-  const [query, setQuery] = useState(value);
-  const [suggestions, setSuggestions] = useState<Destination[]>([]);
-  const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Debounce the query to prevent rapid-fire requests (500ms to avoid rate limits)
-  const debouncedQuery = useDebounce(query, 500);
+  const {
+    query,
+    setQuery,
+    suggestions,
+    isLoading,
+    isOpen,
+    setIsOpen,
+    handleSelect,
+  } = useDestinationAutocomplete(onChange, { initialValue: value });
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -35,70 +36,7 @@ export function DestinationAutocomplete({
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Fetch destinations when debounced query changes
-  useEffect(() => {
-    // Cancel any previous in-flight request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    if (debouncedQuery.length < 2) {
-      setSuggestions([]);
-      return;
-    }
-
-    // Create new abort controller for this request
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    const fetchDestinations = async () => {
-      setIsLoading(true);
-      try {
-        const results = await ratehawkApi.getDestinations(debouncedQuery, controller.signal);
-        
-        // Only update state if this request wasn't cancelled
-        if (!controller.signal.aborted) {
-          setSuggestions(results);
-          setIsOpen(true);
-        }
-      } catch (err) {
-        // Ignore AbortError - it's expected when user types quickly
-        if (err instanceof DOMException && err.name === 'AbortError') {
-          return;
-        }
-        
-        console.error("Error fetching destinations:", err);
-        
-        // For rate limits and other errors, silently use fallback instead of showing error
-        // The ratehawkApi already returns fallback destinations on error
-        if (!controller.signal.aborted) {
-          setSuggestions([
-            { id: "", name: debouncedQuery, country: "Search this location", type: "city" },
-          ]);
-          setIsOpen(true);
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    fetchDestinations();
-
-    // Cleanup: abort request on unmount or query change
-    return () => {
-      controller.abort();
-    };
-  }, [debouncedQuery]);
-
-  const handleSelect = (destination: Destination) => {
-    setQuery(destination.name);
-    onChange(destination.name, destination.id);
-    setIsOpen(false);
-  };
+  }, [setIsOpen]);
 
   return (
     <div ref={wrapperRef} className="relative flex-1">
@@ -107,11 +45,8 @@ export function DestinationAutocomplete({
         <Input
           type="text"
           value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            onChange(e.target.value);
-          }}
-          onFocus={() => debouncedQuery.length >= 2 && setIsOpen(true)}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => query.length >= 2 && setIsOpen(true)}
           placeholder={placeholder}
           className="pl-10 h-12 text-body-small bg-background border-border"
         />
@@ -124,7 +59,7 @@ export function DestinationAutocomplete({
 
       {isOpen && suggestions.length > 0 && (
         <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-card overflow-hidden">
-          {suggestions.map((destination) => (
+          {suggestions.map((destination: Destination) => (
             <button
               key={destination.id || destination.name}
               onClick={() => handleSelect(destination)}

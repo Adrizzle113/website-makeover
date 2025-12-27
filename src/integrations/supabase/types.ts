@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      autocomplete_cache: {
+        Row: {
+          cached_at: string
+          expires_at: string
+          id: string
+          locale: string
+          query: string
+          query_key: string
+          results: Json
+        }
+        Insert: {
+          cached_at?: string
+          expires_at: string
+          id?: string
+          locale?: string
+          query: string
+          query_key: string
+          results: Json
+        }
+        Update: {
+          cached_at?: string
+          expires_at?: string
+          id?: string
+          locale?: string
+          query?: string
+          query_key?: string
+          results?: Json
+        }
+        Relationships: []
+      }
       destination_cache: {
         Row: {
           created_at: string

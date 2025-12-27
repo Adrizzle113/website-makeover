@@ -12,8 +12,9 @@ const API_CONFIG = {
   current: "live" as const,
 };
 
-// Export the base URL based on current environment
-export const API_BASE_URL = "https://travelapi-bg6t.onrender.com";
+// Export the base URL from environment variable, with fallback to live URL
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || API_CONFIG.live;
 
 // Export the full config object for reference
 export default API_CONFIG;
