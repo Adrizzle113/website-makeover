@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MapPin, AlertCircle } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ratehawkApi } from "@/services/ratehawkApi";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -20,12 +20,11 @@ export function DestinationAutocomplete({
   const [suggestions, setSuggestions] = useState<Destination[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Debounce the query to prevent rapid-fire requests
-  const debouncedQuery = useDebounce(query, 300);
+  // Debounce the query to prevent rapid-fire requests (500ms to avoid rate limits)
+  const debouncedQuery = useDebounce(query, 500);
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -45,9 +44,6 @@ export function DestinationAutocomplete({
       abortControllerRef.current.abort();
     }
 
-    // Reset error state
-    setError(null);
-
     if (debouncedQuery.length < 2) {
       setSuggestions([]);
       return;
@@ -66,7 +62,6 @@ export function DestinationAutocomplete({
         if (!controller.signal.aborted) {
           setSuggestions(results);
           setIsOpen(true);
-          setError(null);
         }
       } catch (err) {
         // Ignore AbortError - it's expected when user types quickly
@@ -76,14 +71,8 @@ export function DestinationAutocomplete({
         
         console.error("Error fetching destinations:", err);
         
-        // Handle rate limit errors
-        if (err instanceof Error && err.message.includes('429')) {
-          setError("Too many requests. Please wait a moment.");
-        } else {
-          setError(null); // Don't show error for other cases, just fallback
-        }
-        
-        // Fallback suggestion for non-abort errors
+        // For rate limits and other errors, silently use fallback instead of showing error
+        // The ratehawkApi already returns fallback destinations on error
         if (!controller.signal.aborted) {
           setSuggestions([
             { id: "", name: debouncedQuery, country: "Search this location", type: "city" },
@@ -109,7 +98,6 @@ export function DestinationAutocomplete({
     setQuery(destination.name);
     onChange(destination.name, destination.id);
     setIsOpen(false);
-    setError(null);
   };
 
   return (
@@ -134,14 +122,7 @@ export function DestinationAutocomplete({
         )}
       </div>
 
-      {error && (
-        <div className="absolute z-50 w-full mt-1 px-3 py-2 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {isOpen && suggestions.length > 0 && !error && (
+      {isOpen && suggestions.length > 0 && (
         <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-card overflow-hidden">
           {suggestions.map((destination) => (
             <button
