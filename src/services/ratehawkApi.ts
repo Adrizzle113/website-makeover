@@ -458,6 +458,17 @@ class RateHawkApiService {
         throw error;
       }
 
+      // Check if response contains an abort/timeout error from edge function
+      if (data?.error) {
+        const errorMsg = String(data.error);
+        if (errorMsg.includes('aborted') || errorMsg.includes('Aborted') || errorMsg.includes('timeout')) {
+          // Throw AbortError so frontend handles it gracefully (ignored by catch)
+          throw new DOMException('Aborted', 'AbortError');
+        }
+        console.warn('⚠️ Destination API returned error:', data.error);
+        throw new Error(data.error);
+      }
+
       // Handle new structured response format from backend
       // Format: { status: "ok", data: { destinations: [...] }, meta: { from_cache, duration_ms } }
       const isNewFormat = data?.status === 'ok' && data?.data?.destinations;
