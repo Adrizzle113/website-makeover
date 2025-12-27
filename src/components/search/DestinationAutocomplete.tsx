@@ -20,7 +20,9 @@ export function DestinationAutocomplete({
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Handle click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
@@ -31,32 +33,58 @@ export function DestinationAutocomplete({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Fetch destinations with debounce and request cancellation
   useEffect(() => {
-    const fetchDestinations = async () => {
-      if (query.length < 2) {
-        setSuggestions([]);
-        return;
-      }
+    // Cancel any previous in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
 
+    if (query.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    // Create new abort controller for this request
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    // Debounce the API call
+    const debounceTimer = setTimeout(async () => {
       setIsLoading(true);
       try {
-        const results = await ratehawkApi.getDestinations(query);
-        setSuggestions(results);
-        setIsOpen(true);
+        const results = await ratehawkApi.getDestinations(query, controller.signal);
+        
+        // Only update state if this request wasn't cancelled
+        if (!controller.signal.aborted) {
+          setSuggestions(results);
+          setIsOpen(true);
+        }
       } catch (error) {
+        // Ignore AbortError - it's expected when user types quickly
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
         console.error("Error fetching destinations:", error);
-        // Use the query as destination name (no ID) so search uses name resolution
-        setSuggestions([
-          { id: "", name: query, country: "Search this location", type: "city" },
-        ]);
-        setIsOpen(true);
+        // Fallback suggestion for non-abort errors
+        if (!controller.signal.aborted) {
+          setSuggestions([
+            { id: "", name: query, country: "Search this location", type: "city" },
+          ]);
+          setIsOpen(true);
+        }
       } finally {
-        setIsLoading(false);
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
       }
-    };
+    }, 300);
 
-    const debounce = setTimeout(fetchDestinations, 300);
-    return () => clearTimeout(debounce);
+    // Cleanup: cancel timeout and abort request on unmount or query change
+    return () => {
+      clearTimeout(debounceTimer);
+      controller.abort();
+    };
   }, [query]);
 
   const handleSelect = (destination: Destination) => {
@@ -86,7 +114,7 @@ export function DestinationAutocomplete({
         <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-card overflow-hidden">
           {suggestions.map((destination) => (
             <button
-              key={destination.id}
+              key={destination.id || destination.name}
               onClick={() => handleSelect(destination)}
               className="w-full px-4 py-3 text-left hover:bg-muted transition-colors flex items-center gap-3"
             >
