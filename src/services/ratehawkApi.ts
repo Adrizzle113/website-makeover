@@ -233,10 +233,20 @@ class RateHawkApiService {
     
     if (isNumericId) {
       regionId = parseInt(params.destinationId!, 10);
-      console.log(`✅ Using provided regionId: ${regionId}`);
-    } else {
+      
+      // VALIDATION: RateHawk region IDs are typically < 100,000
+      // IDs like 966242095 are invalid and will return 0 hotels
+      if (regionId > 100000) {
+        console.warn(`⚠️ Suspicious regionId detected: ${regionId} - may be invalid, will auto-lookup instead`);
+        regionId = null; // Force auto-lookup
+      } else {
+        console.log(`✅ Using provided regionId: ${regionId}`);
+      }
+    }
+    
+    if (!regionId) {
       // Auto-lookup fallback
-      console.log(`⚠️ No region_id provided, auto-looking up for: "${destination}"`);
+      console.log(`⚠️ No valid region_id, auto-looking up for: "${destination}"`);
       regionId = await this.lookupRegionId(destination);
       
       if (!regionId) {
@@ -456,11 +466,12 @@ class RateHawkApiService {
   }
 
   // Popular destinations fallback for when API has CORS issues or returns empty
+  // IDs verified from RateHawk API response logs
   private static POPULAR_DESTINATIONS: Destination[] = [
-    { id: "2011", name: "Las Vegas", country: "Nevada, United States", type: "city" },
+    { id: "2011", name: "Los Angeles", country: "California, United States", type: "city" },
+    { id: "2621", name: "Las Vegas", country: "Nevada, United States", type: "city" },
     { id: "2007", name: "New York", country: "New York, United States", type: "city" },
     { id: "2008", name: "Miami", country: "Florida, United States", type: "city" },
-    { id: "2621", name: "Los Angeles", country: "California, United States", type: "city" },
     { id: "2012", name: "San Francisco", country: "California, United States", type: "city" },
     { id: "2015", name: "Chicago", country: "Illinois, United States", type: "city" },
     { id: "2620", name: "Orlando", country: "Florida, United States", type: "city" },

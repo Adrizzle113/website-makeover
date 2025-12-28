@@ -73,12 +73,25 @@ export function SearchBar() {
       return;
     }
 
+    // Clear stale cached data to prevent using old region IDs
+    try {
+      localStorage.removeItem("hotelSearchResults");
+    } catch (e) {
+      // Ignore localStorage errors
+    }
+
+    console.log("🔍 Search initiated with:", {
+      destination,
+      destinationId,
+      isDestinationSelected,
+      destinationIdType: typeof destinationId,
+    });
+
     setIsSearching(true);
     setLoading(true);
     setError(null);
 
     try {
-
       const searchParams = {
         destination,
         destinationId,
