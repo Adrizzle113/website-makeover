@@ -63,6 +63,9 @@ export function SearchBar() {
     console.log("📍 Destination changed:", { value, id, isSelected: !!id });
   };
 
+  // Debug indicator for selected region ID
+  const showRegionIdDebug = isDestinationSelected && destinationId;
+
   const handleSearch = async () => {
     if (!destination || !isDestinationSelected) {
       toast({
@@ -158,6 +161,12 @@ export function SearchBar() {
               value={destination}
               onChange={handleDestinationChange}
             />
+            {/* Debug: Show selected region ID */}
+            {showRegionIdDebug && (
+              <p className="text-xs text-muted-foreground mt-1">
+                📍 Region ID: {destinationId}
+              </p>
+            )}
           </div>
 
           {/* Check-in Date */}
