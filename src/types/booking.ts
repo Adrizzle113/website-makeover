@@ -332,3 +332,12 @@ export interface POIResponse {
     duration: string;
   };
 }
+
+// Search Response type (matches API service)
+export interface SearchResponse {
+  hotels: Hotel[];
+  totalResults: number;
+  hasMore: boolean;
+  nextPage: number;
+  currentPage: number;
+}

@@ -16,6 +16,7 @@ export interface SearchResponse {
   totalResults: number;
   hasMore: boolean;
   nextPage: number;
+  currentPage: number;
 }
 
 interface SessionCheckResponse {
@@ -231,7 +232,7 @@ class RateHawkApiService {
       checkout: this.formatDate(params.checkOut),
       guests,
       page,
-      limit: 20,
+      limit: 100, // ✅ Load 100 hotels per page for faster initial load
       currency: "USD",
       residency: "us",
     };
@@ -274,175 +275,117 @@ class RateHawkApiService {
       requestBody.filters = apiFilters;
     }
 
-    // ✅ BYPASS EDGE FUNCTION - Call Render directly to avoid 60s timeout
-    const RENDER_API_URL = "https://travelapi-bg6t.onrender.com";
-    console.log("🔍 Calling Render API directly (bypassing edge function timeout)...");
-    console.log("📤 Request body:", requestBody);
-
-    const response = await fetch(`${RENDER_API_URL}/api/ratehawk/search`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
+    // Call edge function (handles CORS and proxies to Render backend)
+    console.log("🔍 Search Request:", {
+      destination,
+      page,
+      limit: 100,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage = `Search failed: ${response.status}`;
-      
-      // Check if it's HTML (Render error page) or JSON
-      if (errorText.includes('<!DOCTYPE') || errorText.includes('<html')) {
-        console.error("❌ Received HTML error page from Render:", errorText.substring(0, 200));
-        if (response.status === 502 || response.status === 503) {
-          errorMessage = "Search service temporarily unavailable. Please try again in 30 seconds.";
-        } else {
-          errorMessage = `Backend error (${response.status}). Please try again.`;
-        }
-      } else {
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.error || errorData.message || errorMessage;
-        } catch {
-          // Not JSON, use the text if it's short enough
-          if (errorText.length < 200) {
-            errorMessage = errorText;
-          }
-        }
-      }
-      
-      throw new Error(errorMessage);
-    }
-
-    const data = await response.json();
-    
-    // Check if response indicates an error
-    if (data && typeof data === 'object' && 'error' in data) {
-      const errorData = data as { error: string; details?: string };
-      throw new Error(errorData.error || errorData.details || "Search failed");
-    }
-
-    // Type the response
-    const rawResponse = data as {
-      success: boolean;
-      hotels: Array<{
-        id: string;
-        name: string;
-        location?: string;
-        rating?: number;
-        reviewScore?: number;
-        reviewCount?: number;
-        price?: { amount: number; currency: string; period?: string };
-        image?: string;
-        amenities?: string[];
-        description?: string;
-        freeCancellation?: boolean;
-        mealPlan?: string;
-        paymentType?: string;
-        ratehawk_data?: any;
-      }>;
-      total?: number;
-      hasMore?: boolean;
-    };
-
-    // ✅ CRITICAL DEBUG: Log EXACT response from backend
-    if (rawResponse.hotels && rawResponse.hotels.length > 0) {
-      const firstHotel = rawResponse.hotels[0];
-      console.log("🔥🔥🔥 CRITICAL - RAW BACKEND RESPONSE ANALYSIS:", {
-        hotelId: firstHotel.id,
-        hotelName: firstHotel.name,
-        ratehawk_data_structure: {
-          has_ratehawk_data: !!firstHotel.ratehawk_data,
-          top_level_keys: Object.keys(firstHotel.ratehawk_data || {}),
-
-          // Rates analysis
-          has_rates_array: !!firstHotel.ratehawk_data?.rates,
-          rates_count: firstHotel.ratehawk_data?.rates?.length || 0,
-          rates_is_array: Array.isArray(firstHotel.ratehawk_data?.rates),
-
-          // EnhancedData analysis
-          has_enhanced_data: !!firstHotel.ratehawk_data?.enhancedData,
-          enhanced_rates_count: firstHotel.ratehawk_data?.enhancedData?.rates?.length || 0,
-          enhanced_rates_is_array: Array.isArray(firstHotel.ratehawk_data?.enhancedData?.rates),
-
-          // Room groups analysis
-          room_groups_count: firstHotel.ratehawk_data?.room_groups?.length || 0,
-          enhanced_room_groups_count: firstHotel.ratehawk_data?.enhancedData?.room_groups?.length || 0,
-        },
-
-        // Log ACTUAL data (not just counts)
-        ACTUAL_RATES_ARRAY: firstHotel.ratehawk_data?.rates,
-        ACTUAL_ENHANCED_RATES: firstHotel.ratehawk_data?.enhancedData?.rates,
-        ACTUAL_ROOM_GROUPS: firstHotel.ratehawk_data?.room_groups,
+    try {
+      const { data, error } = await supabase.functions.invoke("travelapi-search", {
+        body: requestBody,
       });
 
-      // Also log the full ratehawk_data to see complete structure
-      console.log("📦 FULL ratehawk_data for first hotel:", JSON.parse(JSON.stringify(firstHotel.ratehawk_data)));
-    }
+      if (error) {
+        console.error("❌ Search error:", error);
+        throw new Error(error.message || "Search failed");
+      }
 
-    // Transform backend response to match Hotel type - PRESERVE EVERYTHING
-    const hotels: Hotel[] = (rawResponse.hotels || []).map((h) => {
-      const staticVm = h.ratehawk_data?.static_vm;
-      const amenityStrings = h.amenities || [];
+      console.log("✅ Search Response:", {
+        hotels: data.hotels?.length || 0,
+        total: data.total,
+        page: data.page,
+        hasMore: data.hasMore,
+      });
 
-      // ✅ DON'T filter or modify rates - keep ALL of them
-      const rates = h.ratehawk_data?.rates || [];
+      // Check if response indicates an error
+      if (data && typeof data === 'object' && 'error' in data) {
+        const errorData = data as { error: string; details?: string };
+        throw new Error(errorData.error || errorData.details || "Search failed");
+      }
 
-      // Extract cancellation and meal info from rates
-      const hasFreeCancellation =
-        h.freeCancellation || rates.some((r) => r.cancellationPolicy?.toLowerCase().includes("free"));
-      const mealPlan = h.mealPlan || rates[0]?.mealPlan;
-      const paymentTypes = rates[0]?.paymentInfo?.allowed_payment_types?.map((p) => p.type) || [];
+      // Type the response
+      const rawResponse = data as {
+        success: boolean;
+        hotels: Array<{
+          id: string;
+          name: string;
+          location?: string;
+          rating?: number;
+          reviewScore?: number;
+          reviewCount?: number;
+          price?: { amount: number; currency: string; period?: string };
+          image?: string;
+          amenities?: string[];
+          description?: string;
+          freeCancellation?: boolean;
+          mealPlan?: string;
+          paymentType?: string;
+          ratehawk_data?: any;
+        }>;
+        total?: number;
+        hasMore?: boolean;
+        page?: number;
+      };
+
+      // Transform backend response to match Hotel type - PRESERVE EVERYTHING
+      const hotels: Hotel[] = (rawResponse.hotels || []).map((h) => {
+        const staticVm = h.ratehawk_data?.static_vm;
+        const amenityStrings = h.amenities || [];
+
+        // ✅ DON'T filter or modify rates - keep ALL of them
+        const rates = h.ratehawk_data?.rates || [];
+
+        // Extract cancellation and meal info from rates
+        const hasFreeCancellation =
+          h.freeCancellation || rates.some((r: any) => r.cancellationPolicy?.toLowerCase().includes("free"));
+        const mealPlan = h.mealPlan || rates[0]?.mealPlan;
+        const paymentTypes = rates[0]?.paymentInfo?.allowed_payment_types?.map((p: any) => p.type) || [];
+
+        return {
+          id: h.id,
+          name: h.name,
+          description: h.description || "",
+          address: h.location || staticVm?.address || "",
+          city: staticVm?.city || "",
+          country: staticVm?.country || "",
+          starRating: staticVm?.star_rating ? Math.round(staticVm.star_rating / 10) : h.rating || 0,
+          reviewScore: h.reviewScore,
+          reviewCount: h.reviewCount,
+          images: (staticVm?.images || []).slice(0, 10).map((img: any) => ({
+            url: img.tmpl.replace("{size}", "1024x768"),
+            alt: h.name,
+          })),
+          mainImage: h.image || staticVm?.images?.[0]?.tmpl.replace("{size}", "1024x768") || "/placeholder.svg",
+          amenities: amenityStrings.map((a: string, idx: number) => ({ id: `amenity-${idx}`, name: a })),
+          priceFrom: h.price?.amount || 0,
+          currency: h.price?.currency || "USD",
+          latitude: staticVm?.latitude,
+          longitude: staticVm?.longitude,
+          // ✅ CRITICAL: Preserve COMPLETE ratehawk_data - don't modify it
+          ratehawk_data: h.ratehawk_data,
+          // Extended fields for filtering display
+          freeCancellation: hasFreeCancellation,
+          mealPlan,
+          paymentTypes,
+        } as Hotel;
+      });
+
+      const totalResults = rawResponse.total || hotels.length;
+      const hasMore = rawResponse.hasMore ?? (hotels.length === 100);
 
       return {
-        id: h.id,
-        name: h.name,
-        description: h.description || "",
-        address: h.location || staticVm?.address || "",
-        city: staticVm?.city || "",
-        country: staticVm?.country || "",
-        starRating: staticVm?.star_rating ? Math.round(staticVm.star_rating / 10) : h.rating || 0,
-        reviewScore: h.reviewScore,
-        reviewCount: h.reviewCount,
-        images: (staticVm?.images || []).slice(0, 10).map((img) => ({
-          url: img.tmpl.replace("{size}", "1024x768"),
-          alt: h.name,
-        })),
-        mainImage: h.image || staticVm?.images?.[0]?.tmpl.replace("{size}", "1024x768") || "/placeholder.svg",
-        amenities: amenityStrings.map((a, idx) => ({ id: `amenity-${idx}`, name: a })),
-        priceFrom: h.price?.amount || 0,
-        currency: h.price?.currency || "USD",
-        latitude: staticVm?.latitude,
-        longitude: staticVm?.longitude,
-        // ✅ CRITICAL: Preserve COMPLETE ratehawk_data - don't modify it
-        ratehawk_data: h.ratehawk_data,
-        // Extended fields for filtering display
-        freeCancellation: hasFreeCancellation,
-        mealPlan,
-        paymentTypes,
-      } as Hotel;
-    });
-
-    // Debug: Log what we're passing to the rest of the app
-    hotels.forEach((h) => {
-      console.log(`📦 TRANSFORMED Hotel ${h.id}:`, {
-        hasRatehawkData: !!h.ratehawk_data,
-        rates_count: h.ratehawk_data?.rates?.length || 0,
-        enhanced_rates_count: h.ratehawk_data?.enhancedData?.rates?.length || 0,
-        room_groups_count: h.ratehawk_data?.room_groups?.length || 0,
-        enhanced_room_groups_count: h.ratehawk_data?.enhancedData?.room_groups?.length || 0,
-      });
-    });
-
-    const totalResults = rawResponse.total || hotels.length;
-    const hasMore = rawResponse.hasMore ?? hotels.length === 20;
-
-    return {
-      hotels,
-      totalResults,
-      hasMore,
-      nextPage: page + 1,
-    };
+        hotels,
+        totalResults,
+        hasMore,
+        nextPage: page + 1,
+        currentPage: page,
+      };
+    } catch (error) {
+      console.error("❌ Search failed:", error);
+      throw error;
+    }
   }
 
   async getHotelDetails(hotelId: string, searchParams?: SearchParams): Promise<HotelDetails | null> {
