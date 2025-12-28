@@ -163,10 +163,19 @@ class RateHawkApiService {
         return null;
       }
 
-      const firstRegion = data?.regions?.[0];
-      if (firstRegion?.id) {
-        const regionId = parseInt(firstRegion.id, 10);
-        console.log(`✅ Found region_id: ${regionId} for "${destination}"`);
+      // Support NEW format: { status: "ok", data: { destinations: [...] } }
+      const newFormatRegion = data?.data?.destinations?.[0];
+      if (newFormatRegion?.region_id) {
+        const regionId = newFormatRegion.region_id;
+        console.log(`✅ Found region_id (new format): ${regionId} for "${destination}"`);
+        return regionId;
+      }
+
+      // Support LEGACY format: { regions: [...] }
+      const legacyRegion = data?.regions?.[0];
+      if (legacyRegion?.id) {
+        const regionId = parseInt(legacyRegion.id, 10);
+        console.log(`✅ Found region_id (legacy format): ${regionId} for "${destination}"`);
         return regionId;
       }
 
@@ -234,14 +243,12 @@ class RateHawkApiService {
     if (isNumericId) {
       regionId = parseInt(params.destinationId!, 10);
       
-      // VALIDATION: RateHawk region IDs are typically < 100,000
-      // IDs like 966242095 are invalid and will return 0 hotels
+      // Log warning for large IDs (for debugging), but DON'T reject them
+      // Large IDs like 966242095 are valid for smaller cities/regions
       if (regionId > 100000) {
-        console.warn(`⚠️ Suspicious regionId detected: ${regionId} - may be invalid, will auto-lookup instead`);
-        regionId = null; // Force auto-lookup
-      } else {
-        console.log(`✅ Using provided regionId: ${regionId}`);
+        console.warn(`ℹ️ Large regionId: ${regionId} - may be a smaller city/region (valid)`);
       }
+      console.log(`✅ Using provided regionId: ${regionId}`);
     }
     
     if (!regionId) {
@@ -557,19 +564,33 @@ class RateHawkApiService {
         const meta = data.meta || {};
         console.log(`🔍 Destination API response (cache: ${meta.from_cache}, ${meta.duration_ms}ms):`, data.data.destinations.length, 'results');
         
-        // Transform new format destinations
+        // Transform new format destinations with "City, State" for US to avoid ambiguity
         suggestions = (data.data.destinations || []).map((dest: {
           label: string;
           region_id: number;
           type: string;
           country_code?: string;
           country_name?: string;
-        }) => ({
-          id: String(dest.region_id),
-          name: dest.label.split(',')[0].trim(), // Extract city name from label
-          country: dest.country_name || dest.label.split(',').slice(1).join(',').trim() || '',
-          type: dest.type?.toLowerCase().includes('city') ? 'city' : 'region',
-        }));
+        }) => {
+          const labelParts = dest.label.split(',').map(p => p.trim());
+          
+          // For US destinations, show "City, State" to distinguish e.g. "Los Angeles, California" vs "Los Angeles, Texas"
+          let displayName = labelParts[0]; // Default: just city name
+          if (labelParts.length >= 2 && dest.country_code === 'US') {
+            displayName = `${labelParts[0]}, ${labelParts[1]}`; // "Los Angeles, California"
+          }
+          
+          // Country is everything after the display name parts
+          const displayParts = displayName.split(',').length;
+          const remainingParts = labelParts.slice(displayParts).join(', ');
+          
+          return {
+            id: String(dest.region_id),
+            name: displayName,
+            country: dest.country_name || remainingParts || '',
+            type: dest.type?.toLowerCase().includes('city') ? 'city' : 'region',
+          };
+        });
       } else {
         // Legacy response format handling
         const response = data as {
