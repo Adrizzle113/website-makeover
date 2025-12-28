@@ -274,43 +274,49 @@ class RateHawkApiService {
       requestBody.filters = apiFilters;
     }
 
-    console.log("📤 SENDING REQUEST TO EDGE FUNCTION:", requestBody);
+    // ✅ BYPASS EDGE FUNCTION - Call Render directly to avoid 60s timeout
+    const RENDER_API_URL = "https://travelapi-bg6t.onrender.com";
+    console.log("🔍 Calling Render API directly (bypassing edge function timeout)...");
+    console.log("📤 Request body:", requestBody);
 
-    // Call Supabase edge function to proxy to Render (avoids CORS)
-    const { data, error, response } = await supabase.functions.invoke('travelapi-search', {
-      body: requestBody,
+    const response = await fetch(`${RENDER_API_URL}/api/ratehawk/search`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
     });
 
-    if (error) {
-      console.error("❌ Edge function error:", error);
-
-      // Prefer parsing the HTTP response body (Supabase FunctionsHttpError provides Response)
-      let errorMessage = error.message || "Search failed";
-
-      if (response) {
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `Search failed: ${response.status}`;
+      
+      // Check if it's HTML (Render error page) or JSON
+      if (errorText.includes('<!DOCTYPE') || errorText.includes('<html')) {
+        console.error("❌ Received HTML error page from Render:", errorText.substring(0, 200));
+        if (response.status === 502 || response.status === 503) {
+          errorMessage = "Search service temporarily unavailable. Please try again in 30 seconds.";
+        } else {
+          errorMessage = `Backend error (${response.status}). Please try again.`;
+        }
+      } else {
         try {
-          const res = response.clone();
-          const contentType = res.headers.get("content-type") || "";
-
-            if (contentType.includes("application/json")) {
-              const body = await res.json();
-              if (body && typeof body === "object") {
-                // Prefer `details` when present (often contains the real upstream error)
-                errorMessage = (body as any).details || (body as any).error || errorMessage;
-              }
-            } else {
-              const text = await res.text();
-              if (text) errorMessage = text;
-            }
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorData.message || errorMessage;
         } catch {
-          // ignore parsing errors; keep fallback message
+          // Not JSON, use the text if it's short enough
+          if (errorText.length < 200) {
+            errorMessage = errorText;
+          }
         }
       }
-
+      
       throw new Error(errorMessage);
     }
 
-    // Check if response indicates an error (edge function returned error JSON with 2xx)
+    const data = await response.json();
+    
+    // Check if response indicates an error
     if (data && typeof data === 'object' && 'error' in data) {
       const errorData = data as { error: string; details?: string };
       throw new Error(errorData.error || errorData.details || "Search failed");
