@@ -433,8 +433,8 @@ export function SearchResultsSection() {
         {/* Results */}
         {hotels.length > 0 && effectiveViewMode === "list" && (
           <div className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
-            {hotels.map((hotel) => (
-              <HotelCard key={hotel.id} hotel={hotel} />
+            {hotels.map((hotel, index) => (
+              <HotelCard key={`${hotel.id}-${index}`} hotel={hotel} />
             ))}
             
             {/* Infinite scroll sentinel */}
@@ -468,9 +468,9 @@ export function SearchResultsSection() {
         {hotels.length > 0 && effectiveViewMode === "split" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
             <div className="space-y-3 md:space-y-4 max-h-[600px] overflow-y-auto pr-1 md:pr-2">
-              {hotels.map((hotel) => (
+              {hotels.map((hotel, index) => (
                 <HotelCard 
-                  key={hotel.id} 
+                  key={`${hotel.id}-${index}`} 
                   hotel={hotel} 
                   compact 
                   onHover={setHoveredHotelId}
