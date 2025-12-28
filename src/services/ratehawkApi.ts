@@ -149,6 +149,35 @@ class RateHawkApiService {
     return Object.keys(apiFilters).length > 0 ? apiFilters : undefined;
   }
 
+  // Auto-lookup region_id from destination string
+  private async lookupRegionId(destination: string): Promise<number | null> {
+    try {
+      console.log(`🔍 Auto-looking up region_id for: "${destination}"`);
+      
+      const { data, error } = await supabase.functions.invoke("travelapi-destination", {
+        body: { query: destination },
+      });
+
+      if (error) {
+        console.error("❌ Destination lookup failed:", error);
+        return null;
+      }
+
+      const firstRegion = data?.regions?.[0];
+      if (firstRegion?.id) {
+        const regionId = parseInt(firstRegion.id, 10);
+        console.log(`✅ Found region_id: ${regionId} for "${destination}"`);
+        return regionId;
+      }
+
+      console.warn(`⚠️ No region_id found for "${destination}"`);
+      return null;
+    } catch (error) {
+      console.error("❌ Error looking up region_id:", error);
+      return null;
+    }
+  }
+
   async searchHotels(params: SearchParams, page: number = 1, filters?: SearchFilters): Promise<SearchResponse> {
     const userId = this.getCurrentUserId();
 
@@ -198,15 +227,29 @@ class RateHawkApiService {
       residency: "us",
     };
 
-    // If destinationId is numeric, ALSO include regionId (and region_id for compatibility)
+    // Handle regionId - use provided ID or auto-lookup as fallback
     const isNumericId = params.destinationId && /^\d+$/.test(params.destinationId);
+    let regionId: number | null = null;
+    
     if (isNumericId) {
-      const regionId = parseInt(params.destinationId!, 10);
-      requestBody.regionId = regionId;
-      // Some upstream implementations expect snake_case
-      requestBody.region_id = regionId;
-      console.log(`✅ Including regionId: ${regionId}`);
+      regionId = parseInt(params.destinationId!, 10);
+      console.log(`✅ Using provided regionId: ${regionId}`);
+    } else {
+      // Auto-lookup fallback
+      console.log(`⚠️ No region_id provided, auto-looking up for: "${destination}"`);
+      regionId = await this.lookupRegionId(destination);
+      
+      if (!regionId) {
+        throw new Error(
+          `Could not find location ID for "${destination}". Please select a destination from the autocomplete dropdown.`
+        );
+      }
+      console.log(`✅ Auto-lookup successful: ${regionId}`);
     }
+
+    // Include regionId in request
+    requestBody.regionId = regionId;
+    requestBody.region_id = regionId;
 
     // Add filters if provided
     const apiFilters = this.transformFiltersForApi(filters);

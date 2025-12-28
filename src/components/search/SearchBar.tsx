@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format, addDays } from "date-fns";
-import { CalendarIcon, Search } from "lucide-react";
+import { CalendarIcon, Search, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -8,6 +8,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { DestinationAutocomplete } from "./DestinationAutocomplete";
 import { GuestSelector } from "./GuestSelector";
@@ -25,6 +26,7 @@ export function SearchBar() {
 
   const [destination, setDestination] = useState("");
   const [destinationId, setDestinationId] = useState<string | undefined>();
+  const [isDestinationSelected, setIsDestinationSelected] = useState(false);
   const [checkIn, setCheckIn] = useState<Date>(addDays(new Date(), 1));
   const [checkOut, setCheckOut] = useState<Date>(addDays(new Date(), 3));
   const [rooms, setRooms] = useState<Room[]>([{ adults: 2, childrenAges: [] }]);
@@ -57,12 +59,15 @@ export function SearchBar() {
   const handleDestinationChange = (value: string, id?: string) => {
     setDestination(value);
     setDestinationId(id);
+    setIsDestinationSelected(!!id);
+    console.log("📍 Destination changed:", { value, id, isSelected: !!id });
   };
 
   const handleSearch = async () => {
-    if (!destination) {
+    if (!destination || !isDestinationSelected) {
       toast({
-        title: "Please enter a destination",
+        title: "Please select a destination",
+        description: "Choose a destination from the dropdown suggestions",
         variant: "destructive",
       });
       return;
@@ -120,6 +125,16 @@ export function SearchBar() {
   return (
     <div className="w-full max-w-5xl mx-auto">
       <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl p-4 md:p-6 border border-white/20">
+        {/* Warning when destination typed but not selected */}
+        {destination && !isDestinationSelected && (
+          <Alert variant="destructive" className="mb-4 bg-destructive/10 border-destructive/20">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Please select a destination from the dropdown suggestions
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Destination */}
           <div className="flex-1 min-w-0">
@@ -209,8 +224,8 @@ export function SearchBar() {
           <div className="flex-shrink-0 flex items-end">
             <Button
               onClick={handleSearch}
-              disabled={isSearching}
-              className="h-12 px-8 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-full"
+              disabled={isSearching || !isDestinationSelected}
+              className="h-12 px-8 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-full disabled:opacity-50"
             >
               {isSearching ? (
                 <span className="animate-pulse">Searching...</span>
