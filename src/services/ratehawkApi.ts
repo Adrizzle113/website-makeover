@@ -299,73 +299,115 @@ class RateHawkApiService {
         hasMore: data.hasMore,
       });
 
+      // Debug: Log first hotel structure to understand data format
+      if (data.hotels?.length > 0) {
+        const sample = data.hotels[0];
+        console.log("📦 Sample hotel structure:", {
+          topLevelKeys: Object.keys(sample),
+          hotel_id: sample.hotel_id,
+          id: sample.id,
+          name: sample.name,
+          hasStaticVm: !!sample.static_vm,
+          staticVmKeys: sample.static_vm ? Object.keys(sample.static_vm) : [],
+          ratesCount: sample.rates?.length || 0,
+          sampleRate: sample.rates?.[0] ? Object.keys(sample.rates[0]) : [],
+        });
+      }
+
       // Check if response indicates an error
       if (data && typeof data === 'object' && 'error' in data) {
         const errorData = data as { error: string; details?: string };
         throw new Error(errorData.error || errorData.details || "Search failed");
       }
 
-      // Type the response
+      // Raw response - flexible typing to handle backend format
       const rawResponse = data as {
         success: boolean;
-        hotels: Array<{
-          id: string;
-          name: string;
-          location?: string;
-          rating?: number;
-          reviewScore?: number;
-          reviewCount?: number;
-          price?: { amount: number; currency: string; period?: string };
-          image?: string;
-          amenities?: string[];
-          description?: string;
-          freeCancellation?: boolean;
-          mealPlan?: string;
-          paymentType?: string;
-          ratehawk_data?: any;
-        }>;
+        hotels: any[];
         total?: number;
         hasMore?: boolean;
         page?: number;
       };
 
-      // Transform backend response to match Hotel type - PRESERVE EVERYTHING
-      const hotels: Hotel[] = (rawResponse.hotels || []).map((h) => {
-        const staticVm = h.ratehawk_data?.static_vm;
-        const amenityStrings = h.amenities || [];
-
-        // ✅ DON'T filter or modify rates - keep ALL of them
-        const rates = h.ratehawk_data?.rates || [];
-
+      // Transform backend response to match Hotel type - handle Render backend format
+      const hotels: Hotel[] = (rawResponse.hotels || []).map((h: any) => {
+        // Backend returns hotel_id, not id
+        const hotelId = h.hotel_id || h.id;
+        
+        // Static data is in static_vm (direct or nested in ratehawk_data)
+        const staticVm = h.static_vm || h.ratehawk_data?.static_vm;
+        
+        // Get hotel name from multiple possible sources
+        const hotelName = h.name || staticVm?.name || `Hotel ${hotelId}`;
+        
+        // Get amenities from various sources
+        const amenityStrings = h.amenities || staticVm?.amenities || [];
+        
+        // Calculate price from rates array (Render backend format)
+        const rates = h.rates || h.ratehawk_data?.rates || [];
+        let priceFrom = 0;
+        let currency = "USD";
+        
+        if (rates.length > 0) {
+          // Find the lowest price from all rates
+          const prices = rates.map((rate: any) => {
+            const paymentType = rate.payment_options?.payment_types?.[0];
+            const amount = parseFloat(paymentType?.show_amount || paymentType?.amount || '0');
+            return { amount, currency: paymentType?.show_currency_code || paymentType?.currency_code || 'USD' };
+          }).filter((p: any) => p.amount > 0);
+          
+          if (prices.length > 0) {
+            const lowestPrice = prices.reduce((min: any, p: any) => p.amount < min.amount ? p : min, prices[0]);
+            priceFrom = lowestPrice.amount;
+            currency = lowestPrice.currency;
+          }
+        }
+        
+        // Fallback to h.price if no rates
+        if (priceFrom === 0 && h.price?.amount) {
+          priceFrom = h.price.amount;
+          currency = h.price.currency || "USD";
+        }
+        
+        // Get images from static_vm - handle template URLs
+        const rawImages = staticVm?.images || [];
+        const images = rawImages.slice(0, 10).map((img: any) => {
+          const url = typeof img === 'string' 
+            ? img 
+            : img.tmpl?.replace("{size}", "1024x768") || img.url || "";
+          return { url, alt: hotelName };
+        }).filter((img: any) => img.url);
+        
+        const mainImage = images[0]?.url || h.image || "/placeholder.svg";
+        
         // Extract cancellation and meal info from rates
-        const hasFreeCancellation =
-          h.freeCancellation || rates.some((r: any) => r.cancellationPolicy?.toLowerCase().includes("free"));
-        const mealPlan = h.mealPlan || rates[0]?.mealPlan;
-        const paymentTypes = rates[0]?.paymentInfo?.allowed_payment_types?.map((p: any) => p.type) || [];
+        const hasFreeCancellation = h.freeCancellation || 
+          rates.some((r: any) => r.free_cancellation === true || r.cancellationPolicy?.toLowerCase().includes("free"));
+        const mealPlan = h.mealPlan || rates[0]?.meal || rates[0]?.meal_data?.name;
+        const paymentTypes = rates[0]?.payment_options?.payment_types?.map((p: any) => p.type) || [];
 
         return {
-          id: h.id,
-          name: h.name,
-          description: h.description || "",
-          address: h.location || staticVm?.address || "",
+          id: hotelId,
+          name: hotelName,
+          description: staticVm?.description || h.description || "",
+          address: staticVm?.address || h.location || "",
           city: staticVm?.city || "",
           country: staticVm?.country || "",
           starRating: staticVm?.star_rating ? Math.round(staticVm.star_rating / 10) : h.rating || 0,
-          reviewScore: h.reviewScore,
-          reviewCount: h.reviewCount,
-          images: (staticVm?.images || []).slice(0, 10).map((img: any) => ({
-            url: img.tmpl.replace("{size}", "1024x768"),
-            alt: h.name,
-          })),
-          mainImage: h.image || staticVm?.images?.[0]?.tmpl.replace("{size}", "1024x768") || "/placeholder.svg",
+          reviewScore: staticVm?.rating || h.reviewScore,
+          reviewCount: staticVm?.review_count || h.reviewCount || 0,
+          images,
+          mainImage,
           amenities: amenityStrings.map((a: string, idx: number) => ({ id: `amenity-${idx}`, name: a })),
-          priceFrom: h.price?.amount || 0,
-          currency: h.price?.currency || "USD",
+          priceFrom,
+          currency,
           latitude: staticVm?.latitude,
           longitude: staticVm?.longitude,
-          // ✅ CRITICAL: Preserve COMPLETE ratehawk_data - don't modify it
-          ratehawk_data: h.ratehawk_data,
-          // Extended fields for filtering display
+          // Preserve COMPLETE backend data for hotel details page
+          ratehawk_data: {
+            ...h,
+            static_vm: staticVm,
+          },
           freeCancellation: hasFreeCancellation,
           mealPlan,
           paymentTypes,
