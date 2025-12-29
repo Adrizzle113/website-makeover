@@ -252,9 +252,9 @@ export function SearchBar() {
           </Alert>
         )}
         
-        <div className="flex flex-col lg:flex-row gap-4">
-          {/* Destination */}
-          <div className="flex-1 min-w-0">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:flex xl:flex-row gap-4 xl:items-end">
+          {/* Destination - spans full width on mobile and tablet */}
+          <div className="md:col-span-2 xl:flex-1 xl:min-w-0">
             <label className="text-xs font-semibold text-primary uppercase tracking-wider mb-2 block">
               Destination
             </label>
@@ -265,7 +265,7 @@ export function SearchBar() {
           </div>
 
           {/* Check-in Date */}
-          <div className="flex-shrink-0">
+          <div className="xl:flex-shrink-0">
             <label className="text-xs font-semibold text-primary uppercase tracking-wider mb-2 block">
               Check-in
             </label>
@@ -274,7 +274,7 @@ export function SearchBar() {
                 <Button
                   variant="outline"
                   className={cn(
-                    "h-12 w-full lg:w-[160px] justify-start text-left font-normal bg-cream/50 border-border/50 hover:bg-cream",
+                    "h-12 w-full xl:w-[160px] justify-start text-left font-normal bg-cream/50 border-border/50 hover:bg-cream",
                     !checkIn && "text-muted-foreground"
                   )}
                 >
@@ -297,7 +297,7 @@ export function SearchBar() {
           </div>
 
           {/* Check-out Date with Night Count */}
-          <div className="flex-shrink-0">
+          <div className="xl:flex-shrink-0">
             <label className="text-xs font-semibold text-primary uppercase tracking-wider mb-2 block">
               Check-out
               {nightCount > 0 && (
@@ -311,7 +311,7 @@ export function SearchBar() {
                 <Button
                   variant="outline"
                   className={cn(
-                    "h-12 w-full lg:w-[160px] justify-start text-left font-normal bg-cream/50 border-border/50 hover:bg-cream",
+                    "h-12 w-full xl:w-[160px] justify-start text-left font-normal bg-cream/50 border-border/50 hover:bg-cream",
                     !checkOut && "text-muted-foreground"
                   )}
                 >
@@ -334,7 +334,7 @@ export function SearchBar() {
           </div>
 
           {/* Guests & Rooms */}
-          <div className="flex-shrink-0">
+          <div className="xl:flex-shrink-0">
             <label className="text-xs font-semibold text-primary uppercase tracking-wider mb-2 block">
               Guests & Rooms
             </label>
@@ -346,12 +346,12 @@ export function SearchBar() {
           </div>
 
           {/* Search Button */}
-          <div className="flex-shrink-0 flex items-end">
+          <div className="md:col-span-2 xl:col-span-1 xl:flex-shrink-0 flex items-end">
             <Button
               onClick={handleSearch}
               disabled={isSearching}
               className={cn(
-                "h-12 px-8 font-semibold rounded-full",
+                "h-12 w-full xl:w-auto px-8 font-semibold rounded-full",
                 isFormValid 
                   ? "bg-primary text-primary-foreground hover:bg-primary/90" 
                   : "bg-muted text-muted-foreground cursor-not-allowed"
