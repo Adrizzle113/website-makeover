@@ -252,6 +252,10 @@ export interface SearchFilters {
   
   // Residency
   residency: string;
+  
+  // Additional filters
+  earlyCheckIn: boolean;
+  lateCheckOut: boolean;
 }
 
 export type SortOption = 
@@ -304,6 +308,8 @@ export const DEFAULT_FILTERS: SearchFilters = {
   roomTypes: [],
   bedTypes: [],
   residency: "US",
+  earlyCheckIn: false,
+  lateCheckOut: false,
 };
 
 // POI (Points of Interest) Types
