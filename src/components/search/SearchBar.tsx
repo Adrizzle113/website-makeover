@@ -22,14 +22,22 @@ interface Room {
 }
 
 export function SearchBar() {
-  const { setSearchParams, setSearchResults, setLoading, setError, filters } = useBookingStore();
+  const { setSearchParams, setSearchResults, setLoading, setError, filters, searchParams } = useBookingStore();
 
-  const [destination, setDestination] = useState("");
-  const [destinationId, setDestinationId] = useState<string | undefined>();
-  const [isDestinationSelected, setIsDestinationSelected] = useState(false);
-  const [checkIn, setCheckIn] = useState<Date>(addDays(new Date(), 1));
-  const [checkOut, setCheckOut] = useState<Date>(addDays(new Date(), 3));
-  const [rooms, setRooms] = useState<Room[]>([{ adults: 2, childrenAges: [] }]);
+  // Initialize state from searchParams if available
+  const [destination, setDestination] = useState(searchParams?.destination || "");
+  const [destinationId, setDestinationId] = useState<string | undefined>(searchParams?.destinationId);
+  const [isDestinationSelected, setIsDestinationSelected] = useState(!!searchParams?.destinationId);
+  const [checkIn, setCheckIn] = useState<Date>(searchParams?.checkIn ? new Date(searchParams.checkIn) : addDays(new Date(), 1));
+  const [checkOut, setCheckOut] = useState<Date>(searchParams?.checkOut ? new Date(searchParams.checkOut) : addDays(new Date(), 3));
+  const [rooms, setRooms] = useState<Room[]>(
+    searchParams?.rooms 
+      ? Array.from({ length: searchParams.rooms }, (_, i) => ({
+          adults: i === 0 ? (searchParams.guests - (searchParams.children || 0)) / searchParams.rooms : 2,
+          childrenAges: i === 0 ? (searchParams.childrenAges || []) : []
+        }))
+      : [{ adults: 2, childrenAges: [] }]
+  );
   const [isSearching, setIsSearching] = useState(false);
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [checkOutOpen, setCheckOutOpen] = useState(false);
