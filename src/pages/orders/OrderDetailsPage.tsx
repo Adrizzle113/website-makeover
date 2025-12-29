@@ -21,7 +21,14 @@ import {
   XCircleIcon,
   DollarSignIcon,
   PlusIcon,
-  MessageSquareIcon
+  MessageSquareIcon,
+  BedDoubleIcon,
+  UtensilsIcon,
+  CopyIcon,
+  PrinterIcon,
+  InfoIcon,
+  SparklesIcon,
+  ShieldCheckIcon
 } from "lucide-react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
@@ -30,11 +37,29 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import { Order, OrderStatus, OrderTimelineEvent, OrderEventType, OrderEventSource } from "@/types/trips";
 import { toast } from "sonner";
 
 // Mock data
-const mockOrder: Order = {
+const mockOrder: Order & {
+  confirmationNumber?: string;
+  supplierReference?: string;
+  mealPlan?: string;
+  specialRequests?: string[];
+  roomDetails?: {
+    bedType: string;
+    view: string;
+    size: string;
+    amenities: string[];
+  };
+  priceBreakdown?: {
+    roomRate: number;
+    taxes: number;
+    fees: number;
+    discount?: number;
+  };
+} = {
   id: "ord_001",
   tripId: "og_12345",
   hotelName: "Soneva Fushi Resort",
@@ -62,6 +87,26 @@ const mockOrder: Order = {
   currency: "USD",
   createdAt: "2024-12-10T10:30:00Z",
   confirmedAt: "2024-12-10T10:32:00Z",
+  confirmationNumber: "SNV-2025-78432",
+  supplierReference: "ETG-ORD-98234",
+  mealPlan: "Breakfast Included",
+  specialRequests: [
+    "Late check-out requested (2 PM)",
+    "Honeymoon celebration - anniversary cake",
+    "Non-smoking room preferred"
+  ],
+  roomDetails: {
+    bedType: "King Size Bed",
+    view: "Ocean View",
+    size: "120 sqm",
+    amenities: ["Private Pool", "Outdoor Shower", "Mini Bar", "Espresso Machine", "Butler Service"]
+  },
+  priceBreakdown: {
+    roomRate: 2400,
+    taxes: 288,
+    fees: 112,
+    discount: 0
+  },
   documents: [
     {
       id: "doc_001",
@@ -82,6 +127,16 @@ const mockOrder: Order = {
       url: "/documents/doc_002",
       generatedAt: "2024-12-10T10:32:00Z",
       fileSize: 189000
+    },
+    {
+      id: "doc_003",
+      orderId: "ord_001",
+      tripId: "og_12345",
+      type: "invoice",
+      name: "Invoice",
+      url: "/documents/doc_003",
+      generatedAt: "2024-12-10T10:32:00Z",
+      fileSize: 156000
     }
   ]
 };
@@ -229,6 +284,21 @@ export default function OrderDetailsPage() {
     return `${(bytes / 1024).toFixed(0)} KB`;
   };
 
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
+  };
+
+  const getDaysUntilCancellation = () => {
+    if (!order.cancellationDeadline) return null;
+    const now = new Date();
+    const deadline = new Date(order.cancellationDeadline);
+    const diff = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return diff;
+  };
+
+  const daysUntilCancellation = getDaysUntilCancellation();
+
   const renderStars = (count: number) => {
     return Array.from({ length: count }, (_, i) => (
       <StarIcon key={i} className="w-4 h-4 fill-sidebar-gold text-sidebar-gold" />
@@ -271,7 +341,7 @@ export default function OrderDetailsPage() {
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <Badge 
                           variant="outline" 
                           className={`capitalize ${statusColors[order.status]}`}
@@ -297,6 +367,44 @@ export default function OrderDetailsPage() {
                       <HotelIcon className="w-8 h-8 text-muted-foreground" />
                     </div>
                   </div>
+
+                  {/* Confirmation Numbers */}
+                  {(order.confirmationNumber || order.supplierReference) && (
+                    <div className="flex flex-wrap gap-4 p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-lg mb-4">
+                      {order.confirmationNumber && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Confirmation #:</span>
+                          <code className="text-sm font-mono font-medium text-foreground bg-background px-2 py-0.5 rounded">
+                            {order.confirmationNumber}
+                          </code>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6"
+                            onClick={() => copyToClipboard(order.confirmationNumber!, "Confirmation number")}
+                          >
+                            <CopyIcon className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      )}
+                      {order.supplierReference && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Supplier Ref:</span>
+                          <code className="text-sm font-mono font-medium text-foreground bg-background px-2 py-0.5 rounded">
+                            {order.supplierReference}
+                          </code>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6"
+                            onClick={() => copyToClipboard(order.supplierReference!, "Supplier reference")}
+                          >
+                            <CopyIcon className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <Separator className="my-4" />
 
@@ -363,6 +471,82 @@ export default function OrderDetailsPage() {
                 </CardContent>
               </Card>
 
+              {/* Room Details */}
+              {order.roomDetails && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <BedDoubleIcon className="w-5 h-5" />
+                      Room Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Room Type</p>
+                        <p className="font-medium text-foreground">{order.roomType}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Bed Type</p>
+                        <p className="font-medium text-foreground">{order.roomDetails.bedType}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">View</p>
+                        <p className="font-medium text-foreground">{order.roomDetails.view}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Room Size</p>
+                        <p className="font-medium text-foreground">{order.roomDetails.size}</p>
+                      </div>
+                      {order.mealPlan && (
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
+                            <UtensilsIcon className="w-3 h-3" />
+                            Meal Plan
+                          </p>
+                          <p className="font-medium text-foreground">{order.mealPlan}</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {order.roomDetails.amenities.length > 0 && (
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-2">Room Amenities</p>
+                        <div className="flex flex-wrap gap-2">
+                          {order.roomDetails.amenities.map((amenity, index) => (
+                            <Badge key={index} variant="secondary" className="font-normal">
+                              {amenity}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Special Requests */}
+              {order.specialRequests && order.specialRequests.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <SparklesIcon className="w-5 h-5" />
+                      Special Requests
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2">
+                      {order.specialRequests.map((request, index) => (
+                        <li key={index} className="flex items-start gap-2 text-sm">
+                          <CheckCircleIcon className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                          <span className="text-foreground">{request}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Payment & Cancellation */}
               <Card>
                 <CardHeader>
@@ -372,22 +556,65 @@ export default function OrderDetailsPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-0.5">Payment Status</p>
-                      <p className="font-medium text-foreground">{paymentTypeLabels[order.paymentType]}</p>
+                  {/* Price Breakdown */}
+                  {order.priceBreakdown && (
+                    <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Room Rate ({order.nights} nights)</span>
+                        <span className="text-foreground">{order.currency} {order.priceBreakdown.roomRate.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Taxes</span>
+                        <span className="text-foreground">{order.currency} {order.priceBreakdown.taxes.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Fees</span>
+                        <span className="text-foreground">{order.currency} {order.priceBreakdown.fees.toLocaleString()}</span>
+                      </div>
+                      {order.priceBreakdown.discount && order.priceBreakdown.discount > 0 && (
+                        <div className="flex justify-between text-sm text-emerald-600">
+                          <span>Discount</span>
+                          <span>-{order.currency} {order.priceBreakdown.discount.toLocaleString()}</span>
+                        </div>
+                      )}
+                      <Separator className="my-2" />
+                      <div className="flex justify-between font-medium">
+                        <span className="text-foreground">Total</span>
+                        <span className="font-heading text-lg text-foreground">{order.currency} {order.totalAmount.toLocaleString()}</span>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-muted-foreground mb-0.5">Total Amount</p>
-                      <p className="font-heading text-xl text-foreground">
-                        {order.currency} {order.totalAmount.toLocaleString()}
-                      </p>
+                  )}
+
+                  <div className="flex items-center justify-between p-4 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                    <div className="flex items-center gap-3">
+                      <ShieldCheckIcon className="w-5 h-5 text-emerald-600" />
+                      <div>
+                        <p className="font-medium text-foreground">{paymentTypeLabels[order.paymentType]}</p>
+                        <p className="text-xs text-muted-foreground">Payment processed successfully</p>
+                      </div>
                     </div>
                   </div>
                   
-                  <div>
-                    <p className="text-sm font-medium text-foreground mb-2">Cancellation Policy</p>
+                  {/* Cancellation Policy with countdown */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-foreground">Cancellation Policy</p>
+                      {daysUntilCancellation !== null && daysUntilCancellation > 0 && (
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+                          {daysUntilCancellation} days left for free cancellation
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground">{order.cancellationPolicy}</p>
+                    {daysUntilCancellation !== null && daysUntilCancellation > 0 && daysUntilCancellation <= 30 && (
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Time remaining</span>
+                          <span>{daysUntilCancellation} of 30 days</span>
+                        </div>
+                        <Progress value={(daysUntilCancellation / 30) * 100} className="h-1.5" />
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
