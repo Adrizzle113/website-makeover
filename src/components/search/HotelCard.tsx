@@ -188,11 +188,18 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
             </h3>
 
             {/* Location */}
-            <div className="flex items-center gap-1.5 md:gap-2 text-muted-foreground mb-3 md:mb-4">
-              <MapPin className="w-3.5 md:w-4 h-3.5 md:h-4 text-primary flex-shrink-0" />
-              <span className="text-xs md:text-body-sm">
-                {hotel.city}, {hotel.country}
-              </span>
+            <div className="flex flex-col gap-0.5 mb-3 md:mb-4">
+              <div className="flex items-center gap-1.5 md:gap-2 text-muted-foreground">
+                <MapPin className="w-3.5 md:w-4 h-3.5 md:h-4 text-primary flex-shrink-0" />
+                <span className="text-xs md:text-body-sm">
+                  {hotel.city}{hotel.city && hotel.country ? ", " : ""}{hotel.country}
+                </span>
+              </div>
+              {hotel.address && (
+                <p className="text-[10px] md:text-xs text-muted-foreground/70 ml-5 md:ml-6 line-clamp-1">
+                  {hotel.address}
+                </p>
+              )}
             </div>
 
             {/* Amenities */}

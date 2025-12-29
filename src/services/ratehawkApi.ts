@@ -334,11 +334,12 @@ class RateHawkApiService {
         // Backend returns hotel_id, not id
         const hotelId = h.hotel_id || h.id;
         
-        // Static data is in static_vm (direct or nested in ratehawk_data)
+        // Static data from enrichment (static_data) or legacy format (static_vm)
+        const staticData = h.static_data || {};
         const staticVm = h.static_vm || h.ratehawk_data?.static_vm;
         
-        // Get hotel name from multiple possible sources
-        const hotelName = h.name || staticVm?.name || `Hotel ${hotelId}`;
+        // Get hotel name from multiple possible sources (prioritize enriched data)
+        const hotelName = staticData.name || h.name || staticVm?.name || `Hotel ${hotelId}`;
         
         // Get amenities from various sources
         const amenityStrings = h.amenities || staticVm?.amenities || [];
@@ -369,14 +370,26 @@ class RateHawkApiService {
           currency = h.price.currency || "USD";
         }
         
-        // Get images from static_vm - handle template URLs
-        const rawImages = staticVm?.images || [];
-        const images = rawImages.slice(0, 10).map((img: any) => {
-          const url = typeof img === 'string' 
-            ? img 
-            : img.tmpl?.replace("{size}", "1024x768") || img.url || "";
-          return { url, alt: hotelName };
-        }).filter((img: any) => img.url);
+        // Get images from enriched static_data first, then static_vm
+        let images: Array<{ url: string; alt: string }> = [];
+        
+        // Enriched static_data images (already processed URLs)
+        if (staticData.images && staticData.images.length > 0) {
+          images = staticData.images.slice(0, 10).map((url: string) => ({
+            url: typeof url === 'string' ? url : '',
+            alt: hotelName,
+          })).filter((img: any) => img.url);
+        }
+        // Fallback to static_vm images (need template processing)
+        else if (staticVm?.images) {
+          const rawImages = staticVm.images;
+          images = rawImages.slice(0, 10).map((img: any) => {
+            const url = typeof img === 'string' 
+              ? img.replace('{size}', '1024x768')
+              : img.tmpl?.replace("{size}", "1024x768") || img.url || "";
+            return { url, alt: hotelName };
+          }).filter((img: any) => img.url);
+        }
         
         const mainImage = images[0]?.url || h.image || "/placeholder.svg";
         
@@ -386,14 +399,33 @@ class RateHawkApiService {
         const mealPlan = h.mealPlan || rates[0]?.meal || rates[0]?.meal_data?.name;
         const paymentTypes = rates[0]?.payment_options?.payment_types?.map((p: any) => p.type) || [];
 
+        // Get address, city, country from enriched data or static_vm
+        const address = staticData.address || staticVm?.address || h.location || "";
+        const city = staticData.city || staticVm?.city || "";
+        const country = staticData.country || staticVm?.country || "";
+        
+        // Get star rating - enriched data is 1-5, static_vm might be 10-50
+        let starRating = 0;
+        if (staticData.star_rating) {
+          starRating = staticData.star_rating; // Already 1-5 from enrichment
+        } else if (staticVm?.star_rating) {
+          starRating = staticVm.star_rating > 5 ? Math.round(staticVm.star_rating / 10) : staticVm.star_rating;
+        } else if (h.rating) {
+          starRating = h.rating;
+        }
+
+        // Get coordinates
+        const latitude = staticData.coordinates?.lat || staticVm?.latitude;
+        const longitude = staticData.coordinates?.lon || staticVm?.longitude;
+
         return {
           id: hotelId,
           name: hotelName,
           description: staticVm?.description || h.description || "",
-          address: staticVm?.address || h.location || "",
-          city: staticVm?.city || "",
-          country: staticVm?.country || "",
-          starRating: staticVm?.star_rating ? Math.round(staticVm.star_rating / 10) : h.rating || 0,
+          address,
+          city,
+          country,
+          starRating,
           reviewScore: staticVm?.rating || h.reviewScore,
           reviewCount: staticVm?.review_count || h.reviewCount || 0,
           images,
@@ -401,8 +433,8 @@ class RateHawkApiService {
           amenities: amenityStrings.map((a: string, idx: number) => ({ id: `amenity-${idx}`, name: a })),
           priceFrom,
           currency,
-          latitude: staticVm?.latitude,
-          longitude: staticVm?.longitude,
+          latitude,
+          longitude,
           // Preserve COMPLETE backend data for hotel details page
           ratehawk_data: {
             ...h,
