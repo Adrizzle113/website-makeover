@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { HotelDetails, RateHawkRate, RateHawkRoomGroup } from "@/types/booking";
 import { useBookingStore } from "@/stores/bookingStore";
+import { RoomUpsells } from "./RoomUpsells";
 
 // Room category types for sorting and badges
 type RoomCategory = "standard" | "deluxe" | "suite" | "premium" | "family" | "apartment";
@@ -74,6 +75,8 @@ const categoryBadgeConfig: Record<RoomCategory, { label: string; variant: "defau
 interface RoomSelectionSectionProps {
   hotel: HotelDetails;
   isLoading?: boolean;
+  checkInTime?: string;
+  checkOutTime?: string;
 }
 
 // Get amenity icon based on name
@@ -425,7 +428,12 @@ const processRatesDirectly = (hotel: HotelDetails, rates: RateHawkRate[]): Proce
   }];
 };
 
-export function RoomSelectionSection({ hotel, isLoading = false }: RoomSelectionSectionProps) {
+export function RoomSelectionSection({ 
+  hotel, 
+  isLoading = false,
+  checkInTime,
+  checkOutTime 
+}: RoomSelectionSectionProps) {
   const { selectedRooms, addRoom, updateRoomQuantity } = useBookingStore();
   const [displayedRooms, setDisplayedRooms] = useState(6);
 
@@ -623,6 +631,17 @@ export function RoomSelectionSection({ hotel, isLoading = false }: RoomSelection
                     </div>
                   </div>
                 </div>
+
+                {/* Upsells - show when room is selected */}
+                {isSelected && (checkInTime || checkOutTime) && (
+                  <RoomUpsells
+                    roomId={room.id}
+                    roomName={room.name}
+                    currency={room.currency}
+                    checkInTime={checkInTime}
+                    checkOutTime={checkOutTime}
+                  />
+                )}
               </Card>
             );
           })}

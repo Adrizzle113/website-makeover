@@ -9,3 +9,5 @@ export { HotelInfoSection } from "./HotelInfoSection";
 export { HotelPoliciesSection } from "./HotelPoliciesSection";
 export { FacilitiesAmenitiesSection } from "./FacilitiesAmenitiesSection";
 export { StickyBookingBar } from "./StickyBookingBar";
+export { RoomUpsells } from "./RoomUpsells";
+export { PriceBreakdownModal } from "./PriceBreakdownModal";

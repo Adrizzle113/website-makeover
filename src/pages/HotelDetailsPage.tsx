@@ -564,7 +564,12 @@ const HotelDetailsPage = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="space-y-8">
           <HotelInfoSection hotel={hotelDetails} />
-          <RoomSelectionSection hotel={hotelDetails} isLoading={false} />
+          <RoomSelectionSection 
+            hotel={hotelDetails} 
+            isLoading={false}
+            checkInTime={hotelDetails.checkInTime}
+            checkOutTime={hotelDetails.checkOutTime}
+          />
           <HotelPoliciesSection hotel={hotelDetails} />
           <MapSection
             latitude={hotelDetails.latitude}
@@ -581,7 +586,11 @@ const HotelDetailsPage = () => {
         </div>
       </div>
 
-      <StickyBookingBar hotelId={hotelDetails.id} hotelName={hotelDetails.name} />
+      <StickyBookingBar 
+        hotelId={hotelDetails.id} 
+        hotelName={hotelDetails.name}
+        currency={hotelDetails.currency}
+      />
     </div>
   );
 };
