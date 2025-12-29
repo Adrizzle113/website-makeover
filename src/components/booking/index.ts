@@ -15,3 +15,7 @@ export { BillingAddressSection } from "./BillingAddressSection";
 export type { BillingAddress } from "./BillingAddressSection";
 export { PriceConfirmationModal } from "./PriceConfirmationModal";
 export { PaymentMethodSelector } from "./PaymentMethodSelector";
+export { BookingBreadcrumbs } from "./BookingBreadcrumbs";
+export { SessionTimeout } from "./SessionTimeout";
+export { PhoneInput } from "./PhoneInput";
+export { BookingTimeline } from "./BookingTimeline";

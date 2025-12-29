@@ -41,6 +41,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { bookingApi } from "@/services/bookingApi";
 import { createBookingCalendarEvent, downloadICSFile } from "@/lib/calendarUtils";
+import { BookingTimeline } from "@/components/booking";
 import type { PendingBookingData } from "@/types/etgBooking";
 
 interface ConfirmedBooking {
@@ -839,35 +840,19 @@ export default function BookingConfirmationPage() {
               </AccordionItem>
             </Accordion>
 
-            {/* Next Steps Timeline */}
+            {/* Booking Status Timeline */}
             <Card className="mb-6">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-heading">What Happens Next</CardTitle>
+                <CardTitle className="text-lg font-heading">Booking Timeline</CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
-                <div className="relative pl-6 border-l-2 border-primary/20 space-y-6">
-                  <div className="relative">
-                    <div className="absolute -left-[25px] w-4 h-4 rounded-full bg-green-500 border-2 border-background" />
-                    <p className="font-medium text-foreground">Confirmation Sent</p>
-                    <p className="text-sm text-muted-foreground">
-                      Email confirmation sent to {leadGuest?.email}
-                    </p>
-                  </div>
-                  <div className="relative">
-                    <div className="absolute -left-[25px] w-4 h-4 rounded-full bg-green-500 border-2 border-background" />
-                    <p className="font-medium text-foreground">Hotel Notified</p>
-                    <p className="text-sm text-muted-foreground">
-                      {booking.hotel.name} has received your reservation
-                    </p>
-                  </div>
-                  <div className="relative">
-                    <div className="absolute -left-[25px] w-4 h-4 rounded-full bg-primary/30 border-2 border-background" />
-                    <p className="font-medium text-foreground">Arrive at Hotel</p>
-                    <p className="text-sm text-muted-foreground">
-                      Present your confirmation at check-in on {format(new Date(booking.dates.checkIn), "MMMM d, yyyy")}
-                    </p>
-                  </div>
-                </div>
+                <BookingTimeline
+                  bookingDate={booking.bookingDate}
+                  confirmedAt={booking.bookingDate}
+                  checkInDate={booking.dates.checkIn}
+                  checkOutDate={booking.dates.checkOut}
+                  status={booking.status}
+                />
               </CardContent>
             </Card>
 
