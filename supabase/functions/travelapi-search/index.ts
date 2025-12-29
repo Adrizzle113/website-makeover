@@ -1,6 +1,5 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,85 +7,6 @@ const corsHeaders = {
 };
 
 const RENDER_API_URL = "https://travelapi-bg6t.onrender.com";
-
-// Supabase client for querying static data
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Enrich hotels with static data from hotel_dump_data table
-async function enrichWithStaticData(hotels: any[]): Promise<any[]> {
-  if (!hotels || hotels.length === 0) return hotels;
-
-  // Extract hotel IDs
-  const hotelIds = hotels.map(h => h.hotel_id || h.id).filter(Boolean);
-  console.log(`🔍 Enriching ${hotelIds.length} hotels with static data`);
-
-  try {
-    // Query hotel_dump_data for static info (images, address, rating)
-    const { data: staticData, error } = await supabase
-      .from('hotel_dump_data')
-      .select('hotel_id, name, address, city, country, star_rating, images, latitude, longitude, amenities')
-      .in('hotel_id', hotelIds);
-
-    if (error) {
-      console.error('❌ Static data query failed:', error.message);
-      return hotels;
-    }
-
-    if (!staticData || staticData.length === 0) {
-      console.log('⚠️ No static data found for these hotels');
-      return hotels;
-    }
-
-    console.log(`✅ Found static data for ${staticData.length}/${hotelIds.length} hotels`);
-
-    // Create lookup map
-    const staticMap = new Map(staticData.map(s => [s.hotel_id, s]));
-
-    // Merge static data into hotels
-    return hotels.map(hotel => {
-      const hotelId = hotel.hotel_id || hotel.id;
-      const staticInfo = staticMap.get(hotelId);
-
-      if (!staticInfo) return hotel;
-
-      // Process images - convert template URLs to usable URLs
-      let images: any[] = [];
-      if (staticInfo.images && Array.isArray(staticInfo.images)) {
-        images = staticInfo.images.slice(0, 10).map((img: any) => {
-          if (typeof img === 'string') {
-            return { url: img.replace('{size}', '640x400'), alt: staticInfo.name || hotelId };
-          }
-          if (img.tmpl) {
-            return { url: img.tmpl.replace('{size}', '640x400'), alt: staticInfo.name || hotelId };
-          }
-          return img;
-        });
-      }
-
-      // Merge static data
-      return {
-        ...hotel,
-        static_data: {
-          name: staticInfo.name,
-          address: staticInfo.address,
-          city: staticInfo.city,
-          country: staticInfo.country,
-          star_rating: staticInfo.star_rating,
-          images,
-          mainImage: images[0]?.url || null,
-          latitude: staticInfo.latitude,
-          longitude: staticInfo.longitude,
-          amenities: staticInfo.amenities || [],
-        },
-      };
-    });
-  } catch (err) {
-    console.error('❌ Static enrichment error:', err);
-    return hotels;
-  }
-}
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 3000;
 const REQUEST_TIMEOUT_MS = 90000; // 90 seconds - Render backend can take 60+ seconds on cold start
@@ -307,26 +227,8 @@ serve(async (req) => {
       );
     }
 
-    // Parse and enrich response with static data
-    let responseData;
-    try {
-      responseData = JSON.parse(responseText);
-    } catch {
-      // Not JSON, return as-is
-      return new Response(responseText, {
-        status: renderResponse.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Enrich hotels with static data
-    if (responseData.hotels && Array.isArray(responseData.hotels)) {
-      responseData.hotels = await enrichWithStaticData(responseData.hotels);
-      console.log(`✅ Enriched response with static data`);
-    }
-
-    // Return enriched response
-    return new Response(JSON.stringify(responseData), {
+    // Return response (success or other client error)
+    return new Response(responseText, {
       status: renderResponse.status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
