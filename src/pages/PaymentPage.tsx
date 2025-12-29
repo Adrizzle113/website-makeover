@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { format, differenceInDays } from "date-fns";
 import {
@@ -20,8 +20,19 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Footer } from "@/components/layout/Footer";
 import { PaymentMethodSelector } from "@/components/booking/PaymentMethodSelector";
+import { BillingAddressSection, type BillingAddress } from "@/components/booking/BillingAddressSection";
+import { PriceConfirmationModal } from "@/components/booking/PriceConfirmationModal";
 import { bookingApi } from "@/services/bookingApi";
 import { toast } from "@/hooks/use-toast";
+import {
+  detectCardType,
+  validateCardNumber,
+  validateExpiryDate,
+  validateCVV,
+  formatCardNumber,
+  formatExpiryDate,
+  type CardType,
+} from "@/lib/cardValidation";
 import type { PendingBookingData, PaymentType } from "@/types/etgBooking";
 
 const PaymentPage = () => {
@@ -29,10 +40,19 @@ const PaymentPage = () => {
   const [searchParams] = useSearchParams();
   const bookingId = searchParams.get("booking_id");
 
+  // Page states
   const [isLoading, setIsLoading] = useState(true);
+  const [isVerifyingPrice, setIsVerifyingPrice] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [bookingData, setBookingData] = useState<PendingBookingData | null>(null);
   const [paymentType, setPaymentType] = useState<PaymentType>("deposit");
+
+  // Price confirmation state
+  const [priceModalOpen, setPriceModalOpen] = useState(false);
+  const [priceModalType, setPriceModalType] = useState<"increase" | "decrease" | "unavailable">("increase");
+  const [originalPrice, setOriginalPrice] = useState(0);
+  const [verifiedPrice, setVerifiedPrice] = useState(0);
+  const [priceVerified, setPriceVerified] = useState(false);
 
   // Card form state
   const [cardNumber, setCardNumber] = useState("");
@@ -41,96 +61,279 @@ const PaymentPage = () => {
   const [cvv, setCvv] = useState("");
   const [saveCard, setSaveCard] = useState(false);
 
+  // Card validation errors
+  const [cardErrors, setCardErrors] = useState<{
+    cardNumber?: string;
+    cardholderName?: string;
+    expiryDate?: string;
+    cvv?: string;
+  }>({});
+
+  // Billing address state
+  const [billingAddress, setBillingAddress] = useState<BillingAddress>({
+    addressLine1: "",
+    addressLine2: "",
+    city: "",
+    state: "",
+    postalCode: "",
+    country: "",
+  });
+  const [billingErrors, setBillingErrors] = useState<Partial<Record<keyof BillingAddress, string>>>({});
+
+  // Detect card type from card number
+  const cardType = useMemo(() => detectCardType(cardNumber), [cardNumber]);
+
+  // Load booking data and verify price on mount
   useEffect(() => {
-    // Load booking data from sessionStorage
-    const storedData = sessionStorage.getItem("pending_booking");
-    if (storedData) {
+    const loadAndVerify = async () => {
+      // Load booking data from sessionStorage
+      const storedData = sessionStorage.getItem("pending_booking");
+      if (!storedData) {
+        setIsLoading(false);
+        return;
+      }
+
       try {
         const parsed = JSON.parse(storedData);
-        if (parsed.bookingId === bookingId) {
-          setBookingData(parsed);
+        if (parsed.bookingId !== bookingId) {
+          setIsLoading(false);
+          return;
         }
+
+        setBookingData(parsed);
+        setOriginalPrice(parsed.totalPrice || 0);
+        setIsLoading(false);
+
+        // Verify price with prebook API
+        await verifyPrice(parsed);
       } catch (e) {
         console.error("Failed to parse booking data:", e);
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+
+    loadAndVerify();
   }, [bookingId]);
 
-  // Format card number with spaces
-  const formatCardNumber = (value: string) => {
-    const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "");
-    const matches = v.match(/\d{4,16}/g);
-    const match = (matches && matches[0]) || "";
-    const parts = [];
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4));
+  // Verify price by calling prebook API
+  const verifyPrice = async (data: PendingBookingData) => {
+    if (!data.bookingHash) {
+      // No booking hash, skip verification
+      setPriceVerified(true);
+      setVerifiedPrice(data.totalPrice || 0);
+      return;
     }
-    return parts.length ? parts.join(" ") : value;
+
+    setIsVerifyingPrice(true);
+
+    try {
+      const response = await bookingApi.prebook({
+        book_hash: data.bookingHash,
+        residency: (data.bookingDetails as any)?.citizenship || "us",
+        currency: data.hotel?.currency || "USD",
+      });
+
+      setIsVerifyingPrice(false);
+
+      if (response.error) {
+        // Room no longer available
+        setPriceModalType("unavailable");
+        setPriceModalOpen(true);
+        return;
+      }
+
+      // Get new price from response - handle different response formats
+      const newPrice = response.data?.new_price || 
+        (response.data?.final_price ? parseFloat(response.data.final_price.amount) : data.totalPrice);
+      setVerifiedPrice(newPrice);
+
+      // Check if price changed
+      if (newPrice !== data.totalPrice) {
+        if (newPrice > data.totalPrice) {
+          setPriceModalType("increase");
+        } else {
+          setPriceModalType("decrease");
+        }
+        setPriceModalOpen(true);
+      } else {
+        // Price unchanged, mark as verified
+        setPriceVerified(true);
+      }
+    } catch (error) {
+      console.error("Price verification failed:", error);
+      // If verification fails, proceed with original price
+      setIsVerifyingPrice(false);
+      setPriceVerified(true);
+      setVerifiedPrice(data.totalPrice || 0);
+      
+      toast({
+        title: "Price Verification",
+        description: "Unable to verify current price. Proceeding with quoted price.",
+        variant: "default",
+      });
+    }
+  };
+
+  // Handle price modal acceptance
+  const handlePriceAccept = () => {
+    setPriceModalOpen(false);
+    setPriceVerified(true);
+    
+    // Update booking data with new price
+    if (bookingData && verifiedPrice !== originalPrice) {
+      const updatedData = { ...bookingData, totalPrice: verifiedPrice, priceUpdated: true };
+      setBookingData(updatedData);
+      sessionStorage.setItem("pending_booking", JSON.stringify(updatedData));
+    }
+  };
+
+  // Handle price modal decline
+  const handlePriceDecline = () => {
+    setPriceModalOpen(false);
+    
+    // Navigate back to hotel details
+    if (bookingData?.hotel?.id) {
+      navigate(`/hotel/${bookingData.hotel.id}`);
+    } else {
+      navigate("/dashboard/search");
+    }
+  };
+
+  // Format card number with spaces and detect type
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, "");
+    const detectedType = detectCardType(value);
+    const maxLength = detectedType.type === "amex" ? 15 : 16;
+    
+    if (value.length <= maxLength) {
+      setCardNumber(formatCardNumber(value, detectedType.type));
+      
+      // Clear error on change
+      if (cardErrors.cardNumber) {
+        setCardErrors((prev) => ({ ...prev, cardNumber: undefined }));
+      }
+    }
   };
 
   // Format expiry date
-  const formatExpiryDate = (value: string) => {
-    const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "");
-    if (v.length >= 2) {
-      return v.substring(0, 2) + "/" + v.substring(2, 4);
-    }
-    return v;
-  };
-
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCardNumber(e.target.value);
-    if (formatted.replace(/\s/g, "").length <= 16) {
-      setCardNumber(formatted);
-    }
-  };
-
   const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatExpiryDate(e.target.value.replace("/", ""));
-    if (formatted.replace("/", "").length <= 4) {
-      setExpiryDate(formatted);
+    const value = e.target.value.replace(/\D/g, "");
+    if (value.length <= 4) {
+      setExpiryDate(formatExpiryDate(value));
+      
+      // Clear error on change
+      if (cardErrors.expiryDate) {
+        setCardErrors((prev) => ({ ...prev, expiryDate: undefined }));
+      }
     }
   };
 
+  // Handle CVV input
   const handleCvvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = e.target.value.replace(/[^0-9]/gi, "");
-    if (v.length <= 4) {
-      setCvv(v);
+    const value = e.target.value.replace(/\D/g, "");
+    const maxLength = cardType.type === "amex" ? 4 : 3;
+    
+    if (value.length <= maxLength) {
+      setCvv(value);
+      
+      // Clear error on change
+      if (cardErrors.cvv) {
+        setCardErrors((prev) => ({ ...prev, cvv: undefined }));
+      }
     }
   };
 
+  // Validate card on blur
+  const validateCardOnBlur = (field: string) => {
+    const errors: typeof cardErrors = {};
+
+    if (field === "cardNumber") {
+      const result = validateCardNumber(cardNumber);
+      if (!result.valid) errors.cardNumber = result.error;
+    }
+
+    if (field === "expiryDate") {
+      const result = validateExpiryDate(expiryDate);
+      if (!result.valid) errors.expiryDate = result.error;
+    }
+
+    if (field === "cvv") {
+      const result = validateCVV(cvv, cardType.type);
+      if (!result.valid) errors.cvv = result.error;
+    }
+
+    if (field === "cardholderName" && !cardholderName.trim()) {
+      errors.cardholderName = "Cardholder name is required";
+    }
+
+    setCardErrors((prev) => ({ ...prev, ...errors }));
+  };
+
+  // Validate billing address
+  const validateBillingAddress = (): boolean => {
+    const errors: Partial<Record<keyof BillingAddress, string>> = {};
+
+    if (!billingAddress.addressLine1.trim()) {
+      errors.addressLine1 = "Address is required";
+    }
+    if (!billingAddress.city.trim()) {
+      errors.city = "City is required";
+    }
+    if (!billingAddress.state.trim()) {
+      errors.state = "State/Province is required";
+    }
+    if (!billingAddress.postalCode.trim()) {
+      errors.postalCode = "Postal code is required";
+    }
+    if (!billingAddress.country) {
+      errors.country = "Country is required";
+    }
+
+    setBillingErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Validate entire form
   const validateForm = (): boolean => {
-    if (!cardNumber || cardNumber.replace(/\s/g, "").length < 16) {
-      toast({
-        title: "Invalid Card Number",
-        description: "Please enter a valid 16-digit card number.",
-        variant: "destructive",
-      });
-      return false;
+    const errors: typeof cardErrors = {};
+    let isValid = true;
+
+    // Validate card number
+    const cardResult = validateCardNumber(cardNumber);
+    if (!cardResult.valid) {
+      errors.cardNumber = cardResult.error;
+      isValid = false;
     }
 
+    // Validate cardholder name
     if (!cardholderName.trim()) {
-      toast({
-        title: "Cardholder Name Required",
-        description: "Please enter the cardholder's name.",
-        variant: "destructive",
-      });
-      return false;
+      errors.cardholderName = "Cardholder name is required";
+      isValid = false;
     }
 
-    if (!expiryDate || expiryDate.length < 5) {
-      toast({
-        title: "Invalid Expiry Date",
-        description: "Please enter a valid expiry date (MM/YY).",
-        variant: "destructive",
-      });
-      return false;
+    // Validate expiry date
+    const expiryResult = validateExpiryDate(expiryDate);
+    if (!expiryResult.valid) {
+      errors.expiryDate = expiryResult.error;
+      isValid = false;
     }
 
-    if (!cvv || cvv.length < 3) {
+    // Validate CVV
+    const cvvResult = validateCVV(cvv, cardType.type);
+    if (!cvvResult.valid) {
+      errors.cvv = cvvResult.error;
+      isValid = false;
+    }
+
+    setCardErrors(errors);
+
+    // Validate billing address
+    const billingValid = validateBillingAddress();
+    
+    if (!isValid || !billingValid) {
       toast({
-        title: "Invalid CVV",
-        description: "Please enter a valid CVV code.",
+        title: "Please fix the errors",
+        description: "Check the highlighted fields and try again.",
         variant: "destructive",
       });
       return false;
@@ -186,6 +389,7 @@ const PaymentPage = () => {
     }
   };
 
+  // Loading state
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -197,6 +401,7 @@ const PaymentPage = () => {
     );
   }
 
+  // No booking data
   if (!bookingData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -223,14 +428,29 @@ const PaymentPage = () => {
     );
   }
 
-  const { hotel, rooms, guests, totalPrice, searchParams: bookingSearchParams } = bookingData;
+  const { hotel, rooms, guests, searchParams: bookingSearchParams } = bookingData;
   const leadGuest = guests.find((g) => g.isLead);
   const nights = bookingSearchParams?.checkIn && bookingSearchParams?.checkOut
     ? differenceInDays(new Date(bookingSearchParams.checkOut), new Date(bookingSearchParams.checkIn))
     : 1;
+  
+  // Use verified price if available, otherwise original
+  const displayPrice = priceVerified ? verifiedPrice : bookingData.totalPrice;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      {/* Price Confirmation Modal */}
+      <PriceConfirmationModal
+        open={priceModalOpen}
+        onOpenChange={setPriceModalOpen}
+        type={priceModalType}
+        originalPrice={originalPrice}
+        newPrice={verifiedPrice}
+        currency={hotel.currency}
+        onAccept={handlePriceAccept}
+        onDecline={handlePriceDecline}
+      />
+
       <main className="flex-1">
         {/* Hero Section */}
         <section className="bg-primary py-8 lg:py-12">
@@ -252,6 +472,18 @@ const PaymentPage = () => {
           </div>
         </section>
 
+        {/* Price Verification Loading */}
+        {isVerifyingPrice && (
+          <div className="bg-amber-50 border-b border-amber-200 py-3">
+            <div className="container mx-auto px-4 max-w-7xl flex items-center gap-3">
+              <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+              <span className="text-sm text-amber-800">
+                Verifying current price and availability...
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Main Content */}
         <section className="py-8 lg:py-12">
           <div className="container mx-auto px-4 max-w-7xl">
@@ -263,108 +495,153 @@ const PaymentPage = () => {
                   value={paymentType}
                   onChange={setPaymentType}
                   availableMethods={["deposit", "hotel"]}
-                  disabled={isProcessing}
+                  disabled={isProcessing || isVerifyingPrice}
                 />
 
                 {/* Card Payment Form - Only show for "now" payment type */}
                 {paymentType === "now" && (
-                  <Card className="border-0 shadow-lg">
-                    <CardContent className="p-6 lg:p-8">
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="p-2 rounded-full bg-primary/10">
-                          <CreditCard className="h-5 w-5 text-primary" />
-                        </div>
-                        <h2 className="font-heading text-2xl font-bold text-foreground">
-                          Card Payment
-                        </h2>
-                      </div>
-
-                      <div className="space-y-6">
-                        {/* Card Number */}
-                        <div>
-                          <Label htmlFor="cardNumber" className="text-sm font-medium">
-                            Card Number <span className="text-destructive">*</span>
-                          </Label>
-                          <div className="relative mt-2">
-                            <Input
-                              id="cardNumber"
-                              value={cardNumber}
-                              onChange={handleCardNumberChange}
-                              placeholder="1234 5678 9012 3456"
-                              className="pl-12 h-12 text-lg font-mono"
-                            />
-                            <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <>
+                    <Card className="border-0 shadow-lg">
+                      <CardContent className="p-6 lg:p-8">
+                        <div className="flex items-center justify-between mb-6">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-full bg-primary/10">
+                              <CreditCard className="h-5 w-5 text-primary" />
+                            </div>
+                            <h2 className="font-heading text-2xl font-bold text-foreground">
+                              Card Payment
+                            </h2>
                           </div>
+                          
+                          {/* Card type indicator */}
+                          {cardType.type !== "unknown" && (
+                            <div className="text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                              {cardType.name}
+                            </div>
+                          )}
                         </div>
 
-                        {/* Cardholder Name */}
-                        <div>
-                          <Label htmlFor="cardholderName" className="text-sm font-medium">
-                            Cardholder Name <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            id="cardholderName"
-                            value={cardholderName}
-                            onChange={(e) => setCardholderName(e.target.value.toUpperCase())}
-                            placeholder="JOHN DOE"
-                            className="mt-2 h-12 text-lg uppercase"
-                          />
-                        </div>
-
-                        {/* Expiry & CVV */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-6">
+                          {/* Card Number */}
                           <div>
-                            <Label htmlFor="expiryDate" className="text-sm font-medium">
-                              Expiry Date <span className="text-destructive">*</span>
-                            </Label>
-                            <Input
-                              id="expiryDate"
-                              value={expiryDate}
-                              onChange={handleExpiryChange}
-                              placeholder="MM/YY"
-                              className="mt-2 h-12 text-lg font-mono"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="cvv" className="text-sm font-medium">
-                              CVV <span className="text-destructive">*</span>
+                            <Label htmlFor="cardNumber" className="text-sm font-medium">
+                              Card Number <span className="text-destructive">*</span>
                             </Label>
                             <div className="relative mt-2">
                               <Input
-                                id="cvv"
-                                type="password"
-                                value={cvv}
-                                onChange={handleCvvChange}
-                                placeholder="•••"
-                                className="h-12 text-lg font-mono"
+                                id="cardNumber"
+                                value={cardNumber}
+                                onChange={handleCardNumberChange}
+                                onBlur={() => validateCardOnBlur("cardNumber")}
+                                placeholder={cardType.type === "amex" ? "•••• •••••• •••••" : "•••• •••• •••• ••••"}
+                                className={`pl-12 h-12 text-lg font-mono ${cardErrors.cardNumber ? "border-destructive" : ""}`}
+                                disabled={isProcessing}
                               />
-                              <Lock className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            </div>
+                            {cardErrors.cardNumber && (
+                              <p className="text-sm text-destructive mt-1">{cardErrors.cardNumber}</p>
+                            )}
+                          </div>
+
+                          {/* Cardholder Name */}
+                          <div>
+                            <Label htmlFor="cardholderName" className="text-sm font-medium">
+                              Cardholder Name <span className="text-destructive">*</span>
+                            </Label>
+                            <Input
+                              id="cardholderName"
+                              value={cardholderName}
+                              onChange={(e) => {
+                                setCardholderName(e.target.value.toUpperCase());
+                                if (cardErrors.cardholderName) {
+                                  setCardErrors((prev) => ({ ...prev, cardholderName: undefined }));
+                                }
+                              }}
+                              onBlur={() => validateCardOnBlur("cardholderName")}
+                              placeholder="JOHN DOE"
+                              className={`mt-2 h-12 text-lg uppercase ${cardErrors.cardholderName ? "border-destructive" : ""}`}
+                              disabled={isProcessing}
+                            />
+                            {cardErrors.cardholderName && (
+                              <p className="text-sm text-destructive mt-1">{cardErrors.cardholderName}</p>
+                            )}
+                          </div>
+
+                          {/* Expiry & CVV */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="expiryDate" className="text-sm font-medium">
+                                Expiry Date <span className="text-destructive">*</span>
+                              </Label>
+                              <Input
+                                id="expiryDate"
+                                value={expiryDate}
+                                onChange={handleExpiryChange}
+                                onBlur={() => validateCardOnBlur("expiryDate")}
+                                placeholder="MM/YY"
+                                className={`mt-2 h-12 text-lg font-mono ${cardErrors.expiryDate ? "border-destructive" : ""}`}
+                                disabled={isProcessing}
+                              />
+                              {cardErrors.expiryDate && (
+                                <p className="text-sm text-destructive mt-1">{cardErrors.expiryDate}</p>
+                              )}
+                            </div>
+                            <div>
+                              <Label htmlFor="cvv" className="text-sm font-medium">
+                                CVV <span className="text-destructive">*</span>
+                              </Label>
+                              <div className="relative mt-2">
+                                <Input
+                                  id="cvv"
+                                  type="password"
+                                  value={cvv}
+                                  onChange={handleCvvChange}
+                                  onBlur={() => validateCardOnBlur("cvv")}
+                                  placeholder={cardType.type === "amex" ? "••••" : "•••"}
+                                  className={`h-12 text-lg font-mono ${cardErrors.cvv ? "border-destructive" : ""}`}
+                                  disabled={isProcessing}
+                                />
+                                <Lock className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              </div>
+                              {cardErrors.cvv && (
+                                <p className="text-sm text-destructive mt-1">{cardErrors.cvv}</p>
+                              )}
                             </div>
                           </div>
-                        </div>
 
-                        {/* Save Card */}
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            id="saveCard"
-                            checked={saveCard}
-                            onCheckedChange={(checked) => setSaveCard(checked as boolean)}
-                          />
-                          <Label htmlFor="saveCard" className="text-sm cursor-pointer">
-                            Save this card for future bookings
-                          </Label>
-                        </div>
+                          {/* Save Card */}
+                          <div className="flex items-center gap-3">
+                            <Checkbox
+                              id="saveCard"
+                              checked={saveCard}
+                              onCheckedChange={(checked) => setSaveCard(checked as boolean)}
+                              disabled={isProcessing}
+                            />
+                            <Label htmlFor="saveCard" className="text-sm cursor-pointer">
+                              Save this card for future bookings
+                            </Label>
+                          </div>
 
-                        {/* Security Note */}
-                        <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-                          <Shield className="h-5 w-5 text-green-600 flex-shrink-0" />
-                          <p className="text-sm text-green-800">
-                            Your payment information is encrypted and secure. We never store your full card details.
-                          </p>
+                          {/* Security Note */}
+                          <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <Shield className="h-5 w-5 text-green-600 flex-shrink-0" />
+                            <p className="text-sm text-green-800">
+                              Your payment information is encrypted and secure. We never store your full card details.
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+
+                    {/* Billing Address Section */}
+                    <BillingAddressSection
+                      value={billingAddress}
+                      onChange={setBillingAddress}
+                      errors={billingErrors}
+                      disabled={isProcessing}
+                    />
+                  </>
                 )}
 
                 {/* Pay Button */}
@@ -374,8 +651,13 @@ const PaymentPage = () => {
                       <div>
                         <p className="text-sm text-muted-foreground">Total Amount</p>
                         <p className="text-3xl font-bold text-primary">
-                          {hotel.currency} {totalPrice.toFixed(2)}
+                          {hotel.currency} {displayPrice.toFixed(2)}
                         </p>
+                        {priceVerified && verifiedPrice !== originalPrice && (
+                          <p className="text-xs text-muted-foreground line-through">
+                            Original: {hotel.currency} {originalPrice.toFixed(2)}
+                          </p>
+                        )}
                       </div>
                       <div className="text-right">
                         <p className="text-xs text-muted-foreground">Booking Reference</p>
@@ -387,7 +669,7 @@ const PaymentPage = () => {
 
                     <Button
                       onClick={handlePayment}
-                      disabled={isProcessing}
+                      disabled={isProcessing || isVerifyingPrice || !priceVerified}
                       className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-6 text-lg"
                       size="lg"
                     >
@@ -396,11 +678,16 @@ const PaymentPage = () => {
                           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                           Processing...
                         </>
+                      ) : isVerifyingPrice ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Verifying Price...
+                        </>
                       ) : (
                         <>
                           <Lock className="mr-2 h-5 w-5" />
                           {paymentType === "now" 
-                            ? `Pay ${hotel.currency} ${totalPrice.toFixed(2)}`
+                            ? `Pay ${hotel.currency} ${displayPrice.toFixed(2)}`
                             : paymentType === "deposit"
                             ? "Confirm Deposit Booking"
                             : "Confirm Pay at Hotel"}
@@ -498,7 +785,7 @@ const PaymentPage = () => {
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Room Total</span>
                         <span className="text-foreground">
-                          {hotel.currency} {totalPrice.toFixed(2)}
+                          {hotel.currency} {displayPrice.toFixed(2)}
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
@@ -508,16 +795,22 @@ const PaymentPage = () => {
                       <div className="flex justify-between font-bold pt-2 border-t border-border">
                         <span className="text-foreground">Total</span>
                         <span className="text-primary text-lg">
-                          {hotel.currency} {totalPrice.toFixed(2)}
+                          {hotel.currency} {displayPrice.toFixed(2)}
                         </span>
                       </div>
                     </div>
 
                     {/* Price Updated Notice */}
-                    {(bookingData as any).priceUpdated && (
-                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                        <p className="text-xs text-amber-800">
-                          <strong>Note:</strong> Price was updated during availability check.
+                    {priceVerified && verifiedPrice !== originalPrice && (
+                      <div className={`p-3 rounded-lg ${
+                        verifiedPrice > originalPrice 
+                          ? "bg-amber-50 border border-amber-200" 
+                          : "bg-green-50 border border-green-200"
+                      }`}>
+                        <p className={`text-xs ${
+                          verifiedPrice > originalPrice ? "text-amber-800" : "text-green-800"
+                        }`}>
+                          <strong>Note:</strong> Price was {verifiedPrice > originalPrice ? "increased" : "reduced"} during availability check.
                         </p>
                       </div>
                     )}

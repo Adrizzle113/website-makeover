@@ -11,3 +11,7 @@ export { ArrivalTimeSection } from "./ArrivalTimeSection";
 export { TermsAndConditionsSection } from "./TermsAndConditionsSection";
 export type { TermsState } from "./TermsAndConditionsSection";
 export { BookingNoticesSection } from "./BookingNoticesSection";
+export { BillingAddressSection } from "./BillingAddressSection";
+export type { BillingAddress } from "./BillingAddressSection";
+export { PriceConfirmationModal } from "./PriceConfirmationModal";
+export { PaymentMethodSelector } from "./PaymentMethodSelector";
