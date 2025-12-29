@@ -1001,6 +1001,86 @@ export default function BookingConfirmationPage() {
               </AccordionItem>
             </Accordion>
 
+            {/* What's Next Section */}
+            <Card className="mb-6 border-primary/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-heading flex items-center gap-2">
+                  <ArrowRight className="h-5 w-5 text-primary" />
+                  What Happens Next
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-4">
+                  <div className="flex items-start gap-4">
+                    <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                      <CheckCircle className="h-4 w-4 text-emerald-500" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">Confirmation Email Sent</p>
+                      <p className="text-sm text-muted-foreground">
+                        We've sent your booking confirmation to {leadGuest?.email || "your email"}.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-4">
+                    <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                      <FileText className="h-4 w-4 text-blue-500" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">Download Your Voucher</p>
+                      <p className="text-sm text-muted-foreground">
+                        Present the voucher at check-in for a smooth arrival experience.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-4">
+                    <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                      <CalendarPlus className="h-4 w-4 text-amber-500" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">Add to Calendar</p>
+                      <p className="text-sm text-muted-foreground">
+                        Never miss your trip dates by adding them to your calendar.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-4">
+                    <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+                      <Building2 className="h-4 w-4 text-purple-500" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">Arrive at the Hotel</p>
+                      <p className="text-sm text-muted-foreground">
+                        Check-in from {hasEarlyCheckIn ? earlyCheckIn?.time : booking.hotel.checkInTime} on {format(new Date(booking.dates.checkIn), "MMMM d, yyyy")}.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Countdown to Check-in */}
+            {nights > 0 && differenceInDays(new Date(booking.dates.checkIn), new Date()) > 0 && (
+              <Card className="mb-6 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Your trip starts in</p>
+                      <p className="font-heading text-3xl font-bold text-primary">
+                        {differenceInDays(new Date(booking.dates.checkIn), new Date())} days
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground mb-1">Check-in date</p>
+                      <p className="font-medium text-foreground">
+                        {format(new Date(booking.dates.checkIn), "EEEE, MMMM d")}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Booking Status Timeline */}
             <Card className="mb-6">
               <CardHeader className="pb-3">
@@ -1014,6 +1094,26 @@ export default function BookingConfirmationPage() {
                   checkOutDate={booking.dates.checkOut}
                   status={booking.status}
                 />
+              </CardContent>
+            </Card>
+
+            {/* Trip Reference */}
+            <Card className="mb-6">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                      <Calendar className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">This booking is part of</p>
+                      <p className="font-medium text-foreground">Trip: {booking.hotel.city} Getaway</p>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to="/trips">View All Trips</Link>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 
