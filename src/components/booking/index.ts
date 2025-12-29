@@ -19,3 +19,4 @@ export { BookingBreadcrumbs } from "./BookingBreadcrumbs";
 export { SessionTimeout } from "./SessionTimeout";
 export { PhoneInput } from "./PhoneInput";
 export { BookingTimeline } from "./BookingTimeline";
+export { RoomAddonsSection } from "./RoomAddonsSection";
