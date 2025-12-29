@@ -216,11 +216,7 @@ export function EnhancedSearchCard() {
       const response = await ratehawkApi.searchHotels(searchParamsData, 1, updatedFilters);
       setSearchResults(response.hotels, response.hasMore, response.totalResults);
 
-      localStorage.setItem("hotelSearchResults", JSON.stringify({
-        hotels: response.hotels,
-        searchParams: searchParamsData,
-        timestamp: new Date().toISOString(),
-      }));
+      // Results kept in memory only - URL params preserve search criteria
     } catch (error) {
       console.error("Search error:", error);
       const message = error instanceof Error ? error.message : "Failed to search hotels. Please try again.";
