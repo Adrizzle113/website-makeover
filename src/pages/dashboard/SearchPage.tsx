@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { SearchBar } from "@/components/search/SearchBar";
@@ -5,11 +6,39 @@ import { SearchResultsSection } from "@/components/search/SearchResultsSection";
 import { SearchHero } from "@/components/dashboard/search";
 import { useBookingStore } from "@/stores/bookingStore";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { Search, Share2 } from "lucide-react";
+import { useURLSync } from "@/hooks/useURLSync";
+import { toast } from "@/hooks/use-toast";
 
 const DashboardSearchPage = () => {
   const { searchResults, searchParams, clearSearch } = useBookingStore();
   const hasSearched = searchResults.length > 0 || searchParams !== null;
+  
+  // Sync URL with store state
+  const { getShareableURL } = useURLSync();
+
+  const handleShare = async () => {
+    const url = getShareableURL();
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({
+        title: "Link copied!",
+        description: "Search URL has been copied to clipboard",
+      });
+    } catch {
+      // Fallback for older browsers
+      toast({
+        title: "Share URL",
+        description: url,
+      });
+    }
+  };
+
+  const handleNewSearch = () => {
+    clearSearch();
+    // Clear URL params when starting new search
+    window.history.replaceState({}, "", window.location.pathname);
+  };
 
   return (
     <SidebarProvider>
@@ -27,14 +56,24 @@ const DashboardSearchPage = () => {
                     <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">Find the perfect accommodation for your clients</p>
                   </div>
                 </div>
-                <Button 
-                  variant="outline" 
-                  onClick={clearSearch}
-                  className="gap-2"
-                >
-                  <Search className="h-4 w-4" />
-                  <span className="hidden sm:inline">New Search</span>
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={handleShare}
+                    title="Share search"
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleNewSearch}
+                    className="gap-2"
+                  >
+                    <Search className="h-4 w-4" />
+                    <span className="hidden sm:inline">New Search</span>
+                  </Button>
+                </div>
               </header>
 
               {/* Search Content */}

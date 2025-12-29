@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { format, addDays, addYears, differenceInDays } from "date-fns";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { format, addDays, addYears, differenceInDays, parseISO } from "date-fns";
 import { CalendarIcon, Search, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -26,23 +27,84 @@ const MAX_STAY_NIGHTS = 30;
 const MAX_YEARS_AHEAD = 2;
 
 export function SearchBar() {
+  const [urlSearchParams] = useSearchParams();
   const { setSearchParams, setSearchResults, setLoading, setError, filters, searchParams } = useBookingStore();
   const isMobile = useIsMobile();
 
-  // Initialize state from searchParams if available
-  const [destination, setDestination] = useState(searchParams?.destination || "");
-  const [destinationId, setDestinationId] = useState<string | undefined>(searchParams?.destinationId);
-  const [isDestinationSelected, setIsDestinationSelected] = useState(!!searchParams?.destinationId);
-  const [checkIn, setCheckIn] = useState<Date>(searchParams?.checkIn ? new Date(searchParams.checkIn) : addDays(new Date(), 1));
-  const [checkOut, setCheckOut] = useState<Date>(searchParams?.checkOut ? new Date(searchParams.checkOut) : addDays(new Date(), 3));
-  const [rooms, setRooms] = useState<Room[]>(
-    searchParams?.rooms 
-      ? Array.from({ length: searchParams.rooms }, (_, i) => ({
-          adults: i === 0 ? (searchParams.guests - (searchParams.children || 0)) / searchParams.rooms : 2,
-          childrenAges: i === 0 ? (searchParams.childrenAges || []) : []
-        }))
-      : [{ adults: 2, childrenAges: [] }]
-  );
+  // Parse URL params for initial state
+  const getInitialState = () => {
+    // First check URL params
+    const urlDest = urlSearchParams.get("dest");
+    const urlDestId = urlSearchParams.get("destId");
+    const urlCheckIn = urlSearchParams.get("checkIn");
+    const urlCheckOut = urlSearchParams.get("checkOut");
+    const urlGuests = urlSearchParams.get("guests");
+    const urlRooms = urlSearchParams.get("rooms");
+    const urlChildren = urlSearchParams.get("children");
+    const urlAges = urlSearchParams.get("ages");
+
+    // If URL has params, use them
+    if (urlDest && urlDestId && urlCheckIn && urlCheckOut) {
+      const checkIn = parseISO(urlCheckIn);
+      const checkOut = parseISO(urlCheckOut);
+      const guests = parseInt(urlGuests || "2", 10);
+      const rooms = parseInt(urlRooms || "1", 10);
+      const children = parseInt(urlChildren || "0", 10);
+      const childrenAges = urlAges ? urlAges.split(",").map(Number).filter(n => !isNaN(n)) : [];
+
+      // Build rooms array from parsed data
+      const adultsPerRoom = Math.max(1, Math.floor((guests - children) / rooms));
+      const roomsArray: Room[] = Array.from({ length: rooms }, (_, i) => ({
+        adults: i === 0 ? (guests - children - (adultsPerRoom * (rooms - 1))) : adultsPerRoom,
+        childrenAges: i === 0 ? childrenAges : []
+      }));
+
+      return {
+        destination: urlDest,
+        destinationId: urlDestId,
+        isDestinationSelected: true,
+        checkIn,
+        checkOut,
+        rooms: roomsArray,
+      };
+    }
+
+    // Fall back to store params
+    if (searchParams) {
+      return {
+        destination: searchParams.destination || "",
+        destinationId: searchParams.destinationId,
+        isDestinationSelected: !!searchParams.destinationId,
+        checkIn: searchParams.checkIn ? new Date(searchParams.checkIn) : addDays(new Date(), 1),
+        checkOut: searchParams.checkOut ? new Date(searchParams.checkOut) : addDays(new Date(), 3),
+        rooms: searchParams.rooms 
+          ? Array.from({ length: searchParams.rooms }, (_, i) => ({
+              adults: i === 0 ? (searchParams.guests - (searchParams.children || 0)) / searchParams.rooms : 2,
+              childrenAges: i === 0 ? (searchParams.childrenAges || []) : []
+            }))
+          : [{ adults: 2, childrenAges: [] }]
+      };
+    }
+
+    // Default state
+    return {
+      destination: "",
+      destinationId: undefined,
+      isDestinationSelected: false,
+      checkIn: addDays(new Date(), 1),
+      checkOut: addDays(new Date(), 3),
+      rooms: [{ adults: 2, childrenAges: [] }]
+    };
+  };
+
+  const initialState = getInitialState();
+
+  const [destination, setDestination] = useState(initialState.destination);
+  const [destinationId, setDestinationId] = useState<string | undefined>(initialState.destinationId);
+  const [isDestinationSelected, setIsDestinationSelected] = useState(initialState.isDestinationSelected);
+  const [checkIn, setCheckIn] = useState<Date>(initialState.checkIn);
+  const [checkOut, setCheckOut] = useState<Date>(initialState.checkOut);
+  const [rooms, setRooms] = useState<Room[]>(initialState.rooms);
   const [isSearching, setIsSearching] = useState(false);
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [checkOutOpen, setCheckOutOpen] = useState(false);
