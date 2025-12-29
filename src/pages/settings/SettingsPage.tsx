@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -16,6 +18,17 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   UserIcon,
   BellIcon,
   ShieldIcon,
@@ -24,6 +37,20 @@ import {
   PaletteIcon,
   KeyIcon,
   BuildingIcon,
+  CodeIcon,
+  DatabaseIcon,
+  AlertTriangleIcon,
+  DownloadIcon,
+  Trash2Icon,
+  CheckCircleIcon,
+  XCircleIcon,
+  RefreshCwIcon,
+  EyeIcon,
+  EyeOffIcon,
+  PlusIcon,
+  CopyIcon,
+  MonitorIcon,
+  SmartphoneIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -52,6 +79,40 @@ export default function SettingsPage() {
     dateFormat: "MM/DD/YYYY",
   });
 
+  const [company, setCompany] = useState({
+    name: "Travel Agency Inc.",
+    legalName: "Travel Agency Incorporated LLC",
+    taxId: "12-3456789",
+    address: "123 Business District, Suite 500",
+    city: "New York",
+    state: "NY",
+    postalCode: "10001",
+    country: "United States",
+    phone: "+1 (555) 123-4567",
+    email: "info@travelagency.com",
+    website: "www.travelagency.com",
+  });
+
+  const [apiConfig, setApiConfig] = useState({
+    environment: "production",
+    apiKey: "••••••••••••••••••••",
+    apiSecret: "••••••••••••••••••••",
+    webhookUrl: "https://api.travelagency.com/webhooks/ratehawk",
+    lastTestAt: "2025-01-10T14:30:00Z",
+    testStatus: "success" as "success" | "failed" | "pending",
+  });
+
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showApiSecret, setShowApiSecret] = useState(false);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+
+  // Mock active sessions
+  const [sessions] = useState([
+    { id: "1", device: "Chrome on macOS", location: "New York, US", lastActive: "Now", current: true, type: "desktop" },
+    { id: "2", device: "Safari on iPhone", location: "New York, US", lastActive: "2 hours ago", current: false, type: "mobile" },
+    { id: "3", device: "Firefox on Windows", location: "Boston, US", lastActive: "1 day ago", current: false, type: "desktop" },
+  ]);
+
   const handleSaveProfile = () => {
     toast.success("Profile updated successfully");
   };
@@ -62,6 +123,39 @@ export default function SettingsPage() {
 
   const handleSavePreferences = () => {
     toast.success("Preferences saved");
+  };
+
+  const handleSaveCompany = () => {
+    toast.success("Company information saved");
+  };
+
+  const handleSaveApiConfig = () => {
+    toast.success("API configuration saved");
+  };
+
+  const handleTestConnection = async () => {
+    setIsTestingConnection(true);
+    // Simulate API test
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    setIsTestingConnection(false);
+    setApiConfig({ ...apiConfig, testStatus: "success", lastTestAt: new Date().toISOString() });
+    toast.success("API connection test successful");
+  };
+
+  const handleExportData = (type: string) => {
+    toast.success(`Exporting ${type} data...`);
+  };
+
+  const handleRevokeSession = (sessionId: string) => {
+    toast.success("Session revoked successfully");
+  };
+
+  const handleRevokeAllSessions = () => {
+    toast.success("All other sessions have been revoked");
+  };
+
+  const handleDeleteAccount = () => {
+    toast.error("This action is irreversible. Please contact support.");
   };
 
   return (
@@ -85,10 +179,14 @@ export default function SettingsPage() {
           {/* Content */}
           <main className="p-6 max-w-4xl">
             <Tabs defaultValue="profile" className="space-y-6">
-              <TabsList className="grid grid-cols-4 w-full max-w-lg">
+              <TabsList className="flex flex-wrap gap-1 w-full h-auto p-1">
                 <TabsTrigger value="profile" className="gap-2">
                   <UserIcon className="w-4 h-4" />
                   <span className="hidden sm:inline">Profile</span>
+                </TabsTrigger>
+                <TabsTrigger value="company" className="gap-2">
+                  <BuildingIcon className="w-4 h-4" />
+                  <span className="hidden sm:inline">Company</span>
                 </TabsTrigger>
                 <TabsTrigger value="notifications" className="gap-2">
                   <BellIcon className="w-4 h-4" />
@@ -98,9 +196,17 @@ export default function SettingsPage() {
                   <GlobeIcon className="w-4 h-4" />
                   <span className="hidden sm:inline">Preferences</span>
                 </TabsTrigger>
+                <TabsTrigger value="api" className="gap-2">
+                  <CodeIcon className="w-4 h-4" />
+                  <span className="hidden sm:inline">API</span>
+                </TabsTrigger>
                 <TabsTrigger value="security" className="gap-2">
                   <ShieldIcon className="w-4 h-4" />
                   <span className="hidden sm:inline">Security</span>
+                </TabsTrigger>
+                <TabsTrigger value="data" className="gap-2">
+                  <DatabaseIcon className="w-4 h-4" />
+                  <span className="hidden sm:inline">Data</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -188,6 +294,149 @@ export default function SettingsPage() {
 
                   <div className="flex justify-end">
                     <Button onClick={handleSaveProfile}>Save Changes</Button>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Company Tab */}
+              <TabsContent value="company">
+                <div className="rounded-lg border border-border bg-card p-6 space-y-6">
+                  <div>
+                    <h3 className="text-lg font-medium">Company Information</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Update your company details and business information.
+                    </p>
+                  </div>
+
+                  <Separator />
+
+                  {/* Logo */}
+                  <div className="flex items-center gap-4">
+                    <div className="w-20 h-20 rounded-lg border-2 border-dashed border-border flex items-center justify-center bg-muted/50">
+                      <BuildingIcon className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <Button variant="outline" size="sm">Upload Logo</Button>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        PNG or SVG. Recommended: 200x200px.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="companyName">Company Name</Label>
+                      <Input
+                        id="companyName"
+                        value={company.name}
+                        onChange={(e) => setCompany({ ...company, name: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="legalName">Legal Name</Label>
+                      <Input
+                        id="legalName"
+                        value={company.legalName}
+                        onChange={(e) => setCompany({ ...company, legalName: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="taxId">Tax ID / EIN</Label>
+                      <Input
+                        id="taxId"
+                        value={company.taxId}
+                        onChange={(e) => setCompany({ ...company, taxId: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="companyPhone">Phone</Label>
+                      <Input
+                        id="companyPhone"
+                        value={company.phone}
+                        onChange={(e) => setCompany({ ...company, phone: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="companyEmail">Email</Label>
+                      <Input
+                        id="companyEmail"
+                        type="email"
+                        value={company.email}
+                        onChange={(e) => setCompany({ ...company, email: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="website">Website</Label>
+                      <Input
+                        id="website"
+                        value={company.website}
+                        onChange={(e) => setCompany({ ...company, website: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <h4 className="text-sm font-medium mb-4">Business Address</h4>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label htmlFor="address">Street Address</Label>
+                        <Input
+                          id="address"
+                          value={company.address}
+                          onChange={(e) => setCompany({ ...company, address: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="city">City</Label>
+                        <Input
+                          id="city"
+                          value={company.city}
+                          onChange={(e) => setCompany({ ...company, city: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="state">State / Province</Label>
+                        <Input
+                          id="state"
+                          value={company.state}
+                          onChange={(e) => setCompany({ ...company, state: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="postalCode">Postal Code</Label>
+                        <Input
+                          id="postalCode"
+                          value={company.postalCode}
+                          onChange={(e) => setCompany({ ...company, postalCode: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="country">Country</Label>
+                        <Select
+                          value={company.country}
+                          onValueChange={(value) => setCompany({ ...company, country: value })}
+                        >
+                          <SelectTrigger id="country">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover">
+                            <SelectItem value="United States">United States</SelectItem>
+                            <SelectItem value="United Kingdom">United Kingdom</SelectItem>
+                            <SelectItem value="Canada">Canada</SelectItem>
+                            <SelectItem value="Australia">Australia</SelectItem>
+                            <SelectItem value="Germany">Germany</SelectItem>
+                            <SelectItem value="France">France</SelectItem>
+                            <SelectItem value="UAE">United Arab Emirates</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button onClick={handleSaveCompany}>Save Changes</Button>
                   </div>
                 </div>
               </TabsContent>
@@ -320,7 +569,7 @@ export default function SettingsPage() {
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-popover">
                           <SelectItem value="en">English</SelectItem>
                           <SelectItem value="es">Español</SelectItem>
                           <SelectItem value="fr">Français</SelectItem>
@@ -340,7 +589,7 @@ export default function SettingsPage() {
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-popover">
                           <SelectItem value="America/New_York">Eastern Time (ET)</SelectItem>
                           <SelectItem value="America/Chicago">Central Time (CT)</SelectItem>
                           <SelectItem value="America/Denver">Mountain Time (MT)</SelectItem>
@@ -362,7 +611,7 @@ export default function SettingsPage() {
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-popover">
                           <SelectItem value="USD">USD - US Dollar</SelectItem>
                           <SelectItem value="EUR">EUR - Euro</SelectItem>
                           <SelectItem value="GBP">GBP - British Pound</SelectItem>
@@ -382,7 +631,7 @@ export default function SettingsPage() {
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-popover">
                           <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
                           <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
                           <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
@@ -393,6 +642,181 @@ export default function SettingsPage() {
 
                   <div className="flex justify-end">
                     <Button onClick={handleSavePreferences}>Save Preferences</Button>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* API Configuration Tab */}
+              <TabsContent value="api">
+                <div className="space-y-6">
+                  {/* API Credentials */}
+                  <div className="rounded-lg border border-border bg-card p-6 space-y-6">
+                    <div>
+                      <h3 className="text-lg font-medium">API Configuration</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Configure your RateHawk API credentials and settings.
+                      </p>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Environment</Label>
+                        <Select
+                          value={apiConfig.environment}
+                          onValueChange={(value) => setApiConfig({ ...apiConfig, environment: value })}
+                        >
+                          <SelectTrigger className="w-48">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover">
+                            <SelectItem value="sandbox">Sandbox (Testing)</SelectItem>
+                            <SelectItem value="production">Production</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="apiKey">API Key</Label>
+                          <div className="relative">
+                            <Input
+                              id="apiKey"
+                              type={showApiKey ? "text" : "password"}
+                              value={apiConfig.apiKey}
+                              onChange={(e) => setApiConfig({ ...apiConfig, apiKey: e.target.value })}
+                              className="pr-20"
+                            />
+                            <div className="absolute right-1 top-1 flex gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => setShowApiKey(!showApiKey)}
+                              >
+                                {showApiKey ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(apiConfig.apiKey);
+                                  toast.success("API Key copied");
+                                }}
+                              >
+                                <CopyIcon className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="apiSecret">API Secret</Label>
+                          <div className="relative">
+                            <Input
+                              id="apiSecret"
+                              type={showApiSecret ? "text" : "password"}
+                              value={apiConfig.apiSecret}
+                              onChange={(e) => setApiConfig({ ...apiConfig, apiSecret: e.target.value })}
+                              className="pr-20"
+                            />
+                            <div className="absolute right-1 top-1 flex gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => setShowApiSecret(!showApiSecret)}
+                              >
+                                {showApiSecret ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(apiConfig.apiSecret);
+                                  toast.success("API Secret copied");
+                                }}
+                              >
+                                <CopyIcon className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="webhookUrl">Webhook URL</Label>
+                        <Input
+                          id="webhookUrl"
+                          value={apiConfig.webhookUrl}
+                          onChange={(e) => setApiConfig({ ...apiConfig, webhookUrl: e.target.value })}
+                          placeholder="https://your-domain.com/webhooks/ratehawk"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          We'll send booking status updates to this URL.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2">
+                      <div className="flex items-center gap-3">
+                        <Button
+                          variant="outline"
+                          onClick={handleTestConnection}
+                          disabled={isTestingConnection}
+                        >
+                          {isTestingConnection ? (
+                            <RefreshCwIcon className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <CheckCircleIcon className="w-4 h-4 mr-2" />
+                          )}
+                          Test Connection
+                        </Button>
+                        {apiConfig.testStatus === "success" && (
+                          <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                            <CheckCircleIcon className="w-3 h-3 mr-1" />
+                            Connected
+                          </Badge>
+                        )}
+                        {apiConfig.testStatus === "failed" && (
+                          <Badge className="bg-red-500/10 text-red-600 border-red-500/20">
+                            <XCircleIcon className="w-3 h-3 mr-1" />
+                            Failed
+                          </Badge>
+                        )}
+                      </div>
+                      <Button onClick={handleSaveApiConfig}>Save Configuration</Button>
+                    </div>
+                  </div>
+
+                  {/* API Documentation */}
+                  <div className="rounded-lg border border-border bg-card p-6 space-y-4">
+                    <div>
+                      <h3 className="text-lg font-medium">API Documentation</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Access technical documentation and integration guides.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      <Button variant="outline">
+                        <CodeIcon className="w-4 h-4 mr-2" />
+                        API Reference
+                      </Button>
+                      <Button variant="outline">
+                        <DownloadIcon className="w-4 h-4 mr-2" />
+                        Download SDK
+                      </Button>
+                      <Button variant="outline">
+                        <GlobeIcon className="w-4 h-4 mr-2" />
+                        Postman Collection
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </TabsContent>
@@ -459,25 +883,228 @@ export default function SettingsPage() {
                     <Separator />
 
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-primary/10">
-                            <GlobeIcon className="w-4 h-4 text-primary" />
+                      {sessions.map((session) => (
+                        <div key={session.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-primary/10">
+                              {session.type === "desktop" ? (
+                                <MonitorIcon className="w-4 h-4 text-primary" />
+                              ) : (
+                                <SmartphoneIcon className="w-4 h-4 text-primary" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">{session.device}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {session.location} • {session.lastActive}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-medium">Chrome on macOS</p>
-                            <p className="text-xs text-muted-foreground">
-                              New York, US • Current session
-                            </p>
-                          </div>
+                          {session.current ? (
+                            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                              Current
+                            </Badge>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleRevokeSession(session.id)}
+                            >
+                              Revoke
+                            </Button>
+                          )}
                         </div>
-                        <span className="text-xs text-emerald-600 font-medium">Active</span>
-                      </div>
+                      ))}
                     </div>
 
-                    <Button variant="outline" className="text-destructive hover:text-destructive">
+                    <Button 
+                      variant="outline" 
+                      className="text-destructive hover:text-destructive"
+                      onClick={handleRevokeAllSessions}
+                    >
                       Sign Out All Other Sessions
                     </Button>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Data & Privacy Tab */}
+              <TabsContent value="data">
+                <div className="space-y-6">
+                  {/* Export Data */}
+                  <div className="rounded-lg border border-border bg-card p-6 space-y-6">
+                    <div>
+                      <h3 className="text-lg font-medium">Export Your Data</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Download a copy of your data stored in the system.
+                      </p>
+                    </div>
+
+                    <Separator />
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="p-4 rounded-lg border border-border space-y-3">
+                        <div className="flex items-center gap-2">
+                          <DownloadIcon className="w-5 h-5 text-primary" />
+                          <h4 className="font-medium">Booking History</h4>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Export all your booking records as CSV or PDF.
+                        </p>
+                        <Button variant="outline" size="sm" onClick={() => handleExportData("bookings")}>
+                          Export Bookings
+                        </Button>
+                      </div>
+                      <div className="p-4 rounded-lg border border-border space-y-3">
+                        <div className="flex items-center gap-2">
+                          <DownloadIcon className="w-5 h-5 text-primary" />
+                          <h4 className="font-medium">Financial Reports</h4>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Export invoices, payments, and financial summaries.
+                        </p>
+                        <Button variant="outline" size="sm" onClick={() => handleExportData("financial")}>
+                          Export Financial Data
+                        </Button>
+                      </div>
+                      <div className="p-4 rounded-lg border border-border space-y-3">
+                        <div className="flex items-center gap-2">
+                          <DownloadIcon className="w-5 h-5 text-primary" />
+                          <h4 className="font-medium">Client Data</h4>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Export your client and guest information.
+                        </p>
+                        <Button variant="outline" size="sm" onClick={() => handleExportData("clients")}>
+                          Export Clients
+                        </Button>
+                      </div>
+                      <div className="p-4 rounded-lg border border-border space-y-3">
+                        <div className="flex items-center gap-2">
+                          <DownloadIcon className="w-5 h-5 text-primary" />
+                          <h4 className="font-medium">Complete Archive</h4>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Download all your data in a single ZIP archive.
+                        </p>
+                        <Button variant="outline" size="sm" onClick={() => handleExportData("all")}>
+                          Export All Data
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Data Retention */}
+                  <div className="rounded-lg border border-border bg-card p-6 space-y-4">
+                    <div>
+                      <h3 className="text-lg font-medium">Data Retention</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Information about how long we keep your data.
+                      </p>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-3 text-sm">
+                      <div className="flex items-center justify-between py-2">
+                        <span className="text-muted-foreground">Booking Records</span>
+                        <span className="font-medium">7 years (legal requirement)</span>
+                      </div>
+                      <div className="flex items-center justify-between py-2">
+                        <span className="text-muted-foreground">Financial Documents</span>
+                        <span className="font-medium">7 years (legal requirement)</span>
+                      </div>
+                      <div className="flex items-center justify-between py-2">
+                        <span className="text-muted-foreground">Activity Logs</span>
+                        <span className="font-medium">90 days</span>
+                      </div>
+                      <div className="flex items-center justify-between py-2">
+                        <span className="text-muted-foreground">Session Data</span>
+                        <span className="font-medium">30 days after logout</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Danger Zone */}
+                  <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-6 space-y-6">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangleIcon className="w-5 h-5 text-destructive" />
+                      <h3 className="text-lg font-medium text-destructive">Danger Zone</h3>
+                    </div>
+
+                    <Separator className="bg-destructive/20" />
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Delete All Booking Data</p>
+                          <p className="text-sm text-muted-foreground">
+                            Permanently delete all your booking history. This cannot be undone.
+                          </p>
+                        </div>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" className="text-destructive border-destructive/50 hover:bg-destructive/10">
+                              Delete Data
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete All Booking Data?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete all your booking records, including confirmations and vouchers.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction 
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={() => toast.error("Please contact support to delete data")}
+                              >
+                                Delete All Data
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+
+                      <Separator className="bg-destructive/20" />
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Close Account</p>
+                          <p className="text-sm text-muted-foreground">
+                            Permanently close your account and delete all associated data.
+                          </p>
+                        </div>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="destructive">
+                              <Trash2Icon className="w-4 h-4 mr-2" />
+                              Close Account
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Close Your Account?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action is irreversible. Your account, all bookings, financial records, and associated data will be permanently deleted.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction 
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={handleDeleteAccount}
+                              >
+                                Close Account
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </TabsContent>
