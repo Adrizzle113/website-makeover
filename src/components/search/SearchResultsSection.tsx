@@ -126,13 +126,7 @@ export function SearchResultsSection() {
       const response = await ratehawkApi.searchHotels(searchParams, 1, filters);
       setSearchResults(response.hotels, response.hasMore, response.totalResults);
       
-      // Update localStorage with filtered results
-      localStorage.setItem("hotelSearchResults", JSON.stringify({
-        hotels: response.hotels,
-        searchParams,
-        filters,
-        timestamp: new Date().toISOString(),
-      }));
+      // Results kept in memory only - URL params preserve search criteria
     } catch (err) {
       console.error("Filtered search error:", err);
       toast({

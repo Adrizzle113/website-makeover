@@ -211,12 +211,7 @@ export function SearchBar() {
       const response = await ratehawkApi.searchHotels(searchParamsData, 1, filters);
       setSearchResults(response.hotels, response.hasMore, response.totalResults);
       
-      // Store results in localStorage for persistence
-      localStorage.setItem("hotelSearchResults", JSON.stringify({
-        hotels: response.hotels,
-        searchParams: searchParamsData,
-        timestamp: new Date().toISOString(),
-      }));
+      // Results kept in memory only - URL params preserve search criteria
       
       setTimeout(() => {
         const resultsSection = document.getElementById("search-results");
