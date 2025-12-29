@@ -39,31 +39,10 @@ const DashboardSearchPage = () => {
 
               {/* Search Content */}
               <div className="flex-1 p-3 md:p-6 space-y-4 md:space-y-6 overflow-x-hidden">
-                {/* Search Summary */}
-                {searchParams && (
-                  <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 md:p-5">
-                    <div className="flex flex-wrap items-center gap-3 md:gap-6 text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground">Destination:</span>
-                        <span className="font-semibold text-foreground">{searchParams.destination}</span>
-                      </div>
-                      <div className="hidden sm:block h-4 w-px bg-border" />
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground">Dates:</span>
-                        <span className="font-semibold text-foreground">
-                          {new Date(searchParams.checkIn).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {new Date(searchParams.checkOut).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </span>
-                      </div>
-                      <div className="hidden sm:block h-4 w-px bg-border" />
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground">Guests:</span>
-                        <span className="font-semibold text-foreground">
-                          {searchParams.rooms} {searchParams.rooms === 1 ? 'Room' : 'Rooms'}, {searchParams.guests} {searchParams.guests === 1 ? 'Guest' : 'Guests'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {/* Search Bar - pre-populated with searched information */}
+                <div className="bg-card rounded-xl p-3 md:p-6 border border-border shadow-sm">
+                  <SearchBar />
+                </div>
 
                 {/* Results */}
                 <SearchResultsSection />
