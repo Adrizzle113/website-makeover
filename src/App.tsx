@@ -13,7 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import DashboardSearchPage from "./pages/dashboard/SearchPage";
 import { TripsListPage, TripDetailsPage } from "./pages/trips";
 import { OrderDetailsPage, BookingConfirmationPage } from "./pages/orders";
-import { DocumentsViewerPage } from "./pages/documents";
+import { DocumentsViewerPage, DocumentsListPage } from "./pages/documents";
 import {
   BookingsReportPage,
   RevenueReportPage,
@@ -71,6 +71,7 @@ const App = () => (
           <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
           <Route path="/orders/:orderId/confirmation" element={<BookingConfirmationPage />} />
           {/* Documents */}
+          <Route path="/documents" element={<DocumentsListPage />} />
           <Route path="/documents/:documentId" element={<DocumentsViewerPage />} />
           {/* Reporting */}
           <Route path="/reporting/bookings" element={<BookingsReportPage />} />
