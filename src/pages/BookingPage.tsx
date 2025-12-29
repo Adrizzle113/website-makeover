@@ -16,6 +16,8 @@ import {
   ArrivalTimeSection,
   TermsAndConditionsSection,
   BookingNoticesSection,
+  BookingBreadcrumbs,
+  SessionTimeout,
   type Guest,
   type PricingSnapshot,
   type TermsState,
@@ -357,32 +359,57 @@ const BookingPage = () => {
     });
   };
 
+  const handleSessionExpire = () => {
+    // Session expired - could clear data here
+    console.log("Session expired");
+  };
+
+  const handleSessionRestart = () => {
+    navigate("/");
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <main className="flex-1">
-        {/* Hero Section with Back Button */}
-        <section className="bg-primary py-8 lg:py-12">
+        {/* Hero Section with Breadcrumbs & Back Button */}
+        <section className="bg-primary py-6 lg:py-10">
           <div className="container mx-auto px-4 max-w-7xl">
-            <Button
-              variant="ghost"
-              onClick={() => navigate(`/hoteldetails/${selectedHotel.id}`)}
-              className="flex items-center gap-2 text-primary-foreground hover:bg-primary-foreground/10 mb-4"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Back to Hotel Details</span>
-            </Button>
-            <h1 className="font-heading text-3xl lg:text-4xl font-bold text-primary-foreground">
-              Complete Your Booking
-            </h1>
-            <div className="mt-3 flex flex-wrap items-center gap-3 text-primary-foreground/90">
-              <span className="font-medium">{selectedHotel.name}</span>
-              <div className="flex items-center">
-                {[...Array(selectedHotel.starRating || 0)].map((_, i) => (
-                  <Star key={i} className="h-4 w-4 text-[hsl(var(--app-gold))] fill-current" />
-                ))}
+            <BookingBreadcrumbs hotelName={selectedHotel.name} hotelId={selectedHotel.id} />
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <Button
+                  variant="ghost"
+                  onClick={() => navigate(`/hoteldetails/${selectedHotel.id}`)}
+                  className="flex items-center gap-2 text-primary-foreground hover:bg-primary-foreground/10 mb-3 -ml-3"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Back to Hotel</span>
+                </Button>
+                <h1 className="font-heading text-3xl lg:text-4xl font-bold text-primary-foreground">
+                  Complete Your Booking
+                </h1>
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-primary-foreground/90">
+                  <span className="font-medium">{selectedHotel.name}</span>
+                  <div className="flex items-center">
+                    {[...Array(selectedHotel.starRating || 0)].map((_, i) => (
+                      <Star key={i} className="h-4 w-4 text-[hsl(var(--app-gold))] fill-current" />
+                    ))}
+                  </div>
+                  <span className="text-primary-foreground/70">•</span>
+                  <span className="text-sm">{selectedHotel.address}, {selectedHotel.city}</span>
+                </div>
               </div>
-              <span className="text-primary-foreground/70">•</span>
-              <span className="text-sm">{selectedHotel.address}, {selectedHotel.city}</span>
+              
+              {/* Session Timer */}
+              <div className="hidden md:block">
+                <SessionTimeout
+                  timeoutMinutes={30}
+                  warningMinutes={5}
+                  onExpire={handleSessionExpire}
+                  onRestart={handleSessionRestart}
+                />
+              </div>
             </div>
           </div>
         </section>
