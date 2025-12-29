@@ -10,7 +10,10 @@ import {
   HotelIcon,
   ChevronRightIcon,
   EditIcon,
-  StarIcon
+  StarIcon,
+  LayoutGrid,
+  ListIcon,
+  GitBranch
 } from "lucide-react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
@@ -18,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TripTimeline, BookingCard, TripSummaryCards } from "@/components/trips";
 import { Order, OrderStatus, Trip, TripStatus } from "@/types/trips";
 
 // Mock data
@@ -133,6 +138,7 @@ export default function TripDetailsPage() {
   const navigate = useNavigate();
   const [trip] = useState(mockTrip);
   const [orders] = useState(mockOrders);
+  const [viewMode, setViewMode] = useState<"cards" | "timeline">("cards");
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("en-US", {
@@ -196,159 +202,57 @@ export default function TripDetailsPage() {
               </div>
             </div>
 
-            {/* Trip Overview Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <UsersIcon className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Client</p>
-                      <p className="font-medium text-foreground">{trip.clientName}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <MapPinIcon className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Destinations</p>
-                      <p className="font-medium text-foreground">{trip.destinations.join(", ")}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <CalendarIcon className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Duration</p>
-                      <p className="font-medium text-foreground">
-                        {formatDate(trip.dateRange.checkIn).split(",")[0]} - {formatDate(trip.dateRange.checkOut).split(",")[0]}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-sidebar-gold/10 flex items-center justify-center">
-                      <FileTextIcon className="w-5 h-5 text-sidebar-gold" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Total Value</p>
-                      <p className="font-heading text-lg text-foreground">
-                        {trip.currency} {trip.totalAmount.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            {/* Trip Overview Cards - Using new component */}
+            <TripSummaryCards trip={trip} orders={orders} />
           </div>
 
-          <Separator className="mb-8" />
+          <Separator className="my-8" />
 
-          {/* Orders List */}
+          {/* Bookings Section */}
           <div>
-            <h2 className="font-heading text-heading-sm text-foreground mb-4">
-              Bookings ({orders.length})
-            </h2>
-
-            <div className="space-y-4">
-              {orders.map((order) => (
-                <Card 
-                  key={order.id}
-                  className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:border-primary/20"
-                  onClick={() => navigate(`/orders/${order.id}`)}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-heading text-heading-sm text-foreground">
+                Itinerary ({orders.length} bookings)
+              </h2>
+              
+              {/* View Toggle */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={viewMode === "cards" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("cards")}
+                  className="gap-2"
                 >
-                  <CardContent className="p-5">
-                    <div className="flex flex-col lg:flex-row gap-4">
-                      {/* Hotel Info */}
-                      <div className="flex-1">
-                        <div className="flex items-start gap-3 mb-3">
-                          <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                            <HotelIcon className="w-6 h-6 text-muted-foreground" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <h3 className="font-heading text-lg text-foreground">
-                                {order.hotelName}
-                              </h3>
-                              <Badge 
-                                variant="outline" 
-                                className={`capitalize ${statusColors[order.status]}`}
-                              >
-                                {order.status}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-1 mb-1">
-                              {renderStars(order.hotelStars)}
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              {order.city}, {order.country}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <p className="text-muted-foreground mb-0.5">Check-in</p>
-                            <p className="font-medium text-foreground">{formatDate(order.checkIn)}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground mb-0.5">Check-out</p>
-                            <p className="font-medium text-foreground">{formatDate(order.checkOut)}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground mb-0.5">Room</p>
-                            <p className="font-medium text-foreground">{order.roomType}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground mb-0.5">Guests</p>
-                            <p className="font-medium text-foreground">
-                              {order.occupancy.adults} adult{order.occupancy.adults !== 1 ? "s" : ""}
-                              {order.occupancy.children > 0 && `, ${order.occupancy.children} child`}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Price & Action */}
-                      <div className="flex items-center gap-4 lg:border-l lg:pl-6">
-                        <div className="text-right">
-                          <p className="text-sm text-muted-foreground mb-0.5">
-                            {order.nights} night{order.nights !== 1 ? "s" : ""}
-                          </p>
-                          <p className="font-heading text-lg text-foreground">
-                            {order.currency} {order.totalAmount.toLocaleString()}
-                          </p>
-                          {order.documents.length > 0 && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {order.documents.length} document{order.documents.length !== 1 ? "s" : ""}
-                            </p>
-                          )}
-                        </div>
-                        <ChevronRightIcon className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                  <LayoutGrid className="w-4 h-4" />
+                  <span className="hidden sm:inline">Cards</span>
+                </Button>
+                <Button
+                  variant={viewMode === "timeline" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("timeline")}
+                  className="gap-2"
+                >
+                  <GitBranch className="w-4 h-4" />
+                  <span className="hidden sm:inline">Timeline</span>
+                </Button>
+              </div>
             </div>
+
+            {viewMode === "cards" ? (
+              <div className="space-y-4">
+                {orders.map((order) => (
+                  <BookingCard
+                    key={order.id}
+                    order={order}
+                    variant="detailed"
+                    showActions={true}
+                    onClick={() => navigate(`/orders/${order.id}`)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <TripTimeline orders={orders} />
+            )}
           </div>
         </main>
       </div>
