@@ -51,7 +51,18 @@ import {
   CopyIcon,
   MonitorIcon,
   SmartphoneIcon,
+  FileTextIcon,
+  PhoneIcon,
+  MailIcon,
+  ClockIcon,
+  CalendarIcon,
+  DollarSignIcon,
+  MapPinIcon,
+  ExternalLinkIcon,
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { format } from "date-fns";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
@@ -91,6 +102,55 @@ export default function SettingsPage() {
     phone: "+1 (555) 123-4567",
     email: "info@travelagency.com",
     website: "www.travelagency.com",
+  });
+
+  const [contract] = useState({
+    agreement: {
+      number: "AGR-2024-00145",
+      date: "2024-01-15",
+      status: "active",
+      type: "Standard B2B Partner Agreement",
+      expiryDate: "2026-01-15",
+      autoRenewal: true,
+    },
+    financial: {
+      depositAmount: 50000,
+      creditLimit: 150000,
+      currentBalance: 42350,
+      outstandingDebt: 0,
+      pendingPayments: 12500,
+      currency: "USD",
+      lastPaymentDate: "2025-01-10",
+      lastPaymentAmount: 25000,
+      creditStatus: "good" as "success" | "warning" | "critical",
+    },
+    paymentTerms: {
+      paymentMethod: "Bank Transfer",
+      paymentTermDays: 30,
+      invoiceFrequency: "Weekly",
+      bankName: "First National Bank",
+      accountName: "Travel Agency Inc.",
+      accountNumber: "****4567",
+      routingNumber: "****1234",
+      swiftCode: "FNBKUS33",
+    },
+    support: {
+      accountManager: {
+        name: "Sarah Johnson",
+        email: "sarah.johnson@ratehawk.com",
+        phone: "+1 (555) 987-6543",
+      },
+      technicalSupport: {
+        email: "api-support@ratehawk.com",
+        phone: "+1 (555) 888-9999",
+        hours: "24/7",
+      },
+      billingSupport: {
+        email: "billing@ratehawk.com",
+        phone: "+1 (555) 777-8888",
+        hours: "Mon-Fri 9AM-6PM EST",
+      },
+    },
   });
 
   const [apiConfig, setApiConfig] = useState({
@@ -299,7 +359,8 @@ export default function SettingsPage() {
               </TabsContent>
 
               {/* Company Tab */}
-              <TabsContent value="company">
+              <TabsContent value="company" className="space-y-6">
+                {/* Company Information Card */}
                 <div className="rounded-lg border border-border bg-card p-6 space-y-6">
                   <div>
                     <h3 className="text-lg font-medium">Company Information</h3>
@@ -438,6 +499,238 @@ export default function SettingsPage() {
                   <div className="flex justify-end">
                     <Button onClick={handleSaveCompany}>Save Changes</Button>
                   </div>
+                </div>
+
+                {/* Agreement Details Card */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2">
+                      <FileTextIcon className="w-5 h-5 text-primary" />
+                      <CardTitle>Agreement Details</CardTitle>
+                    </div>
+                    <CardDescription>Your current contract and agreement information</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Agreement Number</p>
+                        <p className="font-mono font-medium">{contract.agreement.number}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Status</p>
+                        <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">Active</Badge>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Agreement Type</p>
+                        <p className="font-medium">{contract.agreement.type}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Agreement Date</p>
+                        <div className="flex items-center gap-2">
+                          <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+                          <p className="font-medium">{format(new Date(contract.agreement.date), "MMMM d, yyyy")}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Expiry Date</p>
+                        <div className="flex items-center gap-2">
+                          <ClockIcon className="w-4 h-4 text-muted-foreground" />
+                          <p className="font-medium">{format(new Date(contract.agreement.expiryDate), "MMMM d, yyyy")}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Auto Renewal</p>
+                        <div className="flex items-center gap-2">
+                          {contract.agreement.autoRenewal ? (
+                            <CheckCircleIcon className="w-4 h-4 text-emerald-600" />
+                          ) : (
+                            <AlertTriangleIcon className="w-4 h-4 text-amber-600" />
+                          )}
+                          <p className="font-medium">{contract.agreement.autoRenewal ? "Enabled" : "Disabled"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Financial Summary Card */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2">
+                      <CreditCardIcon className="w-5 h-5 text-primary" />
+                      <CardTitle>Financial Summary</CardTitle>
+                    </div>
+                    <CardDescription>Your credit status and account balance</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Credit Usage Bar */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Credit Usage</span>
+                        <span className="font-medium text-emerald-600">
+                          {contract.financial.currency} {contract.financial.currentBalance.toLocaleString()} remaining
+                        </span>
+                      </div>
+                      <Progress 
+                        value={((contract.financial.creditLimit - contract.financial.currentBalance) / contract.financial.creditLimit) * 100} 
+                        className="h-3"
+                      />
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Used: {contract.financial.currency} {(contract.financial.creditLimit - contract.financial.currentBalance).toLocaleString()}</span>
+                        <span>Limit: {contract.financial.currency} {contract.financial.creditLimit.toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="p-4 rounded-lg bg-muted/50 space-y-1">
+                        <p className="text-sm text-muted-foreground">Deposit</p>
+                        <p className="text-xl font-semibold">
+                          {contract.financial.currency} {contract.financial.depositAmount.toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="p-4 rounded-lg bg-muted/50 space-y-1">
+                        <p className="text-sm text-muted-foreground">Credit Limit</p>
+                        <p className="text-xl font-semibold">
+                          {contract.financial.currency} {contract.financial.creditLimit.toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="p-4 rounded-lg bg-emerald-500/10 space-y-1">
+                        <p className="text-sm text-muted-foreground">Available Balance</p>
+                        <p className="text-xl font-semibold text-emerald-600">
+                          {contract.financial.currency} {contract.financial.currentBalance.toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="p-4 rounded-lg bg-amber-500/10 space-y-1">
+                        <p className="text-sm text-muted-foreground">Pending Payments</p>
+                        <p className="text-xl font-semibold text-amber-600">
+                          {contract.financial.currency} {contract.financial.pendingPayments.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-sm text-muted-foreground">
+                      Last payment: {contract.financial.currency} {contract.financial.lastPaymentAmount.toLocaleString()} on{" "}
+                      {format(new Date(contract.financial.lastPaymentDate), "MMMM d, yyyy")}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Payment Terms & Support Cards */}
+                <div className="grid gap-6 lg:grid-cols-2">
+                  {/* Payment Terms */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-2">
+                        <DollarSignIcon className="w-5 h-5 text-primary" />
+                        <CardTitle>Payment Terms</CardTitle>
+                      </div>
+                      <CardDescription>Payment methods and banking details</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <p className="text-sm text-muted-foreground">Payment Method</p>
+                          <p className="font-medium">{contract.paymentTerms.paymentMethod}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm text-muted-foreground">Payment Terms</p>
+                          <p className="font-medium">Net {contract.paymentTerms.paymentTermDays} days</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm text-muted-foreground">Invoice Frequency</p>
+                          <p className="font-medium">{contract.paymentTerms.invoiceFrequency}</p>
+                        </div>
+                      </div>
+                      <Separator />
+                      <div className="space-y-3">
+                        <p className="text-sm font-medium">Bank Details</p>
+                        <div className="p-4 rounded-lg bg-muted/50 space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Bank Name</span>
+                            <span className="font-medium">{contract.paymentTerms.bankName}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Account Name</span>
+                            <span className="font-medium">{contract.paymentTerms.accountName}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Account Number</span>
+                            <span className="font-mono">{contract.paymentTerms.accountNumber}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">SWIFT Code</span>
+                            <span className="font-mono">{contract.paymentTerms.swiftCode}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Support Contacts */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-2">
+                        <PhoneIcon className="w-5 h-5 text-primary" />
+                        <CardTitle>Support Contacts</CardTitle>
+                      </div>
+                      <CardDescription>Your dedicated support team</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Account Manager */}
+                      <div className="p-4 rounded-lg border border-border space-y-2">
+                        <p className="text-sm font-medium">Account Manager</p>
+                        <p className="font-medium">{contract.support.accountManager.name}</p>
+                        <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-2">
+                            <MailIcon className="w-4 h-4" />
+                            {contract.support.accountManager.email}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <PhoneIcon className="w-4 h-4" />
+                            {contract.support.accountManager.phone}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Technical Support */}
+                      <div className="p-4 rounded-lg bg-muted/50 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium">Technical Support</p>
+                          <Badge variant="outline">{contract.support.technicalSupport.hours}</Badge>
+                        </div>
+                        <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-2">
+                            <MailIcon className="w-4 h-4" />
+                            {contract.support.technicalSupport.email}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <PhoneIcon className="w-4 h-4" />
+                            {contract.support.technicalSupport.phone}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Billing Support */}
+                      <div className="p-4 rounded-lg bg-muted/50 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium">Billing Support</p>
+                          <Badge variant="outline">{contract.support.billingSupport.hours}</Badge>
+                        </div>
+                        <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-2">
+                            <MailIcon className="w-4 h-4" />
+                            {contract.support.billingSupport.email}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <PhoneIcon className="w-4 h-4" />
+                            {contract.support.billingSupport.phone}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
               </TabsContent>
 
