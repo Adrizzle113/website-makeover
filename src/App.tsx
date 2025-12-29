@@ -31,6 +31,7 @@ import {
   ActivityPage,
 } from "./pages/clients";
 import { SettingsPage } from "./pages/settings";
+import { ContractInfoPage } from "./pages/admin";
 import NotFound from "./pages/NotFound";
 import { Login, Register, EmailVerification, PendingApproval } from "./pages/auth";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
@@ -88,6 +89,8 @@ const App = () => (
           <Route path="/dashboard/clients" element={<Navigate to="/clients" replace />} />
           {/* Settings */}
           <Route path="/settings" element={<SettingsPage />} />
+          {/* Admin */}
+          <Route path="/admin/contract" element={<ContractInfoPage />} />
           {/* Auth */}
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/register" element={<Register />} />
