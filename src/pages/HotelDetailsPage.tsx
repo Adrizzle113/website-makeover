@@ -85,6 +85,7 @@ import { RoomSelectionSection } from "../components/hotel/RoomSelectionSection";
 import { FacilitiesAmenitiesSection } from "../components/hotel/FacilitiesAmenitiesSection";
 import { MapSection } from "../components/hotel/MapSection";
 import { HotelPoliciesSection } from "../components/hotel/HotelPoliciesSection";
+import { HotelReviewsSection } from "../components/hotel/HotelReviewsSection";
 import { StickyBookingBar } from "../components/hotel/StickyBookingBar";
 import { Card, CardContent } from "../components/ui/card";
 
@@ -571,6 +572,7 @@ const HotelDetailsPage = () => {
             checkOutTime={hotelDetails.checkOutTime}
           />
           <HotelPoliciesSection hotel={hotelDetails} />
+          <HotelReviewsSection hotel={hotelDetails} />
           <MapSection
             latitude={hotelDetails.latitude}
             longitude={hotelDetails.longitude}
