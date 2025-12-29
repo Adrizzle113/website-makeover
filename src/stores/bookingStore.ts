@@ -11,12 +11,28 @@ import type {
 import { DEFAULT_FILTERS } from "@/types/booking";
 import type { OrderStatus, PaymentType } from "@/types/etgBooking";
 
+// Upsell types
+export interface Upsell {
+  id: string;
+  type: "early_checkin" | "late_checkout";
+  name: string;
+  description?: string;
+  price: number;
+  currency: string;
+  newTime?: string; // e.g., "10:00 AM" for early check-in
+}
+
+export interface SelectedUpsell extends Upsell {
+  roomId: string;
+}
+
 interface BookingStore {
   // State
   searchParams: SearchParams | null;
   searchResults: Hotel[];
   selectedHotel: HotelDetails | null;
   selectedRooms: RoomSelection[];
+  selectedUpsells: SelectedUpsell[];
   isLoading: boolean;
   isLoadingMore: boolean;
   error: string | null;
@@ -52,6 +68,12 @@ interface BookingStore {
   clearSearch: () => void;
   reset: () => void;
   
+  // Upsell Actions
+  addUpsell: (upsell: SelectedUpsell) => void;
+  removeUpsell: (upsellId: string, roomId: string) => void;
+  clearUpsells: () => void;
+  getUpsellsForRoom: (roomId: string) => SelectedUpsell[];
+  
   // Filter & Sort Actions
   setFilters: (filters: Partial<SearchFilters>) => void;
   resetFilters: () => void;
@@ -69,6 +91,7 @@ interface BookingStore {
   // Computed
   getTotalPrice: () => number;
   getTotalRooms: () => number;
+  getTotalUpsellsPrice: () => number;
   getActiveFilterCount: () => number;
 }
 
@@ -77,6 +100,7 @@ const initialState = {
   searchResults: [],
   selectedHotel: null,
   selectedRooms: [],
+  selectedUpsells: [],
   isLoading: false,
   isLoadingMore: false,
   error: null,
@@ -146,6 +170,8 @@ export const useBookingStore = create<BookingStore>()(
       removeRoom: (roomId) =>
         set((state) => ({
           selectedRooms: state.selectedRooms.filter((r) => r.roomId !== roomId),
+          // Also remove upsells for this room
+          selectedUpsells: state.selectedUpsells.filter((u) => u.roomId !== roomId),
         })),
 
       updateRoomQuantity: (roomId, quantity) =>
@@ -155,6 +181,8 @@ export const useBookingStore = create<BookingStore>()(
               selectedRooms: state.selectedRooms.filter(
                 (r) => r.roomId !== roomId
               ),
+              // Also remove upsells for this room
+              selectedUpsells: state.selectedUpsells.filter((u) => u.roomId !== roomId),
             };
           }
           return {
@@ -166,7 +194,7 @@ export const useBookingStore = create<BookingStore>()(
           };
         }),
 
-      clearRoomSelection: () => set({ selectedRooms: [] }),
+      clearRoomSelection: () => set({ selectedRooms: [], selectedUpsells: [] }),
 
       setLoading: (loading) => set({ isLoading: loading }),
 
@@ -182,6 +210,7 @@ export const useBookingStore = create<BookingStore>()(
           searchResults: [],
           selectedHotel: null,
           selectedRooms: [],
+          selectedUpsells: [],
           error: null,
           hasMoreResults: false,
           currentPage: 1,
@@ -189,6 +218,30 @@ export const useBookingStore = create<BookingStore>()(
         }),
 
       reset: () => set(initialState),
+      
+      // Upsell Actions
+      addUpsell: (upsell) =>
+        set((state) => {
+          // Check if already exists
+          const exists = state.selectedUpsells.some(
+            (u) => u.id === upsell.id && u.roomId === upsell.roomId
+          );
+          if (exists) return state;
+          return { selectedUpsells: [...state.selectedUpsells, upsell] };
+        }),
+
+      removeUpsell: (upsellId, roomId) =>
+        set((state) => ({
+          selectedUpsells: state.selectedUpsells.filter(
+            (u) => !(u.id === upsellId && u.roomId === roomId)
+          ),
+        })),
+
+      clearUpsells: () => set({ selectedUpsells: [] }),
+
+      getUpsellsForRoom: (roomId) => {
+        return get().selectedUpsells.filter((u) => u.roomId === roomId);
+      },
       
       // Filter & Sort Actions
       setFilters: (newFilters) => set((state) => ({
@@ -222,16 +275,29 @@ export const useBookingStore = create<BookingStore>()(
 
       getTotalPrice: () => {
         const state = get();
-        return state.selectedRooms.reduce(
+        const roomsTotal = state.selectedRooms.reduce(
           (total, room) => total + room.totalPrice,
           0
         );
+        const upsellsTotal = state.selectedUpsells.reduce(
+          (total, upsell) => total + upsell.price,
+          0
+        );
+        return roomsTotal + upsellsTotal;
       },
 
       getTotalRooms: () => {
         const state = get();
         return state.selectedRooms.reduce(
           (total, room) => total + room.quantity,
+          0
+        );
+      },
+
+      getTotalUpsellsPrice: () => {
+        const state = get();
+        return state.selectedUpsells.reduce(
+          (total, upsell) => total + upsell.price,
           0
         );
       },
