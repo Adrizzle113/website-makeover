@@ -9,6 +9,7 @@ import {
   GlobeIcon,
   HelpCircleIcon,
   Sparkles,
+  FolderOpenIcon,
 } from "lucide-react";
 import {
   Sidebar,
@@ -31,6 +32,7 @@ const mainNavItems = [
   { title: "Search Hotels", url: "/dashboard/search", icon: SearchIcon },
   { title: "My Bookings", url: "/dashboard/my-bookings", icon: CalendarIcon },
   { title: "Trips", url: "/trips", icon: GlobeIcon, badge: "3" },
+  { title: "Documents", url: "/documents", icon: FolderOpenIcon },
   { title: "Reports", url: "/reporting/bookings", icon: FileTextIcon },
   { title: "Clients", url: "/clients", icon: UsersIcon },
 ];
