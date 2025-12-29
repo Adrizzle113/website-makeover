@@ -6,3 +6,8 @@ export { ContinueToPaymentSection } from "./ContinueToPaymentSection";
 export { PriceChangeModal } from "./PriceChangeModal";
 export { AgentPricingSection } from "./AgentPricingSection";
 export type { PricingSnapshot } from "./AgentPricingSection";
+export { BookingProgressIndicator } from "./BookingProgressIndicator";
+export { ArrivalTimeSection } from "./ArrivalTimeSection";
+export { TermsAndConditionsSection } from "./TermsAndConditionsSection";
+export type { TermsState } from "./TermsAndConditionsSection";
+export { BookingNoticesSection } from "./BookingNoticesSection";

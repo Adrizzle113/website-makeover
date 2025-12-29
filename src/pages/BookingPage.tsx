@@ -5,12 +5,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Footer } from "@/components/layout/Footer";
 import { useBookingStore } from "@/stores/bookingStore";
-import { GuestInformationSection, type Guest } from "@/components/booking/GuestInformationSection";
-import { BookingDetailsSection } from "@/components/booking/BookingDetailsSection";
-import { BookingSummaryCard } from "@/components/booking/BookingSummaryCard";
-import { ContinueToPaymentSection } from "@/components/booking/ContinueToPaymentSection";
-import { PriceChangeModal } from "@/components/booking/PriceChangeModal";
-import { AgentPricingSection, type PricingSnapshot } from "@/components/booking/AgentPricingSection";
+import { 
+  GuestInformationSection, 
+  BookingDetailsSection,
+  BookingSummaryCard,
+  ContinueToPaymentSection,
+  PriceChangeModal,
+  AgentPricingSection,
+  BookingProgressIndicator,
+  ArrivalTimeSection,
+  TermsAndConditionsSection,
+  BookingNoticesSection,
+  type Guest,
+  type PricingSnapshot,
+  type TermsState,
+} from "@/components/booking";
 import { bookingApi } from "@/services/bookingApi";
 import { toast } from "@/hooks/use-toast";
 import { differenceInDays } from "date-fns";
@@ -36,6 +45,11 @@ const BookingPage = () => {
 
   // Agent pricing state
   const [isPricingLocked, setIsPricingLocked] = useState(false);
+  
+  // New form state
+  const [arrivalTime, setArrivalTime] = useState<string | null>(null);
+  const [termsValid, setTermsValid] = useState(false);
+  const [termsState, setTermsState] = useState<TermsState | null>(null);
   const [pricingSnapshot, setPricingSnapshot] = useState<PricingSnapshot | null>(null);
 
   useEffect(() => {
@@ -127,6 +141,16 @@ const BookingPage = () => {
       toast({
         title: "Missing Child Age",
         description: "Please select the age for all children.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    // Check terms and conditions
+    if (!termsValid) {
+      toast({
+        title: "Terms Required",
+        description: "Please accept all required terms and conditions.",
         variant: "destructive",
       });
       return false;
@@ -328,7 +352,7 @@ const BookingPage = () => {
           <div className="container mx-auto px-4 max-w-7xl">
             <Button
               variant="ghost"
-              onClick={() => navigate(`/hotel/${selectedHotel.id}`)}
+              onClick={() => navigate(`/hoteldetails/${selectedHotel.id}`)}
               className="flex items-center gap-2 text-primary-foreground hover:bg-primary-foreground/10 mb-4"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -350,6 +374,13 @@ const BookingPage = () => {
           </div>
         </section>
 
+        {/* Progress Indicator */}
+        <section className="bg-card border-b border-border">
+          <div className="container mx-auto px-4 max-w-7xl">
+            <BookingProgressIndicator currentStep={2} />
+          </div>
+        </section>
+
         {/* Main Content */}
         <section className="py-8 lg:py-12">
           <div className="container mx-auto px-4 max-w-7xl">
@@ -361,6 +392,10 @@ const BookingPage = () => {
                   hotel={selectedHotel}
                   onGuestsChange={setGuests}
                 />
+                <ArrivalTimeSection 
+                  defaultCheckInTime={selectedHotel.checkInTime || "15:00"}
+                  onArrivalTimeChange={setArrivalTime}
+                />
                 <BookingDetailsSection 
                   onDetailsChange={setBookingDetails}
                 />
@@ -370,6 +405,15 @@ const BookingPage = () => {
                   isLocked={isPricingLocked}
                   onPricingChange={handlePricingChange}
                   onUnlockRequest={handleUnlockRequest}
+                />
+                <BookingNoticesSection 
+                  hotelName={selectedHotel.name}
+                  checkInTime={selectedHotel.checkInTime}
+                />
+                <TermsAndConditionsSection 
+                  hotelName={selectedHotel.name}
+                  onValidChange={setTermsValid}
+                  onTermsChange={setTermsState}
                 />
                 <ContinueToPaymentSection
                   totalPrice={displayPrice}
