@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import SearchPage from "./pages/SearchPage";
 import HotelDetailsPage from "./pages/HotelDetailsPage";
 import BookingPage from "./pages/BookingPage";
+import MyBookingsPage from "./pages/MyBookingsPage";
 import PaymentPage from "./pages/PaymentPage";
 import ProcessingPage from "./pages/ProcessingPage";
 import Dashboard from "./pages/Dashboard";
@@ -60,6 +61,7 @@ const App = () => (
           <Route path="/booking" element={<BookingPage />} />
           <Route path="/payment" element={<PaymentPage />} />
           <Route path="/processing/:orderId" element={<ProcessingPage />} />
+          <Route path="/my-bookings" element={<MyBookingsPage />} />
           {/* Trips */}
           <Route path="/trips" element={<TripsListPage />} />
           <Route path="/trips/:orderGroupId" element={<TripDetailsPage />} />
