@@ -226,7 +226,7 @@ export const Dashboard = (): JSX.Element => {
                     <Button
                       variant="outline"
                       className="h-auto py-4 flex flex-col items-center gap-2 border-border hover:bg-secondary hover:border-primary transition-all"
-                      onClick={() => navigate("/my-bookings")}
+                      onClick={() => navigate("/dashboard/my-bookings")}
                     >
                       <div className="p-2 rounded-lg bg-accent/20">
                         <CalendarIcon className="w-4 h-4 text-accent" />

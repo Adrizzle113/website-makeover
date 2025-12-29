@@ -1,12 +1,11 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, ChevronDown, CalendarCheck } from "lucide-react";
+import { Menu, X, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -78,17 +77,8 @@ export function Header() {
             </button>
           </nav>
 
-          {/* CTA Buttons */}
+          {/* CTA Button */}
           <div className="hidden lg:flex items-center gap-3">
-            <Link to="/my-bookings">
-              <Button 
-                variant="ghost"
-                className="text-white/90 hover:text-white hover:bg-white/10 rounded-full px-4 gap-2"
-              >
-                <CalendarCheck className="h-4 w-4" />
-                My Bookings
-              </Button>
-            </Link>
             <Link to="/dashboard">
               <Button 
                 className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-6"
@@ -148,15 +138,6 @@ export function Header() {
                 Contact
               </button>
               <div className="pt-4 border-t border-white/20 flex flex-col gap-2">
-                <Link to="/my-bookings" onClick={() => setIsMenuOpen(false)}>
-                  <Button 
-                    variant="outline"
-                    className="w-full border-white/30 text-white hover:bg-white/10 rounded-full gap-2"
-                  >
-                    <CalendarCheck className="h-4 w-4" />
-                    My Bookings
-                  </Button>
-                </Link>
                 <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
                   <Button 
                     className="w-full bg-cream text-primary hover:bg-cream/90 rounded-full"

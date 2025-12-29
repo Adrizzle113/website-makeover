@@ -29,7 +29,8 @@ import { Badge } from "@/components/ui/badge";
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboardIcon },
   { title: "Search Hotels", url: "/dashboard/search", icon: SearchIcon },
-  { title: "Trips", url: "/trips", icon: CalendarIcon, badge: "3" },
+  { title: "My Bookings", url: "/dashboard/my-bookings", icon: CalendarIcon },
+  { title: "Trips", url: "/trips", icon: GlobeIcon, badge: "3" },
   { title: "Reports", url: "/reporting/bookings", icon: FileTextIcon },
   { title: "Clients", url: "/clients", icon: UsersIcon },
 ];

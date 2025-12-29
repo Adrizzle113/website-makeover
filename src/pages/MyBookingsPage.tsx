@@ -4,11 +4,9 @@ import { format, isPast, isFuture, isToday } from "date-fns";
 import {
   CalendarIcon,
   SearchIcon,
-  FilterIcon,
   XIcon,
   MapPinIcon,
   DownloadIcon,
-  EyeIcon,
   XCircleIcon,
   ChevronRightIcon,
   HotelIcon,
@@ -16,7 +14,8 @@ import {
   CheckCircleIcon,
   AlertCircleIcon,
 } from "lucide-react";
-import { Header, Footer } from "@/components/layout";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -359,26 +358,30 @@ export default function MyBookingsPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Header />
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-background">
+        <AppSidebar />
+        
+        <main className="flex-1 overflow-auto">
+          <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-border">
+            <div className="px-6 py-4 flex items-center gap-4">
+              <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+              <div>
+                <h1 className="text-lg font-heading text-foreground">My Bookings</h1>
+                <p className="text-xs text-muted-foreground">View and manage your reservations</p>
+              </div>
+            </div>
+          </header>
 
-      <main className="flex-1 container mx-auto px-4 py-8 max-w-5xl">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="font-heading text-3xl text-foreground mb-2">My Bookings</h1>
-          <p className="text-muted-foreground">
-            View and manage your hotel reservations
-          </p>
-        </div>
-
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabFilter)} className="mb-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
-            <TabsTrigger value="all" className="gap-2">
-              All
-              <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                {tabCounts.all}
-              </Badge>
+          <div className="p-6 lg:p-8 max-w-6xl mx-auto">
+            {/* Tabs */}
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabFilter)} className="mb-6">
+              <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
+                <TabsTrigger value="all" className="gap-2">
+                  All
+                  <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                    {tabCounts.all}
+                  </Badge>
             </TabsTrigger>
             <TabsTrigger value="upcoming" className="gap-2">
               Upcoming
@@ -609,11 +612,10 @@ export default function MyBookingsPage() {
               </p>
               <Button onClick={() => navigate("/")}>Search Hotels</Button>
             </div>
-          )}
+            )}
+          </div>
         </div>
       </main>
-
-      <Footer />
 
       {/* Cancel Confirmation Dialog */}
       <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
@@ -654,5 +656,6 @@ export default function MyBookingsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  </SidebarProvider>
   );
 }
