@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,12 +10,171 @@ const corsHeaders = {
 const RENDER_API_URL = "https://travelapi-bg6t.onrender.com";
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 3000;
-const REQUEST_TIMEOUT_MS = 90000; // 90 seconds - Render backend can take 60+ seconds on cold start
-const WARMUP_TIMEOUT_MS = 15000; // 15 seconds for warmup
-// Helper to delay execution
+const REQUEST_TIMEOUT_MS = 90000;
+const WARMUP_TIMEOUT_MS = 15000;
+
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Warmup function - pings health endpoint to wake up Render
+// Initialize Supabase client
+function getSupabaseClient() {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  return createClient(supabaseUrl, supabaseKey);
+}
+
+interface StaticHotelData {
+  hotel_id: string;
+  name: string | null;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+  star_rating: number | null;
+  images: any[] | null;
+  coordinates: { lat?: number; lon?: number } | null;
+}
+
+interface CacheData {
+  hotel_ids: string[] | null;
+  total_hotels: number;
+  rates_index: Record<string, any>;
+  expires_at: string;
+}
+
+// Enrich hotels with static data from hotel_static_cache
+async function enrichWithStaticData(
+  hotels: any[], 
+  supabase: any
+): Promise<any[]> {
+  if (!hotels || hotels.length === 0) return hotels;
+
+  const hotelIds = hotels.map(h => h.hotel_id || h.id).filter(Boolean);
+  if (hotelIds.length === 0) return hotels;
+
+  console.log(`📊 Enriching ${hotelIds.length} hotels with static data...`);
+
+  try {
+    const { data: staticData, error } = await supabase
+      .from('hotel_static_cache')
+      .select('hotel_id, name, address, city, country, star_rating, images, coordinates')
+      .in('hotel_id', hotelIds);
+
+    if (error) {
+      console.error('❌ Static data query error:', error);
+      return hotels;
+    }
+
+    const staticArray = staticData as StaticHotelData[] | null;
+    if (!staticArray || staticArray.length === 0) {
+      console.log('⚠️ No static data found in cache');
+      return hotels;
+    }
+
+    console.log(`✅ Found static data for ${staticArray.length}/${hotelIds.length} hotels`);
+
+    // Create lookup map
+    const staticMap = new Map(staticArray.map(s => [s.hotel_id, s]));
+
+    // Merge static data into hotels
+    return hotels.map(hotel => {
+      const hotelId = hotel.hotel_id || hotel.id;
+      const staticInfo = staticMap.get(hotelId);
+
+      if (staticInfo) {
+        // Transform images - replace {size} template with 640x400 for cards
+        let images: string[] = [];
+        const rawImages = staticInfo.images || [];
+        if (Array.isArray(rawImages)) {
+          images = rawImages.slice(0, 5).map((img: any) => {
+            if (typeof img === 'string') {
+              return img.replace('{size}', '640x400');
+            }
+            if (img.tmpl) {
+              return img.tmpl.replace('{size}', '640x400');
+            }
+            return img.url || img;
+          }).filter(Boolean);
+        }
+
+        return {
+          ...hotel,
+          static_data: {
+            name: staticInfo.name,
+            address: staticInfo.address,
+            city: staticInfo.city,
+            country: staticInfo.country,
+            star_rating: staticInfo.star_rating,
+            images,
+            coordinates: staticInfo.coordinates,
+          },
+        };
+      }
+
+      return hotel;
+    });
+  } catch (error) {
+    console.error('❌ Error enriching with static data:', error);
+    return hotels;
+  }
+}
+
+// Check search_cache for valid cached results
+async function getCachedSearch(
+  regionId: number,
+  supabase: any
+): Promise<{ hotels: any[]; total: number; fromCache: boolean } | null> {
+  try {
+    console.log(`🔍 Checking cache for region_id: ${regionId}`);
+
+    const { data, error } = await supabase
+      .from('search_cache')
+      .select('hotel_ids, total_hotels, rates_index, expires_at')
+      .eq('region_id', regionId)
+      .order('cached_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error || !data) {
+      console.log('📭 No cache found');
+      return null;
+    }
+
+    const cacheData = data as CacheData;
+
+    // Check if cache is expired
+    const expiresAt = new Date(cacheData.expires_at);
+    const isExpired = expiresAt < new Date();
+    
+    if (isExpired) {
+      console.log('⏰ Cache expired, will try live search');
+    }
+
+    const hotelIds = cacheData.hotel_ids || [];
+    const ratesIndex = cacheData.rates_index || {};
+
+    console.log(`📦 Cache has ${hotelIds.length} hotels (expired: ${isExpired})`);
+
+    // Reconstruct minimal hotel objects from cache
+    const hotels = hotelIds.map((id: string) => {
+      const rateInfo = ratesIndex[id] || {};
+      return {
+        hotel_id: id,
+        id: id,
+        rates: rateInfo.rates || [],
+        price: rateInfo.price,
+      };
+    });
+
+    return {
+      hotels,
+      total: cacheData.total_hotels,
+      fromCache: true,
+    };
+  } catch (error) {
+    console.error('❌ Cache lookup error:', error);
+    return null;
+  }
+}
+
 async function warmupServer(): Promise<{ ok: boolean; status: number }> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), WARMUP_TIMEOUT_MS);
@@ -37,7 +197,6 @@ async function warmupServer(): Promise<{ ok: boolean; status: number }> {
   }
 }
 
-// Retry with linear backoff (simpler, faster feedback)
 async function fetchWithRetry(
   url: string,
   options: RequestInit,
@@ -60,12 +219,10 @@ async function fetchWithRetry(
       clearTimeout(timeoutId);
       lastStatus = response.status;
       
-      // Success or client error (4xx) - don't retry
       if (response.ok || (response.status >= 400 && response.status < 500)) {
         return { response, attempts: attempt, lastStatus };
       }
 
-      // Server error
       if (attempt < maxRetries) {
         console.log(`⚠️ Server error ${response.status}, will retry...`);
         const waitTime = RETRY_DELAY_MS * attempt;
@@ -74,7 +231,6 @@ async function fetchWithRetry(
         continue;
       }
 
-      // Final attempt: return the response so we can surface upstream details
       console.log(`💥 Server error ${response.status} on final attempt`);
       return { response, attempts: attempt, lastStatus };
       
@@ -93,15 +249,14 @@ async function fetchWithRetry(
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   const requestStart = Date.now();
+  const supabase = getSupabaseClient();
 
   try {
-    // Parse request body
     const bodyText = await req.text();
     console.log(`📥 Request body length: ${bodyText.length} chars`);
 
@@ -125,18 +280,24 @@ serve(async (req) => {
 
     console.log('📋 Payload keys:', Object.keys(requestBody));
     console.log('📍 destination:', requestBody.destination);
-    console.log('🆔 regionId:', requestBody.regionId ?? requestBody.region_id);
+    const regionId = requestBody.regionId ?? requestBody.region_id;
+    console.log('🆔 regionId:', regionId);
     console.log('👤 userId:', requestBody.userId);
 
-    // Validate - destination is required
-    if (!requestBody.destination && !requestBody.regionId && !requestBody.region_id) {
+    if (!requestBody.destination && !regionId) {
       return new Response(
         JSON.stringify({ error: 'destination or regionId is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Warmup server first
+    // Check cache first (for fallback)
+    let cachedResult = null;
+    if (regionId) {
+      cachedResult = await getCachedSearch(regionId, supabase);
+    }
+
+    // Warmup server
     const warmup = await warmupServer();
 
     // Call Render API with retry
@@ -152,9 +313,32 @@ serve(async (req) => {
 
     const duration = Date.now() - requestStart;
 
-    // All retries failed
+    // All retries failed - try cache fallback
     if (!renderResponse) {
       console.error('💥 All retries failed');
+
+      // If we have cached results, return them
+      if (cachedResult && cachedResult.hotels.length > 0) {
+        console.log('📦 Returning cached results as fallback');
+        
+        // Enrich with static data
+        const enrichedHotels = await enrichWithStaticData(cachedResult.hotels, supabase);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            hotels: enrichedHotels,
+            total: cachedResult.total,
+            hasMore: false,
+            page: 1,
+            fromCache: true,
+            cacheWarning: 'Results from cache - live search unavailable',
+            duration_ms: duration,
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       return new Response(
         JSON.stringify({
           error: 'Service temporarily unavailable. Please try again in 30 seconds.',
@@ -177,7 +361,7 @@ serve(async (req) => {
     console.log(`📨 Render response: ${renderResponse.status} (${duration}ms)`);
     console.log(`📨 Response preview: ${responseText.substring(0, 200)}`);
 
-    // Handle "Destination not found" as client error (even if upstream mistakenly returns 5xx)
+    // Handle "Destination not found"
     if (responseText.includes('Destination not found')) {
       const destination = String((requestBody as any).destination ?? "");
       return new Response(
@@ -190,11 +374,29 @@ serve(async (req) => {
       );
     }
 
-    // Handle server errors after retries succeeded but got error
+    // Handle server errors - try cache fallback
     if (renderResponse.status >= 500) {
-      // Try to surface upstream error details to the client for debugging
-      let upstreamDetails: string | null = null;
+      if (cachedResult && cachedResult.hotels.length > 0) {
+        console.log('📦 Server error - returning cached results');
+        
+        const enrichedHotels = await enrichWithStaticData(cachedResult.hotels, supabase);
 
+        return new Response(
+          JSON.stringify({
+            success: true,
+            hotels: enrichedHotels,
+            total: cachedResult.total,
+            hasMore: false,
+            page: 1,
+            fromCache: true,
+            cacheWarning: 'Results from cache - live search had errors',
+            duration_ms: duration,
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      let upstreamDetails: string | null = null;
       try {
         const maybeJson = JSON.parse(responseText);
         if (maybeJson && typeof maybeJson === "object") {
@@ -227,11 +429,27 @@ serve(async (req) => {
       );
     }
 
-    // Return response (success or other client error)
-    return new Response(responseText, {
-      status: renderResponse.status,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    // Success - parse and enrich response
+    try {
+      const responseData = JSON.parse(responseText);
+      
+      // Enrich hotels with static data
+      if (responseData.hotels && Array.isArray(responseData.hotels)) {
+        responseData.hotels = await enrichWithStaticData(responseData.hotels, supabase);
+        console.log(`✅ Enriched ${responseData.hotels.length} hotels with static data`);
+      }
+
+      return new Response(JSON.stringify(responseData), {
+        status: renderResponse.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } catch {
+      // If parse fails, return original response
+      return new Response(responseText, {
+        status: renderResponse.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
   } catch (error) {
     const duration = Date.now() - requestStart;
