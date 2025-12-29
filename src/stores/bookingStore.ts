@@ -178,6 +178,7 @@ export const useBookingStore = create<BookingStore>()(
 
       clearSearch: () =>
         set({
+          searchParams: null,
           searchResults: [],
           selectedHotel: null,
           selectedRooms: [],
