@@ -18,6 +18,7 @@ import {
   BookingNoticesSection,
   BookingBreadcrumbs,
   SessionTimeout,
+  RoomAddonsSection,
   type Guest,
   type PricingSnapshot,
   type TermsState,
@@ -29,7 +30,7 @@ import type { PendingBookingData } from "@/types/etgBooking";
 
 const BookingPage = () => {
   const navigate = useNavigate();
-  const { selectedHotel, selectedRooms, searchParams, getTotalPrice, setBookingHash, residency } = useBookingStore();
+  const { selectedHotel, selectedRooms, searchParams, getTotalPrice, setBookingHash, residency, selectedUpsells } = useBookingStore();
   const [isLoading, setIsLoading] = useState(true);
   const [isPrebooking, setIsPrebooking] = useState(false);
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -312,6 +313,15 @@ const BookingPage = () => {
         clientPrice: finalPrice,
       } : null,
       residency: guestResidency,
+      upsells: selectedUpsells.map(u => ({
+        id: u.id,
+        type: u.type,
+        name: u.name,
+        price: u.price,
+        currency: u.currency,
+        roomId: u.roomId,
+        newTime: u.newTime,
+      })),
     };
 
     sessionStorage.setItem("pending_booking", JSON.stringify(pendingBooking));
@@ -435,6 +445,10 @@ const BookingPage = () => {
                 <ArrivalTimeSection 
                   defaultCheckInTime={selectedHotel.checkInTime || "15:00"}
                   onArrivalTimeChange={setArrivalTime}
+                />
+                <RoomAddonsSection 
+                  rooms={selectedRooms}
+                  hotel={selectedHotel}
                 />
                 <BookingDetailsSection 
                   onDetailsChange={setBookingDetails}

@@ -13,6 +13,8 @@ import {
   BedDoubleIcon,
   FileTextIcon,
   TrendingDownIcon,
+  Download,
+  ChevronDown,
 } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { 
@@ -22,6 +24,23 @@ import {
   BookingsPipeline,
   TopPerformers,
 } from "@/components/dashboard";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "@/hooks/use-toast";
+
+type DateRange = "today" | "7days" | "30days" | "90days" | "year";
+
+const dateRangeLabels: Record<DateRange, string> = {
+  today: "Today",
+  "7days": "Last 7 Days",
+  "30days": "Last 30 Days",
+  "90days": "Last 90 Days",
+  year: "This Year",
+};
 
 const stats = [
   {
@@ -100,6 +119,8 @@ const recentBookings = [
 export const Dashboard = (): JSX.Element => {
   const [userEmail, setUserEmail] = useState("");
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [dateRange, setDateRange] = useState<DateRange>("30days");
+  const [isExporting, setIsExporting] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -115,6 +136,41 @@ export const Dashboard = (): JSX.Element => {
     if (hour < 12) return "Good morning";
     if (hour < 18) return "Good afternoon";
     return "Good evening";
+  };
+
+  const handleExportDashboard = async () => {
+    setIsExporting(true);
+    
+    // Simulate export process
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // Generate CSV with dashboard data
+    const csvContent = [
+      ["Metric", "Value", "Change", "Period"],
+      ["Total Bookings", "1,888", "+12.5%", dateRangeLabels[dateRange]],
+      ["Revenue", "$462,500", "+18.2%", dateRangeLabels[dateRange]],
+      ["Active Clients", "892", "+5.1%", dateRangeLabels[dateRange]],
+      ["Commission", "$92,500", "+22.3%", dateRangeLabels[dateRange]],
+      [],
+      ["Recent Bookings"],
+      ["ID", "Hotel", "Guest", "Dates", "Status", "Amount"],
+      ...recentBookings.map(b => [b.id, b.hotel, b.guest, b.dates, b.status, b.amount]),
+    ].map(row => row.join(",")).join("\n");
+    
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dashboard-export-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Export Complete",
+      description: "Dashboard data exported successfully.",
+    });
+    
+    setIsExporting(false);
   };
 
   return (
@@ -152,14 +208,47 @@ export const Dashboard = (): JSX.Element => {
           </header>
 
           <main className="flex-1 px-6 py-8 overflow-auto">
-            {/* Welcome Section */}
-            <div className="mb-8">
-              <h1 className="text-3xl md:text-4xl font-heading text-foreground mb-2">
-                Welcome back, {userEmail ? userEmail.split("@")[0] : "Agent"}
-              </h1>
-              <p className="text-muted-foreground">
-                Here's what's happening with your travel business today.
-              </p>
+            {/* Welcome Section with Date Range & Export */}
+            <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-3xl md:text-4xl font-heading text-foreground mb-2">
+                  Welcome back, {userEmail ? userEmail.split("@")[0] : "Agent"}
+                </h1>
+                <p className="text-muted-foreground">
+                  Here's what's happening with your travel business today.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="gap-2">
+                      <CalendarIcon className="h-4 w-4" />
+                      {dateRangeLabels[dateRange]}
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {Object.entries(dateRangeLabels).map(([key, label]) => (
+                      <DropdownMenuItem 
+                        key={key}
+                        onClick={() => setDateRange(key as DateRange)}
+                        className={dateRange === key ? "bg-accent" : ""}
+                      >
+                        {label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button 
+                  variant="outline" 
+                  className="gap-2"
+                  onClick={handleExportDashboard}
+                  disabled={isExporting}
+                >
+                  <Download className="h-4 w-4" />
+                  {isExporting ? "Exporting..." : "Export"}
+                </Button>
+              </div>
             </div>
 
             {/* Stats Grid */}

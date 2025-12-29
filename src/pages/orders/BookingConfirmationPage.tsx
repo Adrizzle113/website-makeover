@@ -156,11 +156,11 @@ export default function BookingConfirmationPage() {
             type: g.type as "adult" | "child",
             isLead: g.isLead,
           })),
-          upsells: (data as any).upsells?.map((u: any) => ({
+          upsells: data.upsells?.map((u: any) => ({
             type: u.type as "early_checkin" | "late_checkout",
             name: u.name,
             price: u.price,
-            time: u.time,
+            time: u.newTime || u.time,
           })),
           dates: {
             checkIn: typeof data.searchParams.checkIn === 'string' 
@@ -286,20 +286,181 @@ export default function BookingConfirmationPage() {
         }
       }
       
-      // Fallback: Generate simple voucher
-      toast({
-        title: "Voucher Downloaded",
-        description: "Your booking voucher has been prepared.",
-      });
+      // Generate PDF voucher using print functionality
+      const voucherContent = generateVoucherHTML();
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(voucherContent);
+        printWindow.document.close();
+        printWindow.focus();
+        // Small delay to ensure content is loaded before print
+        setTimeout(() => {
+          printWindow.print();
+        }, 250);
+        toast({
+          title: "Voucher Ready",
+          description: "Print dialog opened. Save as PDF to download.",
+        });
+      } else {
+        toast({
+          title: "Popup Blocked",
+          description: "Please allow popups to download the voucher.",
+          variant: "destructive",
+        });
+      }
     } catch (e) {
       console.error("Failed to download voucher:", e);
       toast({
-        title: "Voucher Prepared",
-        description: "Voucher generated successfully.",
+        title: "Error",
+        description: "Failed to generate voucher. Please try again.",
+        variant: "destructive",
       });
     }
     
     setVoucherLoading(false);
+  };
+
+  const generateVoucherHTML = (): string => {
+    if (!booking) return "";
+    
+    const checkInDate = format(new Date(booking.dates.checkIn), "EEEE, MMMM d, yyyy");
+    const checkOutDate = format(new Date(booking.dates.checkOut), "EEEE, MMMM d, yyyy");
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Booking Voucher - ${booking.confirmationNumber}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #333; }
+          .header { text-align: center; border-bottom: 2px solid #1a365d; padding-bottom: 20px; margin-bottom: 30px; }
+          .logo { font-size: 28px; font-weight: bold; color: #1a365d; }
+          .confirmation { background: #f0f7ff; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 30px; }
+          .confirmation-number { font-size: 24px; font-weight: bold; color: #1a365d; letter-spacing: 2px; }
+          .section { margin-bottom: 25px; }
+          .section-title { font-size: 14px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+          .hotel-name { font-size: 22px; font-weight: bold; color: #1a365d; margin-bottom: 5px; }
+          .stars { color: #f59e0b; font-size: 16px; }
+          .address { color: #666; margin-top: 5px; }
+          .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+          .info-box { background: #f9fafb; padding: 15px; border-radius: 6px; }
+          .info-label { font-size: 12px; color: #666; text-transform: uppercase; margin-bottom: 5px; }
+          .info-value { font-size: 16px; font-weight: 600; color: #1a365d; }
+          .info-sub { font-size: 12px; color: #888; margin-top: 2px; }
+          .guest-list { background: #f9fafb; padding: 15px; border-radius: 6px; }
+          .guest { padding: 8px 0; border-bottom: 1px solid #eee; }
+          .guest:last-child { border-bottom: none; }
+          .lead-badge { background: #1a365d; color: white; font-size: 10px; padding: 2px 6px; border-radius: 3px; margin-left: 8px; }
+          .upsell { background: #fef3c7; padding: 10px 15px; border-radius: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; }
+          .price-summary { background: #1a365d; color: white; padding: 20px; border-radius: 8px; margin-top: 30px; }
+          .price-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.2); }
+          .price-row:last-child { border-bottom: none; font-size: 18px; font-weight: bold; }
+          .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #888; font-size: 12px; }
+          .contact-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 20px; }
+          .contact-item { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+          @media print {
+            body { padding: 20px; }
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo">TravelHub</div>
+          <p style="color: #666; margin-top: 5px;">Booking Confirmation Voucher</p>
+        </div>
+
+        <div class="confirmation">
+          <p style="font-size: 12px; color: #666; margin-bottom: 5px;">CONFIRMATION NUMBER</p>
+          <p class="confirmation-number">${booking.confirmationNumber}</p>
+        </div>
+
+        <div class="section">
+          <p class="section-title">Hotel Information</p>
+          <p class="hotel-name">${booking.hotel.name}</p>
+          <p class="stars">${'★'.repeat(booking.hotel.starRating)}</p>
+          <p class="address">${booking.hotel.address}, ${booking.hotel.city}, ${booking.hotel.country}</p>
+          ${booking.hotel.phone ? `<div class="contact-grid"><div class="contact-item">📞 ${booking.hotel.phone}</div>${booking.hotel.email ? `<div class="contact-item">✉️ ${booking.hotel.email}</div>` : ''}</div>` : ''}
+        </div>
+
+        <div class="section">
+          <p class="section-title">Stay Details</p>
+          <div class="grid">
+            <div class="info-box">
+              <p class="info-label">Check-in</p>
+              <p class="info-value">${checkInDate}</p>
+              <p class="info-sub">From ${hasEarlyCheckIn ? earlyCheckIn?.time : booking.hotel.checkInTime}</p>
+            </div>
+            <div class="info-box">
+              <p class="info-label">Check-out</p>
+              <p class="info-value">${checkOutDate}</p>
+              <p class="info-sub">Until ${hasLateCheckout ? lateCheckout?.time : booking.hotel.checkOutTime}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <p class="section-title">Room Details</p>
+          ${booking.rooms.map(room => `
+            <div class="info-box" style="margin-bottom: 10px;">
+              <p class="info-value">${room.roomName} × ${room.quantity}</p>
+              ${room.mealPlan ? `<p class="info-sub">${room.mealPlan}</p>` : ''}
+            </div>
+          `).join('')}
+        </div>
+
+        ${booking.upsells && booking.upsells.length > 0 ? `
+        <div class="section">
+          <p class="section-title">Add-ons (Subject to Availability)</p>
+          ${booking.upsells.map(u => `
+            <div class="upsell">
+              <span>${u.name}${u.time ? ` - ${u.time}` : ''}</span>
+              <span>${booking.pricing.currency} ${u.price.toFixed(2)}</span>
+            </div>
+          `).join('')}
+        </div>
+        ` : ''}
+
+        <div class="section">
+          <p class="section-title">Guest Information</p>
+          <div class="guest-list">
+            ${booking.guests.map(g => `
+              <div class="guest">
+                <span style="font-weight: 600;">${g.firstName} ${g.lastName}</span>
+                ${g.isLead ? '<span class="lead-badge">Lead Guest</span>' : ''}
+                <span style="color: #888; margin-left: 10px;">(${g.type})</span>
+                ${g.email && g.isLead ? `<br><span style="font-size: 12px; color: #666;">${g.email}</span>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="price-summary">
+          <div class="price-row">
+            <span>Room Total (${nights} night${nights !== 1 ? 's' : ''})</span>
+            <span>${booking.pricing.currency} ${booking.pricing.roomTotal.toFixed(2)}</span>
+          </div>
+          ${booking.pricing.upsellsTotal > 0 ? `
+          <div class="price-row">
+            <span>Add-ons</span>
+            <span>${booking.pricing.currency} ${booking.pricing.upsellsTotal.toFixed(2)}</span>
+          </div>
+          ` : ''}
+          <div class="price-row">
+            <span>Total Paid</span>
+            <span>${booking.pricing.currency} ${booking.pricing.totalPaid.toFixed(2)}</span>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>This voucher is your confirmation of booking. Please present it at check-in.</p>
+          <p style="margin-top: 10px;">Booked on ${format(new Date(booking.bookingDate), "MMMM d, yyyy 'at' h:mm a")}</p>
+          <p style="margin-top: 20px;">Thank you for booking with TravelHub</p>
+        </div>
+      </body>
+      </html>
+    `;
   };
 
   const handleSendEmail = async () => {

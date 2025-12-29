@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, isPast, isFuture, isToday } from "date-fns";
+import { format, isPast, isFuture, isToday, isWithinInterval, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import {
   CalendarIcon,
   SearchIcon,
@@ -13,6 +13,9 @@ import {
   ClockIcon,
   CheckCircleIcon,
   AlertCircleIcon,
+  ChevronLeft,
+  ChevronRight,
+  FileDown,
 } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
@@ -38,7 +41,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 type BookingStatus = "confirmed" | "pending" | "cancelled" | "completed";
 
@@ -231,8 +241,11 @@ export default function MyBookingsPage() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [bookingToCancel, setBookingToCancel] = useState<UserBooking | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
-  // Filter bookings based on tab and search
+  // Filter bookings based on tab, search, and date range
   const filteredBookings = mockBookings.filter((booking) => {
     // Search filter
     if (searchQuery) {
@@ -248,7 +261,13 @@ export default function MyBookingsPage() {
     // Tab filter
     const checkInDate = new Date(booking.checkIn);
     const checkOutDate = new Date(booking.checkOut);
-    const today = new Date();
+
+    // Date range filter
+    if (dateRange.from && dateRange.to) {
+      if (!isWithinInterval(checkInDate, { start: dateRange.from, end: dateRange.to })) {
+        return false;
+      }
+    }
 
     switch (activeTab) {
       case "upcoming":
@@ -280,6 +299,29 @@ export default function MyBookingsPage() {
         return 0;
     }
   });
+
+  // Pagination
+  const totalPages = Math.ceil(sortedBookings.length / itemsPerPage);
+  const paginatedBookings = sortedBookings.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handleExportBookings = () => {
+    const csvContent = [
+      ["Order ID", "Hotel", "City", "Check-in", "Check-out", "Nights", "Status", "Amount", "Currency"],
+      ...sortedBookings.map(b => [
+        b.orderId, b.hotelName, b.city, b.checkIn, b.checkOut, b.nights, b.status, b.totalAmount, b.currency
+      ])
+    ].map(row => row.join(",")).join("\n");
+    
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `my-bookings-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    toast.success("Export complete", { description: `${sortedBookings.length} bookings exported.` });
+  };
 
   const handleCancelClick = (booking: UserBooking, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -404,14 +446,14 @@ export default function MyBookingsPage() {
           </TabsList>
         </Tabs>
 
-        {/* Search & Sort */}
+        {/* Search, Date Filter, Sort & Export */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search by hotel, city, or booking ID..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               className="pl-10"
             />
             {searchQuery && (
@@ -424,8 +466,34 @@ export default function MyBookingsPage() {
             )}
           </div>
 
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn("gap-2 w-full sm:w-auto", dateRange.from && "text-foreground")}>
+                <CalendarIcon className="h-4 w-4" />
+                {dateRange.from && dateRange.to
+                  ? `${format(dateRange.from, "MMM d")} - ${format(dateRange.to, "MMM d")}`
+                  : "Date Range"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="range"
+                selected={{ from: dateRange.from, to: dateRange.to }}
+                onSelect={(range) => { setDateRange({ from: range?.from, to: range?.to }); setCurrentPage(1); }}
+                numberOfMonths={2}
+              />
+              {dateRange.from && (
+                <div className="p-2 border-t">
+                  <Button variant="ghost" size="sm" onClick={() => setDateRange({ from: undefined, to: undefined })}>
+                    Clear dates
+                  </Button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
+
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
@@ -435,16 +503,22 @@ export default function MyBookingsPage() {
               <SelectItem value="amount_desc">Price (High to Low)</SelectItem>
             </SelectContent>
           </Select>
+
+          <Button variant="outline" className="gap-2" onClick={handleExportBookings}>
+            <FileDown className="h-4 w-4" />
+            Export
+          </Button>
         </div>
 
         {/* Results count */}
         <p className="text-sm text-muted-foreground mb-4">
           {sortedBookings.length} booking{sortedBookings.length !== 1 ? "s" : ""} found
+          {totalPages > 1 && ` • Page ${currentPage} of ${totalPages}`}
         </p>
 
         {/* Bookings List */}
         <div className="space-y-4">
-          {sortedBookings.map((booking) => {
+          {paginatedBookings.map((booking) => {
             const statusInfo = statusConfig[booking.status];
             const timeInfo = getBookingTimeInfo(booking);
             const StatusIcon = statusInfo.icon;
@@ -614,6 +688,39 @@ export default function MyBookingsPage() {
             </div>
             )}
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-6">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <Button
+                  key={page}
+                  variant={currentPage === page ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentPage(page)}
+                  className="w-8"
+                >
+                  {page}
+                </Button>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       </main>
 

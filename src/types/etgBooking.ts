@@ -212,6 +212,17 @@ export interface DocumentsResponse {
   };
 }
 
+// Selected upsell for booking
+export interface BookingUpsell {
+  id: string;
+  type: "early_checkin" | "late_checkout";
+  name: string;
+  price: number;
+  currency: string;
+  roomId: string;
+  newTime?: string;
+}
+
 // Booking data stored in session
 export interface PendingBookingData {
   bookingId: string;
@@ -267,4 +278,5 @@ export interface PendingBookingData {
   } | null;
   residency: string;
   paymentType?: PaymentType;
+  upsells?: BookingUpsell[];
 }
