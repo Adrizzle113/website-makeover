@@ -14,6 +14,7 @@ import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PDFViewer } from "@/components/documents";
 import { OrderDocument, DocumentType } from "@/types/trips";
 
 // Mock document data
@@ -33,7 +34,7 @@ const mockDocument: OrderDocument & {
   tripId: "og_12345",
   type: "voucher",
   name: "Booking Voucher - Soneva Fushi Resort",
-  url: "/documents/doc_001",
+  url: "https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf",
   generatedAt: "2024-12-10T10:32:00Z",
   fileSize: 245000,
   metadata: {
@@ -133,23 +134,13 @@ export default function DocumentsViewerPage() {
                   </div>
                 </div>
 
-                {/* PDF Preview Area */}
-                <div className="bg-muted/50 min-h-[600px] flex items-center justify-center">
-                  <div className="text-center p-8">
-                    <div className="w-24 h-32 bg-card rounded-lg shadow-lg mx-auto mb-4 flex items-center justify-center border">
-                      <FileTextIcon className="w-12 h-12 text-muted-foreground" />
-                    </div>
-                    <h3 className="font-heading text-lg text-foreground mb-2">
-                      PDF Preview
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-4 max-w-sm">
-                      In a production environment, the PDF document would be rendered here using a PDF viewer library.
-                    </p>
-                    <Button className="gap-2">
-                      <DownloadIcon className="w-4 h-4" />
-                      Download to View
-                    </Button>
-                  </div>
+                {/* PDF Viewer */}
+                <div className="min-h-[700px] relative">
+                  <PDFViewer 
+                    url={document.url}
+                    onLoadSuccess={(numPages) => console.log(`Loaded ${numPages} pages`)}
+                    onLoadError={(error) => console.error("PDF load error:", error)}
+                  />
                 </div>
               </Card>
             </div>
