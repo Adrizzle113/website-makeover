@@ -7,10 +7,10 @@ const corsHeaders = {
 };
 
 const RENDER_API_URL = "https://travelapi-bg6t.onrender.com";
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 2000;
-const REQUEST_TIMEOUT_MS = 45000; // 45 seconds
-const WARMUP_TIMEOUT_MS = 10000; // 10 seconds
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 3000;
+const REQUEST_TIMEOUT_MS = 90000; // 90 seconds - Render backend can take 60+ seconds on cold start
+const WARMUP_TIMEOUT_MS = 15000; // 15 seconds for warmup
 // Helper to delay execution
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
