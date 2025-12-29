@@ -223,7 +223,7 @@ const transformToHotelDetails = (hotel: Hotel): HotelDetails => {
 const HotelDetailsPage = () => {
   const { hotelId } = useParams<{ hotelId: string }>();
   const navigate = useNavigate();
-  const { selectedHotel, searchParams, searchResults } = useBookingStore();
+  const { selectedHotel, searchParams, searchResults, setSelectedHotel } = useBookingStore();
 
   const [hotelData, setHotelData] = useState<HotelData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -518,6 +518,10 @@ const HotelDetailsPage = () => {
       console.log(`   - ${staticInfo?.amenities?.length || 0} amenities from static info`);
 
       setHotelData(updatedHotelData);
+      
+      // Update the Zustand store so BookingPage can access the hotel data
+      const hotelDetails = transformToHotelDetails(updatedHotelData.hotel);
+      setSelectedHotel(hotelDetails);
     } catch (error) {
       console.error("💥 Error fetching hotel details:", error);
     }

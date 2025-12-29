@@ -53,12 +53,14 @@ const BookingPage = () => {
   const [pricingSnapshot, setPricingSnapshot] = useState<PricingSnapshot | null>(null);
 
   useEffect(() => {
+    // Short delay to allow store to hydrate from persistence
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 500);
+    }, 300);
     return () => clearTimeout(timer);
   }, []);
 
+  // Show loading state while checking store
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -70,7 +72,10 @@ const BookingPage = () => {
     );
   }
 
-  if (!selectedHotel || selectedRooms.length === 0) {
+  // Check if we have required data - redirect if not
+  const hasRequiredData = selectedHotel && selectedRooms.length > 0;
+
+  if (!hasRequiredData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center max-w-md mx-auto px-4">
@@ -83,12 +88,20 @@ const BookingPage = () => {
               <p className="text-muted-foreground mb-6">
                 We couldn't find the booking details. Please go back and select your room again.
               </p>
-              <Button
-                onClick={() => navigate(-1)}
-                className="bg-primary hover:bg-primary/90"
-              >
-                Go Back
-              </Button>
+              <div className="flex flex-col gap-3">
+                <Button
+                  onClick={() => navigate(-1)}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  Go Back
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/")}
+                >
+                  Search Hotels
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
