@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { format, addDays } from "date-fns";
+import { format, addDays, addYears, differenceInDays } from "date-fns";
 import { CalendarIcon, Search, ChevronDown, ChevronUp, AlertCircle, Clock, Coffee, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -19,16 +19,20 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { DestinationAutocomplete } from "@/components/search/DestinationAutocomplete";
-import { GuestSelector } from "@/components/search/GuestSelector";
+import { GuestSelector, hasValidChildrenAges } from "@/components/search/GuestSelector";
 import { useBookingStore } from "@/stores/bookingStore";
 import { ratehawkApi } from "@/services/ratehawkApi";
 import { toast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { MealPlan } from "@/types/booking";
 
 interface Room {
   adults: number;
   childrenAges: number[];
 }
+
+const MAX_STAY_NIGHTS = 30;
+const MAX_YEARS_AHEAD = 2;
 
 const COUNTRIES = [
   { code: "US", name: "United States" },
@@ -67,6 +71,7 @@ const MEAL_PLANS: { value: MealPlan; label: string; short: string }[] = [
 
 export function EnhancedSearchCard() {
   const { setSearchParams, setSearchResults, setLoading, setError, filters, setFilters } = useBookingStore();
+  const isMobile = useIsMobile();
 
   const [destination, setDestination] = useState("");
   const [destinationId, setDestinationId] = useState<string | undefined>();
@@ -78,6 +83,7 @@ export function EnhancedSearchCard() {
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [checkOutOpen, setCheckOutOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showValidation, setShowValidation] = useState(false);
 
   // Local filter state
   const [citizenship, setCitizenship] = useState(filters.residency || "US");
@@ -91,11 +97,33 @@ export function EnhancedSearchCard() {
   const totalChildren = rooms.reduce((sum, room) => sum + room.childrenAges.length, 0);
   const allChildrenAges = rooms.flatMap(room => room.childrenAges);
 
+  // Calculate night count
+  const nightCount = differenceInDays(checkOut, checkIn);
+
+  // Date constraints
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const maxCheckInDate = addYears(today, MAX_YEARS_AHEAD);
+  const maxCheckOutDate = addDays(checkIn, MAX_STAY_NIGHTS);
+
+  // Validation
+  const hasValidChildren = hasValidChildrenAges(rooms);
+  const hasValidDates = checkIn && checkOut && checkOut > checkIn && nightCount <= MAX_STAY_NIGHTS;
+  const hasValidGuestCount = rooms.every(room => room.adults + room.childrenAges.length <= 6);
+
+  const isFormValid = isDestinationSelected && hasValidDates && hasValidChildren && hasValidGuestCount;
+
   const handleCheckInSelect = (date: Date | undefined) => {
     if (date) {
       setCheckIn(date);
+      // Auto-adjust checkout if it's before or same as new check-in
       if (checkOut <= date) {
-        setCheckOut(addDays(date, 2));
+        setCheckOut(addDays(date, 1));
+      }
+      // Also adjust if checkout exceeds max stay
+      const newMaxCheckout = addDays(date, MAX_STAY_NIGHTS);
+      if (checkOut > newMaxCheckout) {
+        setCheckOut(newMaxCheckout);
       }
       setCheckInOpen(false);
       setTimeout(() => setCheckOutOpen(true), 150);
@@ -127,11 +155,23 @@ export function EnhancedSearchCard() {
     );
   };
 
+  const getValidationErrors = (): string[] => {
+    const errors: string[] = [];
+    if (!isDestinationSelected) errors.push("Please select a destination from suggestions");
+    if (!hasValidDates) errors.push("Please select valid check-in and check-out dates");
+    if (!hasValidChildren) errors.push("Please select age for all children");
+    if (!hasValidGuestCount) errors.push("Maximum 6 guests per room");
+    return errors;
+  };
+
   const handleSearch = async () => {
-    if (!destination || !isDestinationSelected) {
+    setShowValidation(true);
+
+    if (!isFormValid) {
+      const errors = getValidationErrors();
       toast({
-        title: "Please select a destination",
-        description: "Choose a destination from the dropdown suggestions",
+        title: "Please complete the form",
+        description: errors[0],
         variant: "destructive",
       });
       return;
@@ -160,7 +200,7 @@ export function EnhancedSearchCard() {
     setFilters(updatedFilters);
 
     try {
-      const searchParams = {
+      const searchParamsData = {
         destination,
         destinationId,
         checkIn,
@@ -171,14 +211,14 @@ export function EnhancedSearchCard() {
         childrenAges: allChildrenAges,
       };
 
-      setSearchParams(searchParams);
+      setSearchParams(searchParamsData);
 
-      const response = await ratehawkApi.searchHotels(searchParams, 1, updatedFilters);
+      const response = await ratehawkApi.searchHotels(searchParamsData, 1, updatedFilters);
       setSearchResults(response.hotels, response.hasMore, response.totalResults);
 
       localStorage.setItem("hotelSearchResults", JSON.stringify({
         hotels: response.hotels,
-        searchParams,
+        searchParams: searchParamsData,
         timestamp: new Date().toISOString(),
       }));
     } catch (error) {
@@ -196,8 +236,15 @@ export function EnhancedSearchCard() {
     }
   };
 
+  // Handle Enter key for search
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && isFormValid) {
+      handleSearch();
+    }
+  };
+
   return (
-    <div className="w-full max-w-4xl">
+    <div className="w-full max-w-4xl" onKeyDown={handleKeyDown}>
       <div className="bg-card/95 backdrop-blur-md rounded-2xl shadow-xl p-6 md:p-8 border border-border/50">
         {/* Warning when destination typed but not selected */}
         {destination && !isDestinationSelected && (
@@ -223,7 +270,7 @@ export function EnhancedSearchCard() {
             />
           </div>
 
-          {/* Row 2: Dates */}
+          {/* Row 2: Dates with Night Count */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-semibold text-primary uppercase tracking-wider mb-2 block">
@@ -247,8 +294,10 @@ export function EnhancedSearchCard() {
                     mode="single"
                     selected={checkIn}
                     onSelect={handleCheckInSelect}
-                    disabled={(date) => date < new Date()}
+                    disabled={(date) => date < today || date > maxCheckInDate}
+                    numberOfMonths={isMobile ? 1 : 2}
                     initialFocus
+                    className="pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
@@ -257,6 +306,11 @@ export function EnhancedSearchCard() {
             <div>
               <label className="text-xs font-semibold text-primary uppercase tracking-wider mb-2 block">
                 Check-out
+                {nightCount > 0 && (
+                  <span className="ml-2 text-muted-foreground font-normal normal-case">
+                    ({nightCount} night{nightCount > 1 ? "s" : ""})
+                  </span>
+                )}
               </label>
               <Popover open={checkOutOpen} onOpenChange={setCheckOutOpen}>
                 <PopoverTrigger asChild>
@@ -276,8 +330,10 @@ export function EnhancedSearchCard() {
                     mode="single"
                     selected={checkOut}
                     onSelect={handleCheckOutSelect}
-                    disabled={(date) => date <= checkIn}
+                    disabled={(date) => date <= checkIn || date > maxCheckOutDate}
+                    numberOfMonths={isMobile ? 1 : 2}
                     initialFocus
+                    className="pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
@@ -289,7 +345,11 @@ export function EnhancedSearchCard() {
             <label className="text-xs font-semibold text-primary uppercase tracking-wider mb-2 block">
               Guests & Rooms
             </label>
-            <GuestSelector rooms={rooms} onRoomsChange={setRooms} />
+            <GuestSelector 
+              rooms={rooms} 
+              onRoomsChange={setRooms}
+              showValidation={showValidation}
+            />
           </div>
         </div>
 
@@ -406,8 +466,13 @@ export function EnhancedSearchCard() {
         {/* Search Button */}
         <Button
           onClick={handleSearch}
-          disabled={isSearching || !isDestinationSelected}
-          className="w-full h-14 mt-6 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-xl text-lg disabled:opacity-50"
+          disabled={isSearching}
+          className={cn(
+            "w-full h-14 mt-6 font-semibold rounded-xl text-lg",
+            isFormValid 
+              ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+              : "bg-muted text-muted-foreground cursor-not-allowed"
+          )}
         >
           {isSearching ? (
             <span className="animate-pulse">Searching hotels...</span>

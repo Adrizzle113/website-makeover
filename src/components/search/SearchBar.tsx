@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { format, addDays } from "date-fns";
+import { format, addDays, addYears, differenceInDays } from "date-fns";
 import { CalendarIcon, Search, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -11,18 +11,23 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { DestinationAutocomplete } from "./DestinationAutocomplete";
-import { GuestSelector } from "./GuestSelector";
+import { GuestSelector, hasValidChildrenAges } from "./GuestSelector";
 import { useBookingStore } from "@/stores/bookingStore";
 import { ratehawkApi } from "@/services/ratehawkApi";
 import { toast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Room {
   adults: number;
   childrenAges: number[];
 }
 
+const MAX_STAY_NIGHTS = 30;
+const MAX_YEARS_AHEAD = 2;
+
 export function SearchBar() {
   const { setSearchParams, setSearchResults, setLoading, setError, filters, searchParams } = useBookingStore();
+  const isMobile = useIsMobile();
 
   // Initialize state from searchParams if available
   const [destination, setDestination] = useState(searchParams?.destination || "");
@@ -41,16 +46,39 @@ export function SearchBar() {
   const [isSearching, setIsSearching] = useState(false);
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [checkOutOpen, setCheckOutOpen] = useState(false);
+  const [showValidation, setShowValidation] = useState(false);
 
   const totalGuests = rooms.reduce((sum, room) => sum + room.adults + room.childrenAges.length, 0);
   const totalChildren = rooms.reduce((sum, room) => sum + room.childrenAges.length, 0);
   const allChildrenAges = rooms.flatMap(room => room.childrenAges);
 
+  // Calculate night count
+  const nightCount = differenceInDays(checkOut, checkIn);
+
+  // Date constraints
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const maxCheckInDate = addYears(today, MAX_YEARS_AHEAD);
+  const maxCheckOutDate = addDays(checkIn, MAX_STAY_NIGHTS);
+
+  // Validation
+  const hasValidChildren = hasValidChildrenAges(rooms);
+  const hasValidDates = checkIn && checkOut && checkOut > checkIn && nightCount <= MAX_STAY_NIGHTS;
+  const hasValidGuestCount = rooms.every(room => room.adults + room.childrenAges.length <= 6);
+
+  const isFormValid = isDestinationSelected && hasValidDates && hasValidChildren && hasValidGuestCount;
+
   const handleCheckInSelect = (date: Date | undefined) => {
     if (date) {
       setCheckIn(date);
+      // Auto-adjust checkout if it's before or same as new check-in
       if (checkOut <= date) {
-        setCheckOut(addDays(date, 2));
+        setCheckOut(addDays(date, 1));
+      }
+      // Also adjust if checkout exceeds max stay
+      const newMaxCheckout = addDays(date, MAX_STAY_NIGHTS);
+      if (checkOut > newMaxCheckout) {
+        setCheckOut(newMaxCheckout);
       }
       setCheckInOpen(false);
       setTimeout(() => setCheckOutOpen(true), 150);
@@ -68,17 +96,25 @@ export function SearchBar() {
     setDestination(value);
     setDestinationId(id);
     setIsDestinationSelected(!!id);
-    console.log("📍 Destination changed:", { value, id, isSelected: !!id });
   };
 
-  // Debug indicator for selected region ID
-  const showRegionIdDebug = isDestinationSelected && destinationId;
+  const getValidationErrors = (): string[] => {
+    const errors: string[] = [];
+    if (!isDestinationSelected) errors.push("Please select a destination from suggestions");
+    if (!hasValidDates) errors.push("Please select valid check-in and check-out dates");
+    if (!hasValidChildren) errors.push("Please select age for all children");
+    if (!hasValidGuestCount) errors.push("Maximum 6 guests per room");
+    return errors;
+  };
 
   const handleSearch = async () => {
-    if (!destination || !isDestinationSelected) {
+    setShowValidation(true);
+
+    if (!isFormValid) {
+      const errors = getValidationErrors();
       toast({
-        title: "Please select a destination",
-        description: "Choose a destination from the dropdown suggestions",
+        title: "Please complete the form",
+        description: errors[0],
         variant: "destructive",
       });
       return;
@@ -91,19 +127,12 @@ export function SearchBar() {
       // Ignore localStorage errors
     }
 
-    console.log("🔍 Search initiated with:", {
-      destination,
-      destinationId,
-      isDestinationSelected,
-      destinationIdType: typeof destinationId,
-    });
-
     setIsSearching(true);
     setLoading(true);
     setError(null);
 
     try {
-      const searchParams = {
+      const searchParamsData = {
         destination,
         destinationId,
         checkIn,
@@ -114,16 +143,16 @@ export function SearchBar() {
         childrenAges: allChildrenAges,
       };
 
-      setSearchParams(searchParams);
+      setSearchParams(searchParamsData);
 
       // Pass filters to initial search for server-side filtering
-      const response = await ratehawkApi.searchHotels(searchParams, 1, filters);
+      const response = await ratehawkApi.searchHotels(searchParamsData, 1, filters);
       setSearchResults(response.hotels, response.hasMore, response.totalResults);
       
       // Store results in localStorage for persistence
       localStorage.setItem("hotelSearchResults", JSON.stringify({
         hotels: response.hotels,
-        searchParams,
+        searchParams: searchParamsData,
         timestamp: new Date().toISOString(),
       }));
       
@@ -146,8 +175,15 @@ export function SearchBar() {
     }
   };
 
+  // Handle Enter key for search
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && isFormValid) {
+      handleSearch();
+    }
+  };
+
   return (
-    <div className="w-full max-w-5xl mx-auto">
+    <div className="w-full max-w-5xl mx-auto" onKeyDown={handleKeyDown}>
       <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl p-4 md:p-6 border border-white/20">
         {/* Warning when destination typed but not selected */}
         {destination && !isDestinationSelected && (
@@ -194,7 +230,8 @@ export function SearchBar() {
                   mode="single"
                   selected={checkIn}
                   onSelect={handleCheckInSelect}
-                  disabled={(date) => date < new Date()}
+                  disabled={(date) => date < today || date > maxCheckInDate}
+                  numberOfMonths={isMobile ? 1 : 2}
                   initialFocus
                   className="pointer-events-auto"
                 />
@@ -202,10 +239,15 @@ export function SearchBar() {
             </Popover>
           </div>
 
-          {/* Check-out Date */}
+          {/* Check-out Date with Night Count */}
           <div className="flex-shrink-0">
             <label className="text-xs font-semibold text-primary uppercase tracking-wider mb-2 block">
               Check-out
+              {nightCount > 0 && (
+                <span className="ml-2 text-muted-foreground font-normal normal-case">
+                  ({nightCount} night{nightCount > 1 ? "s" : ""})
+                </span>
+              )}
             </label>
             <Popover open={checkOutOpen} onOpenChange={setCheckOutOpen}>
               <PopoverTrigger asChild>
@@ -225,7 +267,8 @@ export function SearchBar() {
                   mode="single"
                   selected={checkOut}
                   onSelect={handleCheckOutSelect}
-                  disabled={(date) => date <= checkIn}
+                  disabled={(date) => date <= checkIn || date > maxCheckOutDate}
+                  numberOfMonths={isMobile ? 1 : 2}
                   initialFocus
                   className="pointer-events-auto"
                 />
@@ -241,6 +284,7 @@ export function SearchBar() {
             <GuestSelector
               rooms={rooms}
               onRoomsChange={setRooms}
+              showValidation={showValidation}
             />
           </div>
 
@@ -248,8 +292,13 @@ export function SearchBar() {
           <div className="flex-shrink-0 flex items-end">
             <Button
               onClick={handleSearch}
-              disabled={isSearching || !isDestinationSelected}
-              className="h-12 px-8 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-full disabled:opacity-50"
+              disabled={isSearching}
+              className={cn(
+                "h-12 px-8 font-semibold rounded-full",
+                isFormValid 
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+                  : "bg-muted text-muted-foreground cursor-not-allowed"
+              )}
             >
               {isSearching ? (
                 <span className="animate-pulse">Searching...</span>
