@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import type { HotelDetails, RateHawkRate, RateHawkRoomGroup } from "@/types/booking";
 import { useBookingStore } from "@/stores/bookingStore";
 import { RoomUpsells } from "./RoomUpsells";
-
+import { differenceInDays } from "date-fns";
 // Room category types for sorting and badges
 type RoomCategory = "standard" | "deluxe" | "suite" | "premium" | "family" | "apartment";
 
@@ -467,8 +467,18 @@ export function RoomSelectionSection({
   checkInTime,
   checkOutTime 
 }: RoomSelectionSectionProps) {
-  const { selectedRooms, addRoom, updateRoomQuantity } = useBookingStore();
+  const { selectedRooms, addRoom, updateRoomQuantity, searchParams } = useBookingStore();
   const [displayedRooms, setDisplayedRooms] = useState(6);
+
+  // Calculate number of nights from search params
+  const nights = useMemo(() => {
+    if (searchParams?.checkIn && searchParams?.checkOut) {
+      const checkIn = new Date(searchParams.checkIn);
+      const checkOut = new Date(searchParams.checkOut);
+      return Math.max(1, differenceInDays(checkOut, checkIn));
+    }
+    return 1;
+  }, [searchParams]);
 
   // Process and sort rooms by category using room_groups + rg_hash matching
   const sortedRooms = useMemo(() => {
@@ -637,7 +647,7 @@ export function RoomSelectionSection({
                   <div className="flex flex-col items-end gap-3 min-w-[160px]">
                     <div className="text-right">
                       <div className="text-2xl font-bold text-foreground">
-                        {room.currency === "USD" ? "$" : room.currency} {room.price.toLocaleString()}
+                        {room.currency === "USD" ? "$" : room.currency} {Math.round(room.price / nights).toLocaleString()}
                       </div>
                       <div className="text-sm text-muted-foreground">per night</div>
                     </div>
