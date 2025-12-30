@@ -41,7 +41,7 @@ export function BookingSummaryCard({
 
   const checkIn = searchParams?.checkIn ? new Date(searchParams.checkIn) : new Date();
   const checkOut = searchParams?.checkOut ? new Date(searchParams.checkOut) : new Date();
-  const nights = differenceInDays(checkOut, checkIn) || 1;
+  const nights = Math.max(1, differenceInDays(checkOut, checkIn));
 
   const totalGuests = searchParams?.guests || rooms.reduce((sum, r) => sum + r.quantity * 2, 0);
   const childCount = searchParams?.children || 0;

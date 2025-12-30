@@ -114,9 +114,10 @@ const BookingPage = () => {
 
   const totalPrice = getTotalPrice();
   const nights = searchParams?.checkIn && searchParams?.checkOut
-    ? differenceInDays(new Date(searchParams.checkOut), new Date(searchParams.checkIn))
+    ? Math.max(1, differenceInDays(new Date(searchParams.checkOut), new Date(searchParams.checkIn)))
     : 1;
-  const totalWithNights = totalPrice * nights;
+  // totalPrice already includes all nights from the store
+  const totalWithNights = totalPrice;
 
   // Use client price if available, otherwise net price
   const displayPrice = pricingSnapshot?.clientPrice || totalWithNights;
