@@ -149,6 +149,39 @@ interface HotelData {
   selectedFromPage?: number;
 }
 
+// Helper to extract lowest price from ratehawk_data rates
+const getLowestPriceFromRatehawkData = (ratehawkData: any): number => {
+  if (!ratehawkData?.rates || !Array.isArray(ratehawkData.rates)) return 0;
+  
+  let lowestPrice = 0;
+  for (const rate of ratehawkData.rates) {
+    let price = 0;
+    // Try payment_options first
+    if (rate.payment_options?.payment_types?.[0]) {
+      const pt = rate.payment_options.payment_types[0];
+      price = parseFloat(pt.show_amount || pt.amount || "0");
+    }
+    // Try daily_prices
+    if (price <= 0 && rate.daily_prices) {
+      const dailyPrices = Array.isArray(rate.daily_prices) ? rate.daily_prices : [rate.daily_prices];
+      price = dailyPrices.reduce((sum: number, p: any) => sum + parseFloat(String(p) || "0"), 0);
+    }
+    // Try direct price
+    if (price <= 0 && rate.price) {
+      price = parseFloat(rate.price);
+    }
+    // Try show_amount at rate level
+    if (price <= 0 && rate.show_amount) {
+      price = parseFloat(rate.show_amount);
+    }
+    
+    if (price > 0 && (lowestPrice === 0 || price < lowestPrice)) {
+      lowestPrice = price;
+    }
+  }
+  return lowestPrice;
+};
+
 // Transform local Hotel interface to global HotelDetails type
 const transformToHotelDetails = (hotel: Hotel): HotelDetails => {
   const anyHotel = hotel as any;
@@ -209,7 +242,7 @@ const transformToHotelDetails = (hotel: Hotel): HotelDetails => {
     images,
     mainImage,
     amenities,
-    priceFrom: hotel.price?.amount || 0,
+    priceFrom: hotel.price?.amount || getLowestPriceFromRatehawkData(hotel.ratehawk_data) || 0,
     currency: hotel.price?.currency || "USD",
     latitude: hotel.latitude || 0,
     longitude: hotel.longitude || 0,
