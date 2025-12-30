@@ -278,6 +278,12 @@ const BookingPage = () => {
     if (!validateForm()) return;
 
     setIsPrebooking(true);
+    
+    // Show user feedback that availability check is in progress
+    toast({
+      title: "Checking availability...",
+      description: "This may take up to 30 seconds. Please wait.",
+    });
 
     try {
       const result = await runPrebook();
@@ -299,9 +305,10 @@ const BookingPage = () => {
       navigateToPayment(displayPrice, result.bookingHash);
       
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unable to confirm room availability. Please try again.";
       toast({
         title: "Availability Error",
-        description: "Unable to confirm room availability. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
