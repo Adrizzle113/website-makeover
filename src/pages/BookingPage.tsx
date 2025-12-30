@@ -203,18 +203,30 @@ const BookingPage = () => {
   };
 
   const runPrebook = async (): Promise<{ success: boolean; priceChanged: boolean; newPrice?: number; bookingHash?: string }> => {
-    // Get the match_hash from the first selected room (required for ETG prebook)
+    // Get the book_hash from the first selected room (required for ETG prebook)
     const firstRoom = selectedRooms[0];
-    const bookHash = firstRoom?.matchHash || firstRoom?.roomId;
+    const bookHash = firstRoom?.bookHash || firstRoom?.matchHash;
 
     if (!bookHash) {
       throw new Error("No rate selected for prebook");
     }
 
-    // Validate we have a real hash, not a fallback ID
+    // Reject match_hash format (m-...) - prebook requires book_hash (h-...) or prebooked (p-...)
+    if (bookHash.startsWith('m-')) {
+      console.error("❌ Wrong hash type! Got match_hash (m-...) instead of book_hash (h-...):", bookHash);
+      throw new Error("Invalid room selection - please go back and select a room again");
+    }
+
+    // Reject fallback IDs
     if (bookHash.startsWith('room_') || bookHash.startsWith('rate_') || bookHash === 'default' || bookHash === 'fallback') {
-      console.error("Invalid rate hash detected:", bookHash);
+      console.error("❌ Invalid rate hash detected:", bookHash);
       throw new Error("Invalid room selection - please go back and select a room with available rates");
+    }
+
+    // Validate it's a proper book_hash (h-...) or prebooked hash (p-...)
+    if (!bookHash.startsWith('h-') && !bookHash.startsWith('p-')) {
+      console.error("❌ Invalid hash format. Expected 'h-...' or 'p-...', got:", bookHash);
+      throw new Error("Invalid hash format - please try selecting the room again");
     }
 
     console.log("📤 Prebook with hash:", bookHash);
