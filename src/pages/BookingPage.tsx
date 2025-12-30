@@ -239,21 +239,39 @@ const BookingPage = () => {
       throw new Error(response.error.message);
     }
 
-    const { booking_hash, price_changed, new_price } = response.data;
+    const prebookData: any = response.data;
+
+    // Backend can return booking hash under different keys (booking_hash / prebooked_hash)
+    const bookingHashFromApi: string | undefined =
+      prebookData?.booking_hash ??
+      prebookData?.prebooked_hash ??
+      prebookData?.book_hash ??
+      prebookData?.hash;
+
+    const priceChanged: boolean = Boolean(
+      prebookData?.price_changed ?? prebookData?.priceChanged
+    );
+    const newPriceValue: number | undefined =
+      prebookData?.new_price ?? prebookData?.newPrice;
+
+    if (!bookingHashFromApi) {
+      console.error("❌ Prebook succeeded but booking hash missing:", prebookData);
+      throw new Error("Prebook completed but booking reference was missing. Please try again.");
+    }
 
     // Store booking hash in store
-    setBookingHash(booking_hash);
+    setBookingHash(bookingHashFromApi);
 
-    if (price_changed && new_price) {
-      return { 
-        success: true, 
-        priceChanged: true, 
-        newPrice: new_price,
-        bookingHash: booking_hash,
+    if (priceChanged && typeof newPriceValue === "number") {
+      return {
+        success: true,
+        priceChanged: true,
+        newPrice: newPriceValue,
+        bookingHash: bookingHashFromApi,
       };
     }
 
-    return { success: true, priceChanged: false, bookingHash: booking_hash };
+    return { success: true, priceChanged: false, bookingHash: bookingHashFromApi };
   };
 
   const handleContinueToPayment = async () => {
