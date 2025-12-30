@@ -506,8 +506,8 @@ const handleIncrease = (room: ProcessedRoom) => {
         quantity: 1,
         pricePerRoom: room.price,
         totalPrice: room.price,
-        matchHash: room.matchHash,
-        bookHash: room.bookHash,
+        match_hash: room.matchHash,
+        book_hash: room.bookHash,
       });
     } else {
       updateRoomQuantity(room.id, currentQty + 1);
