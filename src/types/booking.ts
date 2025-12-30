@@ -179,8 +179,13 @@ export interface RoomSelection {
   quantity: number;
   pricePerRoom: number;
   totalPrice: number;
-  matchHash?: string;
-  bookHash?: string;
+  book_hash?: string;
+  match_hash?: string;
+  currency?: string;
+  bedType?: string;
+  amenities?: string[];
+  cancellationPolicy?: string;
+  meal?: string;
 }
 
 export interface BookingState {
@@ -194,84 +199,66 @@ export interface BookingState {
 }
 
 // ETG/RateHawk Filter Types
-export type MealPlan = 
-  | "room-only" 
-  | "breakfast" 
-  | "half-board" 
-  | "full-board" 
-  | "all-inclusive";
+export type MealPlan = "room-only" | "breakfast" | "half-board" | "full-board" | "all-inclusive";
 
-export type PaymentType = 
-  | "pay-now" 
-  | "pay-at-hotel" 
-  | "deposit";
+export type PaymentType = "pay-now" | "pay-at-hotel" | "deposit";
 
 export type RateType = "net" | "gross";
 
-export type RoomType = 
-  | "standard" 
-  | "deluxe" 
-  | "suite" 
-  | "studio" 
-  | "apartment";
+export type RoomType = "standard" | "deluxe" | "suite" | "studio" | "apartment";
 
-export type BedType = 
-  | "single" 
-  | "double" 
-  | "twin" 
-  | "king" 
-  | "queen";
+export type BedType = "single" | "double" | "twin" | "king" | "queen";
 
 export interface SearchFilters {
   // Price
   priceMin?: number;
   priceMax?: number;
-  
+
   // Star Rating
   starRatings: number[];
-  
+
   // Cancellation
   freeCancellationOnly: boolean;
   refundableOnly: boolean;
-  
+
   // Meal Plans
   mealPlans: MealPlan[];
-  
+
   // Amenities
   amenities: string[];
-  
+
   // Payment Type
   paymentTypes: PaymentType[];
-  
+
   // Rate Type
   rateType: RateType | null;
   showNetRates: boolean;
   showGrossRates: boolean;
-  
+
   // Room Level
   roomTypes: RoomType[];
   bedTypes: BedType[];
-  
+
   // Residency
   residency: string;
-  
+
   // Additional filters
   earlyCheckIn: boolean;
   lateCheckOut: boolean;
 }
 
-export type SortOption = 
-  | "popularity" 
-  | "price-low" 
-  | "price-high" 
-  | "rating" 
-  | "distance" 
-  | "free-cancellation" 
+export type SortOption =
+  | "popularity"
+  | "price-low"
+  | "price-high"
+  | "rating"
+  | "distance"
+  | "free-cancellation"
   | "cheapest-rate";
 
 export const MEAL_PLAN_LABELS: Record<MealPlan, string> = {
   "room-only": "Room Only",
-  "breakfast": "Breakfast Included",
+  breakfast: "Breakfast Included",
   "half-board": "Half Board",
   "full-board": "Full Board",
   "all-inclusive": "All Inclusive",
@@ -280,7 +267,7 @@ export const MEAL_PLAN_LABELS: Record<MealPlan, string> = {
 export const PAYMENT_TYPE_LABELS: Record<PaymentType, string> = {
   "pay-now": "Pay Now (Card)",
   "pay-at-hotel": "Pay at Property",
-  "deposit": "Deposit Required",
+  deposit: "Deposit Required",
 };
 
 export const AMENITY_OPTIONS = [
