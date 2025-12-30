@@ -127,7 +127,7 @@ export default function BookingConfirmationPage() {
         // Transform pending booking to confirmed booking format
         const confirmedBooking: ConfirmedBooking = {
           id: orderId || data.bookingId,
-          confirmationNumber: data.bookingId || `ETG-${Date.now()}`,
+          confirmationNumber: orderId || data.orderId || data.bookingId,  // Use real RateHawk order_id from URL
           status: "confirmed",
           hotel: {
             id: data.hotel.id,
