@@ -639,7 +639,7 @@ export function RoomSelectionSection({
                       <div className="text-2xl font-bold text-foreground">
                         {room.currency === "USD" ? "$" : room.currency} {room.price.toLocaleString()}
                       </div>
-                      <div className="text-sm text-muted-foreground">total</div>
+                      <div className="text-sm text-muted-foreground">per night</div>
                     </div>
 
                     <div className="flex items-center gap-2">
