@@ -211,25 +211,21 @@ const BookingPage = () => {
       throw new Error("No rate selected for prebook");
     }
 
-    // Reject match_hash format (m-...) - prebook requires book_hash (h-...) or prebooked (p-...)
-    if (bookHash.startsWith('m-')) {
-      console.error("❌ Wrong hash type! Got match_hash (m-...) instead of book_hash (h-...):", bookHash);
-      throw new Error("Invalid room selection - please go back and select a room again");
-    }
-
     // Reject fallback IDs
     if (bookHash.startsWith('room_') || bookHash.startsWith('rate_') || bookHash === 'default' || bookHash === 'fallback') {
       console.error("❌ Invalid rate hash detected:", bookHash);
       throw new Error("Invalid room selection - please go back and select a room with available rates");
     }
 
-    // Validate it's a proper book_hash (h-...) or prebooked hash (p-...)
-    if (!bookHash.startsWith('h-') && !bookHash.startsWith('p-')) {
-      console.error("❌ Invalid hash format. Expected 'h-...' or 'p-...', got:", bookHash);
+    // Accept match_hash (m-...), book_hash (h-...), or prebooked hash (p-...)
+    // The backend prebook endpoint accepts match_hash and returns a book_hash
+    if (!bookHash.startsWith('m-') && !bookHash.startsWith('h-') && !bookHash.startsWith('p-')) {
+      console.error("❌ Invalid hash format. Expected 'm-...', 'h-...' or 'p-...', got:", bookHash);
       throw new Error("Invalid hash format - please try selecting the room again");
     }
 
-    console.log("📤 Prebook with hash:", bookHash);
+    const hashType = bookHash.startsWith('m-') ? 'match_hash' : bookHash.startsWith('h-') ? 'book_hash' : 'prebooked_hash';
+    console.log("📤 Prebook with hash:", bookHash, "type:", hashType);
 
     // Call real Prebook API
     const response = await bookingApi.prebook({

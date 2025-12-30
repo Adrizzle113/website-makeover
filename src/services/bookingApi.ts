@@ -67,11 +67,13 @@ class BookingApiService {
 
     console.log("📤 Prebook request:", { ...params, userId });
 
+    // The hash can be either match_hash (m-...) or book_hash (h-...)
+    // The backend prebook endpoint accepts both and returns a book_hash
     const response = await this.fetchWithError<PrebookResponse>(url, {
       method: "POST",
       body: JSON.stringify({
         userId,
-        book_hash: params.book_hash,
+        book_hash: params.book_hash, // Can be match_hash (m-...) or book_hash (h-...)
         residency: params.residency,
         currency: params.currency || "USD",
       }),
