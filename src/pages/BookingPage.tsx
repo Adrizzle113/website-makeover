@@ -203,65 +203,48 @@ const BookingPage = () => {
   };
 
   const runPrebook = async (): Promise<{ success: boolean; priceChanged: boolean; newPrice?: number; bookingHash?: string }> => {
-    // Get the book_hash from the first selected room's rate data
+    // Get the match_hash from the first selected room (required for ETG prebook)
     const firstRoom = selectedRooms[0];
-    const bookHash = firstRoom?.roomId; // roomId contains the book_hash
+    const bookHash = firstRoom?.matchHash || firstRoom?.roomId;
 
     if (!bookHash) {
       throw new Error("No rate selected for prebook");
     }
 
-    try {
-      // Call real Prebook API
-      const response = await bookingApi.prebook({
-        book_hash: bookHash,
-        residency: residency || "US",
-        currency: selectedHotel?.currency || "USD",
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
-
-      const { booking_hash, price_changed, new_price, original_price } = response.data;
-
-      // Store booking hash in store
-      setBookingHash(booking_hash);
-
-      if (price_changed && new_price) {
-        return { 
-          success: true, 
-          priceChanged: true, 
-          newPrice: new_price,
-          bookingHash: booking_hash,
-        };
-      }
-
-      return { success: true, priceChanged: false, bookingHash: booking_hash };
-      
-    } catch (error) {
-      console.error("Prebook failed:", error);
-      
-      // For demo/certification without live API - simulate prebook
-      console.log("⚠️ Using simulated prebook for certification testing");
-      const simulatedHash = `BH-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-      setBookingHash(simulatedHash);
-      
-      // Simulate price change scenario (20% chance for demo)
-      const hasPriceChanged = Math.random() < 0.2;
-      
-      if (hasPriceChanged) {
-        const priceIncrease = totalWithNights * 0.05; // 5% increase
-        return { 
-          success: true, 
-          priceChanged: true, 
-          newPrice: totalWithNights + priceIncrease,
-          bookingHash: simulatedHash,
-        };
-      }
-
-      return { success: true, priceChanged: false, bookingHash: simulatedHash };
+    // Validate we have a real hash, not a fallback ID
+    if (bookHash.startsWith('room_') || bookHash.startsWith('rate_') || bookHash === 'default' || bookHash === 'fallback') {
+      console.error("Invalid rate hash detected:", bookHash);
+      throw new Error("Invalid room selection - please go back and select a room with available rates");
     }
+
+    console.log("📤 Prebook with hash:", bookHash);
+
+    // Call real Prebook API
+    const response = await bookingApi.prebook({
+      book_hash: bookHash,
+      residency: residency || "US",
+      currency: selectedHotel?.currency || "USD",
+    });
+
+    if (response.error) {
+      throw new Error(response.error.message);
+    }
+
+    const { booking_hash, price_changed, new_price } = response.data;
+
+    // Store booking hash in store
+    setBookingHash(booking_hash);
+
+    if (price_changed && new_price) {
+      return { 
+        success: true, 
+        priceChanged: true, 
+        newPrice: new_price,
+        bookingHash: booking_hash,
+      };
+    }
+
+    return { success: true, priceChanged: false, bookingHash: booking_hash };
   };
 
   const handleContinueToPayment = async () => {
