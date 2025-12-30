@@ -35,15 +35,15 @@ class BookingApiService {
 
       // Handle rate limiting BEFORE parsing JSON
       if (response.status === 429) {
-        const retryAfter = response.headers.get('Retry-After');
+        const retryAfter = response.headers.get("Retry-After");
         const waitSeconds = retryAfter ? parseInt(retryAfter, 10) : 60;
         throw new Error(`Service is busy. Please wait ${waitSeconds} seconds and try again.`);
       }
 
       const data = await response.json();
-      
+
       if (!response.ok) {
-        throw new Error(data?.error?.message || `API Error: ${response.status}`);
+        throw new Error(`${data?.error?.message || "API Error"} (HTTP ${response.status})`);
       }
 
       return data;
@@ -67,17 +67,28 @@ class BookingApiService {
 
     console.log("📤 Prebook request:", { ...params, userId });
 
-    // The hash can be either match_hash (m-...) or book_hash (h-...)
-    // The backend prebook endpoint accepts both and returns a book_hash
-    const response = await this.fetchWithError<PrebookResponse>(url, {
+    // The backend has historically accepted different key names for the hash.
+    // We send both to be resilient.
+    const requestInit: RequestInit = {
       method: "POST",
       body: JSON.stringify({
         userId,
+        hash: params.book_hash,
         book_hash: params.book_hash, // Can be match_hash (m-...) or book_hash (h-...)
         residency: params.residency,
         currency: params.currency || "USD",
       }),
-    });
+    };
+
+    let response: PrebookResponse;
+    try {
+      response = await this.fetchWithError<PrebookResponse>(url, requestInit);
+    } catch (error) {
+      // Render/ETG can be flaky; retry once to reduce transient 500s.
+      console.warn("Prebook failed, retrying once...", error);
+      await new Promise((r) => setTimeout(r, 1200));
+      response = await this.fetchWithError<PrebookResponse>(url, requestInit);
+    }
 
     console.log("📥 Prebook response:", response);
     return response;
