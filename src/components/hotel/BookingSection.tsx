@@ -32,8 +32,17 @@ export function BookingSection({ currency }: BookingSectionProps) {
       return;
     }
 
-    // Navigate to the booking page
-    navigate("/booking");
+    if (!selectedHotel?.id) {
+      toast({
+        title: "Hotel not selected",
+        description: "Please select a hotel first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Navigate to the dynamic booking page
+    navigate(`/booking/${selectedHotel.id}`);
   };
 
   if (selectedRooms.length === 0) {

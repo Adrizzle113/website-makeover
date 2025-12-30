@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Loader2, ArrowLeft, AlertCircle, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,6 +30,7 @@ import type { PendingBookingData } from "@/types/etgBooking";
 
 const BookingPage = () => {
   const navigate = useNavigate();
+  const { hotelId } = useParams<{ hotelId: string }>();
   const { selectedHotel, selectedRooms, searchParams, getTotalPrice, setBookingHash, residency, selectedUpsells } = useBookingStore();
   const [isLoading, setIsLoading] = useState(true);
   const [isPrebooking, setIsPrebooking] = useState(false);
@@ -62,6 +63,13 @@ const BookingPage = () => {
     }, 300);
     return () => clearTimeout(timer);
   }, []);
+
+  // Validate URL hotel ID matches store - redirect if mismatch
+  useEffect(() => {
+    if (!isLoading && hotelId && selectedHotel && hotelId !== selectedHotel.id) {
+      navigate(`/hoteldetails/${hotelId}`, { replace: true });
+    }
+  }, [hotelId, selectedHotel, isLoading, navigate]);
 
   // Show loading state while checking store
   if (isLoading) {

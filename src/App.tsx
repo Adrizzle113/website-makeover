@@ -59,7 +59,7 @@ const App = () => (
           />
           <Route path="/dashboard/reports" element={<Navigate to="/reporting/bookings" replace />} />
           <Route path="/hoteldetails/:hotelId" element={<HotelDetailsPage />} />
-          <Route path="/booking" element={<BookingPage />} />
+          <Route path="/booking/:hotelId" element={<BookingPage />} />
           <Route path="/payment" element={<PaymentPage />} />
           <Route path="/processing/:orderId" element={<ProcessingPage />} />
           {/* My Bookings - Dashboard */}

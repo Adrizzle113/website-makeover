@@ -46,7 +46,7 @@ export function StickyBookingBar({ hotelId, hotelName, currency = "USD" }: Stick
   }
 
   const handleContinue = () => {
-    navigate("/booking");
+    navigate(`/booking/${hotelId}`);
   };
 
   const formatCurrency = (amount: number) => {
