@@ -239,21 +239,29 @@ const BookingPage = () => {
       throw new Error(response.error.message);
     }
 
-    const { booking_hash, price_changed, new_price } = response.data;
+    const data = response.data as any;
+    const bookingHashFromApi = data.booking_hash || data.prebooked_hash || data.book_hash;
+
+    if (!bookingHashFromApi) {
+      throw new Error("Prebook succeeded but no booking hash was returned");
+    }
+
+    const priceChanged = Boolean(data.price_changed);
+    const newPrice = typeof data.new_price === "number" ? data.new_price : undefined;
 
     // Store booking hash in store
-    setBookingHash(booking_hash);
+    setBookingHash(bookingHashFromApi);
 
-    if (price_changed && new_price) {
-      return { 
-        success: true, 
-        priceChanged: true, 
-        newPrice: new_price,
-        bookingHash: booking_hash,
+    if (priceChanged && typeof newPrice === "number") {
+      return {
+        success: true,
+        priceChanged: true,
+        newPrice,
+        bookingHash: bookingHashFromApi,
       };
     }
 
-    return { success: true, priceChanged: false, bookingHash: booking_hash };
+    return { success: true, priceChanged: false, bookingHash: bookingHashFromApi };
   };
 
   const handleContinueToPayment = async () => {
@@ -263,7 +271,7 @@ const BookingPage = () => {
 
     try {
       const result = await runPrebook();
-      
+
       if (result.priceChanged && result.newPrice) {
         setOriginalPrice(totalWithNights);
         setNewPrice(result.newPrice);
@@ -279,16 +287,22 @@ const BookingPage = () => {
       // Success - navigate to payment page with booking hash
       console.log("✅ Navigating to payment with bookingHash:", result.bookingHash);
       navigateToPayment(displayPrice, result.bookingHash);
-      
+
     } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to confirm room availability. Please try again.";
+
       toast({
         title: "Availability Error",
-        description: "Unable to confirm room availability. Please try again.",
+        description: message,
         variant: "destructive",
       });
     } finally {
       setIsPrebooking(false);
     }
+  };
   };
 
   const navigateToPayment = (finalPrice: number, bookingHash?: string) => {
