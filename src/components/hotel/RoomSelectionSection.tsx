@@ -26,6 +26,7 @@ interface ProcessedRoom {
   availability: number;
   rgHash?: string;
   bookHash?: string;
+  matchHash?: string;
   meal?: string;
   isFallbackPrice?: boolean;
   category: RoomCategory;
@@ -258,7 +259,7 @@ const processRoomsWithRoomGroups = (hotel: HotelDetails): ProcessedRoom[] => {
         const meal = bestRate?.meal || "nomeal";
 
         processedRooms.push({
-          id: bestRate?.book_hash || roomGroup.room_group_id?.toString() || `room_${index}`,
+          id: bestRate?.match_hash || bestRate?.book_hash || roomGroup.room_group_id?.toString() || `room_${index}`,
           name: fullRoomName,
           type: mainName,
           price: Math.round(lowestPrice),
@@ -272,6 +273,7 @@ const processRoomsWithRoomGroups = (hotel: HotelDetails): ProcessedRoom[] => {
           availability: bestRate?.allotment || 5,
           rgHash: rgHash,
           bookHash: bestRate?.book_hash,
+          matchHash: bestRate?.match_hash,
           meal: meal,
           isFallbackPrice: false,
           category: category,
@@ -420,7 +422,7 @@ const processRatesDirectly = (hotel: HotelDetails, rates: RateHawkRate[]): Proce
       else if (lowerName.includes("queen")) bedding = "Queen bed";
 
       processedRooms.push({
-        id: rate.book_hash || `rate_${index}`,
+        id: rate.match_hash || rate.book_hash || `rate_${index}`,
         name: roomName,
         type: roomName,
         price: Math.round(price),
@@ -434,6 +436,7 @@ const processRatesDirectly = (hotel: HotelDetails, rates: RateHawkRate[]): Proce
         availability: rate.allotment || 5,
         rgHash: rate.rg_hash,
         bookHash: rate.book_hash,
+        matchHash: rate.match_hash,
         meal: meal,
         isFallbackPrice: false,
         category: category,
@@ -503,6 +506,7 @@ export function RoomSelectionSection({
         quantity: 1,
         pricePerRoom: room.price,
         totalPrice: room.price,
+        matchHash: room.matchHash || room.id,
       });
     } else {
       updateRoomQuantity(room.id, currentQty + 1);

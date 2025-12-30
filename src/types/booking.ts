@@ -179,6 +179,7 @@ export interface RoomSelection {
   quantity: number;
   pricePerRoom: number;
   totalPrice: number;
+  matchHash?: string;
 }
 
 export interface BookingState {

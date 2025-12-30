@@ -79,6 +79,13 @@ class RateHawkApiService {
         },
       });
 
+      // Handle rate limiting BEFORE parsing JSON
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After');
+        const waitSeconds = retryAfter ? parseInt(retryAfter, 10) : 60;
+        throw new Error(`Service is busy. Please wait ${waitSeconds} seconds and try again.`);
+      }
+
       if (!response.ok) {
         throw new Error(`API Error: ${response.status} ${response.statusText}`);
       }
