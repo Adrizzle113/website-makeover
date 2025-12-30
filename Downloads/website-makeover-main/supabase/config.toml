@@ -1,0 +1,7 @@
+project_id = "vewsxruqjeoehsjtgqyh"
+
+[functions.travelapi-destination]
+verify_jwt = false
+
+[functions.travelapi-search]
+verify_jwt = false

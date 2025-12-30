@@ -1,0 +1,144 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Explo-inspired design tokens */
+    --app-forest: 153 39% 15%;
+    --app-forest-light: 153 30% 25%;
+    --app-sage: 158 25% 45%;
+    --app-cream: 80 30% 92%;
+    --app-gold: 43 74% 66%;
+    --app-offwhite: 80 25% 98%;
+    --app-charcoal: 0 0% 15%;
+    --app-body: 0 0% 40%;
+    
+    /* Shadow tokens */
+    --shadow-card: 0px 10px 30px 0px rgba(0, 0, 0, 0.08);
+    --shadow-soft: 0px 4px 20px 0px rgba(0, 0, 0, 0.06);
+    
+    /* Shadcn base tokens - Explo theme */
+    --background: 80 25% 98%;
+    --foreground: 0 0% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 15%;
+
+    --primary: 153 39% 15%;
+    --primary-foreground: 80 30% 92%;
+
+    --secondary: 80 30% 92%;
+    --secondary-foreground: 153 39% 15%;
+
+    --muted: 80 20% 95%;
+    --muted-foreground: 0 0% 40%;
+
+    --accent: 158 25% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 80 15% 88%;
+    --input: 80 15% 88%;
+    --ring: 153 39% 15%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 80 25% 98%;
+    --sidebar-foreground: 0 0% 15%;
+    --sidebar-primary: 153 39% 15%;
+    --sidebar-primary-foreground: 80 30% 92%;
+    --sidebar-accent: 80 20% 95%;
+    --sidebar-accent-foreground: 0 0% 15%;
+    --sidebar-border: 80 15% 88%;
+    --sidebar-ring: 153 39% 15%;
+  }
+
+  .dark {
+    --background: 153 30% 8%;
+    --foreground: 80 25% 95%;
+
+    --card: 153 25% 12%;
+    --card-foreground: 80 25% 95%;
+
+    --popover: 153 25% 12%;
+    --popover-foreground: 80 25% 95%;
+
+    --primary: 158 25% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 153 30% 20%;
+    --secondary-foreground: 80 30% 92%;
+
+    --muted: 153 20% 15%;
+    --muted-foreground: 80 15% 65%;
+
+    --accent: 43 74% 66%;
+    --accent-foreground: 0 0% 10%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 153 20% 20%;
+    --input: 153 20% 20%;
+    --ring: 158 25% 45%;
+
+    --sidebar-background: 153 25% 10%;
+    --sidebar-foreground: 80 25% 95%;
+    --sidebar-primary: 158 25% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 153 20% 15%;
+    --sidebar-accent-foreground: 80 25% 95%;
+    --sidebar-border: 153 20% 20%;
+    --sidebar-ring: 158 25% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading text-foreground;
+  }
+}
+
+@layer components {
+  .all-\[unset\] {
+    all: unset;
+  }
+  
+  /* Spaced letter heading style like Explo */
+  .heading-spaced {
+    @apply uppercase tracking-[0.2em] text-sm font-body font-semibold;
+  }
+  
+  /* Badge pill style */
+  .badge-pill {
+    @apply inline-flex items-center px-4 py-2 rounded-full text-sm font-medium;
+  }
+  
+  /* Hide scrollbar utility */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Gold glow shadow for sidebar accents */
+  .shadow-glow-gold {
+    box-shadow: 0 0 12px 2px hsl(43 74% 66% / 0.4);
+  }
+}

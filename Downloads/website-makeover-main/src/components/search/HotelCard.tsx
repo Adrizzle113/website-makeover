@@ -1,0 +1,257 @@
+import { forwardRef } from "react";
+import { Star, MapPin, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import type { Hotel, HotelDetails } from "@/types/booking";
+import { useBookingStore } from "@/stores/bookingStore";
+
+interface HotelCardProps {
+  hotel: Hotel;
+  compact?: boolean;
+  onHover?: (hotelId: string | null) => void;
+  onFocus?: (hotelId: string) => void;
+}
+
+// Convert Hotel to HotelDetails, preserving all existing data including ratehawk_data
+const convertToHotelDetails = (hotel: Hotel): HotelDetails => ({
+  ...hotel,
+  // Preserve existing images, or fallback to mainImage
+  images:
+    hotel.images && hotel.images.length > 0
+      ? hotel.images
+      : hotel.mainImage
+        ? [{ url: hotel.mainImage, alt: hotel.name }]
+        : [],
+  // Preserve description or generate default
+  description: hotel.description || `Experience exceptional hospitality at ${hotel.name}.`,
+  fullDescription: hotel.description
+    ? `${hotel.description} Located in ${hotel.city}, ${hotel.country}.`
+    : `${hotel.name} offers comfortable accommodations in ${hotel.city}, ${hotel.country}. Enjoy modern amenities and excellent service during your stay.`,
+  // Preserve existing rooms from API
+  rooms: hotel.rooms || [],
+  // Preserve the raw ratehawk_data for room processing
+  ratehawk_data: hotel.ratehawk_data,
+  // Preserve review count
+  reviewCount: hotel.reviewCount || 0,
+  // Default values for extended fields only if not present
+  facilities: [],
+  checkInTime: "3:00 PM",
+  checkOutTime: "12:00 PM",
+  policies: ["Check-in from 3:00 PM", "Check-out by 12:00 PM", "Credit card required for guarantee"],
+});
+
+export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function HotelCard(
+  { hotel, compact = false, onHover, onFocus },
+  ref,
+) {
+  const navigate = useNavigate();
+  const { setSelectedHotel, searchParams } = useBookingStore();
+
+  const handleViewDetails = () => {
+    // Convert to HotelDetails and store in both Zustand and localStorage
+    const hotelDetails = convertToHotelDetails(hotel);
+
+    // Debug: Log ratehawk_data being passed to store
+    console.log(`🏨 HotelCard - Setting hotel ${hotel.id}:`, {
+      hasRatehawkData: !!hotelDetails.ratehawk_data,
+      ratehawkDataKeys: Object.keys(hotelDetails.ratehawk_data || {}),
+      roomGroups: hotelDetails.ratehawk_data?.room_groups?.length || 0,
+      enhancedRoomGroups: hotelDetails.ratehawk_data?.enhancedData?.room_groups?.length || 0,
+      rates: hotelDetails.ratehawk_data?.rates?.length || 0,
+      enhancedRates: hotelDetails.ratehawk_data?.enhancedData?.rates?.length || 0,
+    });
+
+    setSelectedHotel(hotelDetails);
+
+    // Store in localStorage for persistence across page refreshes
+    // Optimize by stripping large ratehawk_data arrays to avoid quota exceeded
+    const optimizedHotel = {
+      ...hotelDetails,
+      ratehawk_data: hotelDetails.ratehawk_data ? {
+        requested_hotel_id: hotelDetails.ratehawk_data.requested_hotel_id,
+        ota_hotel_id: hotelDetails.ratehawk_data.ota_hotel_id,
+        id: hotelDetails.ratehawk_data.id,
+        hotel_id: hotelDetails.ratehawk_data.hotel_id,
+        // Keep rates and room_groups as fallback when API fails
+        rates: hotelDetails.ratehawk_data.rates,
+        room_groups: hotelDetails.ratehawk_data.room_groups,
+        static_vm: hotelDetails.ratehawk_data.static_vm,
+      } : undefined,
+    };
+    
+    const hotelDataPackage = {
+      hotel: optimizedHotel,
+      searchContext: searchParams
+        ? {
+            destination: searchParams.destination,
+            checkin: searchParams.checkIn,
+            checkout: searchParams.checkOut,
+            guests: searchParams.guests,
+            rooms: searchParams.rooms,
+          }
+        : null,
+      timestamp: new Date().toISOString(),
+    };
+    
+    try {
+      localStorage.setItem("selectedHotel", JSON.stringify(hotelDataPackage));
+    } catch (e) {
+      console.warn("Failed to cache hotel in localStorage:", e);
+      // Still works - data is in Zustand store
+    }
+
+    navigate(`/hoteldetails/${hotel.id}`);
+  };
+
+  const handleClick = () => {
+    if (onFocus) {
+      onFocus(hotel.id);
+    } else {
+      handleViewDetails();
+    }
+  };
+
+  if (compact) {
+    return (
+      <Card
+        className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-card border-border/50 group rounded-xl cursor-pointer"
+        onClick={handleClick}
+        onMouseEnter={() => onHover?.(hotel.id)}
+        onMouseLeave={() => onHover?.(null)}
+      >
+        <div className="flex">
+          <div className="relative w-24 sm:w-28 h-24 sm:h-28 flex-shrink-0 overflow-hidden">
+            <img
+              src={hotel.mainImage || "/placeholder.svg"}
+              alt={hotel.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+            {hotel.reviewScore && (
+              <div className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 bg-primary text-primary-foreground px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold">
+                {hotel.reviewScore.toFixed(1)}
+              </div>
+            )}
+          </div>
+          <div className="flex-1 p-2 sm:p-3 flex flex-col justify-between min-w-0">
+            <div className="min-w-0">
+              <div className="flex items-center gap-0.5 mb-0.5 sm:mb-1">
+                {Array.from({ length: hotel.starRating || 0 }).map((_, i) => (
+                  <Star key={i} className="w-2.5 sm:w-3 h-2.5 sm:h-3 fill-amber-400 text-amber-400" />
+                ))}
+              </div>
+              <h3 className="font-heading text-xs sm:text-sm text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                {hotel.name}
+              </h3>
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <MapPin className="w-2.5 sm:w-3 h-2.5 sm:h-3 text-primary flex-shrink-0" />
+                <span className="text-[10px] sm:text-xs truncate">{hotel.city}</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <p className="font-heading text-xs sm:text-sm text-primary font-semibold">
+                {hotel.priceFrom ? `$${hotel.priceFrom.toLocaleString()}` : "Price on request"}
+              </p>
+              <ArrowRight className="h-3 sm:h-4 w-3 sm:w-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 bg-card border-border/50 group rounded-xl md:rounded-2xl">
+      <div className="flex flex-col sm:flex-row">
+        {/* Image */}
+        <div className="relative w-full sm:w-48 md:w-80 h-48 sm:h-48 md:h-[340px] flex-shrink-0 overflow-hidden">
+          <img
+            src={hotel.mainImage || "/placeholder.svg"}
+            alt={hotel.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+          {hotel.reviewScore && (
+            <div className="absolute top-3 left-3 md:top-4 md:left-4 bg-primary text-primary-foreground px-2 md:px-3 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-semibold">
+              {hotel.reviewScore.toFixed(1)}
+            </div>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 p-4 md:p-6 flex flex-col">
+          <div className="flex-1">
+            {/* Stars */}
+            <div className="flex items-center gap-0.5 md:gap-1 mb-2 md:mb-3">
+              {Array.from({ length: hotel.starRating || 0 }).map((_, i) => (
+                <Star key={i} className="w-3 md:w-4 h-3 md:h-4 fill-amber-400 text-amber-400" />
+              ))}
+            </div>
+
+            {/* Name */}
+            <h3 className="font-heading text-base md:text-heading-standard text-foreground mb-1.5 md:mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+              {hotel.name}
+            </h3>
+
+            {/* Location */}
+            <div className="flex flex-col gap-0.5 mb-3 md:mb-4">
+              <div className="flex items-center gap-1.5 md:gap-2 text-muted-foreground">
+                <MapPin className="w-3.5 md:w-4 h-3.5 md:h-4 text-primary flex-shrink-0" />
+                <span className="text-xs md:text-body-sm">
+                  {hotel.city}{hotel.city && hotel.country ? ", " : ""}{hotel.country}
+                </span>
+              </div>
+              {hotel.address && (
+                <p className="text-[10px] md:text-xs text-muted-foreground/70 ml-5 md:ml-6 line-clamp-1">
+                  {hotel.address}
+                </p>
+              )}
+            </div>
+
+            {/* Amenities */}
+            {hotel.amenities && hotel.amenities.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 md:gap-2 mb-4 md:mb-5">
+                {hotel.amenities.slice(0, 3).map((amenity) => (
+                  <span
+                    key={amenity.id}
+                    className="badge-pill text-[10px] md:text-xs bg-sage/10 text-sage border-sage/20 px-2 md:px-3 py-0.5 md:py-1"
+                  >
+                    {amenity.name}
+                  </span>
+                ))}
+                {hotel.amenities.length > 3 && (
+                  <span className="badge-pill text-[10px] md:text-xs bg-muted text-muted-foreground px-2 md:px-3 py-0.5 md:py-1">
+                    +{hotel.amenities.length - 3} more
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Price & CTA */}
+          <div className="flex items-end justify-between pt-3 md:pt-4 border-t border-border/50 gap-3">
+            <div>
+              <p className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider mb-0.5 md:mb-1">
+                Starting from
+              </p>
+              <p className="font-heading text-lg md:text-heading-medium text-primary">
+                {hotel.priceFrom
+                  ? `${hotel.currency || "USD"} ${hotel.priceFrom.toLocaleString()}`
+                  : "Price on request"}
+              </p>
+              <p className="text-[10px] md:text-body-sm text-muted-foreground">per night</p>
+            </div>
+            <Button
+              onClick={handleViewDetails}
+              size="sm"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-4 md:px-6 text-xs md:text-sm group/btn"
+            >
+              <span className="hidden sm:inline">View Details</span>
+              <span className="sm:hidden">View</span>
+              <ArrowRight className="ml-1.5 md:ml-2 h-3.5 md:h-4 w-3.5 md:w-4 transition-transform group-hover/btn:translate-x-1" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+});
