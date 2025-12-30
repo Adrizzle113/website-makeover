@@ -61,16 +61,24 @@ export function PriceBreakdownModal({
         <div className="space-y-4 py-4">
           {/* Room Rates */}
           <div>
-            <h4 className="text-sm font-semibold text-foreground mb-2">Room Rates</h4>
+            <h4 className="text-sm font-semibold text-foreground mb-2">Room Rates ({nights} night{nights > 1 ? "s" : ""})</h4>
             <div className="space-y-2">
-              {selectedRooms.map((room) => (
-                <div key={room.roomId} className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {room.roomName} × {room.quantity} room{room.quantity > 1 ? "s" : ""} × {nights} night{nights > 1 ? "s" : ""}
-                  </span>
-                  <span className="font-medium">{formatCurrency(room.totalPrice)}</span>
-                </div>
-              ))}
+              {selectedRooms.map((room) => {
+                const perNightPrice = Math.round(room.pricePerRoom / nights);
+                return (
+                  <div key={room.roomId} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        {room.roomName} × {room.quantity} room{room.quantity > 1 ? "s" : ""}
+                      </span>
+                      <span className="font-medium">{formatCurrency(room.totalPrice)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground pl-2">
+                      <span>{formatCurrency(perNightPrice)} per night × {nights} night{nights > 1 ? "s" : ""}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

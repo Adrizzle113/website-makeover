@@ -52,8 +52,8 @@ export function BookingSummaryCard({
   cancellationDate.setDate(cancellationDate.getDate() - 3);
   const hasFreeCancellation = cancellationDate > new Date();
 
-  // Calculate prices
-  const roomsTotal = totalPrice * nights;
+  // Calculate prices - totalPrice is already the total for all nights from the store
+  const roomsTotal = totalPrice;
   const upsellsTotal = getTotalUpsellsPrice();
   const netPrice = roomsTotal + upsellsTotal;
   const displayCommission = commission ?? netPrice * 0.1;
@@ -164,7 +164,7 @@ export function BookingSummaryCard({
                 {selectedRoom.roomName} × {selectedRoom.quantity}
               </p>
               <p className="text-xs text-muted-foreground">
-                {hotel.currency} {selectedRoom.pricePerRoom.toFixed(2)} per night
+                {hotel.currency} {Math.round(selectedRoom.pricePerRoom / nights).toLocaleString()} per night × {nights} night{nights > 1 ? "s" : ""}
               </p>
             </div>
           ))}
