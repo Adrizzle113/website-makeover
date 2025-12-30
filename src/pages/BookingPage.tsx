@@ -31,7 +31,17 @@ import type { PendingBookingData } from "@/types/etgBooking";
 const BookingPage = () => {
   const navigate = useNavigate();
   const { hotelId } = useParams<{ hotelId: string }>();
-  const { selectedHotel, selectedRooms, searchParams, getTotalPrice, setBookingHash, residency, selectedUpsells } = useBookingStore();
+  const { 
+    selectedHotel, 
+    selectedRooms, 
+    searchParams, 
+    getTotalPrice, 
+    setBookingHash, 
+    partnerOrderId,
+    generateAndSetPartnerOrderId,
+    residency, 
+    selectedUpsells 
+  } = useBookingStore();
   const [isLoading, setIsLoading] = useState(true);
   const [isPrebooking, setIsPrebooking] = useState(false);
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -63,6 +73,14 @@ const BookingPage = () => {
     }, 300);
     return () => clearTimeout(timer);
   }, []);
+
+  // Generate partner_order_id early when user enters booking page
+  useEffect(() => {
+    if (!isLoading && selectedHotel && selectedRooms.length > 0 && !partnerOrderId) {
+      const newId = generateAndSetPartnerOrderId();
+      console.log("Generated partner_order_id:", newId);
+    }
+  }, [isLoading, selectedHotel, selectedRooms, partnerOrderId, generateAndSetPartnerOrderId]);
 
   // Validate URL hotel ID matches store - redirect if mismatch
   useEffect(() => {
@@ -280,7 +298,8 @@ const BookingPage = () => {
   };
 
   const navigateToPayment = (finalPrice: number, bookingHash?: string) => {
-    const bookingId = bookingApi.generatePartnerOrderId();
+    // Use existing partner_order_id from store (generated on page load)
+    const bookingId = partnerOrderId || generateAndSetPartnerOrderId();
     
     // Get lead guest citizenship for residency
     const leadGuest = guests.find(g => g.isLead);

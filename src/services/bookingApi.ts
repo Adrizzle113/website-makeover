@@ -76,18 +76,25 @@ class BookingApiService {
 
   /**
    * Step 3: Get Order Booking Form - Retrieve required guest fields
+   * @param bookHash - The book_hash from prebook response
+   * @param partnerOrderId - Required unique partner order ID
    */
-  async getOrderForm(bookingHash: string): Promise<OrderFormResponse> {
+  async getOrderForm(bookHash: string, partnerOrderId: string): Promise<OrderFormResponse> {
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.ORDER_FORM}`;
     const userId = this.getCurrentUserId();
 
-    console.log("📤 Order form request:", { bookingHash, userId });
+    if (!bookHash || !partnerOrderId) {
+      throw new Error("Missing required fields: book_hash or partner_order_id");
+    }
+
+    console.log("📤 Order form request:", { bookHash, partnerOrderId, userId });
 
     const response = await this.fetchWithError<OrderFormResponse>(url, {
       method: "POST",
       body: JSON.stringify({
         userId,
-        booking_hash: bookingHash,
+        book_hash: bookHash,
+        partner_order_id: partnerOrderId,
       }),
     });
 
@@ -98,10 +105,16 @@ class BookingApiService {
   /**
    * Step 4: Order Booking Finish - Complete the booking
    * For certification: supports deposit and hotel payment types
+   * @param params - Must include order_id and item_id from form response
    */
   async finishBooking(params: OrderFinishParams): Promise<OrderFinishResponse> {
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.ORDER_FINISH}`;
     const userId = this.getCurrentUserId();
+
+    // Validate required fields from ETG API spec
+    if (!params.order_id || !params.item_id || !params.partner_order_id) {
+      throw new Error("Missing required booking fields: order_id, item_id, or partner_order_id");
+    }
 
     console.log("📤 Order finish request:", { ...params, userId });
 
@@ -109,7 +122,15 @@ class BookingApiService {
       method: "POST",
       body: JSON.stringify({
         userId,
-        ...params,
+        order_id: params.order_id,
+        item_id: params.item_id,
+        partner_order_id: params.partner_order_id,
+        payment_type: params.payment_type,
+        guests: params.guests,
+        email: params.email,
+        phone: params.phone,
+        user_ip: params.user_ip,
+        language: params.language,
       }),
     });
 
