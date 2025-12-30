@@ -180,6 +180,7 @@ export interface RoomSelection {
   pricePerRoom: number;
   totalPrice: number;
   matchHash?: string;
+  bookHash?: string;
 }
 
 export interface BookingState {
