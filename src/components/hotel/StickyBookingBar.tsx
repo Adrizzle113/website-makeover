@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ShoppingCart, ArrowRight, X, Info, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useBookingStore } from "@/stores/bookingStore";
+import { differenceInDays } from "date-fns";
 import { PriceBreakdownModal } from "./PriceBreakdownModal";
 
 interface StickyBookingBarProps {
@@ -18,11 +19,22 @@ export function StickyBookingBar({ hotelId, hotelName, currency = "USD" }: Stick
   const { 
     selectedRooms, 
     selectedUpsells,
+    searchParams,
     getTotalPrice, 
     getTotalRooms, 
     getTotalUpsellsPrice,
     clearRoomSelection 
   } = useBookingStore();
+
+  // Calculate number of nights
+  const nights = useMemo(() => {
+    if (searchParams?.checkIn && searchParams?.checkOut) {
+      const checkIn = new Date(searchParams.checkIn);
+      const checkOut = new Date(searchParams.checkOut);
+      return Math.max(1, differenceInDays(checkOut, checkIn));
+    }
+    return 1;
+  }, [searchParams]);
 
   const totalRooms = getTotalRooms();
   const totalPrice = getTotalPrice();
@@ -60,7 +72,7 @@ export function StickyBookingBar({ hotelId, hotelName, currency = "USD" }: Stick
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">
-                  {totalRooms} room{totalRooms !== 1 ? "s" : ""} selected
+                  {totalRooms} room{totalRooms !== 1 ? "s" : ""} × {nights} night{nights !== 1 ? "s" : ""}
                   {hasUpsells && (
                     <span className="ml-1 text-primary">
                       + {selectedUpsells.length} add-on{selectedUpsells.length !== 1 ? "s" : ""}
