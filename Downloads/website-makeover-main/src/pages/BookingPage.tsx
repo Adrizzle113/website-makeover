@@ -203,21 +203,27 @@ const BookingPage = () => {
   };
 
   const runPrebook = async (): Promise<{ success: boolean; priceChanged: boolean; newPrice?: number; bookingHash?: string }> => {
-    // Get the match_hash from the first selected room (required for ETG prebook)
+    // ✅ Get book_hash from selected room (NOT match_hash from search results)
     const firstRoom = selectedRooms[0];
-    const bookHash = firstRoom?.matchHash || firstRoom?.roomId;
+    const bookHash = firstRoom?.book_hash || firstRoom?.bookHash;  // ✅ Changed from matchHash
 
     if (!bookHash) {
       throw new Error("No rate selected for prebook");
     }
 
-    // Validate we have a real hash, not a fallback ID
-    if (bookHash.startsWith('room_') || bookHash.startsWith('rate_') || bookHash === 'default' || bookHash === 'fallback') {
-      console.error("Invalid rate hash detected:", bookHash);
+    // Validate we have a real book_hash (h-...), not match_hash (m-...)
+    if (bookHash.startsWith('m-')) {
+      console.error("Invalid hash format - received match_hash (m-...), need book_hash (h-...)");
+      throw new Error("Invalid room selection - please go back and select a room with available rates. The room data is missing book_hash.");
+    }
+
+    // Validate it's a book_hash format (h-...) or prebooked hash (p-...)
+    if (!bookHash.startsWith('h-') && !bookHash.startsWith('p-')) {
+      console.error("Invalid hash format:", bookHash);
       throw new Error("Invalid room selection - please go back and select a room with available rates");
     }
 
-    console.log("📤 Prebook with hash:", bookHash);
+    console.log("📤 Prebook with book_hash:", bookHash);
 
     // Call real Prebook API
     const response = await bookingApi.prebook({
