@@ -19,7 +19,7 @@ export function BookingSidebar({ currency }: BookingSidebarProps) {
 
   const nights =
     searchParams?.checkIn && searchParams?.checkOut
-      ? differenceInDays(new Date(searchParams.checkOut), new Date(searchParams.checkIn))
+      ? Math.max(1, differenceInDays(new Date(searchParams.checkOut), new Date(searchParams.checkIn)))
       : 1;
 
   // Calculate total guests from searchParams
@@ -61,7 +61,7 @@ export function BookingSidebar({ currency }: BookingSidebarProps) {
                   <p className="text-muted-foreground">x{room.quantity}</p>
                 </div>
                 <p className="text-foreground font-medium">
-                  {currency} {room.pricePerRoom.toLocaleString()}/night
+                  {currency} {Math.round(room.pricePerRoom / nights).toLocaleString()}/night
                 </p>
               </div>
             ))}
@@ -125,7 +125,7 @@ export function BookingSidebar({ currency }: BookingSidebarProps) {
               <span className="text-muted-foreground">Total</span>
               <div className="text-right">
                 <p className="font-heading text-xl text-primary">
-                  {currency} {(totalPrice * nights).toLocaleString()}
+                  {currency} {totalPrice.toLocaleString()}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   for {totalRooms} room{totalRooms > 1 ? "s" : ""}, {nights} night{nights > 1 ? "s" : ""}
@@ -138,7 +138,7 @@ export function BookingSidebar({ currency }: BookingSidebarProps) {
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium text-primary">Your Commission</span>
                 <span className="text-sm font-bold text-primary">
-                  {currency} {(totalPrice * nights * 0.1).toLocaleString()} (10%)
+                  {currency} {(totalPrice * 0.1).toLocaleString()} (10%)
                 </span>
               </div>
             </div>
