@@ -23,25 +23,15 @@ const BOOKING_ENDPOINTS = {
 } as const;
 
 class BookingApiService {
-  private async fetchWithError<T>(
-    url: string, 
-    options?: RequestInit, 
-    timeoutMs = 30000
-  ): Promise<T> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
+  private async fetchWithError<T>(url: string, options?: RequestInit): Promise<T> {
     try {
       const response = await fetch(url, {
         ...options,
-        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
           ...options?.headers,
         },
       });
-
-      clearTimeout(timeoutId);
 
       // Handle rate limiting BEFORE parsing JSON
       if (response.status === 429) {
@@ -58,12 +48,6 @@ class BookingApiService {
 
       return data;
     } catch (error) {
-      clearTimeout(timeoutId);
-      
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Request timed out. The server is taking too long to respond. Please try again.');
-      }
-      
       console.error("Booking API Error:", error);
       throw error;
     }
@@ -85,20 +69,15 @@ class BookingApiService {
 
     // The hash can be either match_hash (m-...) or book_hash (h-...)
     // The backend prebook endpoint accepts both and returns a book_hash
-    // Use 45s timeout since prebook can be slow (validates live inventory)
-    const response = await this.fetchWithError<PrebookResponse>(
-      url, 
-      {
-        method: "POST",
-        body: JSON.stringify({
-          userId,
-          book_hash: params.book_hash, // Can be match_hash (m-...) or book_hash (h-...)
-          residency: params.residency,
-          currency: params.currency || "USD",
-        }),
-      },
-      45000 // 45 second timeout for prebook
-    );
+    const response = await this.fetchWithError<PrebookResponse>(url, {
+      method: "POST",
+      body: JSON.stringify({
+        userId,
+        book_hash: params.book_hash, // Can be match_hash (m-...) or book_hash (h-...)
+        residency: params.residency,
+        currency: params.currency || "USD",
+      }),
+    });
 
     console.log("📥 Prebook response:", response);
     return response;
