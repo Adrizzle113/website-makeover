@@ -45,8 +45,10 @@ interface BookingStore {
   sortBy: SortOption;
 
   // ETG Booking State
-  bookingHash: string | null;
-  orderId: string | null;
+  bookingHash: string | null;      // book_hash from prebook
+  partnerOrderId: string | null;   // Generated once per booking
+  orderId: string | null;          // From order form response
+  itemId: string | null;           // From order form response
   orderGroupId: string | null;
   orderStatus: OrderStatus;
   paymentType: PaymentType | null;
@@ -81,12 +83,15 @@ interface BookingStore {
 
   // ETG Booking Actions
   setBookingHash: (hash: string | null) => void;
+  setPartnerOrderId: (id: string | null) => void;
   setOrderId: (id: string | null) => void;
+  setItemId: (id: string | null) => void;
   setOrderGroupId: (id: string | null) => void;
   setOrderStatus: (status: OrderStatus) => void;
   setPaymentType: (type: PaymentType | null) => void;
   setResidency: (residency: string) => void;
   clearBookingState: () => void;
+  generateAndSetPartnerOrderId: () => string;
 
   // Computed
   getTotalPrice: () => number;
@@ -111,7 +116,9 @@ const initialState = {
   sortBy: "popularity" as SortOption,
   // ETG Booking State
   bookingHash: null as string | null,
+  partnerOrderId: null as string | null,
   orderId: null as string | null,
+  itemId: null as string | null,
   orderGroupId: null as string | null,
   orderStatus: "idle" as OrderStatus,
   paymentType: null as PaymentType | null,
@@ -255,7 +262,11 @@ export const useBookingStore = create<BookingStore>()(
       // ETG Booking Actions
       setBookingHash: (hash) => set({ bookingHash: hash }),
       
+      setPartnerOrderId: (id) => set({ partnerOrderId: id }),
+      
       setOrderId: (id) => set({ orderId: id }),
+      
+      setItemId: (id) => set({ itemId: id }),
       
       setOrderGroupId: (id) => set({ orderGroupId: id }),
       
@@ -267,11 +278,21 @@ export const useBookingStore = create<BookingStore>()(
       
       clearBookingState: () => set({
         bookingHash: null,
+        partnerOrderId: null,
         orderId: null,
+        itemId: null,
         orderGroupId: null,
         orderStatus: "idle",
         paymentType: null,
       }),
+      
+      generateAndSetPartnerOrderId: () => {
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const id = `BK-${timestamp}-${random}`;
+        set({ partnerOrderId: id });
+        return id;
+      },
 
       getTotalPrice: () => {
         const state = get();

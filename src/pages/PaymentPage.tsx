@@ -43,9 +43,15 @@ const PaymentPage = () => {
   // Page states
   const [isLoading, setIsLoading] = useState(true);
   const [isVerifyingPrice, setIsVerifyingPrice] = useState(false);
+  const [isLoadingForm, setIsLoadingForm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [bookingData, setBookingData] = useState<PendingBookingData | null>(null);
   const [paymentType, setPaymentType] = useState<PaymentType>("deposit");
+  
+  // ETG API order form data
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [itemId, setItemId] = useState<string | null>(null);
+  const [formDataLoaded, setFormDataLoaded] = useState(false);
 
   // Price confirmation state
   const [priceModalOpen, setPriceModalOpen] = useState(false);
@@ -109,6 +115,9 @@ const PaymentPage = () => {
 
         // Verify price with prebook API
         await verifyPrice(parsed);
+        
+        // Load order form to get order_id and item_id
+        await loadOrderForm(parsed);
       } catch (e) {
         console.error("Failed to parse booking data:", e);
         setIsLoading(false);
@@ -117,6 +126,60 @@ const PaymentPage = () => {
 
     loadAndVerify();
   }, [bookingId]);
+
+  // Load order form to get order_id and item_id for finish step
+  const loadOrderForm = async (data: PendingBookingData) => {
+    if (!data.bookingHash || !data.bookingId) {
+      console.warn("Missing bookingHash or bookingId for order form");
+      // Allow proceeding without form data for backward compat
+      setFormDataLoaded(true);
+      return;
+    }
+
+    setIsLoadingForm(true);
+
+    try {
+      const formResponse = await bookingApi.getOrderForm(
+        data.bookingHash,   // book_hash from prebook
+        data.bookingId      // partner_order_id
+      );
+
+      if (formResponse.error) {
+        throw new Error(formResponse.error.message);
+      }
+
+      // Store order_id and item_id for finish step
+      setOrderId(formResponse.data.order_id);
+      setItemId(formResponse.data.item_id);
+      setFormDataLoaded(true);
+
+      console.log("Order form loaded:", {
+        order_id: formResponse.data.order_id,
+        item_id: formResponse.data.item_id,
+      });
+
+      // Update booking data with order_id and item_id
+      const updatedData = { 
+        ...data, 
+        orderId: formResponse.data.order_id,
+        itemId: formResponse.data.item_id,
+      };
+      setBookingData(updatedData);
+      sessionStorage.setItem("pending_booking", JSON.stringify(updatedData));
+
+    } catch (error) {
+      console.error("Failed to load order form:", error);
+      setFormDataLoaded(true); // Still allow proceeding
+      
+      toast({
+        title: "Form Loading Warning",
+        description: "Unable to prepare booking form. You may continue, but booking might fail.",
+        variant: "default",
+      });
+    } finally {
+      setIsLoadingForm(false);
+    }
+  };
 
   // Verify price by calling prebook API
   const verifyPrice = async (data: PendingBookingData) => {
@@ -349,15 +412,27 @@ const PaymentPage = () => {
     // For deposit/hotel payment types, no card validation needed
     if (paymentType === "now" && !validateForm()) return;
 
+    // Validate we have required ETG API data
+    if (!orderId || !itemId) {
+      toast({
+        title: "Booking Error",
+        description: "Missing booking reference. Please go back and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsProcessing(true);
+    setPaymentError(null);
 
     try {
       const leadGuest = bookingData!.guests.find((g) => g.isLead);
       
-      // Call Order Booking Finish API
+      // Call Order Booking Finish API with CORRECT params per ETG spec
       const response = await bookingApi.finishBooking({
-        booking_hash: bookingData!.bookingHash,
-        partner_order_id: bookingData!.bookingId,
+        order_id: orderId,                    // From form response
+        item_id: itemId,                      // From form response
+        partner_order_id: bookingData!.bookingId,  // Same as used in form
         payment_type: paymentType,
         guests: bookingData!.guests.map((g) => ({
           first_name: g.firstName,
@@ -375,10 +450,14 @@ const PaymentPage = () => {
         throw new Error(response.error.message);
       }
 
-      const orderId = response.data?.order_id || bookingData!.bookingId;
+      // Use REAL order_id from response (not fake IDs)
+      const finalOrderId = response.data?.order_id;
+      if (!finalOrderId) {
+        throw new Error("No order ID received from booking");
+      }
       
       // Navigate to processing page for status polling
-      navigate(`/processing/${orderId}`);
+      navigate(`/processing/${finalOrderId}`);
       
     } catch (error) {
       console.error("Order finish failed:", error);
@@ -701,7 +780,7 @@ const PaymentPage = () => {
 
                     <Button
                       onClick={handlePayment}
-                      disabled={isProcessing || isVerifyingPrice || !priceVerified}
+                      disabled={isProcessing || isVerifyingPrice || isLoadingForm || !priceVerified || !formDataLoaded}
                       className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-6 text-lg"
                       size="lg"
                     >
@@ -714,6 +793,11 @@ const PaymentPage = () => {
                         <>
                           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                           Verifying Price...
+                        </>
+                      ) : isLoadingForm ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Preparing Booking...
                         </>
                       ) : (
                         <>

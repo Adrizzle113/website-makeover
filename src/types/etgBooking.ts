@@ -64,7 +64,9 @@ export interface OrderFormField {
 
 export interface OrderFormResponse {
   data: {
-    booking_hash: string;
+    order_id: string;        // Required for finish step
+    item_id: string;         // Required for finish step
+    booking_hash?: string;   // Deprecated - for backward compat
     required_fields: OrderFormField[];
     rooms: Array<{
       guests_required: number;
@@ -86,8 +88,9 @@ export interface OrderFormResponse {
 
 // Order Booking Finish params
 export interface OrderFinishParams {
-  booking_hash: string;
-  partner_order_id?: string;
+  order_id: string;           // From order form response
+  item_id: string;            // From order form response
+  partner_order_id: string;   // Required - same as used in form
   payment_type: PaymentType;
   guests: Array<{
     first_name: string;
@@ -225,8 +228,10 @@ export interface BookingUpsell {
 
 // Booking data stored in session
 export interface PendingBookingData {
-  bookingId: string;
-  bookingHash: string;
+  bookingId: string;          // partner_order_id
+  bookingHash: string;        // book_hash from prebook
+  orderId?: string;           // From order form response
+  itemId?: string;            // From order form response
   hotel: {
     id: string;
     name: string;
