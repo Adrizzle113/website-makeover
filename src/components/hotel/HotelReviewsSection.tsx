@@ -81,7 +81,9 @@ export function HotelReviewsSection({ hotel }: HotelReviewsSectionProps) {
         .limit(20);
 
       if (error) {
-        console.error("Error fetching reviews:", error);
+        // Gracefully handle auth/permission errors
+        console.warn("Unable to load reviews:", error.message);
+        setReviews([]);
         return;
       }
 
@@ -99,7 +101,9 @@ export function HotelReviewsSection({ hotel }: HotelReviewsSectionProps) {
         setRatingBreakdown(breakdown);
       }
     } catch (error) {
-      console.error("Error fetching reviews:", error);
+      // Gracefully handle any errors (including 401)
+      console.warn("Unable to load reviews:", error);
+      setReviews([]);
     } finally {
       setLoading(false);
     }

@@ -181,63 +181,11 @@ const PaymentPage = () => {
     }
   };
 
-  // Verify price by calling prebook API
+  // Price was already verified during prebook on BookingPage - skip redundant API call
   const verifyPrice = async (data: PendingBookingData) => {
-    if (!data.bookingHash) {
-      // No booking hash, skip verification
-      setPriceVerified(true);
-      setVerifiedPrice(data.totalPrice || 0);
-      return;
-    }
-
-    setIsVerifyingPrice(true);
-
-    try {
-      const response = await bookingApi.prebook({
-        book_hash: data.bookingHash,
-        residency: (data.bookingDetails as any)?.citizenship || "us",
-        currency: data.hotel?.currency || "USD",
-      });
-
-      setIsVerifyingPrice(false);
-
-      if (response.error) {
-        // Room no longer available
-        setPriceModalType("unavailable");
-        setPriceModalOpen(true);
-        return;
-      }
-
-      // Get new price from response - handle different response formats
-      const newPrice = response.data?.new_price || 
-        (response.data?.final_price ? parseFloat(response.data.final_price.amount) : data.totalPrice);
-      setVerifiedPrice(newPrice);
-
-      // Check if price changed
-      if (newPrice !== data.totalPrice) {
-        if (newPrice > data.totalPrice) {
-          setPriceModalType("increase");
-        } else {
-          setPriceModalType("decrease");
-        }
-        setPriceModalOpen(true);
-      } else {
-        // Price unchanged, mark as verified
-        setPriceVerified(true);
-      }
-    } catch (error) {
-      console.error("Price verification failed:", error);
-      // If verification fails, proceed with original price
-      setIsVerifyingPrice(false);
-      setPriceVerified(true);
-      setVerifiedPrice(data.totalPrice || 0);
-      
-      toast({
-        title: "Price Verification",
-        description: "Unable to verify current price. Proceeding with quoted price.",
-        variant: "default",
-      });
-    }
+    // The bookingHash from prebook is already validated, use stored price
+    setPriceVerified(true);
+    setVerifiedPrice(data.totalPrice || 0);
   };
 
   // Handle price modal acceptance
