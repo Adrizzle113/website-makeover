@@ -500,11 +500,12 @@ const HotelDetailsPage = () => {
             data.hotel.image ||
             (staticInfo?.images?.[0] ? String(staticInfo.images[0]).replace("{size}", "1024x768") : undefined),
 
-          // Rate data
+          // Rate data - prefer API rates, fallback to stored rates from search
           ratehawk_data: {
             ...data.hotel.ratehawk_data,
-            ...(rates.length > 0 ? { rates } : {}),
-            ...(room_groups.length > 0 ? { room_groups } : {}),
+            // Use API rates if available, otherwise keep stored rates from search
+            rates: rates.length > 0 ? rates : (data.hotel.ratehawk_data?.rates || []),
+            room_groups: room_groups.length > 0 ? room_groups : (data.hotel.ratehawk_data?.room_groups || []),
             static_info: staticInfo, // Store the full static info
           },
         },

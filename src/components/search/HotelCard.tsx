@@ -71,7 +71,12 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
       ratehawk_data: hotelDetails.ratehawk_data ? {
         requested_hotel_id: hotelDetails.ratehawk_data.requested_hotel_id,
         ota_hotel_id: hotelDetails.ratehawk_data.ota_hotel_id,
-        // Omit room_groups and rates - will be fetched fresh from API
+        id: hotelDetails.ratehawk_data.id,
+        hotel_id: hotelDetails.ratehawk_data.hotel_id,
+        // Keep rates and room_groups as fallback when API fails
+        rates: hotelDetails.ratehawk_data.rates,
+        room_groups: hotelDetails.ratehawk_data.room_groups,
+        static_vm: hotelDetails.ratehawk_data.static_vm,
       } : undefined,
     };
     
