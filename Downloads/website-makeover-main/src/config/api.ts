@@ -12,9 +12,25 @@ const API_CONFIG = {
   current: "live" as const,
 };
 
-// Export the base URL from environment variable, with fallback to live URL
-export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || API_CONFIG.live;
+// Determine which API URL to use based on environment variable or current config
+function getApiBaseUrl(): string {
+  // Priority 1: Environment variable (VITE_API_BASE_URL)
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  
+  // Priority 2: Environment-based selection (VITE_API_ENV)
+  const env = import.meta.env.VITE_API_ENV || import.meta.env.MODE;
+  if (env === "development" || env === "dev") {
+    return API_CONFIG.local;
+  }
+  
+  // Priority 3: Default to live/production
+  return API_CONFIG.live;
+}
+
+// Export the base URL
+export const API_BASE_URL = getApiBaseUrl();
 
 // Export the full config object for reference
 export default API_CONFIG;
