@@ -497,7 +497,7 @@ export function RoomSelectionSection({
     return selected?.quantity || 0;
   };
 
-  const handleIncrease = (room: ProcessedRoom) => {
+const handleIncrease = (room: ProcessedRoom) => {
     const currentQty = getSelectedQuantity(room.id);
     if (currentQty === 0) {
       addRoom({
@@ -506,7 +506,8 @@ export function RoomSelectionSection({
         quantity: 1,
         pricePerRoom: room.price,
         totalPrice: room.price,
-        matchHash: room.matchHash || room.id,
+        matchHash: room.matchHash,
+        bookHash: room.bookHash,
       });
     } else {
       updateRoomQuantity(room.id, currentQty + 1);
