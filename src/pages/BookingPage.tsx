@@ -205,7 +205,7 @@ const BookingPage = () => {
   const runPrebook = async (): Promise<{ success: boolean; priceChanged: boolean; newPrice?: number; bookingHash?: string }> => {
     // Get the book_hash from the first selected room (required for ETG prebook)
     const firstRoom = selectedRooms[0];
-    const bookHash = firstRoom?.bookHash || firstRoom?.matchHash;
+    const bookHash = firstRoom?.book_hash || firstRoom?.match_hash;
 
     if (!bookHash) {
       throw new Error("No rate selected for prebook");
