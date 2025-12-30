@@ -56,6 +56,7 @@ const BookingPage = () => {
   const [showPriceChange, setShowPriceChange] = useState(false);
   const [originalPrice, setOriginalPrice] = useState(0);
   const [newPrice, setNewPrice] = useState(0);
+  const [prebookHash, setPrebookHash] = useState<string | null>(null);
 
   // Agent pricing state
   const [isPricingLocked, setIsPricingLocked] = useState(false);
@@ -266,6 +267,7 @@ const BookingPage = () => {
       if (result.priceChanged && result.newPrice) {
         setOriginalPrice(totalWithNights);
         setNewPrice(result.newPrice);
+        setPrebookHash(result.bookingHash || null);
         setShowPriceChange(true);
         setIsPrebooking(false);
         return;
@@ -274,8 +276,9 @@ const BookingPage = () => {
       // Lock pricing after successful prebook
       setIsPricingLocked(true);
 
-      // Success - navigate to payment page
-      navigateToPayment(displayPrice);
+      // Success - navigate to payment page with booking hash
+      console.log("✅ Navigating to payment with bookingHash:", result.bookingHash);
+      navigateToPayment(displayPrice, result.bookingHash);
       
     } catch (error) {
       toast({
@@ -364,7 +367,7 @@ const BookingPage = () => {
       });
     }
 
-    navigateToPayment(newPrice + (pricingSnapshot?.commission || 0));
+    navigateToPayment(newPrice + (pricingSnapshot?.commission || 0), prebookHash || undefined);
   };
 
   const handleDeclinePriceChange = () => {
