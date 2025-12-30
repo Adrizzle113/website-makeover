@@ -298,6 +298,14 @@ const processRoomsWithRoomGroups = (hotel: HotelDetails): ProcessedRoom[] => {
 
 // Fallback: process rooms directly from rates array
 const processRatesDirectly = (hotel: HotelDetails, rates: RateHawkRate[]): ProcessedRoom[] => {
+  // Debug: Log what we're working with
+  if (rates.length > 0) {
+    console.log('💰 processRatesDirectly: Processing', rates.length, 'rates');
+    console.log('💰 First rate structure:', JSON.stringify(rates[0], null, 2).slice(0, 800));
+  } else {
+    console.log('💰 processRatesDirectly: No rates provided, hotel.priceFrom =', hotel.priceFrom);
+  }
+
   if (rates.length === 0) {
     // Use hotel.rooms if available
     if (hotel.rooms && hotel.rooms.length > 0) {
@@ -349,20 +357,45 @@ const processRatesDirectly = (hotel: HotelDetails, rates: RateHawkRate[]): Proce
       let price = 0;
       let currency = "USD";
 
+      // Try payment_options first (most common)
       if (rate.payment_options?.payment_types?.length && rate.payment_options.payment_types.length > 0) {
         const paymentType = rate.payment_options.payment_types[0];
         price = parseFloat(paymentType.show_amount || paymentType.amount || "0");
         currency = paymentType.show_currency_code || paymentType.currency_code || "USD";
-      } else if (rate.daily_prices) {
+      }
+      
+      // Try daily_prices
+      if (price <= 0 && rate.daily_prices) {
         const dailyPrices = Array.isArray(rate.daily_prices) ? rate.daily_prices : [rate.daily_prices];
         price = dailyPrices.reduce((sum, p) => sum + parseFloat(String(p) || "0"), 0);
         currency = rate.currency || "USD";
-      } else if (rate.price) {
+      }
+      
+      // Try direct price field
+      if (price <= 0 && rate.price) {
         price = parseFloat(rate.price);
         currency = rate.currency || "USD";
       }
+      
+      // Try show_amount at rate level
+      if (price <= 0 && (rate as any).show_amount) {
+        price = parseFloat((rate as any).show_amount);
+        currency = (rate as any).show_currency_code || rate.currency || "USD";
+      }
+      
+      // Try rooms[0].price
+      if (price <= 0 && rate.rooms?.[0]) {
+        const room = rate.rooms[0];
+        if ((room as any).price) {
+          price = parseFloat((room as any).price);
+        }
+      }
 
-      if (price <= 0) return;
+      // Log when we still can't extract price
+      if (price <= 0) {
+        console.warn(`⚠️ Could not extract price from rate ${index}:`, JSON.stringify(rate, null, 2).slice(0, 400));
+        return;
+      }
 
       const meal = rate.meal || "nomeal";
       let occupancy = "2 guests";
