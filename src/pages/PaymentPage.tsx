@@ -61,6 +61,9 @@ const PaymentPage = () => {
   const [cvv, setCvv] = useState("");
   const [saveCard, setSaveCard] = useState(false);
 
+  // Payment error state
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+
   // Card validation errors
   const [cardErrors, setCardErrors] = useState<{
     cardNumber?: string;
@@ -380,10 +383,21 @@ const PaymentPage = () => {
     } catch (error) {
       console.error("Order finish failed:", error);
       
-      // For demo/certification - simulate success and navigate to processing
-      console.log("⚠️ Using simulated order finish for certification testing");
-      const simulatedOrderId = `ORD-${Date.now()}`;
-      navigate(`/processing/${simulatedOrderId}`);
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Failed to complete booking. Please try again.";
+      
+      // Show error toast
+      toast({
+        title: "Booking Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      
+      // Set error state to show inline error
+      setPaymentError(errorMessage);
+      
+      // Do NOT navigate to processing page with fake ID
     } finally {
       setIsProcessing(false);
     }
@@ -487,6 +501,24 @@ const PaymentPage = () => {
         {/* Main Content */}
         <section className="py-8 lg:py-12">
           <div className="container mx-auto px-4 max-w-7xl">
+            {/* Payment Error Alert */}
+            {paymentError && (
+              <div className="mb-6 bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-destructive">Payment Failed</p>
+                  <p className="text-sm text-destructive/80 mt-1">{paymentError}</p>
+                  <Button 
+                    variant="link" 
+                    className="text-destructive p-0 h-auto text-sm mt-2"
+                    onClick={() => setPaymentError(null)}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Left Side - Payment Form */}
               <div className="lg:col-span-2 space-y-6">
