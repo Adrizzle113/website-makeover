@@ -24,7 +24,7 @@ export function PriceBreakdownModal({
 
   // Calculate number of nights
   const nights = searchParams?.checkIn && searchParams?.checkOut
-    ? differenceInDays(new Date(searchParams.checkOut), new Date(searchParams.checkIn))
+    ? Math.max(1, differenceInDays(new Date(searchParams.checkOut), new Date(searchParams.checkIn)))
     : 1;
 
   const formatCurrency = (amount: number) => {
