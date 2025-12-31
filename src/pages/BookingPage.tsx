@@ -303,7 +303,6 @@ const BookingPage = () => {
       setIsPrebooking(false);
     }
   };
-  };
 
   const navigateToPayment = (finalPrice: number, bookingHash?: string) => {
     // Use existing partner_order_id from store (generated on page load)
