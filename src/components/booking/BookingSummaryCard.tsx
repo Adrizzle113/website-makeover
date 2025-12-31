@@ -3,19 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Star, Users, Calendar, Clock, Check, AlertTriangle, 
-  ChevronDown, ChevronUp, X, Sun, Moon, ExternalLink 
-} from "lucide-react";
+import { Star, Users, Calendar, Clock, Check, AlertTriangle, ChevronDown, ChevronUp, X, Sun, Moon, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { useBookingStore, type SelectedUpsell } from "@/stores/bookingStore";
 import type { HotelDetails, SearchParams, RoomSelection } from "@/types/booking";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 interface BookingSummaryCardProps {
   hotel: HotelDetails;
   rooms: RoomSelection[];
@@ -25,7 +17,6 @@ interface BookingSummaryCardProps {
   clientPrice?: number;
   commission?: number;
 }
-
 export function BookingSummaryCard({
   hotel,
   rooms,
@@ -33,16 +24,18 @@ export function BookingSummaryCard({
   totalPrice,
   isLoading,
   clientPrice,
-  commission,
+  commission
 }: BookingSummaryCardProps) {
   const navigate = useNavigate();
-  const { selectedUpsells, removeUpsell, getTotalUpsellsPrice } = useBookingStore();
+  const {
+    selectedUpsells,
+    removeUpsell,
+    getTotalUpsellsPrice
+  } = useBookingStore();
   const [isPolicyExpanded, setIsPolicyExpanded] = useState(false);
-
   const checkIn = searchParams?.checkIn ? new Date(searchParams.checkIn) : new Date();
   const checkOut = searchParams?.checkOut ? new Date(searchParams.checkOut) : new Date();
   const nights = Math.max(1, differenceInDays(checkOut, checkIn));
-
   const totalGuests = searchParams?.guests || rooms.reduce((sum, r) => sum + r.quantity * 2, 0);
   const childCount = searchParams?.children || 0;
   const adultCount = totalGuests - childCount;
@@ -58,49 +51,28 @@ export function BookingSummaryCard({
   const netPrice = roomsTotal + upsellsTotal;
   const displayCommission = commission ?? netPrice * 0.1;
   const displayClientPrice = clientPrice ?? netPrice + displayCommission;
-
   const handleRemoveUpsell = (upsell: SelectedUpsell) => {
     removeUpsell(upsell.id, upsell.roomId);
   };
-
-  return (
-    <Card className="border-0 shadow-lg sticky top-8">
+  return <Card className="border-0 shadow-lg sticky top-8">
       {/* Hotel Image */}
-      {hotel.mainImage && (
-        <div 
-          className="relative h-32 overflow-hidden rounded-t-lg cursor-pointer group"
-          onClick={() => navigate(`/hoteldetails/${hotel.id}`)}
-        >
-          <img 
-            src={hotel.mainImage} 
-            alt={hotel.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
+      {hotel.mainImage && <div className="relative h-32 overflow-hidden rounded-t-lg cursor-pointer group" onClick={() => navigate(`/hoteldetails/${hotel.id}`)}>
+          <img src={hotel.mainImage} alt={hotel.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
           <div className="absolute bottom-2 right-2 flex items-center gap-1 text-white/80 text-xs">
             <ExternalLink className="h-3 w-3" />
             <span>View hotel</span>
           </div>
-        </div>
-      )}
+        </div>}
 
       {/* Hotel Header */}
       <div className="bg-primary text-primary-foreground p-4">
         <div className="flex items-center gap-2 mb-2">
           <div className="flex">
-            {[...Array(5)].map((_, i) => (
-              <Star
-                key={i}
-                className={`h-4 w-4 ${
-                  i < (hotel.starRating || 0)
-                    ? "text-[hsl(var(--app-gold))] fill-current"
-                    : "text-primary-foreground/40"
-                }`}
-              />
-            ))}
+            {[...Array(5)].map((_, i) => <Star key={i} className={`h-4 w-4 ${i < (hotel.starRating || 0) ? "text-[hsl(var(--app-gold))] fill-current" : "text-primary-foreground/40"}`} />)}
           </div>
         </div>
-        <h3 className="font-heading font-bold text-lg mb-1">{hotel.name}</h3>
+        <h3 className="font-heading font-bold text-lg mb-1 text-offwhite">{hotel.name}</h3>
         <p className="text-sm text-primary-foreground/80">
           {hotel.address}, {hotel.city}
         </p>
@@ -158,77 +130,52 @@ export function BookingSummaryCard({
         {/* Room Details */}
         <div className="pb-4 border-b border-border">
           <p className="text-xs font-medium text-muted-foreground mb-2">ROOM TYPE</p>
-          {rooms.map((selectedRoom) => (
-            <div key={selectedRoom.roomId} className="mb-2 last:mb-0">
+          {rooms.map(selectedRoom => <div key={selectedRoom.roomId} className="mb-2 last:mb-0">
               <p className="text-sm font-medium text-foreground">
                 {selectedRoom.roomName} × {selectedRoom.quantity}
               </p>
               <p className="text-xs text-muted-foreground">
                 {hotel.currency} {Math.round(selectedRoom.pricePerRoom / nights).toLocaleString()} per night × {nights} night{nights > 1 ? "s" : ""}
               </p>
-            </div>
-          ))}
+            </div>)}
         </div>
 
         {/* Upsells Section */}
-        {selectedUpsells.length > 0 && (
-          <div className="pb-4 border-b border-border">
+        {selectedUpsells.length > 0 && <div className="pb-4 border-b border-border">
             <p className="text-xs font-medium text-muted-foreground mb-2">ADD-ONS</p>
             <div className="space-y-2">
-              {selectedUpsells.map((upsell) => (
-                <div 
-                  key={`${upsell.id}-${upsell.roomId}`}
-                  className="flex items-center justify-between p-2 bg-primary/5 rounded-lg"
-                >
+              {selectedUpsells.map(upsell => <div key={`${upsell.id}-${upsell.roomId}`} className="flex items-center justify-between p-2 bg-primary/5 rounded-lg">
                   <div className="flex items-center gap-2">
-                    {upsell.type === "early_checkin" ? (
-                      <Sun className="h-4 w-4 text-amber-500" />
-                    ) : (
-                      <Moon className="h-4 w-4 text-indigo-500" />
-                    )}
+                    {upsell.type === "early_checkin" ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-indigo-500" />}
                     <div>
                       <p className="text-sm font-medium text-foreground">{upsell.name}</p>
-                      {upsell.newTime && (
-                        <p className="text-xs text-muted-foreground">
+                      {upsell.newTime && <p className="text-xs text-muted-foreground">
                           {upsell.type === "early_checkin" ? "Check-in from" : "Check-out until"} {upsell.newTime}
-                        </p>
-                      )}
+                        </p>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-primary">
                       +{hotel.currency} {upsell.price.toFixed(2)}
                     </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                      onClick={() => handleRemoveUpsell(upsell)}
-                    >
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleRemoveUpsell(upsell)}>
                       <X className="h-3 w-3" />
                     </Button>
                   </div>
-                </div>
-              ))}
+                </div>)}
             </div>
-          </div>
-        )}
+          </div>}
 
         {/* Cancellation Policy */}
         <Collapsible open={isPolicyExpanded} onOpenChange={setIsPolicyExpanded}>
           <div className="pb-4 border-b border-border">
             <CollapsibleTrigger className="flex items-center justify-between w-full text-left">
               <p className="text-xs font-medium text-muted-foreground">CANCELLATION POLICY</p>
-              {isPolicyExpanded ? (
-                <ChevronUp className="h-4 w-4 text-muted-foreground" />
-              ) : (
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              )}
+              {isPolicyExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
             </CollapsibleTrigger>
             
             <div className="mt-2">
-              {hasFreeCancellation ? (
-                <div className="flex items-start gap-2">
+              {hasFreeCancellation ? <div className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="text-sm font-medium text-green-700">
@@ -238,15 +185,12 @@ export function BookingSummaryCard({
                       Until {format(cancellationDate, "MMM d, yyyy")} at 18:00 (UTC)
                     </p>
                   </div>
-                </div>
-              ) : (
-                <div className="flex items-start gap-2">
+                </div> : <div className="flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
                   <p className="text-sm text-amber-700">
                     Non-refundable rate
                   </p>
-                </div>
-              )}
+                </div>}
             </div>
 
             <CollapsibleContent className="mt-3 pt-3 border-t border-border/50">
@@ -276,16 +220,14 @@ export function BookingSummaryCard({
             </span>
           </div>
 
-          {upsellsTotal > 0 && (
-            <div className="flex justify-between items-center">
+          {upsellsTotal > 0 && <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">
                 Add-ons
               </span>
               <span className="text-sm font-medium text-foreground">
                 {hotel.currency} {upsellsTotal.toFixed(2)}
               </span>
-            </div>
-          )}
+            </div>}
 
           <div className="flex justify-between items-center pt-2 border-t border-border/50">
             <span className="text-sm text-muted-foreground">
@@ -316,6 +258,5 @@ export function BookingSummaryCard({
           </div>
         </div>
       </CardContent>
-    </Card>
-  );
+    </Card>;
 }
