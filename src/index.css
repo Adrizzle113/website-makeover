@@ -14,6 +14,12 @@
     --app-charcoal: 0 0% 15%;
     --app-body: 0 0% 40%;
     
+    /* Checkout panel colors */
+    --checkout-dark: 168 40% 12%;
+    --checkout-dark-card: 168 35% 16%;
+    --checkout-dark-border: 168 30% 22%;
+    --checkout-light: 0 0% 100%;
+    
     /* Shadow tokens */
     --shadow-card: 0px 10px 30px 0px rgba(0, 0, 0, 0.08);
     --shadow-soft: 0px 4px 20px 0px rgba(0, 0, 0, 0.06);
