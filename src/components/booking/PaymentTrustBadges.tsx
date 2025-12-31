@@ -32,24 +32,25 @@ const trustItems = [
 export function PaymentTrustBadges({ className, variant = "horizontal" }: PaymentTrustBadgesProps) {
   if (variant === "vertical") {
     return (
-      <div className={cn("space-y-3", className)}>
-        {trustItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <div
-              key={item.label}
-              className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 transition-all duration-200 hover:bg-muted"
-            >
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                <Icon className="h-5 w-5 text-green-600" />
+      <div className={cn("space-y-4", className)}>
+        <p className="heading-spaced text-muted-foreground mb-4">Your Security</p>
+        <div className="grid grid-cols-2 gap-4">
+          {trustItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div
+                key={item.label}
+                className="flex flex-col items-center text-center p-4 rounded-2xl bg-muted/30 transition-all duration-300 hover:bg-muted/50 hover:shadow-soft"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
+                  <Icon className="h-5 w-5 text-primary" />
+                </div>
+                <p className="text-body-sm font-medium text-foreground">{item.label}</p>
+                <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
               </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">{item.label}</p>
-                <p className="text-xs text-muted-foreground">{item.description}</p>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     );
   }
@@ -61,12 +62,12 @@ export function PaymentTrustBadges({ className, variant = "horizontal" }: Paymen
         return (
           <div
             key={item.label}
-            className="flex items-center gap-2 text-muted-foreground group transition-all duration-200"
+            className="flex items-center gap-2 text-muted-foreground group transition-all duration-300"
           >
-            <div className="p-1.5 rounded-full bg-green-100 group-hover:bg-green-200 transition-colors">
-              <Icon className="h-4 w-4 text-green-600" />
+            <div className="p-2 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
+              <Icon className="h-4 w-4 text-primary" />
             </div>
-            <span className="text-xs font-medium">{item.label}</span>
+            <span className="text-body-sm font-medium">{item.label}</span>
           </div>
         );
       })}

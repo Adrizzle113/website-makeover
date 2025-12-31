@@ -396,7 +396,7 @@ const PaymentPage = () => {
   const displayPrice = priceVerified ? verifiedPrice : bookingData.totalPrice;
 
   return (
-    <div className="min-h-screen flex flex-col bg-muted/30">
+    <div className="min-h-screen flex flex-col bg-background">
       {/* Price Confirmation Modal */}
       <PriceConfirmationModal
         open={priceModalOpen}
@@ -409,40 +409,76 @@ const PaymentPage = () => {
         onDecline={handlePriceDecline}
       />
 
-      {/* Progress Indicator Header */}
-      <header className="bg-background border-b border-border shadow-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 max-w-7xl">
-          <div className="flex items-center py-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/booking")}
-              className="flex items-center gap-2 text-muted-foreground hover:text-foreground mr-4"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">Back</span>
-            </Button>
-            
-            <div className="flex-1">
-              <BookingProgressIndicator currentStep={3} />
-            </div>
+      {/* Hero Section - Explo Style */}
+      <section className="relative min-h-[35vh] lg:min-h-[40vh] flex items-end px-4 py-8 md:px-8">
+        {/* Rounded Container with Hotel Background */}
+        <div
+          className="absolute inset-4 md:inset-8 rounded-3xl md:rounded-[2.5rem] overflow-hidden bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `url('${bookingData.hotel.mainImage || "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=2000&q=80"}')`,
+          }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/30 to-black/60" />
+        </div>
+
+        {/* Hero Content */}
+        <div className="relative z-10 container max-w-7xl w-full pb-8">
+          <Button
+            variant="ghost"
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 rounded-full px-4 mb-4 opacity-0 animate-fade-in"
+            style={{ animationDelay: "0.1s" }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to Booking</span>
+          </Button>
+          
+          <p 
+            className="heading-spaced text-white/80 mb-3 opacity-0 animate-fade-in"
+            style={{ animationDelay: "0.2s" }}
+          >
+            Secure Checkout
+          </p>
+          
+          <h1 
+            className="font-heading text-display-md md:text-display-lg text-white mb-4 opacity-0 animate-slide-up"
+            style={{ animationDelay: "0.3s" }}
+          >
+            Complete Your Payment
+          </h1>
+          
+          <div 
+            className="flex items-center gap-2 opacity-0 animate-fade-in"
+            style={{ animationDelay: "0.4s" }}
+          >
+            <Lock className="h-4 w-4 text-white/80" />
+            <span className="text-white/80 text-body-md">256-bit SSL Encrypted</span>
           </div>
         </div>
-      </header>
+      </section>
+
+      {/* Progress Indicator - Floating Card */}
+      <section className="relative -mt-6 z-20 px-4 md:px-8">
+        <div className="container max-w-7xl">
+          <div className="bg-card rounded-2xl shadow-card p-4 opacity-0 animate-fade-in" style={{ animationDelay: "0.5s" }}>
+            <BookingProgressIndicator currentStep={3} />
+          </div>
+        </div>
+      </section>
 
       {/* Main Content - Split Screen */}
-      <main className="flex-1">
-        <div className="container mx-auto px-4 max-w-7xl py-6 lg:py-10">
+      <main className="flex-1 py-10 lg:py-16">
+        <div className="container mx-auto px-4 max-w-7xl">
           {/* Payment Error Alert */}
           {paymentError && (
-            <div className="mb-6 bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start gap-3 animate-fade-in">
-              <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+            <div className="mb-8 bg-destructive/10 border border-destructive/20 rounded-2xl p-5 flex items-start gap-4 animate-fade-in">
+              <AlertCircle className="h-6 w-6 text-destructive flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-medium text-destructive">Payment Failed</p>
-                <p className="text-sm text-destructive/80 mt-1">{paymentError}</p>
+                <p className="font-heading text-lg font-semibold text-destructive">Payment Failed</p>
+                <p className="text-body-md text-destructive/80 mt-1">{paymentError}</p>
                 <Button 
                   variant="link" 
-                  className="text-destructive p-0 h-auto text-sm mt-2"
+                  className="text-destructive p-0 h-auto text-body-sm mt-2"
                   onClick={() => setPaymentError(null)}
                 >
                   Dismiss
@@ -451,17 +487,10 @@ const PaymentPage = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
             {/* Left Panel - Payment Form */}
             <div className="order-2 lg:order-1">
-              <div className="lg:max-w-lg">
-                <h1 className="font-heading text-2xl lg:text-3xl font-bold text-foreground mb-2 animate-fade-in">
-                  Complete Your Payment
-                </h1>
-                <p className="text-muted-foreground mb-8 animate-fade-in" style={{ animationDelay: "0.1s" }}>
-                  Secure payment for your booking at {bookingData.hotel.name}
-                </p>
-
+              <div className="bg-card rounded-3xl shadow-card p-6 lg:p-8 opacity-0 animate-fade-in" style={{ animationDelay: "0.1s" }}>
                 <PaymentFormPanel
                   paymentType={paymentType}
                   onPaymentTypeChange={setPaymentType}
@@ -486,10 +515,10 @@ const PaymentPage = () => {
               </div>
             </div>
 
-            {/* Right Panel - Order Summary */}
+            {/* Right Panel - Order Summary - Floating Sticky Card */}
             <div className="order-1 lg:order-2">
-              <div className="lg:sticky lg:top-24">
-                <Card className="border-0 shadow-xl overflow-hidden bg-background">
+              <div className="lg:sticky lg:top-8 opacity-0 animate-slide-in-right" style={{ animationDelay: "0.2s" }}>
+                <div className="bg-card rounded-3xl shadow-card overflow-hidden">
                   <PaymentSummaryPanel
                     bookingData={bookingData}
                     displayPrice={displayPrice}
@@ -501,7 +530,7 @@ const PaymentPage = () => {
                     isDisabled={isProcessing || isVerifyingPrice || isLoadingForm || !priceVerified || !formDataLoaded}
                     buttonText={getButtonText()}
                   />
-                </Card>
+                </div>
               </div>
             </div>
           </div>

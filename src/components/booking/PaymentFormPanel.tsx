@@ -126,19 +126,19 @@ export function PaymentFormPanel({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Payment Method Selection */}
-      <div className="animate-fade-in">
-        <h2 className="font-heading text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-          <Wallet className="h-5 w-5 text-primary" />
-          Payment Method
+      <div>
+        <p className="heading-spaced text-muted-foreground mb-4">Select Payment</p>
+        <h2 className="font-heading text-heading-lg text-foreground mb-6">
+          Choose Your Payment Method
         </h2>
         
         <RadioGroup
           value={paymentType}
           onValueChange={(v) => onPaymentTypeChange(v as PaymentType)}
           disabled={isProcessing}
-          className="space-y-3"
+          className="space-y-4"
         >
           {filteredMethods.map((method, index) => {
             const Icon = method.icon;
@@ -149,14 +149,13 @@ export function PaymentFormPanel({
                 key={method.value}
                 htmlFor={`payment-${method.value}`}
                 className={cn(
-                  "flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer",
-                  "transition-all duration-300 animate-fade-in",
+                  "flex items-center gap-4 p-5 rounded-2xl border-2 cursor-pointer",
+                  "transition-all duration-300",
                   isSelected
-                    ? "border-primary bg-primary/5 shadow-md"
-                    : "border-border hover:border-primary/50 hover:bg-muted/50",
+                    ? "border-primary bg-primary/5 shadow-soft"
+                    : "border-border hover:border-primary/50 hover:bg-muted/30",
                   isProcessing && "opacity-50 cursor-not-allowed"
                 )}
-                style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <RadioGroupItem
                   value={method.value}
@@ -165,28 +164,28 @@ export function PaymentFormPanel({
                 />
                 <div
                   className={cn(
-                    "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200",
+                    "w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all duration-300",
                     isSelected 
-                      ? "bg-primary text-primary-foreground scale-110" 
+                      ? "bg-primary text-primary-foreground scale-105" 
                       : "bg-muted text-muted-foreground"
                   )}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-6 w-6" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-foreground">{method.label}</p>
-                  <p className="text-sm text-muted-foreground">{method.description}</p>
+                  <p className="font-heading text-heading-sm text-foreground">{method.label}</p>
+                  <p className="text-body-sm text-muted-foreground mt-1">{method.description}</p>
                 </div>
                 <div
                   className={cn(
-                    "w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200",
-                    isSelected ? "border-primary" : "border-muted-foreground/50"
+                    "w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200",
+                    isSelected ? "border-primary bg-primary/10" : "border-muted-foreground/30"
                   )}
                 >
                   <div 
                     className={cn(
                       "rounded-full bg-primary transition-all duration-200",
-                      isSelected ? "w-2.5 h-2.5" : "w-0 h-0"
+                      isSelected ? "w-3 h-3" : "w-0 h-0"
                     )} 
                   />
                 </div>
@@ -198,133 +197,134 @@ export function PaymentFormPanel({
 
       {/* Card Payment Form - Only show for "now" payment type */}
       {paymentType === "now" && (
-        <div className="space-y-6 animate-fade-in">
-          <Card className="border-0 shadow-lg overflow-hidden">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-heading text-lg font-bold text-foreground flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-primary" />
-                  Card Details
+        <div className="space-y-8 animate-fade-in">
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <p className="heading-spaced text-muted-foreground mb-2">Card Information</p>
+                <h3 className="font-heading text-heading-md text-foreground">
+                  Enter Your Card Details
                 </h3>
-                
-                {cardType.type !== "unknown" && (
-                  <div className="text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full animate-scale-in">
-                    {cardType.name}
-                  </div>
+              </div>
+              
+              {cardType.type !== "unknown" && (
+                <div className="badge-pill bg-secondary text-secondary-foreground">
+                  {cardType.name}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-6 bg-muted/30 rounded-2xl p-6">
+              {/* Card Number */}
+              <div>
+                <Label htmlFor="cardNumber" className="text-body-sm font-medium text-foreground">
+                  Card Number <span className="text-destructive">*</span>
+                </Label>
+                <div className="relative mt-2">
+                  <Input
+                    id="cardNumber"
+                    value={cardNumber}
+                    onChange={handleCardNumberInput}
+                    onBlur={() => onValidateCard("cardNumber")}
+                    placeholder={cardType.type === "amex" ? "•••• •••••• •••••" : "•••• •••• •••• ••••"}
+                    className={cn(
+                      "pl-12 h-14 text-body-lg font-mono bg-background border-2 rounded-xl transition-all duration-200",
+                      cardErrors.cardNumber ? "border-destructive" : "border-border focus:border-primary"
+                    )}
+                    disabled={isProcessing}
+                  />
+                  <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                </div>
+                {cardErrors.cardNumber && (
+                  <p className="text-body-sm text-destructive mt-2">{cardErrors.cardNumber}</p>
                 )}
               </div>
 
-              <div className="space-y-5">
-                {/* Card Number */}
+              {/* Cardholder Name */}
+              <div>
+                <Label htmlFor="cardholderName" className="text-body-sm font-medium text-foreground">
+                  Cardholder Name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="cardholderName"
+                  value={cardholderName}
+                  onChange={(e) => onCardholderNameChange(e.target.value.toUpperCase())}
+                  onBlur={() => onValidateCard("cardholderName")}
+                  placeholder="JOHN DOE"
+                  className={cn(
+                    "mt-2 h-14 text-body-lg uppercase bg-background border-2 rounded-xl transition-all duration-200",
+                    cardErrors.cardholderName ? "border-destructive" : "border-border focus:border-primary"
+                  )}
+                  disabled={isProcessing}
+                />
+                {cardErrors.cardholderName && (
+                  <p className="text-body-sm text-destructive mt-2">{cardErrors.cardholderName}</p>
+                )}
+              </div>
+
+              {/* Expiry & CVV */}
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="cardNumber" className="text-sm font-medium">
-                    Card Number <span className="text-destructive">*</span>
+                  <Label htmlFor="expiryDate" className="text-body-sm font-medium text-foreground">
+                    Expiry Date <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="expiryDate"
+                    value={expiryDate}
+                    onChange={handleExpiryInput}
+                    onBlur={() => onValidateCard("expiryDate")}
+                    placeholder="MM/YY"
+                    className={cn(
+                      "mt-2 h-14 text-body-lg font-mono bg-background border-2 rounded-xl transition-all duration-200",
+                      cardErrors.expiryDate ? "border-destructive" : "border-border focus:border-primary"
+                    )}
+                    disabled={isProcessing}
+                  />
+                  {cardErrors.expiryDate && (
+                    <p className="text-body-sm text-destructive mt-2">{cardErrors.expiryDate}</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="cvv" className="text-body-sm font-medium text-foreground">
+                    CVV <span className="text-destructive">*</span>
                   </Label>
                   <div className="relative mt-2">
                     <Input
-                      id="cardNumber"
-                      value={cardNumber}
-                      onChange={handleCardNumberInput}
-                      onBlur={() => onValidateCard("cardNumber")}
-                      placeholder={cardType.type === "amex" ? "•••• •••••• •••••" : "•••• •••• •••• ••••"}
+                      id="cvv"
+                      type="password"
+                      value={cvv}
+                      onChange={handleCvvInput}
+                      onBlur={() => onValidateCard("cvv")}
+                      placeholder={cardType.type === "amex" ? "••••" : "•••"}
                       className={cn(
-                        "pl-12 h-12 text-lg font-mono transition-all duration-200",
-                        cardErrors.cardNumber ? "border-destructive" : "focus:border-primary"
+                        "h-14 text-body-lg font-mono bg-background border-2 rounded-xl transition-all duration-200",
+                        cardErrors.cvv ? "border-destructive" : "border-border focus:border-primary"
                       )}
                       disabled={isProcessing}
                     />
-                    <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Lock className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   </div>
-                  {cardErrors.cardNumber && (
-                    <p className="text-sm text-destructive mt-1 animate-fade-in">{cardErrors.cardNumber}</p>
+                  {cardErrors.cvv && (
+                    <p className="text-body-sm text-destructive mt-2">{cardErrors.cvv}</p>
                   )}
-                </div>
-
-                {/* Cardholder Name */}
-                <div>
-                  <Label htmlFor="cardholderName" className="text-sm font-medium">
-                    Cardholder Name <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="cardholderName"
-                    value={cardholderName}
-                    onChange={(e) => onCardholderNameChange(e.target.value.toUpperCase())}
-                    onBlur={() => onValidateCard("cardholderName")}
-                    placeholder="JOHN DOE"
-                    className={cn(
-                      "mt-2 h-12 text-lg uppercase transition-all duration-200",
-                      cardErrors.cardholderName ? "border-destructive" : "focus:border-primary"
-                    )}
-                    disabled={isProcessing}
-                  />
-                  {cardErrors.cardholderName && (
-                    <p className="text-sm text-destructive mt-1 animate-fade-in">{cardErrors.cardholderName}</p>
-                  )}
-                </div>
-
-                {/* Expiry & CVV */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="expiryDate" className="text-sm font-medium">
-                      Expiry Date <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      id="expiryDate"
-                      value={expiryDate}
-                      onChange={handleExpiryInput}
-                      onBlur={() => onValidateCard("expiryDate")}
-                      placeholder="MM/YY"
-                      className={cn(
-                        "mt-2 h-12 text-lg font-mono transition-all duration-200",
-                        cardErrors.expiryDate ? "border-destructive" : "focus:border-primary"
-                      )}
-                      disabled={isProcessing}
-                    />
-                    {cardErrors.expiryDate && (
-                      <p className="text-sm text-destructive mt-1 animate-fade-in">{cardErrors.expiryDate}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="cvv" className="text-sm font-medium">
-                      CVV <span className="text-destructive">*</span>
-                    </Label>
-                    <div className="relative mt-2">
-                      <Input
-                        id="cvv"
-                        type="password"
-                        value={cvv}
-                        onChange={handleCvvInput}
-                        onBlur={() => onValidateCard("cvv")}
-                        placeholder={cardType.type === "amex" ? "••••" : "•••"}
-                        className={cn(
-                          "h-12 text-lg font-mono transition-all duration-200",
-                          cardErrors.cvv ? "border-destructive" : "focus:border-primary"
-                        )}
-                        disabled={isProcessing}
-                      />
-                      <Lock className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    </div>
-                    {cardErrors.cvv && (
-                      <p className="text-sm text-destructive mt-1 animate-fade-in">{cardErrors.cvv}</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Save Card */}
-                <div className="flex items-center gap-3 pt-2">
-                  <Checkbox
-                    id="saveCard"
-                    checked={saveCard}
-                    onCheckedChange={(checked) => onSaveCardChange(checked as boolean)}
-                    disabled={isProcessing}
-                  />
-                  <Label htmlFor="saveCard" className="text-sm cursor-pointer">
-                    Save this card for future bookings
-                  </Label>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+
+              {/* Save Card */}
+              <div className="flex items-center gap-3 pt-2">
+                <Checkbox
+                  id="saveCard"
+                  checked={saveCard}
+                  onCheckedChange={(checked) => onSaveCardChange(checked as boolean)}
+                  disabled={isProcessing}
+                  className="rounded-md"
+                />
+                <Label htmlFor="saveCard" className="text-body-sm cursor-pointer text-muted-foreground">
+                  Save this card for future bookings
+                </Label>
+              </div>
+            </div>
+          </div>
 
           {/* Billing Address */}
           <BillingAddressSection
@@ -337,7 +337,7 @@ export function PaymentFormPanel({
       )}
 
       {/* Trust Badges */}
-      <div className="pt-4 animate-fade-in" style={{ animationDelay: "0.3s" }}>
+      <div className="pt-6">
         <PaymentTrustBadges variant="vertical" />
       </div>
     </div>
