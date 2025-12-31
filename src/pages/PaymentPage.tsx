@@ -487,10 +487,10 @@ const PaymentPage = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-stretch">
             {/* Left Panel - Payment Form */}
             <div className="order-2 lg:order-1">
-              <div className="bg-card rounded-3xl shadow-card p-6 lg:p-8 opacity-0 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+              <div className="bg-card rounded-3xl shadow-card p-6 lg:p-8 opacity-0 animate-fade-in h-full" style={{ animationDelay: "0.1s" }}>
                 <PaymentFormPanel
                   paymentType={paymentType}
                   onPaymentTypeChange={setPaymentType}

@@ -157,11 +157,6 @@ export function PaymentSummaryPanel({
           </div>
         </div>
 
-        {/* Booking Reference */}
-        <div className="p-4 rounded-2xl bg-muted/30 text-center">
-          <p className="heading-spaced text-muted-foreground mb-1">Booking Reference</p>
-          <p className="text-body-md font-mono font-medium text-foreground">{bookingId}</p>
-        </div>
       </div>
 
       {/* CTA Button - Explo Style */}
