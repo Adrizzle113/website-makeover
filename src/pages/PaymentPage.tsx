@@ -423,15 +423,26 @@ const PaymentPage = () => {
 
         {/* Hero Content */}
         <div className="relative z-10 container max-w-7xl w-full pb-8">
-          <Button
-            variant="ghost"
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 rounded-full px-4 mb-4 opacity-0 animate-fade-in"
-            style={{ animationDelay: "0.1s" }}
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Back to Booking</span>
-          </Button>
+          <div className="flex gap-2 mb-4">
+            <Button
+              variant="ghost"
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 rounded-full px-4 opacity-0 animate-fade-in"
+              style={{ animationDelay: "0.1s" }}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Booking</span>
+            </Button>
+            {/* DEV: Skip to confirmation */}
+            <Button
+              variant="ghost"
+              onClick={() => navigate(`/orders/demo-order/confirmation`)}
+              className="flex items-center gap-2 bg-amber-500/80 backdrop-blur-sm text-white hover:bg-amber-500 rounded-full px-4 opacity-0 animate-fade-in"
+              style={{ animationDelay: "0.1s" }}
+            >
+              <span>DEV: Skip to Confirmation</span>
+            </Button>
+          </div>
           
           <p 
             className="heading-spaced text-white/80 mb-3 opacity-0 animate-fade-in"
