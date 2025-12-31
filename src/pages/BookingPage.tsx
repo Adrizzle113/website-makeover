@@ -1,15 +1,27 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, ArrowLeft, AlertCircle, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Footer } from "@/components/layout/Footer";
 import { useBookingStore } from "@/stores/bookingStore";
 import { 
-  BookingSummaryPanel,
-  GuestFormPanel,
+  GuestInformationSection, 
+  BookingDetailsSection,
+  BookingSummaryCard,
+  ContinueToPaymentSection,
   PriceChangeModal,
+  AgentPricingSection,
+  BookingProgressIndicator,
+  ArrivalTimeSection,
+  TermsAndConditionsSection,
+  BookingNoticesSection,
+  BookingBreadcrumbs,
+  SessionTimeout,
+  RoomAddonsSection,
   type Guest,
   type PricingSnapshot,
+  type TermsState,
 } from "@/components/booking";
 import { bookingApi } from "@/services/bookingApi";
 import { toast } from "@/hooks/use-toast";
@@ -30,13 +42,13 @@ const BookingPage = () => {
     residency, 
     selectedUpsells 
   } = useBookingStore();
-  
   const [isLoading, setIsLoading] = useState(true);
   const [isPrebooking, setIsPrebooking] = useState(false);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [bookingDetails, setBookingDetails] = useState({
     countryCode: "+1",
     phoneNumber: "",
+    groupOfClients: "",
     specialRequests: "",
   });
 
@@ -44,44 +56,40 @@ const BookingPage = () => {
   const [showPriceChange, setShowPriceChange] = useState(false);
   const [originalPrice, setOriginalPrice] = useState(0);
   const [newPrice, setNewPrice] = useState(0);
-  const [prebookHash, setPrebookHash] = useState<string | null>(null);
 
-  // Form state
+  // Agent pricing state
+  const [isPricingLocked, setIsPricingLocked] = useState(false);
+  
+  // New form state
+  const [arrivalTime, setArrivalTime] = useState<string | null>(null);
   const [termsValid, setTermsValid] = useState(false);
+  const [termsState, setTermsState] = useState<TermsState | null>(null);
   const [pricingSnapshot, setPricingSnapshot] = useState<PricingSnapshot | null>(null);
 
   useEffect(() => {
+    // Short delay to allow store to hydrate from persistence
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, 300);
     return () => clearTimeout(timer);
   }, []);
 
+  // Generate partner_order_id early when user enters booking page
   useEffect(() => {
     if (!isLoading && selectedHotel && selectedRooms.length > 0 && !partnerOrderId) {
-      generateAndSetPartnerOrderId();
+      const newId = generateAndSetPartnerOrderId();
+      console.log("Generated partner_order_id:", newId);
     }
   }, [isLoading, selectedHotel, selectedRooms, partnerOrderId, generateAndSetPartnerOrderId]);
 
+  // Validate URL hotel ID matches store - redirect if mismatch
   useEffect(() => {
     if (!isLoading && hotelId && selectedHotel && hotelId !== selectedHotel.id) {
       navigate(`/hoteldetails/${hotelId}`, { replace: true });
     }
   }, [hotelId, selectedHotel, isLoading, navigate]);
 
-  // Callbacks must be defined before any early returns to satisfy React's rules of hooks
-  const handleGuestsChange = useCallback((newGuests: Guest[]) => {
-    setGuests(newGuests);
-  }, []);
-
-  const handleDetailsChange = useCallback((details: { countryCode: string; phoneNumber: string; specialRequests: string }) => {
-    setBookingDetails(prev => ({ ...prev, ...details }));
-  }, []);
-
-  const handleTermsChange = useCallback((valid: boolean) => {
-    setTermsValid(valid);
-  }, []);
-
+  // Show loading state while checking store
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -93,6 +101,7 @@ const BookingPage = () => {
     );
   }
 
+  // Check if we have required data - redirect if not
   const hasRequiredData = selectedHotel && selectedRooms.length > 0;
 
   if (!hasRequiredData) {
@@ -109,10 +118,16 @@ const BookingPage = () => {
                 We couldn't find the booking details. Please go back and select your room again.
               </p>
               <div className="flex flex-col gap-3">
-                <Button onClick={() => navigate(-1)} className="bg-primary hover:bg-primary/90">
+                <Button
+                  onClick={() => navigate(-1)}
+                  className="bg-primary hover:bg-primary/90"
+                >
                   Go Back
                 </Button>
-                <Button variant="outline" onClick={() => navigate("/")}>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/")}
+                >
                   Search Hotels
                 </Button>
               </div>
@@ -127,84 +142,143 @@ const BookingPage = () => {
   const nights = searchParams?.checkIn && searchParams?.checkOut
     ? Math.max(1, differenceInDays(new Date(searchParams.checkOut), new Date(searchParams.checkIn)))
     : 1;
-  const displayPrice = pricingSnapshot?.clientPrice || totalPrice;
+  // totalPrice already includes all nights from the store
+  const totalWithNights = totalPrice;
+
+  // Use client price if available, otherwise net price
+  const displayPrice = pricingSnapshot?.clientPrice || totalWithNights;
 
   const validateForm = (): boolean => {
+    // Check lead guest
     const leadGuest = guests.find(g => g.isLead);
     if (!leadGuest) {
-      toast({ title: "Missing Lead Guest", description: "Please add a lead guest with their details.", variant: "destructive" });
+      toast({
+        title: "Missing Lead Guest",
+        description: "Please add a lead guest with their details.",
+        variant: "destructive",
+      });
       return false;
     }
+
     if (!leadGuest.firstName || !leadGuest.lastName) {
-      toast({ title: "Incomplete Guest Information", description: "Please enter the lead guest's first and last name.", variant: "destructive" });
+      toast({
+        title: "Incomplete Guest Information",
+        description: "Please enter the lead guest's first and last name.",
+        variant: "destructive",
+      });
       return false;
     }
+
     if (!leadGuest.email) {
-      toast({ title: "Email Required", description: "Please enter the lead guest's email address.", variant: "destructive" });
+      toast({
+        title: "Email Required",
+        description: "Please enter the lead guest's email address.",
+        variant: "destructive",
+      });
       return false;
     }
+
+    // Check children ages
+    const childrenWithoutAge = guests.filter(g => g.type === "child" && !g.age);
+    if (childrenWithoutAge.length > 0) {
+      toast({
+        title: "Missing Child Age",
+        description: "Please select the age for all children.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    // Check terms and conditions
     if (!termsValid) {
-      toast({ title: "Terms Required", description: "Please accept all required terms and conditions.", variant: "destructive" });
+      toast({
+        title: "Terms Required",
+        description: "Please accept all required terms and conditions.",
+        variant: "destructive",
+      });
       return false;
     }
+
     return true;
   };
 
   const runPrebook = async (): Promise<{ success: boolean; priceChanged: boolean; newPrice?: number; bookingHash?: string }> => {
+    // ✅ Get book_hash from selected room (NOT match_hash from search results)
     const firstRoom = selectedRooms[0];
-    const bookHash = firstRoom?.book_hash || firstRoom?.match_hash;
+    const bookHash = firstRoom?.book_hash;
 
-    if (!bookHash) throw new Error("No rate selected for prebook");
-    if (bookHash.startsWith('room_') || bookHash.startsWith('rate_') || bookHash === 'default' || bookHash === 'fallback') {
+    if (!bookHash) {
+      throw new Error("No rate selected for prebook");
+    }
+
+    // Validate we have a real book_hash (h-...), not match_hash (m-...)
+    if (bookHash.startsWith('m-')) {
+      console.error("Invalid hash format - received match_hash (m-...), need book_hash (h-...)");
+      throw new Error("Invalid room selection - please go back and select a room with available rates. The room data is missing book_hash.");
+    }
+
+    // Validate it's a book_hash format (h-...) or prebooked hash (p-...)
+    if (!bookHash.startsWith('h-') && !bookHash.startsWith('p-')) {
+      console.error("Invalid hash format:", bookHash);
       throw new Error("Invalid room selection - please go back and select a room with available rates");
     }
-    if (!bookHash.startsWith('m-') && !bookHash.startsWith('h-') && !bookHash.startsWith('p-')) {
-      throw new Error("Invalid hash format - please try selecting the room again");
-    }
 
+    console.log("📤 Prebook with book_hash:", bookHash);
+
+    // Call real Prebook API
     const response = await bookingApi.prebook({
       book_hash: bookHash,
       residency: residency || "US",
       currency: selectedHotel?.currency || "USD",
     });
 
-    if (response.error) throw new Error(response.error.message);
-
-    const data = response.data as any;
-    const bookingHashFromApi = data.booking_hash || data.prebooked_hash || data.book_hash;
-
-    if (!bookingHashFromApi) throw new Error("Prebook succeeded but no booking hash was returned");
-
-    const priceChanged = Boolean(data.price_changed);
-    const newPriceVal = typeof data.new_price === "number" ? data.new_price : undefined;
-
-    setBookingHash(bookingHashFromApi);
-
-    if (priceChanged && typeof newPriceVal === "number") {
-      return { success: true, priceChanged: true, newPrice: newPriceVal, bookingHash: bookingHashFromApi };
+    if (response.error) {
+      throw new Error(response.error.message);
     }
-    return { success: true, priceChanged: false, bookingHash: bookingHashFromApi };
+
+    const { booking_hash, price_changed, new_price } = response.data;
+
+    // Store booking hash in store
+    setBookingHash(booking_hash);
+
+    if (price_changed && new_price) {
+      return { 
+        success: true, 
+        priceChanged: true, 
+        newPrice: new_price,
+        bookingHash: booking_hash,
+      };
+    }
+
+    return { success: true, priceChanged: false, bookingHash: booking_hash };
   };
 
   const handleContinueToPayment = async () => {
     if (!validateForm()) return;
+
     setIsPrebooking(true);
 
     try {
       const result = await runPrebook();
+      
       if (result.priceChanged && result.newPrice) {
-        setOriginalPrice(totalPrice);
+        setOriginalPrice(totalWithNights);
         setNewPrice(result.newPrice);
-        setPrebookHash(result.bookingHash || null);
         setShowPriceChange(true);
         setIsPrebooking(false);
         return;
       }
-      navigateToPayment(displayPrice, result.bookingHash);
+
+      // Lock pricing after successful prebook
+      setIsPricingLocked(true);
+
+      // Success - navigate to payment page
+      navigateToPayment(displayPrice);
+      
     } catch (error) {
       toast({
         title: "Availability Error",
-        description: error instanceof Error ? error.message : "Unable to confirm room availability. Please try again.",
+        description: "Unable to confirm room availability. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -213,10 +287,14 @@ const BookingPage = () => {
   };
 
   const navigateToPayment = (finalPrice: number, bookingHash?: string) => {
+    // Use existing partner_order_id from store (generated on page load)
     const bookingId = partnerOrderId || generateAndSetPartnerOrderId();
+    
+    // Get lead guest citizenship for residency
     const leadGuest = guests.find(g => g.isLead);
     const guestResidency = (leadGuest as Guest & { citizenship?: string })?.citizenship || residency || "US";
-
+    
+    // Store booking data with booking hash for ETG certification
     const pendingBooking: PendingBookingData = {
       bookingId,
       bookingHash: bookingHash || "",
@@ -241,7 +319,7 @@ const BookingPage = () => {
         isLead: g.isLead,
         citizenship: (g as Guest & { citizenship?: string }).citizenship,
       })),
-      bookingDetails: { ...bookingDetails, groupOfClients: "" },
+      bookingDetails,
       totalPrice: finalPrice,
       searchParams: searchParams!,
       pricingSnapshot: pricingSnapshot ? {
@@ -264,53 +342,176 @@ const BookingPage = () => {
     };
 
     sessionStorage.setItem("pending_booking", JSON.stringify(pendingBooking));
+
     navigate(`/payment?booking_id=${bookingId}`);
   };
 
   const handleAcceptPriceChange = () => {
     setShowPriceChange(false);
+    
+    // Lock pricing after accepting new price
+    setIsPricingLocked(true);
+    
+    // Update pricing snapshot with new price
     if (pricingSnapshot) {
+      const priceDiff = newPrice - totalWithNights;
       setPricingSnapshot({
         ...pricingSnapshot,
         netPrice: newPrice,
         clientPrice: newPrice + pricingSnapshot.commission,
       });
     }
-    navigateToPayment(newPrice + (pricingSnapshot?.commission || 0), prebookHash || undefined);
+
+    navigateToPayment(newPrice + (pricingSnapshot?.commission || 0));
   };
 
   const handleDeclinePriceChange = () => {
     setShowPriceChange(false);
-    toast({ title: "Booking Cancelled", description: "The booking was cancelled due to the price change." });
+    toast({
+      title: "Booking Cancelled",
+      description: "The booking was cancelled due to the price change.",
+    });
   };
 
+  const handlePricingChange = (pricing: PricingSnapshot) => {
+    setPricingSnapshot(pricing);
+  };
+
+  const handleUnlockRequest = async () => {
+    // Unlock pricing and re-run prebook
+    setIsPricingLocked(false);
+    toast({
+      title: "Pricing Unlocked",
+      description: "You can now edit the commission. Click 'Continue to Payment' to re-check availability.",
+    });
+  };
+
+  const handleSessionExpire = () => {
+    // Session expired - could clear data here
+    console.log("Session expired");
+  };
+
+  const handleSessionRestart = () => {
+    navigate("/");
+  };
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* Left Panel - Booking Summary (Dark) */}
-      <div className="w-full lg:w-[45%] xl:w-[40%] lg:min-h-screen lg:sticky lg:top-0">
-        <BookingSummaryPanel
-          hotel={selectedHotel}
-          rooms={selectedRooms}
-          searchParams={searchParams}
-          totalPrice={totalPrice}
-          clientPrice={pricingSnapshot?.clientPrice}
-          commission={pricingSnapshot?.commission}
-        />
-      </div>
+    <div className="min-h-screen flex flex-col bg-background">
+      <main className="flex-1">
+        {/* Hero Section with Breadcrumbs & Back Button */}
+        <section className="bg-primary py-6 lg:py-10">
+          <div className="container mx-auto px-4 max-w-7xl">
+            <BookingBreadcrumbs hotelName={selectedHotel.name} hotelId={selectedHotel.id} />
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <Button
+                  variant="ghost"
+                  onClick={() => navigate(`/hoteldetails/${selectedHotel.id}`)}
+                  className="flex items-center gap-2 text-primary-foreground hover:bg-primary-foreground/10 mb-3 -ml-3"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Back to Hotel</span>
+                </Button>
+                <h1 className="font-heading text-3xl lg:text-4xl font-bold text-primary-foreground">
+                  Complete Your Booking
+                </h1>
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-primary-foreground/90">
+                  <span className="font-medium">{selectedHotel.name}</span>
+                  <div className="flex items-center">
+                    {[...Array(selectedHotel.starRating || 0)].map((_, i) => (
+                      <Star key={i} className="h-4 w-4 text-[hsl(var(--app-gold))] fill-current" />
+                    ))}
+                  </div>
+                  <span className="text-primary-foreground/70">•</span>
+                  <span className="text-sm">{selectedHotel.address}, {selectedHotel.city}</span>
+                </div>
+              </div>
+              
+              {/* Session Timer */}
+              <div className="hidden md:block">
+                <SessionTimeout
+                  timeoutMinutes={30}
+                  warningMinutes={5}
+                  onExpire={handleSessionExpire}
+                  onRestart={handleSessionRestart}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
 
-      {/* Right Panel - Guest Form (Light) */}
-      <div className="w-full lg:w-[55%] xl:w-[60%] lg:min-h-screen">
-        <GuestFormPanel
-          rooms={selectedRooms}
-          hotel={selectedHotel}
-          isLoading={isPrebooking}
-          onGuestsChange={handleGuestsChange}
-          onDetailsChange={handleDetailsChange}
-          onTermsChange={handleTermsChange}
-          onContinue={handleContinueToPayment}
-        />
-      </div>
+        {/* Progress Indicator */}
+        <section className="bg-card border-b border-border">
+          <div className="container mx-auto px-4 max-w-7xl">
+            <BookingProgressIndicator currentStep={2} />
+          </div>
+        </section>
+
+        {/* Main Content */}
+        <section className="py-8 lg:py-12">
+          <div className="container mx-auto px-4 max-w-7xl">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Left Side - Forms */}
+              <div className="lg:col-span-2 space-y-6">
+                <GuestInformationSection 
+                  rooms={selectedRooms}
+                  hotel={selectedHotel}
+                  onGuestsChange={setGuests}
+                />
+                <ArrivalTimeSection 
+                  defaultCheckInTime={selectedHotel.checkInTime || "15:00"}
+                  onArrivalTimeChange={setArrivalTime}
+                />
+                <RoomAddonsSection 
+                  rooms={selectedRooms}
+                  hotel={selectedHotel}
+                />
+                <BookingDetailsSection 
+                  onDetailsChange={setBookingDetails}
+                />
+                <AgentPricingSection
+                  netPrice={totalWithNights}
+                  currency={selectedHotel.currency}
+                  isLocked={isPricingLocked}
+                  onPricingChange={handlePricingChange}
+                  onUnlockRequest={handleUnlockRequest}
+                />
+                <BookingNoticesSection 
+                  hotelName={selectedHotel.name}
+                  checkInTime={selectedHotel.checkInTime}
+                />
+                <TermsAndConditionsSection 
+                  hotelName={selectedHotel.name}
+                  onValidChange={setTermsValid}
+                  onTermsChange={setTermsState}
+                />
+                <ContinueToPaymentSection
+                  totalPrice={displayPrice}
+                  currency={selectedHotel.currency}
+                  isLoading={isPrebooking}
+                  onContinue={handleContinueToPayment}
+                />
+              </div>
+
+              {/* Right Side - Summary */}
+              <div className="lg:col-span-1">
+                <BookingSummaryCard
+                  hotel={selectedHotel}
+                  rooms={selectedRooms}
+                  searchParams={searchParams}
+                  totalPrice={totalPrice}
+                  isLoading={isPrebooking}
+                  clientPrice={pricingSnapshot?.clientPrice}
+                  commission={pricingSnapshot?.commission}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <Footer />
 
       {/* Price Change Modal */}
       <PriceChangeModal
