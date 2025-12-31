@@ -337,9 +337,14 @@ export function GuestInformationSection({
         {/* Per-Room Guest Sections */}
         {rooms.length > 0 && (
           <div className="space-y-4">
-            <h3 className="font-heading text-lg font-semibold text-foreground">
-              Room Guests
-            </h3>
+            <div>
+              <h3 className="font-heading text-lg font-semibold text-foreground">
+                Additional Guests
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Additional guest details are optional. Only the lead guest is required for the reservation.
+              </p>
+            </div>
             
             {rooms.map((room, roomIndex) => {
               const roomGuests = guestsByRoom[roomIndex]?.filter(g => !g.isLead) || [];
@@ -400,7 +405,7 @@ export function GuestInformationSection({
                                   <User className="h-4 w-4 text-primary" />
                                 )}
                                 <p className="text-sm font-medium text-foreground">
-                                  Guest {guestIdx + 1}
+                                  Additional Guest {guestIdx + 1}
                                 </p>
                                 {guest.type === "child" && guest.age && (
                                   <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
@@ -439,26 +444,24 @@ export function GuestInformationSection({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
                                 <label className="block text-sm font-medium text-muted-foreground mb-2">
-                                  First Name <span className="text-destructive">*</span>
+                                  First Name
                                 </label>
                                 <Input
                                   value={guest.firstName}
                                   onChange={(e) => handleGuestChange(guest.id, "firstName", e.target.value)}
-                                  placeholder="Enter first name"
+                                  placeholder="Enter first name (optional)"
                                   disabled={sameAsLead[roomIndex] && guestIdx === 0}
-                                  required
                                 />
                               </div>
                               <div>
                                 <label className="block text-sm font-medium text-muted-foreground mb-2">
-                                  Last Name <span className="text-destructive">*</span>
+                                  Last Name
                                 </label>
                                 <Input
                                   value={guest.lastName}
                                   onChange={(e) => handleGuestChange(guest.id, "lastName", e.target.value)}
-                                  placeholder="Enter last name"
+                                  placeholder="Enter last name (optional)"
                                   disabled={sameAsLead[roomIndex] && guestIdx === 0}
-                                  required
                                 />
                               </div>
 
