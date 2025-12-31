@@ -1,27 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { format, differenceInDays } from "date-fns";
-import {
-  Loader2,
-  ArrowLeft,
-  AlertCircle,
-  CreditCard,
-  Lock,
-  Shield,
-  Check,
-  Star,
-  Calendar,
-  Users,
-} from "lucide-react";
+import { Loader2, ArrowLeft, AlertCircle, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Footer } from "@/components/layout/Footer";
-import { PaymentMethodSelector } from "@/components/booking/PaymentMethodSelector";
-import { BillingAddressSection, type BillingAddress } from "@/components/booking/BillingAddressSection";
+import { BookingProgressIndicator } from "@/components/booking/BookingProgressIndicator";
+import { PaymentFormPanel } from "@/components/booking/PaymentFormPanel";
+import { PaymentSummaryPanel } from "@/components/booking/PaymentSummaryPanel";
 import { PriceConfirmationModal } from "@/components/booking/PriceConfirmationModal";
+import { BillingAddress } from "@/components/booking/BillingAddressSection";
 import { bookingApi } from "@/services/bookingApi";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -29,9 +15,6 @@ import {
   validateCardNumber,
   validateExpiryDate,
   validateCVV,
-  formatCardNumber,
-  formatExpiryDate,
-  type CardType,
 } from "@/lib/cardValidation";
 import type { PendingBookingData, PaymentType } from "@/types/etgBooking";
 
@@ -95,7 +78,6 @@ const PaymentPage = () => {
   // Load booking data and verify price on mount
   useEffect(() => {
     const loadAndVerify = async () => {
-      // Load booking data from sessionStorage
       const storedData = sessionStorage.getItem("pending_booking");
       if (!storedData) {
         setIsLoading(false);
@@ -113,10 +95,7 @@ const PaymentPage = () => {
         setOriginalPrice(parsed.totalPrice || 0);
         setIsLoading(false);
 
-        // Verify price with prebook API
         await verifyPrice(parsed);
-        
-        // Load order form to get order_id and item_id
         await loadOrderForm(parsed);
       } catch (e) {
         console.error("Failed to parse booking data:", e);
@@ -131,7 +110,6 @@ const PaymentPage = () => {
   const loadOrderForm = async (data: PendingBookingData) => {
     if (!data.bookingHash || !data.bookingId) {
       console.warn("Missing bookingHash or bookingId for order form");
-      // Allow proceeding without form data for backward compat
       setFormDataLoaded(true);
       return;
     }
@@ -140,25 +118,18 @@ const PaymentPage = () => {
 
     try {
       const formResponse = await bookingApi.getOrderForm(
-        data.bookingHash,   // book_hash from prebook
-        data.bookingId      // partner_order_id
+        data.bookingHash,
+        data.bookingId
       );
 
       if (formResponse.error) {
         throw new Error(formResponse.error.message);
       }
 
-      // Store order_id and item_id for finish step
       setOrderId(formResponse.data.order_id);
       setItemId(formResponse.data.item_id);
       setFormDataLoaded(true);
 
-      console.log("Order form loaded:", {
-        order_id: formResponse.data.order_id,
-        item_id: formResponse.data.item_id,
-      });
-
-      // Update booking data with order_id and item_id
       const updatedData = { 
         ...data, 
         orderId: formResponse.data.order_id,
@@ -169,7 +140,7 @@ const PaymentPage = () => {
 
     } catch (error) {
       console.error("Failed to load order form:", error);
-      setFormDataLoaded(true); // Still allow proceeding
+      setFormDataLoaded(true);
       
       toast({
         title: "Form Loading Warning",
@@ -181,19 +152,15 @@ const PaymentPage = () => {
     }
   };
 
-  // Price was already verified during prebook on BookingPage - skip redundant API call
   const verifyPrice = async (data: PendingBookingData) => {
-    // The bookingHash from prebook is already validated, use stored price
     setPriceVerified(true);
     setVerifiedPrice(data.totalPrice || 0);
   };
 
-  // Handle price modal acceptance
   const handlePriceAccept = () => {
     setPriceModalOpen(false);
     setPriceVerified(true);
     
-    // Update booking data with new price
     if (bookingData && verifiedPrice !== originalPrice) {
       const updatedData = { ...bookingData, totalPrice: verifiedPrice, priceUpdated: true };
       setBookingData(updatedData);
@@ -201,59 +168,13 @@ const PaymentPage = () => {
     }
   };
 
-  // Handle price modal decline
   const handlePriceDecline = () => {
     setPriceModalOpen(false);
     
-    // Navigate back to hotel details
     if (bookingData?.hotel?.id) {
       navigate(`/hotel/${bookingData.hotel.id}`);
     } else {
       navigate("/dashboard/search");
-    }
-  };
-
-  // Format card number with spaces and detect type
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, "");
-    const detectedType = detectCardType(value);
-    const maxLength = detectedType.type === "amex" ? 15 : 16;
-    
-    if (value.length <= maxLength) {
-      setCardNumber(formatCardNumber(value, detectedType.type));
-      
-      // Clear error on change
-      if (cardErrors.cardNumber) {
-        setCardErrors((prev) => ({ ...prev, cardNumber: undefined }));
-      }
-    }
-  };
-
-  // Format expiry date
-  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, "");
-    if (value.length <= 4) {
-      setExpiryDate(formatExpiryDate(value));
-      
-      // Clear error on change
-      if (cardErrors.expiryDate) {
-        setCardErrors((prev) => ({ ...prev, expiryDate: undefined }));
-      }
-    }
-  };
-
-  // Handle CVV input
-  const handleCvvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, "");
-    const maxLength = cardType.type === "amex" ? 4 : 3;
-    
-    if (value.length <= maxLength) {
-      setCvv(value);
-      
-      // Clear error on change
-      if (cardErrors.cvv) {
-        setCardErrors((prev) => ({ ...prev, cvv: undefined }));
-      }
     }
   };
 
@@ -312,27 +233,23 @@ const PaymentPage = () => {
     const errors: typeof cardErrors = {};
     let isValid = true;
 
-    // Validate card number
     const cardResult = validateCardNumber(cardNumber);
     if (!cardResult.valid) {
       errors.cardNumber = cardResult.error;
       isValid = false;
     }
 
-    // Validate cardholder name
     if (!cardholderName.trim()) {
       errors.cardholderName = "Cardholder name is required";
       isValid = false;
     }
 
-    // Validate expiry date
     const expiryResult = validateExpiryDate(expiryDate);
     if (!expiryResult.valid) {
       errors.expiryDate = expiryResult.error;
       isValid = false;
     }
 
-    // Validate CVV
     const cvvResult = validateCVV(cvv, cardType.type);
     if (!cvvResult.valid) {
       errors.cvv = cvvResult.error;
@@ -341,7 +258,6 @@ const PaymentPage = () => {
 
     setCardErrors(errors);
 
-    // Validate billing address
     const billingValid = validateBillingAddress();
     
     if (!isValid || !billingValid) {
@@ -357,10 +273,8 @@ const PaymentPage = () => {
   };
 
   const handlePayment = async () => {
-    // For deposit/hotel payment types, no card validation needed
     if (paymentType === "now" && !validateForm()) return;
 
-    // Validate we have required ETG API data
     if (!orderId || !itemId) {
       toast({
         title: "Booking Error",
@@ -376,11 +290,10 @@ const PaymentPage = () => {
     try {
       const leadGuest = bookingData!.guests.find((g) => g.isLead);
       
-      // Call Order Booking Finish API with CORRECT params per ETG spec
       const response = await bookingApi.finishBooking({
-        order_id: orderId,                    // From form response
-        item_id: itemId,                      // From form response
-        partner_order_id: bookingData!.bookingId,  // Same as used in form
+        order_id: orderId,
+        item_id: itemId,
+        partner_order_id: bookingData!.bookingId,
         payment_type: paymentType,
         guests: bookingData!.guests.map((g) => ({
           first_name: g.firstName,
@@ -398,13 +311,11 @@ const PaymentPage = () => {
         throw new Error(response.error.message);
       }
 
-      // Use REAL order_id from response (not fake IDs)
       const finalOrderId = response.data?.order_id;
       if (!finalOrderId) {
         throw new Error("No order ID received from booking");
       }
       
-      // Navigate to processing page for status polling
       navigate(`/processing/${finalOrderId}`);
       
     } catch (error) {
@@ -414,27 +325,40 @@ const PaymentPage = () => {
         ? error.message 
         : "Failed to complete booking. Please try again.";
       
-      // Show error toast
       toast({
         title: "Booking Failed",
         description: errorMessage,
         variant: "destructive",
       });
       
-      // Set error state to show inline error
       setPaymentError(errorMessage);
-      
-      // Do NOT navigate to processing page with fake ID
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // Get button text based on state
+  const getButtonText = () => {
+    if (isProcessing) return "Processing...";
+    if (isVerifyingPrice) return "Verifying Price...";
+    if (isLoadingForm) return "Preparing Booking...";
+    
+    const displayPrice = priceVerified ? verifiedPrice : bookingData?.totalPrice || 0;
+    const currency = bookingData?.hotel?.currency || "USD";
+    
+    if (paymentType === "now") {
+      return `Pay ${currency} ${displayPrice.toFixed(2)}`;
+    } else if (paymentType === "deposit") {
+      return "Confirm Deposit Booking";
+    }
+    return "Confirm Pay at Hotel";
   };
 
   // Loading state
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
+        <div className="text-center animate-fade-in">
           <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
           <p className="text-muted-foreground">Loading payment details...</p>
         </div>
@@ -446,7 +370,7 @@ const PaymentPage = () => {
   if (!bookingData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center max-w-md mx-auto px-4">
+        <div className="text-center max-w-md mx-auto px-4 animate-fade-in">
           <Card className="border-0 shadow-lg">
             <CardContent className="p-8">
               <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
@@ -469,17 +393,10 @@ const PaymentPage = () => {
     );
   }
 
-  const { hotel, rooms, guests, searchParams: bookingSearchParams } = bookingData;
-  const leadGuest = guests.find((g) => g.isLead);
-  const nights = bookingSearchParams?.checkIn && bookingSearchParams?.checkOut
-    ? differenceInDays(new Date(bookingSearchParams.checkOut), new Date(bookingSearchParams.checkIn))
-    : 1;
-  
-  // Use verified price if available, otherwise original
   const displayPrice = priceVerified ? verifiedPrice : bookingData.totalPrice;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-muted/30">
       {/* Price Confirmation Modal */}
       <PriceConfirmationModal
         open={priceModalOpen}
@@ -487,406 +404,109 @@ const PaymentPage = () => {
         type={priceModalType}
         originalPrice={originalPrice}
         newPrice={verifiedPrice}
-        currency={hotel.currency}
+        currency={bookingData.hotel.currency}
         onAccept={handlePriceAccept}
         onDecline={handlePriceDecline}
       />
 
-      <main className="flex-1">
-        {/* Hero Section */}
-        <section className="bg-primary py-8 lg:py-12">
-          <div className="container mx-auto px-4 max-w-7xl">
+      {/* Progress Indicator Header */}
+      <header className="bg-background border-b border-border shadow-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 max-w-7xl">
+          <div className="flex items-center py-3">
             <Button
               variant="ghost"
+              size="sm"
               onClick={() => navigate("/booking")}
-              className="flex items-center gap-2 text-primary-foreground hover:bg-primary-foreground/10 mb-4"
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground mr-4"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>Back to Booking Details</span>
+              <span className="hidden sm:inline">Back</span>
             </Button>
-            <h1 className="font-heading text-3xl lg:text-4xl font-bold text-primary-foreground">
-              Complete Your Payment
-            </h1>
-            <p className="text-primary-foreground/80 mt-2">
-              Secure payment for your booking at {hotel.name}
-            </p>
-          </div>
-        </section>
-
-        {/* Price Verification Loading */}
-        {isVerifyingPrice && (
-          <div className="bg-amber-50 border-b border-amber-200 py-3">
-            <div className="container mx-auto px-4 max-w-7xl flex items-center gap-3">
-              <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
-              <span className="text-sm text-amber-800">
-                Verifying current price and availability...
-              </span>
+            
+            <div className="flex-1">
+              <BookingProgressIndicator currentStep={3} />
             </div>
           </div>
-        )}
+        </div>
+      </header>
 
-        {/* Main Content */}
-        <section className="py-8 lg:py-12">
-          <div className="container mx-auto px-4 max-w-7xl">
-            {/* Payment Error Alert */}
-            {paymentError && (
-              <div className="mb-6 bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-medium text-destructive">Payment Failed</p>
-                  <p className="text-sm text-destructive/80 mt-1">{paymentError}</p>
-                  <Button 
-                    variant="link" 
-                    className="text-destructive p-0 h-auto text-sm mt-2"
-                    onClick={() => setPaymentError(null)}
-                  >
-                    Dismiss
-                  </Button>
-                </div>
+      {/* Main Content - Split Screen */}
+      <main className="flex-1">
+        <div className="container mx-auto px-4 max-w-7xl py-6 lg:py-10">
+          {/* Payment Error Alert */}
+          {paymentError && (
+            <div className="mb-6 bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start gap-3 animate-fade-in">
+              <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-destructive">Payment Failed</p>
+                <p className="text-sm text-destructive/80 mt-1">{paymentError}</p>
+                <Button 
+                  variant="link" 
+                  className="text-destructive p-0 h-auto text-sm mt-2"
+                  onClick={() => setPaymentError(null)}
+                >
+                  Dismiss
+                </Button>
               </div>
-            )}
+            </div>
+          )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Left Side - Payment Form */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* Payment Method Selector */}
-                <PaymentMethodSelector
-                  value={paymentType}
-                  onChange={setPaymentType}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+            {/* Left Panel - Payment Form */}
+            <div className="order-2 lg:order-1">
+              <div className="lg:max-w-lg">
+                <h1 className="font-heading text-2xl lg:text-3xl font-bold text-foreground mb-2 animate-fade-in">
+                  Complete Your Payment
+                </h1>
+                <p className="text-muted-foreground mb-8 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+                  Secure payment for your booking at {bookingData.hotel.name}
+                </p>
+
+                <PaymentFormPanel
+                  paymentType={paymentType}
+                  onPaymentTypeChange={setPaymentType}
                   availableMethods={["deposit", "hotel"]}
-                  disabled={isProcessing || isVerifyingPrice}
+                  isProcessing={isProcessing || isVerifyingPrice}
+                  cardNumber={cardNumber}
+                  onCardNumberChange={setCardNumber}
+                  cardholderName={cardholderName}
+                  onCardholderNameChange={setCardholderName}
+                  expiryDate={expiryDate}
+                  onExpiryDateChange={setExpiryDate}
+                  cvv={cvv}
+                  onCvvChange={setCvv}
+                  saveCard={saveCard}
+                  onSaveCardChange={setSaveCard}
+                  cardErrors={cardErrors}
+                  onValidateCard={validateCardOnBlur}
+                  billingAddress={billingAddress}
+                  onBillingAddressChange={setBillingAddress}
+                  billingErrors={billingErrors}
                 />
-
-                {/* Card Payment Form - Only show for "now" payment type */}
-                {paymentType === "now" && (
-                  <>
-                    <Card className="border-0 shadow-lg">
-                      <CardContent className="p-6 lg:p-8">
-                        <div className="flex items-center justify-between mb-6">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-full bg-primary/10">
-                              <CreditCard className="h-5 w-5 text-primary" />
-                            </div>
-                            <h2 className="font-heading text-2xl font-bold text-foreground">
-                              Card Payment
-                            </h2>
-                          </div>
-                          
-                          {/* Card type indicator */}
-                          {cardType.type !== "unknown" && (
-                            <div className="text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
-                              {cardType.name}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="space-y-6">
-                          {/* Card Number */}
-                          <div>
-                            <Label htmlFor="cardNumber" className="text-sm font-medium">
-                              Card Number <span className="text-destructive">*</span>
-                            </Label>
-                            <div className="relative mt-2">
-                              <Input
-                                id="cardNumber"
-                                value={cardNumber}
-                                onChange={handleCardNumberChange}
-                                onBlur={() => validateCardOnBlur("cardNumber")}
-                                placeholder={cardType.type === "amex" ? "•••• •••••• •••••" : "•••• •••• •••• ••••"}
-                                className={`pl-12 h-12 text-lg font-mono ${cardErrors.cardNumber ? "border-destructive" : ""}`}
-                                disabled={isProcessing}
-                              />
-                              <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                            </div>
-                            {cardErrors.cardNumber && (
-                              <p className="text-sm text-destructive mt-1">{cardErrors.cardNumber}</p>
-                            )}
-                          </div>
-
-                          {/* Cardholder Name */}
-                          <div>
-                            <Label htmlFor="cardholderName" className="text-sm font-medium">
-                              Cardholder Name <span className="text-destructive">*</span>
-                            </Label>
-                            <Input
-                              id="cardholderName"
-                              value={cardholderName}
-                              onChange={(e) => {
-                                setCardholderName(e.target.value.toUpperCase());
-                                if (cardErrors.cardholderName) {
-                                  setCardErrors((prev) => ({ ...prev, cardholderName: undefined }));
-                                }
-                              }}
-                              onBlur={() => validateCardOnBlur("cardholderName")}
-                              placeholder="JOHN DOE"
-                              className={`mt-2 h-12 text-lg uppercase ${cardErrors.cardholderName ? "border-destructive" : ""}`}
-                              disabled={isProcessing}
-                            />
-                            {cardErrors.cardholderName && (
-                              <p className="text-sm text-destructive mt-1">{cardErrors.cardholderName}</p>
-                            )}
-                          </div>
-
-                          {/* Expiry & CVV */}
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label htmlFor="expiryDate" className="text-sm font-medium">
-                                Expiry Date <span className="text-destructive">*</span>
-                              </Label>
-                              <Input
-                                id="expiryDate"
-                                value={expiryDate}
-                                onChange={handleExpiryChange}
-                                onBlur={() => validateCardOnBlur("expiryDate")}
-                                placeholder="MM/YY"
-                                className={`mt-2 h-12 text-lg font-mono ${cardErrors.expiryDate ? "border-destructive" : ""}`}
-                                disabled={isProcessing}
-                              />
-                              {cardErrors.expiryDate && (
-                                <p className="text-sm text-destructive mt-1">{cardErrors.expiryDate}</p>
-                              )}
-                            </div>
-                            <div>
-                              <Label htmlFor="cvv" className="text-sm font-medium">
-                                CVV <span className="text-destructive">*</span>
-                              </Label>
-                              <div className="relative mt-2">
-                                <Input
-                                  id="cvv"
-                                  type="password"
-                                  value={cvv}
-                                  onChange={handleCvvChange}
-                                  onBlur={() => validateCardOnBlur("cvv")}
-                                  placeholder={cardType.type === "amex" ? "••••" : "•••"}
-                                  className={`h-12 text-lg font-mono ${cardErrors.cvv ? "border-destructive" : ""}`}
-                                  disabled={isProcessing}
-                                />
-                                <Lock className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              </div>
-                              {cardErrors.cvv && (
-                                <p className="text-sm text-destructive mt-1">{cardErrors.cvv}</p>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Save Card */}
-                          <div className="flex items-center gap-3">
-                            <Checkbox
-                              id="saveCard"
-                              checked={saveCard}
-                              onCheckedChange={(checked) => setSaveCard(checked as boolean)}
-                              disabled={isProcessing}
-                            />
-                            <Label htmlFor="saveCard" className="text-sm cursor-pointer">
-                              Save this card for future bookings
-                            </Label>
-                          </div>
-
-                          {/* Security Note */}
-                          <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-                            <Shield className="h-5 w-5 text-green-600 flex-shrink-0" />
-                            <p className="text-sm text-green-800">
-                              Your payment information is encrypted and secure. We never store your full card details.
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Billing Address Section */}
-                    <BillingAddressSection
-                      value={billingAddress}
-                      onChange={setBillingAddress}
-                      errors={billingErrors}
-                      disabled={isProcessing}
-                    />
-                  </>
-                )}
-
-                {/* Pay Button */}
-                <Card className="border-0 shadow-lg">
-                  <CardContent className="p-6 lg:p-8">
-                    <div className="flex items-center justify-between mb-6">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Total Amount</p>
-                        <p className="text-3xl font-bold text-primary">
-                          {hotel.currency} {displayPrice.toFixed(2)}
-                        </p>
-                        {priceVerified && verifiedPrice !== originalPrice && (
-                          <p className="text-xs text-muted-foreground line-through">
-                            Original: {hotel.currency} {originalPrice.toFixed(2)}
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground">Booking Reference</p>
-                        <p className="text-sm font-mono font-medium text-foreground">
-                          {bookingId}
-                        </p>
-                      </div>
-                    </div>
-
-                    <Button
-                      onClick={handlePayment}
-                      disabled={isProcessing || isVerifyingPrice || isLoadingForm || !priceVerified || !formDataLoaded}
-                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-6 text-lg"
-                      size="lg"
-                    >
-                      {isProcessing ? (
-                        <>
-                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                          Processing...
-                        </>
-                      ) : isVerifyingPrice ? (
-                        <>
-                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                          Verifying Price...
-                        </>
-                      ) : isLoadingForm ? (
-                        <>
-                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                          Preparing Booking...
-                        </>
-                      ) : (
-                        <>
-                          <Lock className="mr-2 h-5 w-5" />
-                          {paymentType === "now" 
-                            ? `Pay ${hotel.currency} ${displayPrice.toFixed(2)}`
-                            : paymentType === "deposit"
-                            ? "Confirm Deposit Booking"
-                            : "Confirm Pay at Hotel"}
-                        </>
-                      )}
-                    </Button>
-
-                    {/* Trust Badges */}
-                    <div className="mt-6 flex flex-wrap items-center justify-center gap-6">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Shield className="h-5 w-5 text-green-600" />
-                        <span className="text-xs">Secure Payment</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Lock className="h-5 w-5 text-green-600" />
-                        <span className="text-xs">SSL Encrypted</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Check className="h-5 w-5 text-green-600" />
-                        <span className="text-xs">PCI Compliant</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
+            </div>
 
-              {/* Right Side - Order Summary */}
-              <div className="lg:col-span-1">
-                <Card className="border-0 shadow-lg sticky top-8">
-                  <div className="bg-primary text-primary-foreground p-4 rounded-t-lg">
-                    <h3 className="font-heading font-bold text-lg">Order Summary</h3>
-                  </div>
-
-                  <CardContent className="p-4 space-y-4">
-                    {/* Hotel Info */}
-                    <div className="pb-4 border-b border-border">
-                      <div className="flex items-center gap-1 mb-1">
-                        {[...Array(hotel.starRating || 0)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className="h-3 w-3 text-[hsl(var(--app-gold))] fill-current"
-                          />
-                        ))}
-                      </div>
-                      <p className="font-semibold text-foreground">{hotel.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {hotel.address}, {hotel.city}
-                      </p>
-                    </div>
-
-                    {/* Dates */}
-                    <div className="pb-4 border-b border-border">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span>
-                          {format(new Date(bookingSearchParams.checkIn), "MMM d")} -{" "}
-                          {format(new Date(bookingSearchParams.checkOut), "MMM d, yyyy")}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {nights} night{nights > 1 ? "s" : ""}
-                      </p>
-                    </div>
-
-                    {/* Room Info */}
-                    <div className="pb-4 border-b border-border">
-                      {rooms.map((room) => (
-                        <div key={room.roomId} className="text-sm">
-                          <p className="font-medium text-foreground">
-                            {room.roomName} × {room.quantity}
-                          </p>
-                        </div>
-                      ))}
-                      <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                        <Users className="h-4 w-4" />
-                        <span>{guests.length} guest{guests.length > 1 ? "s" : ""}</span>
-                      </div>
-                    </div>
-
-                    {/* Guest Info */}
-                    {leadGuest && (
-                      <div className="pb-4 border-b border-border">
-                        <p className="text-xs text-muted-foreground mb-1">LEAD GUEST</p>
-                        <p className="text-sm font-medium text-foreground">
-                          {leadGuest.firstName} {leadGuest.lastName}
-                        </p>
-                        {leadGuest.email && (
-                          <p className="text-sm text-muted-foreground">{leadGuest.email}</p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Price Breakdown */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Room Total</span>
-                        <span className="text-foreground">
-                          {hotel.currency} {displayPrice.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Taxes & Fees</span>
-                        <span className="text-foreground">Included</span>
-                      </div>
-                      <div className="flex justify-between font-bold pt-2 border-t border-border">
-                        <span className="text-foreground">Total</span>
-                        <span className="text-primary text-lg">
-                          {hotel.currency} {displayPrice.toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Price Updated Notice */}
-                    {priceVerified && verifiedPrice !== originalPrice && (
-                      <div className={`p-3 rounded-lg ${
-                        verifiedPrice > originalPrice 
-                          ? "bg-amber-50 border border-amber-200" 
-                          : "bg-green-50 border border-green-200"
-                      }`}>
-                        <p className={`text-xs ${
-                          verifiedPrice > originalPrice ? "text-amber-800" : "text-green-800"
-                        }`}>
-                          <strong>Note:</strong> Price was {verifiedPrice > originalPrice ? "increased" : "reduced"} during availability check.
-                        </p>
-                      </div>
-                    )}
-                  </CardContent>
+            {/* Right Panel - Order Summary */}
+            <div className="order-1 lg:order-2">
+              <div className="lg:sticky lg:top-24">
+                <Card className="border-0 shadow-xl overflow-hidden bg-background">
+                  <PaymentSummaryPanel
+                    bookingData={bookingData}
+                    displayPrice={displayPrice}
+                    originalPrice={originalPrice}
+                    priceVerified={priceVerified}
+                    bookingId={bookingId || ""}
+                    onConfirmBooking={handlePayment}
+                    isProcessing={isProcessing}
+                    isDisabled={isProcessing || isVerifyingPrice || isLoadingForm || !priceVerified || !formDataLoaded}
+                    buttonText={getButtonText()}
+                  />
                 </Card>
               </div>
             </div>
           </div>
-        </section>
+        </div>
       </main>
-
-      <Footer />
     </div>
   );
 };
