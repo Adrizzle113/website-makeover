@@ -69,6 +69,19 @@ const BookingPage = () => {
     }
   }, [hotelId, selectedHotel, isLoading, navigate]);
 
+  // Callbacks must be defined before any early returns to satisfy React's rules of hooks
+  const handleGuestsChange = useCallback((newGuests: Guest[]) => {
+    setGuests(newGuests);
+  }, []);
+
+  const handleDetailsChange = useCallback((details: { countryCode: string; phoneNumber: string; specialRequests: string }) => {
+    setBookingDetails(prev => ({ ...prev, ...details }));
+  }, []);
+
+  const handleTermsChange = useCallback((valid: boolean) => {
+    setTermsValid(valid);
+  }, []);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -271,17 +284,6 @@ const BookingPage = () => {
     toast({ title: "Booking Cancelled", description: "The booking was cancelled due to the price change." });
   };
 
-  const handleGuestsChange = useCallback((newGuests: Guest[]) => {
-    setGuests(newGuests);
-  }, []);
-
-  const handleDetailsChange = useCallback((details: { countryCode: string; phoneNumber: string; specialRequests: string }) => {
-    setBookingDetails(prev => ({ ...prev, ...details }));
-  }, []);
-
-  const handleTermsChange = useCallback((valid: boolean) => {
-    setTermsValid(valid);
-  }, []);
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
