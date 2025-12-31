@@ -398,38 +398,63 @@ const BookingPage = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <main className="flex-1">
-        {/* Hero Section with Breadcrumbs & Back Button */}
-        <section className="bg-primary py-6 lg:py-10">
-          <div className="container mx-auto px-4 max-w-7xl">
-            <BookingBreadcrumbs hotelName={selectedHotel.name} hotelId={selectedHotel.id} />
-            
-            <div className="flex items-center justify-between">
+        {/* Hero Section - Explo Style with rounded container and hotel image */}
+        <section className="relative min-h-[40vh] lg:min-h-[45vh] flex items-end px-4 py-8 md:px-8">
+          {/* Rounded Container with Hotel Background Image */}
+          <div
+            className="absolute inset-4 md:inset-8 rounded-3xl md:rounded-[2.5rem] overflow-hidden bg-cover bg-center bg-no-repeat"
+            style={{
+              backgroundImage: `url('${selectedHotel.mainImage || "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=2000&q=80"}')`,
+            }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/30 to-black/60" />
+          </div>
+
+          {/* Hero Content */}
+          <div className="relative z-10 container max-w-7xl w-full pb-8">
+            <div className="flex items-start justify-between">
               <div>
                 <Button
                   variant="ghost"
                   onClick={() => navigate(`/hoteldetails/${selectedHotel.id}`)}
-                  className="flex items-center gap-2 text-primary-foreground hover:bg-primary-foreground/10 mb-3 -ml-3"
+                  className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 rounded-full px-4 mb-4 opacity-0 animate-fade-in"
+                  style={{ animationDelay: "0.1s" }}
                 >
                   <ArrowLeft className="h-4 w-4" />
                   <span>Back to Hotel</span>
                 </Button>
-                <h1 className="font-heading text-3xl lg:text-4xl font-bold text-primary-foreground">
-                  Complete Your Booking
+                
+                <p 
+                  className="heading-spaced text-white/80 mb-3 opacity-0 animate-fade-in"
+                  style={{ animationDelay: "0.2s" }}
+                >
+                  Complete Your Reservation
+                </p>
+                
+                <h1 
+                  className="font-heading text-display-md md:text-display-lg text-white mb-4 opacity-0 animate-slide-up"
+                  style={{ animationDelay: "0.3s" }}
+                >
+                  {selectedHotel.name}
                 </h1>
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-primary-foreground/90">
-                  <span className="font-medium">{selectedHotel.name}</span>
-                  <div className="flex items-center">
+                
+                <div 
+                  className="flex flex-wrap items-center gap-3 opacity-0 animate-fade-in"
+                  style={{ animationDelay: "0.4s" }}
+                >
+                  <div className="flex items-center gap-1 badge-pill bg-white/20 backdrop-blur-sm text-white">
                     {[...Array(selectedHotel.starRating || 0)].map((_, i) => (
-                      <Star key={i} className="h-4 w-4 text-[hsl(var(--app-gold))] fill-current" />
+                      <Star key={i} className="h-3.5 w-3.5 text-gold fill-current" />
                     ))}
                   </div>
-                  <span className="text-primary-foreground/70">•</span>
-                  <span className="text-sm">{selectedHotel.address}, {selectedHotel.city}</span>
+                  <span className="badge-pill bg-white/20 backdrop-blur-sm text-white">
+                    {selectedHotel.city}, {selectedHotel.country}
+                  </span>
                 </div>
               </div>
               
               {/* Session Timer */}
-              <div className="hidden md:block">
+              <div className="hidden md:block opacity-0 animate-fade-in" style={{ animationDelay: "0.5s" }}>
                 <SessionTimeout
                   timeoutMinutes={30}
                   warningMinutes={5}
@@ -441,70 +466,99 @@ const BookingPage = () => {
           </div>
         </section>
 
-        {/* Progress Indicator */}
-        <section className="bg-card border-b border-border">
-          <div className="container mx-auto px-4 max-w-7xl">
-            <BookingProgressIndicator currentStep={2} />
+        {/* Progress Indicator - Floating Card Style */}
+        <section className="relative -mt-6 z-20 px-4 md:px-8">
+          <div className="container max-w-7xl">
+            <div className="bg-card rounded-2xl shadow-card p-4 opacity-0 animate-fade-in" style={{ animationDelay: "0.5s" }}>
+              <BookingProgressIndicator currentStep={2} />
+            </div>
           </div>
         </section>
 
         {/* Main Content */}
-        <section className="py-8 lg:py-12">
+        <section className="py-10 lg:py-16">
           <div className="container mx-auto px-4 max-w-7xl">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-16">
               {/* Left Side - Forms */}
-              <div className="lg:col-span-2 space-y-6">
-                <GuestInformationSection 
-                  rooms={selectedRooms}
-                  hotel={selectedHotel}
-                  onGuestsChange={setGuests}
-                />
-                <ArrivalTimeSection 
-                  defaultCheckInTime={selectedHotel.checkInTime || "15:00"}
-                  onArrivalTimeChange={setArrivalTime}
-                />
-                <RoomAddonsSection 
-                  rooms={selectedRooms}
-                  hotel={selectedHotel}
-                />
-                <BookingDetailsSection 
-                  onDetailsChange={setBookingDetails}
-                />
-                <AgentPricingSection
-                  netPrice={totalWithNights}
-                  currency={selectedHotel.currency}
-                  isLocked={isPricingLocked}
-                  onPricingChange={handlePricingChange}
-                  onUnlockRequest={handleUnlockRequest}
-                />
-                <BookingNoticesSection 
-                  hotelName={selectedHotel.name}
-                  checkInTime={selectedHotel.checkInTime}
-                />
-                <TermsAndConditionsSection 
-                  hotelName={selectedHotel.name}
-                  onValidChange={setTermsValid}
-                  onTermsChange={setTermsState}
-                />
-                <ContinueToPaymentSection
-                  totalPrice={displayPrice}
-                  currency={selectedHotel.currency}
-                  isLoading={isPrebooking}
-                  onContinue={handleContinueToPayment}
-                />
+              <div className="lg:col-span-2 space-y-8">
+                <div className="bg-card rounded-2xl shadow-card p-6 lg:p-8 opacity-0 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+                  <GuestInformationSection 
+                    rooms={selectedRooms}
+                    hotel={selectedHotel}
+                    onGuestsChange={setGuests}
+                  />
+                </div>
+                
+                <div className="bg-card rounded-2xl shadow-card p-6 lg:p-8 opacity-0 animate-fade-in" style={{ animationDelay: "0.15s" }}>
+                  <ArrivalTimeSection 
+                    defaultCheckInTime={selectedHotel.checkInTime || "15:00"}
+                    onArrivalTimeChange={setArrivalTime}
+                  />
+                </div>
+                
+                <div className="bg-card rounded-2xl shadow-card p-6 lg:p-8 opacity-0 animate-fade-in" style={{ animationDelay: "0.2s" }}>
+                  <RoomAddonsSection 
+                    rooms={selectedRooms}
+                    hotel={selectedHotel}
+                  />
+                </div>
+                
+                <div className="bg-card rounded-2xl shadow-card p-6 lg:p-8 opacity-0 animate-fade-in" style={{ animationDelay: "0.25s" }}>
+                  <BookingDetailsSection 
+                    onDetailsChange={setBookingDetails}
+                  />
+                </div>
+                
+                <div className="bg-card rounded-2xl shadow-card p-6 lg:p-8 opacity-0 animate-fade-in" style={{ animationDelay: "0.3s" }}>
+                  <AgentPricingSection
+                    netPrice={totalWithNights}
+                    currency={selectedHotel.currency}
+                    isLocked={isPricingLocked}
+                    onPricingChange={handlePricingChange}
+                    onUnlockRequest={handleUnlockRequest}
+                  />
+                </div>
+                
+                <div className="bg-card rounded-2xl shadow-card p-6 lg:p-8 opacity-0 animate-fade-in" style={{ animationDelay: "0.35s" }}>
+                  <BookingNoticesSection 
+                    hotelName={selectedHotel.name}
+                    checkInTime={selectedHotel.checkInTime}
+                  />
+                </div>
+                
+                <div className="bg-card rounded-2xl shadow-card p-6 lg:p-8 opacity-0 animate-fade-in" style={{ animationDelay: "0.4s" }}>
+                  <TermsAndConditionsSection 
+                    hotelName={selectedHotel.name}
+                    onValidChange={setTermsValid}
+                    onTermsChange={setTermsState}
+                  />
+                </div>
+                
+                <div className="opacity-0 animate-fade-in" style={{ animationDelay: "0.45s" }}>
+                  <ContinueToPaymentSection
+                    totalPrice={displayPrice}
+                    currency={selectedHotel.currency}
+                    isLoading={isPrebooking}
+                    onContinue={handleContinueToPayment}
+                  />
+                </div>
               </div>
 
-              {/* Right Side - Summary */}
+              {/* Right Side - Summary - Floating Sticky Card */}
               <div className="lg:col-span-1">
-                <BookingSummaryCard
-                  hotel={selectedHotel}
-                  rooms={selectedRooms}
-                  searchParams={searchParams}
-                  totalPrice={totalPrice}
-                  isLoading={isPrebooking}
-                  clientPrice={pricingSnapshot?.clientPrice}
-                  commission={pricingSnapshot?.commission}
-                />
+                <div className="lg:sticky lg:top-8 opacity-0 animate-slide-in-right" style={{ animationDelay: "0.3s" }}>
+                  <div className="bg-card rounded-3xl shadow-card overflow-hidden">
+                    <BookingSummaryCard
+                      hotel={selectedHotel}
+                      rooms={selectedRooms}
+                      searchParams={searchParams}
+                      totalPrice={totalPrice}
+                      isLoading={isPrebooking}
+                      clientPrice={pricingSnapshot?.clientPrice}
+                      commission={pricingSnapshot?.commission}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>

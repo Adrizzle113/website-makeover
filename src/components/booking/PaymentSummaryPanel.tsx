@@ -1,5 +1,5 @@
 import { format, differenceInDays } from "date-fns";
-import { Calendar, Users, Star, MapPin, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar, Users, Star, MapPin, ChevronDown, ChevronUp, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
@@ -43,95 +43,79 @@ export function PaymentSummaryPanel({
 
   return (
     <div className={cn("h-full flex flex-col", className)}>
-      {/* Hotel Image Hero */}
-      <div className="relative h-48 lg:h-56 overflow-hidden rounded-t-xl animate-fade-in">
+      {/* Hotel Image Hero - Explo Style */}
+      <div className="relative h-56 lg:h-64 overflow-hidden">
         <img
           src={hotelImage}
           alt={hotel.name}
           className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
         
         {/* Hotel Info Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-          <div className="flex items-center gap-1 mb-1">
+        <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+          <div className="flex items-center gap-1 mb-2">
             {[...Array(hotel.starRating || 0)].map((_, i) => (
               <Star
                 key={i}
-                className="h-3.5 w-3.5 text-yellow-400 fill-current"
+                className="h-4 w-4 text-gold fill-current"
               />
             ))}
           </div>
-          <h3 className="font-heading text-lg font-bold line-clamp-1">{hotel.name}</h3>
-          <div className="flex items-center gap-1 text-sm text-white/80 mt-1">
-            <MapPin className="h-3.5 w-3.5" />
-            <span className="line-clamp-1">{hotel.city}</span>
+          <h3 className="font-heading text-heading-lg text-white line-clamp-1">{hotel.name}</h3>
+          <div className="flex items-center gap-2 text-body-sm text-white/80 mt-2">
+            <MapPin className="h-4 w-4" />
+            <span className="line-clamp-1">{hotel.city}, {hotel.country}</span>
           </div>
         </div>
       </div>
 
       {/* Booking Details */}
-      <div className="flex-1 p-5 space-y-4 animate-fade-in" style={{ animationDelay: "0.1s" }}>
-        {/* Dates */}
-        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Calendar className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                {format(new Date(searchParams.checkIn), "MMM d")} - {format(new Date(searchParams.checkOut), "MMM d, yyyy")}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {nights} night{nights > 1 ? "s" : ""}
-              </p>
-            </div>
+      <div className="flex-1 p-6 space-y-5">
+        {/* Dates & Guests Pills */}
+        <div className="flex flex-wrap gap-3">
+          <div className="flex items-center gap-2 badge-pill bg-secondary text-secondary-foreground">
+            <Calendar className="h-4 w-4" />
+            <span className="text-body-sm font-medium">
+              {format(new Date(searchParams.checkIn), "MMM d")} - {format(new Date(searchParams.checkOut), "MMM d")}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 badge-pill bg-secondary text-secondary-foreground">
+            <Users className="h-4 w-4" />
+            <span className="text-body-sm font-medium">
+              {guests.length} Guest{guests.length > 1 ? "s" : ""}
+            </span>
           </div>
         </div>
 
-        {/* Guests */}
-        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Users className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                {guests.length} Guest{guests.length > 1 ? "s" : ""}
-              </p>
-              {leadGuest && (
-                <p className="text-xs text-muted-foreground">
-                  {leadGuest.firstName} {leadGuest.lastName}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Room Details - Collapsible on mobile */}
-        <div className="rounded-lg border border-border overflow-hidden">
+        {/* Room Details - Collapsible */}
+        <div className="rounded-2xl border border-border overflow-hidden">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full flex items-center justify-between p-3 bg-muted/30 hover:bg-muted/50 transition-colors lg:cursor-default"
+            className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
           >
-            <span className="text-sm font-medium text-foreground">Room Details</span>
-            <span className="lg:hidden">
-              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </span>
+            <span className="text-body-sm font-medium text-foreground">Room Details</span>
+            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </button>
           
           <div className={cn(
             "transition-all duration-300 overflow-hidden",
-            isExpanded ? "max-h-96 opacity-100" : "max-h-0 opacity-0 lg:max-h-96 lg:opacity-100"
+            isExpanded ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
           )}>
-            <div className="p-3 space-y-2">
+            <div className="p-4 space-y-3 bg-muted/10">
               {rooms.map((room, idx) => (
-                <div key={room.roomId || idx} className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {room.roomName} × {room.quantity}
+                <div key={room.roomId || idx} className="flex justify-between items-center">
+                  <span className="text-body-sm text-foreground">
+                    {room.roomName}
+                  </span>
+                  <span className="badge-pill bg-muted text-muted-foreground text-xs">
+                    × {room.quantity}
                   </span>
                 </div>
               ))}
+              <div className="pt-2 text-body-sm text-muted-foreground">
+                {nights} night{nights > 1 ? "s" : ""} • {leadGuest?.firstName} {leadGuest?.lastName}
+              </div>
             </div>
           </div>
         </div>
@@ -139,16 +123,16 @@ export function PaymentSummaryPanel({
         <Separator />
 
         {/* Price Breakdown */}
-        <div className="space-y-3" style={{ animationDelay: "0.2s" }}>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Room Total</span>
+        <div className="space-y-4">
+          <div className="flex justify-between text-body-sm">
+            <span className="text-muted-foreground">Room Total ({nights} night{nights > 1 ? "s" : ""})</span>
             <span className="text-foreground font-medium">
               {hotel.currency} {displayPrice.toFixed(2)}
             </span>
           </div>
           
           {priceVerified && originalPrice && originalPrice !== displayPrice && (
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between text-body-sm">
               <span className="text-muted-foreground">Original Price</span>
               <span className="text-muted-foreground line-through">
                 {hotel.currency} {originalPrice.toFixed(2)}
@@ -159,34 +143,46 @@ export function PaymentSummaryPanel({
           <Separator />
 
           <div className="flex justify-between items-center">
-            <span className="text-base font-semibold text-foreground">Total</span>
-            <div className="text-right">
-              <span className="text-2xl font-bold text-primary">
-                {hotel.currency} {displayPrice.toFixed(2)}
-              </span>
-              <p className="text-xs text-muted-foreground">
+            <div>
+              <span className="font-heading text-heading-sm text-foreground">Total</span>
+              <p className="text-body-sm text-muted-foreground mt-1">
                 Includes taxes & fees
               </p>
+            </div>
+            <div className="text-right">
+              <span className="font-heading text-heading-xl text-primary">
+                {hotel.currency} {displayPrice.toFixed(2)}
+              </span>
             </div>
           </div>
         </div>
 
         {/* Booking Reference */}
-        <div className="p-3 rounded-lg bg-muted/50 text-center">
-          <p className="text-xs text-muted-foreground">Booking Reference</p>
-          <p className="text-sm font-mono font-medium text-foreground">{bookingId}</p>
+        <div className="p-4 rounded-2xl bg-muted/30 text-center">
+          <p className="heading-spaced text-muted-foreground mb-1">Booking Reference</p>
+          <p className="text-body-md font-mono font-medium text-foreground">{bookingId}</p>
         </div>
       </div>
 
-      {/* Sticky CTA Button */}
-      <div className="p-5 pt-0 mt-auto">
+      {/* CTA Button - Explo Style */}
+      <div className="p-6 pt-0 mt-auto">
         <Button
           onClick={onConfirmBooking}
           disabled={isDisabled}
-          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-6 text-base shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
+          className="w-full bg-cream text-primary hover:bg-cream/90 rounded-full py-7 text-body-md font-semibold shadow-soft transition-all duration-300 hover:shadow-card hover:scale-[1.02] active:scale-[0.98] group"
           size="lg"
         >
-          {buttonText}
+          {isProcessing ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              Processing...
+            </>
+          ) : (
+            <>
+              {buttonText}
+              <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+            </>
+          )}
         </Button>
       </div>
     </div>
