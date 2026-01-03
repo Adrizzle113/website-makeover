@@ -31,17 +31,18 @@ import type { PendingBookingData } from "@/types/etgBooking";
 const BookingPage = () => {
   const navigate = useNavigate();
   const { hotelId } = useParams<{ hotelId: string }>();
-  const { 
-    selectedHotel, 
-    selectedRooms, 
-    searchParams, 
-    getTotalPrice, 
-    setBookingHash, 
-    partnerOrderId,
-    generateAndSetPartnerOrderId,
-    residency, 
-    selectedUpsells 
-  } = useBookingStore();
+const { 
+  selectedHotel, 
+  selectedRooms, 
+  searchParams, 
+  getTotalPrice, 
+  setBookingHash,
+  bookingHash,
+  partnerOrderId,
+  generateAndSetPartnerOrderId,
+  residency, 
+  selectedUpsells 
+} = useBookingStore();
   const [isLoading, setIsLoading] = useState(true);
   const [isPrebooking, setIsPrebooking] = useState(false);
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -362,7 +363,7 @@ const BookingPage = () => {
       });
     }
 
-    navigateToPayment(newPrice + (pricingSnapshot?.commission || 0));
+    navigateToPayment(newPrice + (pricingSnapshot?.commission || 0), bookingHash || undefined);
   };
 
   const handleDeclinePriceChange = () => {
