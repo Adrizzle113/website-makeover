@@ -1,5 +1,6 @@
 import type { HotelDetails } from "@/types/booking";
 import { BookingSidebar } from "./BookingSidebar";
+import { sanitizeDescription } from "@/lib/utils";
 
 interface HotelInfoSectionProps {
   hotel: HotelDetails;
@@ -55,8 +56,9 @@ function generateFallbackDescription(hotel: HotelDetails): string {
 }
 
 export function HotelInfoSection({ hotel }: HotelInfoSectionProps) {
-  // Use API description or generate a smart fallback
-  const description = hotel.fullDescription || hotel.description || generateFallbackDescription(hotel);
+  // Use API description or generate a smart fallback, then sanitize
+  const rawDescription = hotel.fullDescription || hotel.description || generateFallbackDescription(hotel);
+  const description = sanitizeDescription(rawDescription);
   
   return (
     <section className="py-8 bg-background">
