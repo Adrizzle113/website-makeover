@@ -345,8 +345,17 @@ class RateHawkApiService {
         const staticData = h.static_data || {};
         const staticVm = h.static_vm || h.ratehawk_data?.static_vm;
         
-        // Get hotel name from multiple possible sources (prioritize enriched data)
-        const hotelName = staticData.name || h.name || staticVm?.name || `Hotel ${hotelId}`;
+        // Helper: Convert slug to human-readable name
+        const humanizeSlug = (slug: string): string => {
+          return slug
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, c => c.toUpperCase())
+            .trim();
+        };
+        
+        // Get hotel name - prefer actual names, humanize slug as last resort
+        const rawName = staticData.name || h.name || staticVm?.name;
+        const hotelName = rawName && rawName.trim() ? rawName : humanizeSlug(hotelId);
         
         // Get amenities from various sources
         const amenityStrings = h.amenities || staticVm?.amenities || [];
@@ -380,32 +389,37 @@ class RateHawkApiService {
         // Get images from enriched static_data first, then static_vm
         let images: Array<{ url: string; alt: string }> = [];
         
-        // Enriched static_data images (already processed URLs)
+        // Enriched static_data images - may need {size} template replacement
         if (staticData.images && staticData.images.length > 0) {
-          images = staticData.images.slice(0, 10).map((url: string) => ({
-            url: typeof url === 'string' ? url : '',
-            alt: hotelName,
-          })).filter((img: any) => img.url);
+          images = staticData.images.slice(0, 10).map((url: string) => {
+            let processedUrl = typeof url === 'string' ? url : '';
+            // Replace {size} template if present
+            if (processedUrl.includes('{size}')) {
+              processedUrl = processedUrl.replace('{size}', '640x400');
+            }
+            return { url: processedUrl, alt: hotelName };
+          }).filter((img: any) => img.url && img.url.length > 30);
         }
-        // Fallback to static_vm images (need template processing)
-        else if (staticVm?.images) {
-          const rawImages = staticVm.images;
-          images = rawImages.slice(0, 10).map((img: any) => {
+        
+        // Fallback to static_vm images if static_data images are insufficient
+        if (images.length === 0 && staticVm?.images?.length > 0) {
+          images = staticVm.images.slice(0, 10).map((img: any) => {
             const url = typeof img === 'string' 
-              ? img.replace('{size}', '1024x768')
-              : img.tmpl?.replace("{size}", "1024x768") || img.url || "";
+              ? img.replace('{size}', '640x400')
+              : img.tmpl?.replace("{size}", "640x400") || img.url || "";
             return { url, alt: hotelName };
-          }).filter((img: any) => img.url);
+          }).filter((img: any) => img.url && img.url.length > 30);
         }
         
         const mainImage = images[0]?.url || h.image || "/placeholder.svg";
         
-        // Debug: Log image extraction for first few hotels
+        // Debug: Log name and image extraction for first few hotels
         if (rawResponse.hotels.indexOf(h) < 3) {
-          console.log(`🖼️ Hotel ${hotelId} images:`, {
-            staticDataImages: staticData.images?.length || 0,
-            staticVmImages: staticVm?.images?.length || 0,
-            extractedImages: images.length,
+          console.log(`🏨 Hotel ${hotelId}:`, {
+            nameSource: staticData.name ? 'static_data' : (h.name ? 'h.name' : (staticVm?.name ? 'static_vm' : 'humanized')),
+            finalName: hotelName,
+            imageSource: staticData.images?.length ? 'static_data' : (staticVm?.images?.length ? 'static_vm' : 'none'),
+            imageCount: images.length,
             mainImage: mainImage?.substring(0, 60),
           });
         }
