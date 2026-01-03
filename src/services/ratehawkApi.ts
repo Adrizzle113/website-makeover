@@ -400,6 +400,16 @@ class RateHawkApiService {
         
         const mainImage = images[0]?.url || h.image || "/placeholder.svg";
         
+        // Debug: Log image extraction for first few hotels
+        if (rawResponse.hotels.indexOf(h) < 3) {
+          console.log(`🖼️ Hotel ${hotelId} images:`, {
+            staticDataImages: staticData.images?.length || 0,
+            staticVmImages: staticVm?.images?.length || 0,
+            extractedImages: images.length,
+            mainImage: mainImage?.substring(0, 60),
+          });
+        }
+        
         // Extract cancellation and meal info from rates
         const hasFreeCancellation = h.freeCancellation || 
           rates.some((r: any) => r.free_cancellation === true || r.cancellationPolicy?.toLowerCase().includes("free"));

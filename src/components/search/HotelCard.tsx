@@ -126,6 +126,9 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
               src={hotel.mainImage || "/placeholder.svg"}
               alt={hotel.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              onError={(e) => {
+                e.currentTarget.src = "/placeholder.svg";
+              }}
             />
             {hotel.reviewScore && (
               <div className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 bg-primary text-primary-foreground px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold">
@@ -169,6 +172,9 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
             src={hotel.mainImage || "/placeholder.svg"}
             alt={hotel.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            onError={(e) => {
+              e.currentTarget.src = "/placeholder.svg";
+            }}
           />
           {hotel.reviewScore && (
             <div className="absolute top-3 left-3 md:top-4 md:left-4 bg-primary text-primary-foreground px-2 md:px-3 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-semibold">
