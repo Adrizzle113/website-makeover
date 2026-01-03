@@ -430,10 +430,20 @@ class RateHawkApiService {
         const mealPlan = h.mealPlan || rates[0]?.meal || rates[0]?.meal_data?.name;
         const paymentTypes = rates[0]?.payment_options?.payment_types?.map((p: any) => p.type) || [];
 
-        // Get address, city, country from enriched data or static_vm
+        // Get address, city, country from enriched data or static_vm.region
         const address = staticData.address || staticVm?.address || h.location || "";
-        const city = staticData.city || staticVm?.city || "";
-        const country = staticData.country || staticVm?.country || "";
+        // static_vm uses region object with name (city), country_code, etc.
+        const regionName = staticVm?.region?.name || "";
+        const city = staticData.city || regionName || "";
+        const country = staticData.country || staticVm?.region?.country_code || "";
+        
+        // Debug: Log location data for first few hotels
+        if (rawResponse.hotels.indexOf(h) < 3) {
+          console.log(`📍 Hotel ${hotelId} location:`, {
+            city, country, address: address?.substring(0, 40),
+            regionData: staticVm?.region ? Object.keys(staticVm.region) : 'none'
+          });
+        }
         
         // Get star rating - enriched data is 1-5, static_vm might be 10-50
         let starRating = 0;
