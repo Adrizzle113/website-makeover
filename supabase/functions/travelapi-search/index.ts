@@ -30,7 +30,12 @@ interface StaticHotelData {
   country: string | null;
   star_rating: number | null;
   images: any[] | null;
-  coordinates: { lat?: number; lon?: number } | null;
+  latitude: number | null;
+  longitude: number | null;
+  amenities: any[] | null;
+  description: string | null;
+  check_in_time: string | null;
+  check_out_time: string | null;
 }
 
 interface CacheData {
@@ -40,7 +45,7 @@ interface CacheData {
   expires_at: string;
 }
 
-// Enrich hotels with static data from hotel_static_cache
+// Enrich hotels with static data from hotel_dump_data (3.2M hotels)
 async function enrichWithStaticData(
   hotels: any[], 
   supabase: any
@@ -50,12 +55,27 @@ async function enrichWithStaticData(
   const hotelIds = hotels.map(h => h.hotel_id || h.id).filter(Boolean);
   if (hotelIds.length === 0) return hotels;
 
-  console.log(`📊 Enriching ${hotelIds.length} hotels with static data...`);
+  console.log(`📊 Enriching ${hotelIds.length} hotels with static data from hotel_dump_data...`);
 
   try {
+    // Query the FULL hotel_dump_data table (3.2M hotels) instead of the small cache
     const { data: staticData, error } = await supabase
-      .from('hotel_static_cache')
-      .select('hotel_id, name, address, city, country, star_rating, images, coordinates')
+      .from('hotel_dump_data')
+      .select(`
+        hotel_id,
+        name,
+        address,
+        city,
+        country,
+        star_rating,
+        images,
+        latitude,
+        longitude,
+        amenities,
+        description,
+        check_in_time,
+        check_out_time
+      `)
       .in('hotel_id', hotelIds);
 
     if (error) {
@@ -65,7 +85,7 @@ async function enrichWithStaticData(
 
     const staticArray = staticData as StaticHotelData[] | null;
     if (!staticArray || staticArray.length === 0) {
-      console.log('⚠️ No static data found in cache');
+      console.log('⚠️ No static data found in hotel_dump_data');
       return hotels;
     }
 
@@ -104,7 +124,14 @@ async function enrichWithStaticData(
             country: staticInfo.country,
             star_rating: staticInfo.star_rating,
             images,
-            coordinates: staticInfo.coordinates,
+            coordinates: {
+              lat: staticInfo.latitude,
+              lon: staticInfo.longitude,
+            },
+            amenities: staticInfo.amenities,
+            description: staticInfo.description,
+            check_in_time: staticInfo.check_in_time,
+            check_out_time: staticInfo.check_out_time,
           },
         };
       }
