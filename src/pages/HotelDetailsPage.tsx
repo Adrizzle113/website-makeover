@@ -253,6 +253,60 @@ const transformToHotelDetails = (hotel: Hotel): HotelDetails => {
   };
 };
 
+const isLikelySlugName = (name: string) => !!name && !name.includes(" ") && /[_-]/.test(name);
+
+const humanizeSlug = (value: string) =>
+  value
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (m) => m.toUpperCase())
+    .trim();
+
+const normalizeStaticImages = (raw: unknown): AnyHotelImage[] => {
+  if (!Array.isArray(raw)) return [];
+
+  return (raw as unknown[])
+    .map((img) => {
+      if (typeof img === "string") return img.replace("{size}", "1024x768");
+
+      if (img && typeof img === "object") {
+        const anyImg = img as any;
+        if (typeof anyImg.url === "string") {
+          return { ...anyImg, url: anyImg.url.replace("{size}", "1024x768") };
+        }
+        if (typeof anyImg.tmpl === "string") {
+          return { ...anyImg, tmpl: anyImg.tmpl.replace("{size}", "1024x768") };
+        }
+      }
+
+      return null;
+    })
+    .filter(Boolean) as AnyHotelImage[];
+};
+
+const getFirstImageUrl = (images: AnyHotelImage[] | undefined): string | undefined => {
+  const first = images?.[0];
+  if (!first) return undefined;
+
+  if (typeof first === "string") return first;
+
+  if (first && typeof first === "object") {
+    const anyFirst = first as any;
+    if (typeof anyFirst.url === "string") return anyFirst.url;
+    if (typeof anyFirst.tmpl === "string") return anyFirst.tmpl;
+  }
+
+  return undefined;
+};
+
+const isPlaceholderImage = (url?: string) =>
+  !url || url === "/placeholder.svg" || url.includes("placeholder.svg");
+
+const hasRealImages = (images: AnyHotelImage[] | undefined): boolean => {
+  if (!images || images.length === 0) return false;
+  const firstUrl = getFirstImageUrl(images);
+  return !!firstUrl && !isPlaceholderImage(firstUrl);
+};
+
 const HotelDetailsPage = () => {
   const { hotelId } = useParams<{ hotelId: string }>();
   const navigate = useNavigate();
@@ -500,20 +554,58 @@ const HotelDetailsPage = () => {
         console.warn("⚠️ Rates API not called (missing search dates)");
       }
 
+      const staticImages = normalizeStaticImages((staticInfo as any)?.images);
+      const existingImages = normalizeStaticImages((data.hotel as any)?.images);
+
+      const imagesToUse = hasRealImages(existingImages) ? existingImages : staticImages;
+
+      const staticFirstImageUrl = getFirstImageUrl(staticImages);
+      const existingMainImage = typeof (data.hotel as any)?.mainImage === "string" ? (data.hotel as any).mainImage : undefined;
+      const existingLegacyImage = typeof data.hotel.image === "string" ? data.hotel.image : undefined;
+
+      const pickedMainImageRaw =
+        (existingMainImage && !isPlaceholderImage(existingMainImage) ? existingMainImage : undefined) ||
+        (existingLegacyImage && !isPlaceholderImage(existingLegacyImage) ? existingLegacyImage : undefined) ||
+        staticFirstImageUrl;
+
+      const pickedMainImage = pickedMainImageRaw
+        ? String(pickedMainImageRaw).replace("{size}", "1024x768")
+        : undefined;
+
+      const staticName = typeof (staticInfo as any)?.name === "string" ? (staticInfo as any).name.trim() : undefined;
+      const currentName = typeof data.hotel.name === "string" ? data.hotel.name.trim() : "";
+      const nameToUse =
+        staticName && (!currentName || currentName === data.hotel.id || isLikelySlugName(currentName))
+          ? staticName
+          : currentName || staticName || humanizeSlug(data.hotel.id);
+
+      const staticCity = typeof (staticInfo as any)?.city === "string" ? (staticInfo as any).city : undefined;
+      const staticCountry = typeof (staticInfo as any)?.country === "string" ? (staticInfo as any).country : undefined;
+      const staticAddress = typeof (staticInfo as any)?.address === "string" ? (staticInfo as any).address : undefined;
+      const staticPhone = typeof (staticInfo as any)?.phone === "string" ? (staticInfo as any).phone : undefined;
+      const staticEmail = typeof (staticInfo as any)?.email === "string" ? (staticInfo as any).email : undefined;
+
       // Merge all data together
       const updatedHotelData: HotelData = {
         ...data,
         hotel: {
           ...data.hotel,
-          // Static info from API (Solution 1)
+          // Prefer a real hotel name from static info (fallback to humanized slug)
+          name: nameToUse,
+
+          // Static info from API
           description: staticInfo?.description || data.hotel.description,
           fullDescription: staticInfo?.description || staticInfo?.fullDescription || data.hotel.fullDescription,
           checkInTime: staticInfo?.checkInTime || data.hotel.checkInTime,
           checkOutTime: staticInfo?.checkOutTime || data.hotel.checkOutTime,
           policies: staticInfo?.policies?.length > 0 ? staticInfo.policies : data.hotel.policies,
-          address: staticInfo?.address || data.hotel.address,
-          phone: staticInfo?.phone || data.hotel.phone,
-          email: staticInfo?.email || data.hotel.email,
+
+          address: staticAddress || data.hotel.address,
+          city: staticCity || data.hotel.city,
+          country: staticCountry || data.hotel.country,
+          phone: staticPhone || data.hotel.phone,
+          email: staticEmail || data.hotel.email,
+
           latitude: staticInfo?.coordinates?.latitude || data.hotel.latitude,
           longitude: staticInfo?.coordinates?.longitude || data.hotel.longitude,
           amenities: staticInfo?.amenities?.length > 0 ? staticInfo.amenities : data.hotel.amenities,
@@ -521,17 +613,9 @@ const HotelDetailsPage = () => {
           // Ensure hero images + star rating are available even if stored data is missing them
           starRating: staticInfo?.starRating ?? data.hotel.starRating,
           rating: staticInfo?.starRating ?? data.hotel.rating,
-          images:
-            Array.isArray((data.hotel as any).images) && (data.hotel as any).images.length > 0
-              ? (data.hotel as any).images
-              : (staticInfo?.images || []).map((u: string) => String(u).replace("{size}", "1024x768")),
-          mainImage:
-            (data.hotel as any).mainImage ||
-            data.hotel.image ||
-            (staticInfo?.images?.[0] ? String(staticInfo.images[0]).replace("{size}", "1024x768") : undefined),
-          image:
-            data.hotel.image ||
-            (staticInfo?.images?.[0] ? String(staticInfo.images[0]).replace("{size}", "1024x768") : undefined),
+          images: imagesToUse,
+          mainImage: pickedMainImage,
+          image: pickedMainImage,
 
           // Rate data - prefer API rates, fallback to stored rates from search
           ratehawk_data: {
