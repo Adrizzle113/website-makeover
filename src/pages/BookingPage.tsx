@@ -272,8 +272,8 @@ const BookingPage = () => {
       // Lock pricing after successful prebook
       setIsPricingLocked(true);
 
-      // Success - navigate to payment page
-      navigateToPayment(displayPrice);
+      // Success - navigate to payment page with booking hash from prebook
+      navigateToPayment(displayPrice, result.bookingHash);
       
     } catch (error) {
       toast({
