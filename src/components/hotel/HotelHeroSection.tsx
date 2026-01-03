@@ -138,6 +138,9 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
                 src={mainImage}
                 alt={hotel.name}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                onError={(e) => {
+                  e.currentTarget.src = "/placeholder.svg";
+                }}
               />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
               {displayImages.length > 3 && (
@@ -157,6 +160,9 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
                   src={sideImage1}
                   alt={displayImages[1]?.alt || `${hotel.name} - Photo 2`}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+                  onError={(e) => {
+                    e.currentTarget.src = "/placeholder.svg";
+                  }}
                 />
                 {/* Gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -176,6 +182,9 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
                   src={sideImage2}
                   alt={displayImages[2]?.alt || `${hotel.name} - Photo 3`}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+                  onError={(e) => {
+                    e.currentTarget.src = "/placeholder.svg";
+                  }}
                 />
                 {/* Gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -208,6 +217,9 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
                 src={displayImages[currentIndex]?.url}
                 alt={displayImages[currentIndex]?.alt || hotel.name}
                 className="w-full h-full object-contain"
+                onError={(e) => {
+                  e.currentTarget.src = "/placeholder.svg";
+                }}
               />
             </div>
 
