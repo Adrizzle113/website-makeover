@@ -434,16 +434,20 @@ class RateHawkApiService {
         const address = staticData.address || staticVm?.address || h.location || "";
         // static_vm uses region object with name (city), country_code, etc.
         const regionName = staticVm?.region?.name || "";
-        const city = staticData.city || regionName || "";
-        const country = staticData.country || staticVm?.region?.country_code || "";
         
-        // Debug: Log location data for first few hotels
-        if (rawResponse.hotels.indexOf(h) < 3) {
-          console.log(`📍 Hotel ${hotelId} location:`, {
-            city, country, address: address?.substring(0, 40),
-            regionData: staticVm?.region ? Object.keys(staticVm.region) : 'none'
-          });
+        // Extract city from address as fallback (e.g., "1020 S Figueroa Street, Los Angeles" -> "Los Angeles")
+        let cityFromAddress = "";
+        if (address && !regionName && !staticData.city) {
+          const addressParts = address.split(',').map((p: string) => p.trim());
+          if (addressParts.length >= 2) {
+            // Take the last part that looks like a city (not a zip code)
+            const lastPart = addressParts[addressParts.length - 1];
+            cityFromAddress = /^\d/.test(lastPart) ? addressParts[addressParts.length - 2] || "" : lastPart;
+          }
         }
+        
+        const city = staticData.city || regionName || cityFromAddress || "";
+        const country = staticData.country || staticVm?.region?.country_code || "";
         
         // Get star rating - enriched data is 1-5, static_vm might be 10-50
         let starRating = 0;
