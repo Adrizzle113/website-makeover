@@ -1,5 +1,6 @@
 import { Clock, Info, Wallet, PawPrint, BedDouble, MessageCircle } from "lucide-react";
 import type { HotelDetails } from "@/types/booking";
+import { sanitizeDescription } from "@/lib/utils";
 
 interface DepositPolicy {
   type: string;
@@ -47,11 +48,12 @@ export function HotelPoliciesSection({
 }: HotelPoliciesSectionProps) {
   const hasCheckTimes = hotel.checkInTime || hotel.checkOutTime;
   
-  // Helper to get policy text
+  // Helper to get policy text with HTML stripped
   const getPolicyText = (policy: string | { title?: string; content?: string }): string => {
-    return typeof policy === 'string' 
+    const raw = typeof policy === 'string' 
       ? policy 
       : (policy?.content || policy?.title || '');
+    return sanitizeDescription(raw);
   };
 
   // Split text into individual sentences
