@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Minus, Bed, Check, Users, Maximize, Wifi, Bath, Wind, Tv, Crown, Home, Star, Coffee } from "lucide-react";
+import { Plus, Minus, Bed, Check, X, Users, Maximize, Wifi, Bath, Wind, Tv, Crown, Home, Star, Coffee } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -124,6 +124,19 @@ const getMealLabel = (meal: string): string => {
     "all-inclusive": "All Inclusive",
   };
   return labels[meal?.toLowerCase()] || meal || "Room Only";
+};
+
+// Helper to get cancellation display info
+const getCancellationDisplay = (cancellation: string) => {
+  const lower = cancellation?.toLowerCase() || "";
+  const isFreeCancellation = lower.includes("free") || lower.includes("refundable");
+  
+  return {
+    isFreeCancellation,
+    label: isFreeCancellation ? "Free cancellation" : "Non-refundable",
+    icon: isFreeCancellation ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />,
+    className: isFreeCancellation ? "text-green-600" : "text-red-500",
+  };
 };
 
 // Extract room_groups and rates from multiple possible locations in ratehawk_data
@@ -689,6 +702,14 @@ export function RoomSelectionSection({
                         );
                       })}
                     </div>
+
+                    {/* Cancellation Policy */}
+                    {activeRate.cancellation && (
+                      <div className={`flex items-center gap-1 text-sm mt-2 ${getCancellationDisplay(activeRate.cancellation).className}`}>
+                        {getCancellationDisplay(activeRate.cancellation).icon}
+                        <span>{getCancellationDisplay(activeRate.cancellation).label}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Price, Badges, and Selection */}
