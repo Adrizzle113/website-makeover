@@ -73,13 +73,24 @@ export function HotelPoliciesSection({
     allSentences.push(...sentences);
   });
 
+  // Helper to remove duplicate sentences (case-insensitive)
+  const deduplicate = (sentences: string[]): string[] => {
+    const seen = new Set<string>();
+    return sentences.filter(s => {
+      const normalized = s.toLowerCase().trim();
+      if (seen.has(normalized)) return false;
+      seen.add(normalized);
+      return true;
+    });
+  };
+
   // Categorize each sentence based on content
-  const petSentences = allSentences.filter(s => {
+  const petSentences = deduplicate(allSentences.filter(s => {
     const lower = s.toLowerCase();
     return lower.includes('pet') || lower.includes('animal');
-  });
+  }));
 
-  const depositSentences = allSentences.filter(s => {
+  const depositSentences = deduplicate(allSentences.filter(s => {
     const lower = s.toLowerCase();
     const isPet = lower.includes('pet') || lower.includes('animal');
     return !isPet && (
@@ -87,18 +98,18 @@ export function HotelPoliciesSection({
       lower.includes('cost:') || 
       (lower.includes('usd') && lower.includes('per room'))
     );
-  });
+  }));
 
-  const bedSentences = allSentences.filter(s => {
+  const bedSentences = deduplicate(allSentences.filter(s => {
     const lower = s.toLowerCase();
     return lower.includes('extra bed') || 
            lower.includes('additional bed') || 
            lower.includes('crib') || 
            lower.includes('cot') ||
            lower.includes('room category');
-  });
+  }));
 
-  const generalSentences = allSentences.filter(s => {
+  const generalSentences = deduplicate(allSentences.filter(s => {
     const lower = s.toLowerCase();
     const isPet = lower.includes('pet') || lower.includes('animal');
     const isDeposit = !isPet && (
@@ -112,7 +123,7 @@ export function HotelPoliciesSection({
                   lower.includes('cot') ||
                   lower.includes('room category');
     return !isPet && !isDeposit && !isBed;
-  });
+  }));
 
   const hasPolicies = generalSentences.length > 0;
 
@@ -232,10 +243,6 @@ export function HotelPoliciesSection({
               <li className="text-sm text-muted-foreground flex items-start gap-2">
                 <span className="text-primary mt-0.5">•</span>
                 Front desk is open 24/7.
-              </li>
-              <li className="text-sm text-muted-foreground flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                Information about the type of meals included in the price is indicated in the rate details.
               </li>
             </ul>
           </div>
