@@ -54,25 +54,56 @@ export function HotelPoliciesSection({
       : (policy?.content || policy?.title || '');
   };
 
-  // Categorize policies
+  // Split text into individual sentences
+  const splitIntoSentences = (text: string): string[] => {
+    return text
+      .split(/(?<=[.!?])\s+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+  };
+
+  // Collect all sentences from all policies
   const allPolicies = hotel.policies || [];
-  
-  const petPolicies = allPolicies.filter(policy => {
-    const text = getPolicyText(policy).toLowerCase();
-    return text.includes('pet');
+  const allSentences: string[] = [];
+  allPolicies.forEach(policy => {
+    const text = getPolicyText(policy);
+    const sentences = splitIntoSentences(text);
+    allSentences.push(...sentences);
   });
 
-  const depositPolicies = allPolicies.filter(policy => {
-    const text = getPolicyText(policy).toLowerCase();
-    return text.includes('deposit') && !text.includes('pet');
+  // Categorize each sentence based on content
+  const petSentences = allSentences.filter(s => {
+    const lower = s.toLowerCase();
+    return lower.includes('pet') || lower.includes('animal');
   });
 
-  const generalPolicies = allPolicies.filter(policy => {
-    const text = getPolicyText(policy).toLowerCase();
-    return !text.includes('deposit') && !text.includes('pet');
+  const depositSentences = allSentences.filter(s => {
+    const lower = s.toLowerCase();
+    return lower.includes('deposit') && !lower.includes('pet');
   });
 
-  const hasPolicies = generalPolicies.length > 0;
+  const bedSentences = allSentences.filter(s => {
+    const lower = s.toLowerCase();
+    return lower.includes('extra bed') || 
+           lower.includes('additional bed') || 
+           lower.includes('crib') || 
+           lower.includes('cot') ||
+           lower.includes('room category');
+  });
+
+  const generalSentences = allSentences.filter(s => {
+    const lower = s.toLowerCase();
+    const isPet = lower.includes('pet') || lower.includes('animal');
+    const isDeposit = lower.includes('deposit') && !isPet;
+    const isBed = lower.includes('extra bed') || 
+                  lower.includes('additional bed') || 
+                  lower.includes('crib') || 
+                  lower.includes('cot') ||
+                  lower.includes('room category');
+    return !isPet && !isDeposit && !isBed;
+  });
+
+  const hasPolicies = generalSentences.length > 0;
 
   return (
     <section className="py-8 bg-background">
@@ -117,10 +148,10 @@ export function HotelPoliciesSection({
                 <span className="text-muted-foreground block">Price</span>
                 <span className="font-medium text-foreground">{deposit.price}</span>
               </div>
-              {depositPolicies.map((policy, idx) => (
+              {depositSentences.map((sentence, idx) => (
                 <div key={idx} className="text-muted-foreground flex items-start gap-2">
                   <span className="text-primary mt-0.5">•</span>
-                  {getPolicyText(policy)}
+                  {sentence}
                 </div>
               ))}
             </div>
@@ -143,6 +174,12 @@ export function HotelPoliciesSection({
                 <span className="text-muted-foreground block">Price</span>
                 <span className="font-medium text-foreground">{additionalBed.price}</span>
               </div>
+              {bedSentences.map((sentence, idx) => (
+                <div key={idx} className="text-muted-foreground flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  {sentence}
+                </div>
+              ))}
             </div>
           </div>
 
@@ -161,10 +198,10 @@ export function HotelPoliciesSection({
                 <span className="text-muted-foreground block">Price</span>
                 <span className="font-medium text-foreground">{pets.price}</span>
               </div>
-              {petPolicies.map((policy, idx) => (
+              {petSentences.map((sentence, idx) => (
                 <div key={idx} className="text-muted-foreground flex items-start gap-2">
                   <span className="text-primary mt-0.5">•</span>
-                  {getPolicyText(policy)}
+                  {sentence}
                 </div>
               ))}
             </div>
@@ -178,10 +215,10 @@ export function HotelPoliciesSection({
                 <h3 className="font-semibold text-foreground">Hotel Policies</h3>
               </div>
               <ul className="space-y-2">
-                {generalPolicies.map((policy, idx) => (
+                {generalSentences.map((sentence, idx) => (
                   <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
                     <span className="text-primary mt-0.5">•</span>
-                    {getPolicyText(policy)}
+                    {sentence}
                   </li>
                 ))}
               </ul>
