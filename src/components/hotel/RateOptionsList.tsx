@@ -15,6 +15,9 @@ export interface RateOption {
   paymentType: string;
   paymentLabel: string;
   cancellation: string;
+  cancellationDeadline?: string;
+  roomAmenities?: string[];
+  allotment?: number;
   bookHash?: string;
   matchHash?: string;
 }
@@ -129,6 +132,24 @@ export function RateOptionsList({
                       <div className={cn("flex items-center gap-1 text-xs", cancellationInfo.className)}>
                         {cancellationInfo.icon}
                         {cancellationInfo.label}
+                        {rate.cancellationDeadline && (
+                          <span className="text-muted-foreground ml-1">
+                            ({rate.cancellationDeadline})
+                          </span>
+                        )}
+                      </div>
+                      {/* Show differentiating details */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {rate.allotment && rate.allotment <= 3 && (
+                          <span className="text-xs text-orange-600 font-medium">
+                            Only {rate.allotment} left
+                          </span>
+                        )}
+                        {rate.roomAmenities && rate.roomAmenities.length > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            +{rate.roomAmenities.join(", ")}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

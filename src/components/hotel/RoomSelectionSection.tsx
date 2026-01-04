@@ -215,7 +215,17 @@ const rateToRateOption = (rate: RateHawkRate, index: number): RateOption | null 
   if (price <= 0) return null;
 
   const meal = rate.meal || "nomeal";
-  const cancellation = rate.cancellation_policy?.type || rate.cancellationPolicy || "Standard policy";
+  const cancellationPolicy = rate.cancellation_policy as Record<string, unknown> | undefined;
+  const cancellation = (cancellationPolicy?.type as string) || rate.cancellationPolicy || "Standard policy";
+  
+  // Extract cancellation deadline for differentiation
+  const cancellationDeadline = (cancellationPolicy?.deadline as string) || (cancellationPolicy?.free_cancellation_before as string);
+  
+  // Extract rate-specific amenities
+  const roomAmenities = [
+    ...(rate.amenities || []),
+    ...(rate.room_amenities || []),
+  ].filter(Boolean).slice(0, 3);
 
   return {
     id: rate.match_hash || rate.book_hash || `rate_${index}`,
@@ -226,6 +236,9 @@ const rateToRateOption = (rate: RateHawkRate, index: number): RateOption | null 
     paymentType,
     paymentLabel: getPaymentTypeLabel(paymentType),
     cancellation,
+    cancellationDeadline,
+    roomAmenities: roomAmenities.length > 0 ? roomAmenities : undefined,
+    allotment: rate.allotment,
     bookHash: rate.book_hash,
     matchHash: rate.match_hash,
   };
