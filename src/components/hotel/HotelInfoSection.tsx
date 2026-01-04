@@ -76,7 +76,7 @@ export function HotelInfoSection({ hotel }: HotelInfoSectionProps) {
 
           {/* Booking Sidebar */}
           <div>
-            <BookingSidebar currency={hotel.currency} />
+            <BookingSidebar currency={hotel.currency} hotelId={hotel.id} />
           </div>
         </div>
       </div>

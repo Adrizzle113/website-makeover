@@ -8,9 +8,10 @@ import { toast } from "@/hooks/use-toast";
 
 interface BookingSidebarProps {
   currency: string;
+  hotelId: string;
 }
 
-export function BookingSidebar({ currency }: BookingSidebarProps) {
+export function BookingSidebar({ currency, hotelId }: BookingSidebarProps) {
   const navigate = useNavigate();
   const { selectedRooms, searchParams, getTotalPrice, getTotalRooms } = useBookingStore();
 
@@ -40,8 +41,8 @@ export function BookingSidebar({ currency }: BookingSidebarProps) {
       return;
     }
 
-    // Navigate to booking page
-    navigate("/booking");
+    // Navigate to booking page with hotel ID
+    navigate(`/booking/${hotelId}`);
   };
 
   return (
