@@ -81,14 +81,33 @@ export interface RateHawkRate {
       currency_code?: string;
       type?: string;
       cancellation_penalties?: {
-        free_cancellation_before?: string | null;
+        free_cancellation_before?: string;
         policies?: Array<{
-          amount_show?: string;
+          start_at?: string;
+          end_at?: string;
           amount_charge?: string;
-          start_at?: string | null;
-          end_at?: string | null;
+          amount_show?: string;
         }>;
       };
+    }>;
+  };
+  // Alternate cancellation locations (some API responses)
+  cancellation_info?: {
+    free_cancellation_before?: string;
+    policies?: Array<{
+      start_at?: string;
+      end_at?: string;
+      amount_charge?: string;
+      amount_show?: string;
+    }>;
+  };
+  cancellation_penalties?: {
+    free_cancellation_before?: string;
+    policies?: Array<{
+      start_at?: string;
+      end_at?: string;
+      amount_charge?: string;
+      amount_show?: string;
     }>;
   };
   daily_prices?: string[] | string;

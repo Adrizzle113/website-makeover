@@ -223,13 +223,76 @@ const extractPriceFromRate = (rate: RateHawkRate): { price: number; currency: st
 };
 
 // Format cancellation date from ISO string to readable format
-const formatCancellationDate = (isoDate: string): string => {
+const formatCancellationDate = (isoDate: string): string | undefined => {
+  if (!isoDate) return undefined;
   try {
     const date = new Date(isoDate);
+    if (isNaN(date.getTime())) return undefined;
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   } catch {
-    return isoDate;
+    return undefined;
   }
+};
+
+// Extract cancellation info from all possible locations in a rate
+const extractCancellation = (rate: RateHawkRate): { 
+  cancellation: string; 
+  cancellationDeadline?: string; 
+  cancellationFee?: string 
+} => {
+  // Search all payment_types for cancellation data (not just index 0)
+  const paymentTypes = rate.payment_options?.payment_types || [];
+  for (const pt of paymentTypes) {
+    const cp = pt.cancellation_penalties;
+    if (cp?.free_cancellation_before) {
+      const deadline = formatCancellationDate(cp.free_cancellation_before);
+      return { cancellation: "free_cancellation", cancellationDeadline: deadline, cancellationFee: "0" };
+    }
+    if (cp?.policies?.length) {
+      const policy = cp.policies[0];
+      const deadline = formatCancellationDate(policy.end_at || policy.start_at || "");
+      const fee = policy.amount_show?.replace(/[^0-9.]/g, '') || undefined;
+      if (deadline) {
+        return { 
+          cancellation: fee && parseFloat(fee) > 0 ? "partial_refund" : "free_cancellation", 
+          cancellationDeadline: deadline, 
+          cancellationFee: fee 
+        };
+      }
+    }
+  }
+  
+  // Check alternate locations: rate.cancellation_info
+  if (rate.cancellation_info?.free_cancellation_before) {
+    const deadline = formatCancellationDate(rate.cancellation_info.free_cancellation_before);
+    return { cancellation: "free_cancellation", cancellationDeadline: deadline, cancellationFee: "0" };
+  }
+  
+  // Check alternate locations: rate.cancellation_penalties (root level)
+  if (rate.cancellation_penalties?.free_cancellation_before) {
+    const deadline = formatCancellationDate(rate.cancellation_penalties.free_cancellation_before);
+    return { cancellation: "free_cancellation", cancellationDeadline: deadline, cancellationFee: "0" };
+  }
+  if (rate.cancellation_penalties?.policies?.length) {
+    const policy = rate.cancellation_penalties.policies[0];
+    const deadline = formatCancellationDate(policy.end_at || policy.start_at || "");
+    const fee = policy.amount_show?.replace(/[^0-9.]/g, '') || undefined;
+    if (deadline) {
+      return { 
+        cancellation: fee && parseFloat(fee) > 0 ? "partial_refund" : "free_cancellation", 
+        cancellationDeadline: deadline, 
+        cancellationFee: fee 
+      };
+    }
+  }
+  
+  // Fallback to legacy fields
+  const legacyPolicy = rate.cancellation_policy?.type || rate.cancellationPolicy;
+  if (legacyPolicy?.toLowerCase().includes("free") || legacyPolicy?.toLowerCase().includes("refundable")) {
+    return { cancellation: "free_cancellation" };
+  }
+  
+  return { cancellation: "non_refundable" };
 };
 
 // Convert a RateHawkRate to a RateOption
@@ -240,39 +303,8 @@ const rateToRateOption = (rate: RateHawkRate, index: number): RateOption | null 
 
   const meal = rate.meal || "nomeal";
   
-  // Get cancellation from the correct API location (payment_options.payment_types[].cancellation_penalties)
-  const paymentType0 = rate.payment_options?.payment_types?.[0];
-  const cancellationPenalties = paymentType0?.cancellation_penalties;
-  const freeCancellationBefore = cancellationPenalties?.free_cancellation_before;
-  
-  // Determine cancellation status based on free_cancellation_before
-  let cancellation: string;
-  let cancellationDeadline: string | undefined;
-  let cancellationFee: string | undefined;
-  
-  if (freeCancellationBefore) {
-    // Has a free cancellation date - it IS refundable
-    cancellation = "free_cancellation";
-    cancellationDeadline = formatCancellationDate(freeCancellationBefore);
-    cancellationFee = "0";
-  } else {
-    // No free cancellation date - check for policies with fees
-    const policies = cancellationPenalties?.policies;
-    if (policies && policies.length > 0) {
-      const firstPolicy = policies[0];
-      cancellationFee = firstPolicy.amount_show?.replace(/[^0-9.]/g, '') || undefined;
-      if (firstPolicy.end_at) {
-        cancellationDeadline = formatCancellationDate(firstPolicy.end_at);
-        cancellation = cancellationFee && parseFloat(cancellationFee) > 0 
-          ? "partial_refund" 
-          : "free_cancellation";
-      } else {
-        cancellation = "non_refundable";
-      }
-    } else {
-      cancellation = "non_refundable";
-    }
-  }
+  // Extract cancellation from all possible API locations
+  const { cancellation, cancellationDeadline, cancellationFee } = extractCancellation(rate);
   
   // Extract rate-specific amenities
   const roomAmenities = [
