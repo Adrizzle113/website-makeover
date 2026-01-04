@@ -23,13 +23,13 @@ function getSupabaseClient() {
 }
 
 interface StaticHotelData {
-  hotel_id: string;
+  hotel_id: string | number;
   name: string | null;
   address: string | null;
   city: string | null;
   country: string | null;
   star_rating: number | null;
-  images: any[] | null;
+  images: any[] | string | null;
   latitude: number | null;
   longitude: number | null;
   amenities: any[] | null;
@@ -52,66 +52,154 @@ async function enrichWithStaticData(
 ): Promise<any[]> {
   if (!hotels || hotels.length === 0) return hotels;
 
-  const hotelIds = hotels.map(h => h.hotel_id || h.id).filter(Boolean);
-  if (hotelIds.length === 0) return hotels;
+  // Extract ALL possible IDs - prefer hid (numeric) which is the primary key in hotel_dump_data
+  const numericIds: number[] = [];
+  const stringIds: string[] = [];
+  
+  hotels.forEach(h => {
+    // hid is the numeric hotel ID from RateHawk - primary lookup key
+    if (h.hid) {
+      const numId = typeof h.hid === 'number' ? h.hid : parseInt(String(h.hid), 10);
+      if (!isNaN(numId)) numericIds.push(numId);
+    }
+    // Fallback to hotel_id or id
+    if (h.hotel_id) stringIds.push(String(h.hotel_id));
+    if (h.id && h.id !== h.hotel_id) stringIds.push(String(h.id));
+  });
 
-  console.log(`📊 Enriching ${hotelIds.length} hotels with static data from hotel_dump_data...`);
+  console.log(`📊 Enrichment lookup: ${numericIds.length} numeric IDs, ${stringIds.length} string IDs`);
+  console.log(`📊 Sample IDs - numeric: ${numericIds.slice(0, 3)}, string: ${stringIds.slice(0, 3)}`);
+
+  if (numericIds.length === 0 && stringIds.length === 0) {
+    console.log('⚠️ No valid hotel IDs to look up');
+    return hotels;
+  }
 
   try {
-    // Query the FULL hotel_dump_data table (3.2M hotels) instead of the small cache
-    const { data: staticData, error } = await supabase
-      .from('hotel_dump_data')
-      .select(`
-        hotel_id,
-        name,
-        address,
-        city,
-        country,
-        star_rating,
-        images,
-        latitude,
-        longitude,
-        amenities,
-        description,
-        check_in_time,
-        check_out_time
-      `)
-      .in('hotel_id', hotelIds);
+    let staticArray: StaticHotelData[] = [];
 
-    if (error) {
-      console.error('❌ Static data query error:', error);
-      return hotels;
+    // Try numeric IDs first (most likely to match hotel_dump_data)
+    if (numericIds.length > 0) {
+      const { data: numericData, error: numericError } = await supabase
+        .from('hotel_dump_data')
+        .select(`
+          hotel_id,
+          name,
+          address,
+          city,
+          country,
+          star_rating,
+          images,
+          latitude,
+          longitude,
+          amenities,
+          description,
+          check_in_time,
+          check_out_time
+        `)
+        .in('hotel_id', numericIds);
+
+      if (numericError) {
+        console.error('❌ Numeric ID query error:', numericError.message);
+      } else if (numericData && numericData.length > 0) {
+        staticArray = numericData as StaticHotelData[];
+        console.log(`✅ Found ${staticArray.length} hotels via numeric hid`);
+      }
     }
 
-    const staticArray = staticData as StaticHotelData[] | null;
-    if (!staticArray || staticArray.length === 0) {
+    // If no results from numeric, try string IDs as fallback
+    if (staticArray.length === 0 && stringIds.length > 0) {
+      try {
+        const { data: stringData, error: stringError } = await supabase
+          .from('hotel_dump_data')
+          .select(`
+            hotel_id,
+            name,
+            address,
+            city,
+            country,
+            star_rating,
+            images,
+            latitude,
+            longitude,
+            amenities,
+            description,
+            check_in_time,
+            check_out_time
+          `)
+          .in('hotel_id', stringIds);
+
+        if (!stringError && stringData && stringData.length > 0) {
+          staticArray = stringData as StaticHotelData[];
+          console.log(`✅ Found ${staticArray.length} hotels via string IDs`);
+        }
+      } catch (e) {
+        console.log('⚠️ String ID query failed (type mismatch likely)');
+      }
+    }
+
+    if (staticArray.length === 0) {
       console.log('⚠️ No static data found in hotel_dump_data');
       return hotels;
     }
 
-    console.log(`✅ Found static data for ${staticArray.length}/${hotelIds.length} hotels`);
+    console.log(`✅ Total static data found: ${staticArray.length}/${hotels.length} hotels`);
+    if (staticArray.length > 0) {
+      const sample = staticArray[0];
+      console.log(`📊 Sample static data: hotel_id=${sample.hotel_id}, name=${sample.name}, hasImages=${!!sample.images}`);
+    }
 
-    // Create lookup map
-    const staticMap = new Map(staticArray.map(s => [s.hotel_id, s]));
+    // Create lookup map - normalize keys to strings for matching
+    const staticMap = new Map<string, StaticHotelData>();
+    staticArray.forEach(s => {
+      staticMap.set(String(s.hotel_id), s);
+    });
 
     // Merge static data into hotels
     return hotels.map(hotel => {
-      const hotelId = hotel.hotel_id || hotel.id;
-      const staticInfo = staticMap.get(hotelId);
+      // Try multiple keys to find match
+      const candidateKeys = [
+        hotel.hid ? String(hotel.hid) : null,
+        hotel.hotel_id ? String(hotel.hotel_id) : null,
+        hotel.id ? String(hotel.id) : null,
+      ].filter(Boolean) as string[];
+
+      let staticInfo: StaticHotelData | undefined;
+      for (const key of candidateKeys) {
+        staticInfo = staticMap.get(key);
+        if (staticInfo) break;
+      }
 
       if (staticInfo) {
+        // Parse images - handle string JSON or array
+        let rawImages = staticInfo.images;
+        if (typeof rawImages === 'string') {
+          try {
+            rawImages = JSON.parse(rawImages);
+          } catch {
+            rawImages = [];
+          }
+        }
+
         // Transform images - replace {size} template with 640x400 for cards
         let images: string[] = [];
-        const rawImages = staticInfo.images || [];
         if (Array.isArray(rawImages)) {
           images = rawImages.slice(0, 5).map((img: any) => {
+            let url = '';
             if (typeof img === 'string') {
-              return img.replace('{size}', '640x400');
+              url = img;
+            } else if (img.tmpl) {
+              url = img.tmpl;
+            } else if (img.url) {
+              url = img.url;
             }
-            if (img.tmpl) {
-              return img.tmpl.replace('{size}', '640x400');
+            // Replace size template
+            url = url.replace('{size}', '640x400');
+            // Force HTTPS
+            if (url.startsWith('http://')) {
+              url = url.replace('http://', 'https://');
             }
-            return img.url || img;
+            return url;
           }).filter(Boolean);
         }
 
