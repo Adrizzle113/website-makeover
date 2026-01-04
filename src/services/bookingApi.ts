@@ -57,6 +57,17 @@ class BookingApiService {
     return getOrCreateUserId();
   }
 
+  private async getUserIp(): Promise<string> {
+    try {
+      const response = await fetch('https://api.ipify.org?format=json');
+      const data = await response.json();
+      return data.ip || '0.0.0.0';
+    } catch {
+      console.warn('Could not detect user IP, using fallback');
+      return '0.0.0.0';
+    }
+  }
+
   /**
    * Step 2: Prebook - Validate availability and lock rate
    * MUST be called before Order Booking Finish
@@ -102,21 +113,37 @@ class BookingApiService {
   async getOrderForm(bookHash: string, partnerOrderId: string): Promise<OrderFormResponse> {
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.ORDER_FORM}`;
     const userId = this.getCurrentUserId();
+    const userIp = await this.getUserIp();
 
     if (!bookHash || !partnerOrderId) {
       throw new Error("Missing required fields: book_hash or partner_order_id");
     }
 
-    console.log("📤 Order form request:", { bookHash, partnerOrderId, userId });
+    const requestBody = {
+      userId,
+      book_hash: bookHash,
+      partner_order_id: partnerOrderId,
+      language: "en",
+      user_ip: userIp,
+    };
 
-    const response = await this.fetchWithError<OrderFormResponse>(url, {
-      method: "POST",
-      body: JSON.stringify({
-        userId,
-        book_hash: bookHash,
-        partner_order_id: partnerOrderId,
-      }),
-    });
+    console.log("📤 Order form request:", requestBody);
+
+    let response: OrderFormResponse;
+    try {
+      response = await this.fetchWithError<OrderFormResponse>(url, {
+        method: "POST",
+        body: JSON.stringify(requestBody),
+      });
+    } catch (error) {
+      // Retry once for transient errors
+      console.warn("Order form failed, retrying once...", error);
+      await new Promise((r) => setTimeout(r, 1500));
+      response = await this.fetchWithError<OrderFormResponse>(url, {
+        method: "POST",
+        body: JSON.stringify(requestBody),
+      });
+    }
 
     console.log("📥 Order form response:", response);
     return response;
