@@ -50,14 +50,23 @@ const getMealIcon = (meal: string) => {
 };
 
 const getCancellationDisplay = (cancellation: string, deadline?: string, fee?: string) => {
-  const lower = cancellation?.toLowerCase() || "";
-  const isFreeCancellation = lower.includes("free") || lower.includes("refundable");
+  // Check for explicit free cancellation indicator
+  const isFreeCancellation = cancellation === "free_cancellation" || 
+    cancellation?.toLowerCase().includes("free") || 
+    cancellation?.toLowerCase().includes("refundable");
   
-  // Build label with fee and deadline
-  let label = isFreeCancellation ? "Free cancellation" : "Non-refundable";
-  if (deadline) {
-    const feeDisplay = fee && fee !== "0" ? `$${fee}` : "$0";
-    label = `${feeDisplay} until ${deadline}`;
+  // Build label based on cancellation type and deadline
+  let label: string;
+  if (isFreeCancellation && deadline) {
+    label = `Free cancellation until ${deadline}`;
+  } else if (deadline && fee && fee !== "0") {
+    label = `$${fee} fee until ${deadline}`;
+  } else if (deadline) {
+    label = `Free until ${deadline}`;
+  } else if (isFreeCancellation) {
+    label = "Free cancellation";
+  } else {
+    label = "Non-refundable";
   }
   
   return {

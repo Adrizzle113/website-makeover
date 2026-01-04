@@ -208,6 +208,16 @@ const extractPriceFromRate = (rate: RateHawkRate): { price: number; currency: st
   return { price, currency, paymentType };
 };
 
+// Format cancellation date from ISO string to readable format
+const formatCancellationDate = (isoDate: string): string => {
+  try {
+    const date = new Date(isoDate);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  } catch {
+    return isoDate;
+  }
+};
+
 // Convert a RateHawkRate to a RateOption
 const rateToRateOption = (rate: RateHawkRate, index: number): RateOption | null => {
   const { price, currency, paymentType } = extractPriceFromRate(rate);
@@ -215,14 +225,40 @@ const rateToRateOption = (rate: RateHawkRate, index: number): RateOption | null 
   if (price <= 0) return null;
 
   const meal = rate.meal || "nomeal";
-  const cancellationPolicy = rate.cancellation_policy as Record<string, unknown> | undefined;
-  const cancellation = (cancellationPolicy?.type as string) || rate.cancellationPolicy || "Standard policy";
   
-  // Extract cancellation deadline for differentiation
-  const cancellationDeadline = (cancellationPolicy?.deadline as string) || (cancellationPolicy?.free_cancellation_before as string);
+  // Get cancellation from the correct API location (payment_options.payment_types[].cancellation_penalties)
+  const paymentType0 = rate.payment_options?.payment_types?.[0];
+  const cancellationPenalties = paymentType0?.cancellation_penalties;
+  const freeCancellationBefore = cancellationPenalties?.free_cancellation_before;
   
-  // Extract cancellation fee
-  const cancellationFee = (cancellationPolicy?.penalty_amount as string) || (cancellationPolicy?.fee as string);
+  // Determine cancellation status based on free_cancellation_before
+  let cancellation: string;
+  let cancellationDeadline: string | undefined;
+  let cancellationFee: string | undefined;
+  
+  if (freeCancellationBefore) {
+    // Has a free cancellation date - it IS refundable
+    cancellation = "free_cancellation";
+    cancellationDeadline = formatCancellationDate(freeCancellationBefore);
+    cancellationFee = "0";
+  } else {
+    // No free cancellation date - check for policies with fees
+    const policies = cancellationPenalties?.policies;
+    if (policies && policies.length > 0) {
+      const firstPolicy = policies[0];
+      cancellationFee = firstPolicy.amount_show?.replace(/[^0-9.]/g, '') || undefined;
+      if (firstPolicy.end_at) {
+        cancellationDeadline = formatCancellationDate(firstPolicy.end_at);
+        cancellation = cancellationFee && parseFloat(cancellationFee) > 0 
+          ? "partial_refund" 
+          : "free_cancellation";
+      } else {
+        cancellation = "non_refundable";
+      }
+    } else {
+      cancellation = "non_refundable";
+    }
+  }
   
   // Extract rate-specific amenities
   const roomAmenities = [

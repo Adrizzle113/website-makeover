@@ -80,6 +80,15 @@ export interface RateHawkRate {
       show_currency_code?: string;
       currency_code?: string;
       type?: string;
+      cancellation_penalties?: {
+        free_cancellation_before?: string | null;
+        policies?: Array<{
+          amount_show?: string;
+          amount_charge?: string;
+          start_at?: string | null;
+          end_at?: string | null;
+        }>;
+      };
     }>;
   };
   daily_prices?: string[] | string;
