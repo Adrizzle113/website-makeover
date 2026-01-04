@@ -5,6 +5,8 @@ export { BookingSummaryCard } from "./BookingSummaryCard";
 export { BookingSummaryPanel } from "./BookingSummaryPanel";
 export { GuestFormPanel } from "./GuestFormPanel";
 export { ContinueToPaymentSection } from "./ContinueToPaymentSection";
+export { BookingErrorAlert, getBookingErrorType } from "./BookingErrorAlert";
+export type { BookingErrorType } from "./BookingErrorAlert";
 export { PriceChangeModal } from "./PriceChangeModal";
 export { AgentPricingSection } from "./AgentPricingSection";
 export type { PricingSnapshot } from "./AgentPricingSection";
