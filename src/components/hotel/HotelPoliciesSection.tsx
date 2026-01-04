@@ -148,16 +148,7 @@ export function HotelPoliciesSection({
                   </div>
                 ))
               ) : (
-                <>
-                  <div>
-                    <span className="text-muted-foreground block">Deposit type</span>
-                    <span className="font-medium text-foreground">{deposit.type}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block">Price</span>
-                    <span className="font-medium text-foreground">{deposit.price}</span>
-                  </div>
-                </>
+                <span className="text-muted-foreground">No information available</span>
               )}
             </div>
           </div>
@@ -169,22 +160,16 @@ export function HotelPoliciesSection({
               <h3 className="font-semibold text-foreground">Additional bed</h3>
             </div>
             <div className="space-y-2 text-sm">
-              {additionalBed.maxNumber && (
-                <div>
-                  <span className="text-muted-foreground block">Maximum number</span>
-                  <span className="font-medium text-foreground">{additionalBed.maxNumber}</span>
-                </div>
+              {bedSentences.length > 0 ? (
+                bedSentences.map((sentence, idx) => (
+                  <div key={idx} className="text-muted-foreground flex items-start gap-2">
+                    <span className="text-primary mt-0.5">•</span>
+                    {sentence}
+                  </div>
+                ))
+              ) : (
+                <span className="text-muted-foreground">No information available</span>
               )}
-              <div>
-                <span className="text-muted-foreground block">Price</span>
-                <span className="font-medium text-foreground">{additionalBed.price}</span>
-              </div>
-              {bedSentences.map((sentence, idx) => (
-                <div key={idx} className="text-muted-foreground flex items-start gap-2">
-                  <span className="text-primary mt-0.5">•</span>
-                  {sentence}
-                </div>
-              ))}
             </div>
           </div>
 
@@ -195,20 +180,16 @@ export function HotelPoliciesSection({
               <h3 className="font-semibold text-foreground">Pets</h3>
             </div>
             <div className="space-y-2 text-sm">
-              <div>
-                <span className="text-muted-foreground block">Availability</span>
-                <span className="font-medium text-foreground">{pets.availability}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block">Price</span>
-                <span className="font-medium text-foreground">{pets.price}</span>
-              </div>
-              {petSentences.map((sentence, idx) => (
-                <div key={idx} className="text-muted-foreground flex items-start gap-2">
-                  <span className="text-primary mt-0.5">•</span>
-                  {sentence}
-                </div>
-              ))}
+              {petSentences.length > 0 ? (
+                petSentences.map((sentence, idx) => (
+                  <div key={idx} className="text-muted-foreground flex items-start gap-2">
+                    <span className="text-primary mt-0.5">•</span>
+                    {sentence}
+                  </div>
+                ))
+              ) : (
+                <span className="text-muted-foreground">No information available</span>
+              )}
             </div>
           </div>
 
