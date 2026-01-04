@@ -17,8 +17,18 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Initialize Supabase client
 function getSupabaseClient() {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Missing required env vars:', { 
+      hasUrl: !!supabaseUrl, 
+      hasKey: !!supabaseKey 
+    });
+    throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY - enrichment disabled');
+  }
+  
+  console.log('✅ Supabase client initialized with service role key');
   return createClient(supabaseUrl, supabaseKey);
 }
 
