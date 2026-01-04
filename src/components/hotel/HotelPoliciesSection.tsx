@@ -81,7 +81,12 @@ export function HotelPoliciesSection({
 
   const depositSentences = allSentences.filter(s => {
     const lower = s.toLowerCase();
-    return lower.includes('deposit') && !lower.includes('pet');
+    const isPet = lower.includes('pet') || lower.includes('animal');
+    return !isPet && (
+      lower.includes('deposit') || 
+      lower.includes('cost:') || 
+      (lower.includes('usd') && lower.includes('per room'))
+    );
   });
 
   const bedSentences = allSentences.filter(s => {
@@ -96,7 +101,11 @@ export function HotelPoliciesSection({
   const generalSentences = allSentences.filter(s => {
     const lower = s.toLowerCase();
     const isPet = lower.includes('pet') || lower.includes('animal');
-    const isDeposit = lower.includes('deposit') && !isPet;
+    const isDeposit = !isPet && (
+      lower.includes('deposit') || 
+      lower.includes('cost:') || 
+      (lower.includes('usd') && lower.includes('per room'))
+    );
     const isBed = lower.includes('extra bed') || 
                   lower.includes('additional bed') || 
                   lower.includes('crib') || 
