@@ -100,27 +100,25 @@ export function BookingSidebar({ currency, hotelId }: BookingSidebarProps) {
               </p>
             </div>
 
-            {/* Cancellation Policy */}
-            {selectedRooms.map((room) => (
-              <div key={`cancel-${room.roomId}`} className="flex items-start gap-2 text-sm">
-                {room.cancellationPolicy?.toLowerCase().includes("free") || 
-                 room.cancellationPolicy?.toLowerCase().includes("refundable") ? (
-                  <>
-                    <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span className="text-green-600 font-medium">
-                      {room.cancellationPolicy || "Free cancellation"}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <X className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    <span className="text-muted-foreground">
-                      {room.cancellationPolicy || "Non-refundable"}
-                    </span>
-                  </>
-                )}
-              </div>
-            ))}
+            {/* Cancellation Policy - show unique policies only */}
+            {[...new Set(selectedRooms.map(r => r.cancellationPolicy || "Non-refundable"))].map((policy, idx) => {
+              const isRefundable = policy.toLowerCase().includes("free") || policy.toLowerCase().includes("refundable");
+              return (
+                <div key={`cancel-${idx}`} className="flex items-start gap-2 text-sm">
+                  {isRefundable ? (
+                    <>
+                      <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                      <span className="text-green-600 font-medium">{policy}</span>
+                    </>
+                  ) : (
+                    <>
+                      <X className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{policy}</span>
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {/* Total */}
