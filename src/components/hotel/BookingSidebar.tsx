@@ -51,7 +51,7 @@ export function BookingSidebar({ currency, hotelId }: BookingSidebarProps) {
         <div className="space-y-4">
           {/* Selected Rooms */}
           <div className="space-y-2">
-            {selectedRooms.map((room) => (
+            {selectedRooms.filter(room => room.quantity > 0).map((room) => (
               <div key={room.roomId} className="flex justify-between items-start text-sm">
                 <div>
                   <p className="font-medium text-foreground">{room.roomName}</p>
