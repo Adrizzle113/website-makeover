@@ -127,13 +127,27 @@ const getMealLabel = (meal: string): string => {
 };
 
 // Helper to get cancellation display info
-const getCancellationDisplay = (cancellation: string) => {
-  const lower = cancellation?.toLowerCase() || "";
-  const isFreeCancellation = lower.includes("free") || lower.includes("refundable");
+const getCancellationDisplay = (cancellation: string, deadline?: string, fee?: string) => {
+  const isFreeCancellation = cancellation === "free_cancellation" || 
+    cancellation?.toLowerCase().includes("free") || 
+    cancellation?.toLowerCase().includes("refundable");
+  
+  let label: string;
+  if (isFreeCancellation && deadline) {
+    label = `Free cancellation until ${deadline}`;
+  } else if (deadline && fee && fee !== "0") {
+    label = `$${fee} fee until ${deadline}`;
+  } else if (deadline) {
+    label = `Free until ${deadline}`;
+  } else if (isFreeCancellation) {
+    label = "Free cancellation";
+  } else {
+    label = "Non-refundable";
+  }
   
   return {
     isFreeCancellation,
-    label: isFreeCancellation ? "Free cancellation" : "Non-refundable",
+    label,
     icon: isFreeCancellation ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />,
     className: isFreeCancellation ? "text-green-600" : "text-red-500",
   };
@@ -769,9 +783,9 @@ export function RoomSelectionSection({
 
                     {/* Cancellation Policy */}
                     {activeRate.cancellation && (
-                      <div className={`flex items-center gap-1 text-sm mt-2 ${getCancellationDisplay(activeRate.cancellation).className}`}>
-                        {getCancellationDisplay(activeRate.cancellation).icon}
-                        <span>{getCancellationDisplay(activeRate.cancellation).label}</span>
+                      <div className={`flex items-center gap-1 text-sm mt-2 ${getCancellationDisplay(activeRate.cancellation, activeRate.cancellationDeadline, activeRate.cancellationFee).className}`}>
+                        {getCancellationDisplay(activeRate.cancellation, activeRate.cancellationDeadline, activeRate.cancellationFee).icon}
+                        <span>{getCancellationDisplay(activeRate.cancellation, activeRate.cancellationDeadline, activeRate.cancellationFee).label}</span>
                       </div>
                     )}
                   </div>
