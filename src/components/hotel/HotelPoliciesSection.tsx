@@ -1,4 +1,4 @@
-import { Clock, Info, Wallet, PawPrint, BedDouble, MessageCircle } from "lucide-react";
+import { Clock, Info, Wallet, PawPrint, BedDouble, MessageCircle, Car } from "lucide-react";
 import type { HotelDetails } from "@/types/booking";
 import { sanitizeDescription } from "@/lib/utils";
 
@@ -90,10 +90,17 @@ export function HotelPoliciesSection({
     return lower.includes('pet') || lower.includes('animal');
   }));
 
+  // Parking sentences
+  const parkingSentences = deduplicate(allSentences.filter(s => {
+    const lower = s.toLowerCase();
+    return lower.includes('parking') || lower.includes('valet') || lower.includes('garage');
+  }));
+
   const depositSentences = deduplicate(allSentences.filter(s => {
     const lower = s.toLowerCase();
     const isPet = lower.includes('pet') || lower.includes('animal');
-    return !isPet && (
+    const isParking = lower.includes('parking') || lower.includes('valet') || lower.includes('garage');
+    return !isPet && !isParking && (
       lower.includes('deposit') || 
       lower.includes('cost:') || 
       (lower.includes('usd') && lower.includes('per room'))
@@ -128,7 +135,8 @@ export function HotelPoliciesSection({
   const generalSentences = deduplicate(allSentences.filter(s => {
     const lower = s.toLowerCase();
     const isPet = lower.includes('pet') || lower.includes('animal');
-    const isDeposit = !isPet && (
+    const isParking = lower.includes('parking') || lower.includes('valet') || lower.includes('garage');
+    const isDeposit = !isPet && !isParking && (
       lower.includes('deposit') || 
       lower.includes('cost:') || 
       (lower.includes('usd') && lower.includes('per room'))
@@ -149,7 +157,7 @@ export function HotelPoliciesSection({
                              lower.includes('accepts') ||
                              lower.includes('property') ||
                              lower.includes('meal');
-    return !isPet && !isDeposit && !isBed && !isAdditionalInfo;
+    return !isPet && !isParking && !isDeposit && !isBed && !isAdditionalInfo;
   }));
 
   const hasPolicies = generalSentences.length > 0;
@@ -221,6 +229,24 @@ export function HotelPoliciesSection({
               )}
             </div>
           </div>
+
+          {/* Parking */}
+          {parkingSentences.length > 0 && (
+            <div className="bg-muted/50 rounded-lg p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Car className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold text-foreground">Parking</h3>
+              </div>
+              <div className="space-y-2 text-sm">
+                {parkingSentences.map((sentence, idx) => (
+                  <div key={idx} className="text-muted-foreground flex items-start gap-2">
+                    <span className="text-primary mt-0.5">•</span>
+                    {sentence}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Pets */}
           <div className="bg-muted/50 rounded-lg p-5">
