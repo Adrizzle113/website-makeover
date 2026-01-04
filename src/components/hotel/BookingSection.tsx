@@ -7,11 +7,12 @@ import { toast } from "@/hooks/use-toast";
 
 interface BookingSectionProps {
   currency: string;
+  hotelId: string;
 }
 
-export function BookingSection({ currency }: BookingSectionProps) {
+export function BookingSection({ currency, hotelId }: BookingSectionProps) {
   const navigate = useNavigate();
-  const { selectedRooms, searchParams, getTotalPrice, getTotalRooms, selectedHotel } =
+  const { selectedRooms, searchParams, getTotalPrice, getTotalRooms } =
     useBookingStore();
 
   const totalPrice = getTotalPrice();
@@ -32,17 +33,8 @@ export function BookingSection({ currency }: BookingSectionProps) {
       return;
     }
 
-    if (!selectedHotel?.id) {
-      toast({
-        title: "Hotel not selected",
-        description: "Please select a hotel first.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     // Navigate to the dynamic booking page
-    navigate(`/booking/${selectedHotel.id}`);
+    navigate(`/booking/${hotelId}`);
   };
 
   if (selectedRooms.length === 0) {
