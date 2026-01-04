@@ -33,6 +33,7 @@ function getSupabaseClient() {
 }
 
 interface StaticHotelData {
+  id: string | null;
   hotel_id: string | number;
   name: string | null;
   address: string | null;
@@ -88,11 +89,44 @@ async function enrichWithStaticData(
   try {
     let staticArray: StaticHotelData[] = [];
 
-    // Try numeric IDs first (most likely to match hotel_dump_data)
-    if (numericIds.length > 0) {
+    // Try 'id' column first (contains slugs like "hyatt_place_indianapolis_airport")
+    if (stringIds.length > 0) {
+      console.log(`🔍 Querying hotel_dump_data.id with slugs: ${stringIds.slice(0, 3).join(', ')}...`);
+      const { data: idData, error: idError } = await supabase
+        .from('hotel_dump_data')
+        .select(`
+          id,
+          hotel_id,
+          name,
+          address,
+          city,
+          country,
+          star_rating,
+          images,
+          latitude,
+          longitude,
+          amenities,
+          description,
+          check_in_time,
+          check_out_time
+        `)
+        .in('id', stringIds);
+
+      if (idError) {
+        console.error('❌ ID column query error:', idError.message);
+      } else if (idData && idData.length > 0) {
+        staticArray = idData as StaticHotelData[];
+        console.log(`✅ Found ${staticArray.length} hotels via 'id' column (slugs)`);
+      }
+    }
+
+    // Fallback: try numeric IDs against hotel_id column
+    if (staticArray.length === 0 && numericIds.length > 0) {
+      console.log(`🔍 Fallback: Querying hotel_dump_data.hotel_id with numeric IDs`);
       const { data: numericData, error: numericError } = await supabase
         .from('hotel_dump_data')
         .select(`
+          id,
           hotel_id,
           name,
           address,
@@ -113,38 +147,7 @@ async function enrichWithStaticData(
         console.error('❌ Numeric ID query error:', numericError.message);
       } else if (numericData && numericData.length > 0) {
         staticArray = numericData as StaticHotelData[];
-        console.log(`✅ Found ${staticArray.length} hotels via numeric hid`);
-      }
-    }
-
-    // If no results from numeric, try string IDs as fallback
-    if (staticArray.length === 0 && stringIds.length > 0) {
-      try {
-        const { data: stringData, error: stringError } = await supabase
-          .from('hotel_dump_data')
-          .select(`
-            hotel_id,
-            name,
-            address,
-            city,
-            country,
-            star_rating,
-            images,
-            latitude,
-            longitude,
-            amenities,
-            description,
-            check_in_time,
-            check_out_time
-          `)
-          .in('hotel_id', stringIds);
-
-        if (!stringError && stringData && stringData.length > 0) {
-          staticArray = stringData as StaticHotelData[];
-          console.log(`✅ Found ${staticArray.length} hotels via string IDs`);
-        }
-      } catch (e) {
-        console.log('⚠️ String ID query failed (type mismatch likely)');
+        console.log(`✅ Found ${staticArray.length} hotels via numeric hotel_id`);
       }
     }
 
@@ -159,11 +162,15 @@ async function enrichWithStaticData(
       console.log(`📊 Sample static data: hotel_id=${sample.hotel_id}, name=${sample.name}, hasImages=${!!sample.images}`);
     }
 
-    // Create lookup map - normalize keys to strings for matching
+    // Create lookup map - use both id (slug) and hotel_id as keys
     const staticMap = new Map<string, StaticHotelData>();
     staticArray.forEach(s => {
-      staticMap.set(String(s.hotel_id), s);
+      // Primary key: slug (id column) - matches hotel.hotel_id from API
+      if (s.id) staticMap.set(String(s.id), s);
+      // Secondary key: hotel_id for backward compatibility
+      if (s.hotel_id) staticMap.set(String(s.hotel_id), s);
     });
+    console.log(`📊 Static map has ${staticMap.size} entries`);
 
     // Merge static data into hotels
     return hotels.map(hotel => {
