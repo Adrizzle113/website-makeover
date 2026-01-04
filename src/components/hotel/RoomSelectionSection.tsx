@@ -778,7 +778,7 @@ export function RoomSelectionSection({
                   isSelected ? "border-primary ring-1 ring-primary" : "border-border"
                 }`}
               >
-                <div className="flex flex-col lg:flex-row gap-4 lg:items-center">
+                <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
                   {/* Room Info */}
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
