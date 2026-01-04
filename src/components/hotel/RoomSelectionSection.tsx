@@ -128,9 +128,14 @@ const getMealLabel = (meal: string): string => {
 
 // Helper to get cancellation display info
 const getCancellationDisplay = (cancellation: string, deadline?: string, fee?: string) => {
-  const isFreeCancellation = cancellation === "free_cancellation" || 
+  // If cancellation says "free" but no deadline exists, treat as non-refundable
+  // (deadline has likely passed or was never available)
+  const hasValidDeadline = !!deadline;
+  const isFreeCancellation = hasValidDeadline && (
+    cancellation === "free_cancellation" || 
     cancellation?.toLowerCase().includes("free") || 
-    cancellation?.toLowerCase().includes("refundable");
+    cancellation?.toLowerCase().includes("refundable")
+  );
   
   let label: string;
   if (isFreeCancellation && deadline) {
@@ -139,9 +144,8 @@ const getCancellationDisplay = (cancellation: string, deadline?: string, fee?: s
     label = `$${fee} fee until ${deadline}`;
   } else if (deadline) {
     label = `Free until ${deadline}`;
-  } else if (isFreeCancellation) {
-    label = "Free cancellation";
   } else {
+    // No deadline = non-refundable (too close to check-in or no policy available)
     label = "Non-refundable";
   }
   
