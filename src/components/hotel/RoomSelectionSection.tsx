@@ -835,7 +835,7 @@ export function RoomSelectionSection({
                   </div>
 
                   {/* Price, Badges, and Selection */}
-                  <div className="flex flex-col items-end gap-3 min-w-[180px]">
+                  <div className="flex flex-col items-end gap-2 min-w-[180px]">
                     {/* Payment type and meal badges */}
                     <div className="flex items-center gap-2 flex-wrap justify-end">
                       <PaymentTypeBadge paymentType={activeRate.paymentType} />
@@ -847,32 +847,35 @@ export function RoomSelectionSection({
                       )}
                     </div>
 
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-foreground">
-                        {activeRate.currency === "USD" ? "$" : activeRate.currency} {Math.round(activeRate.price / nights).toLocaleString()}
+                    {/* Price and Quantity on same row */}
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-foreground">
+                          {activeRate.currency === "USD" ? "$" : activeRate.currency} {Math.round(activeRate.price / nights).toLocaleString()}
+                        </div>
+                        <div className="text-sm text-muted-foreground">per night</div>
                       </div>
-                      <div className="text-sm text-muted-foreground">per night</div>
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleDecrease(room)}
-                        disabled={selectedQty === 0}
-                        className="h-8 w-8"
-                      >
-                        <Minus className="h-4 w-4" />
-                      </Button>
-                      <span className="w-8 text-center font-medium">{selectedQty}</span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleIncrease(room)}
-                        className="h-8 w-8"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleDecrease(room)}
+                          disabled={selectedQty === 0}
+                          className="h-8 w-8"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <span className="w-8 text-center font-medium">{selectedQty}</span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleIncrease(room)}
+                          className="h-8 w-8"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
