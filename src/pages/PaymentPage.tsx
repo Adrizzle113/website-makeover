@@ -36,6 +36,15 @@ const PaymentPage = () => {
   const [itemId, setItemId] = useState<string | null>(null);
   const [formDataLoaded, setFormDataLoaded] = useState(false);
 
+  // Dynamic payment methods from API (always include "now" per user request)
+  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<PaymentType[]>(["deposit", "hotel", "now"]);
+  
+  // Payota tokenization data
+  const [payUuid, setPayUuid] = useState<string | null>(null);
+  const [initUuid, setInitUuid] = useState<string | null>(null);
+  const [isNeedCreditCardData, setIsNeedCreditCardData] = useState(false);
+  const [isNeedCvc, setIsNeedCvc] = useState(true); // Default true for safety
+
   // Price confirmation state
   const [priceModalOpen, setPriceModalOpen] = useState(false);
   const [priceModalType, setPriceModalType] = useState<"increase" | "decrease" | "unavailable">("increase");
@@ -129,6 +138,28 @@ const PaymentPage = () => {
       setOrderId(formResponse.data.order_id);
       setItemId(formResponse.data.item_id);
       setFormDataLoaded(true);
+
+      // Extract Payota tokenization fields
+      setPayUuid(formResponse.data.pay_uuid || null);
+      setInitUuid(formResponse.data.init_uuid || null);
+      setIsNeedCreditCardData(formResponse.data.is_need_credit_card_data || false);
+      setIsNeedCvc(formResponse.data.is_need_cvc ?? true);
+
+      // Determine available payment methods - always include "now" per user request
+      const apiPaymentTypes = formResponse.data.payment_types_available || ["deposit"];
+      const paymentMethods: PaymentType[] = apiPaymentTypes.includes("now") 
+        ? apiPaymentTypes 
+        : [...apiPaymentTypes, "now"];
+      setAvailablePaymentMethods(paymentMethods);
+
+      console.log("📋 Order form loaded:", {
+        orderId: formResponse.data.order_id,
+        payUuid: formResponse.data.pay_uuid,
+        initUuid: formResponse.data.init_uuid,
+        isNeedCreditCardData: formResponse.data.is_need_credit_card_data,
+        isNeedCvc: formResponse.data.is_need_cvc,
+        paymentTypes: paymentMethods,
+      });
 
       const updatedData = { 
         ...data, 
@@ -289,7 +320,49 @@ const PaymentPage = () => {
 
     try {
       const leadGuest = bookingData!.guests.find((g) => g.isLead);
-      
+
+      // Step 1: Tokenize card if payment type is "now"
+      if (paymentType === "now") {
+        const [month, year] = expiryDate.split("/");
+        
+        const tokenRequest = {
+          object_id: orderId,
+          pay_uuid: payUuid,
+          init_uuid: initUuid,
+          user_first_name: leadGuest?.firstName || "",
+          user_last_name: leadGuest?.lastName || "",
+          is_cvc_required: isNeedCvc,
+          cvc: cvv,
+          credit_card_data_core: {
+            card_number: cardNumber.replace(/\s/g, ""),
+            card_holder: cardholderName.toUpperCase(),
+            month: month.padStart(2, "0"),
+            year: year,
+          },
+        };
+        
+        console.log("💳 Card tokenization request prepared:", { 
+          ...tokenRequest, 
+          cvc: "***",
+          credit_card_data_core: { 
+            ...tokenRequest.credit_card_data_core, 
+            card_number: `****${tokenRequest.credit_card_data_core.card_number.slice(-4)}` 
+          } 
+        });
+        
+        // TODO: Call backend Payota tokenization endpoint when ready
+        // const tokenResponse = await payotaApi.createCreditCardToken(tokenRequest);
+        // if (tokenResponse.status !== "ok") {
+        //   throw new Error(getPayotaErrorMessage(tokenResponse.error || ""));
+        // }
+        
+        toast({
+          title: "Card Payment",
+          description: "Card details captured. Backend tokenization integration coming soon.",
+        });
+      }
+
+      // Step 2: Complete booking
       const response = await bookingApi.finishBooking({
         order_id: orderId,
         item_id: itemId,
@@ -505,7 +578,7 @@ const PaymentPage = () => {
                 <PaymentFormPanel
                   paymentType={paymentType}
                   onPaymentTypeChange={setPaymentType}
-                  availableMethods={["deposit", "hotel"]}
+                  availableMethods={availablePaymentMethods}
                   isProcessing={isProcessing || isVerifyingPrice}
                   cardNumber={cardNumber}
                   onCardNumberChange={setCardNumber}
