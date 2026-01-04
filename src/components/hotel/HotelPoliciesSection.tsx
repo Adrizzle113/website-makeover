@@ -109,6 +109,22 @@ export function HotelPoliciesSection({
            lower.includes('room category');
   }));
 
+  // Additional info sentences (resort fee, requests, adjoining rooms, payment methods)
+  const additionalInfoSentences = deduplicate(allSentences.filter(s => {
+    const lower = s.toLowerCase();
+    return lower.includes('resort fee') ||
+           lower.includes('request') ||
+           lower.includes('adjoining') ||
+           lower.includes('connecting') ||
+           lower.includes('cash') ||
+           lower.includes('credit') ||
+           lower.includes('payment') ||
+           lower.includes('front desk') ||
+           lower.includes('accepts') ||
+           lower.includes('property') ||
+           lower.includes('meal');
+  }));
+
   const generalSentences = deduplicate(allSentences.filter(s => {
     const lower = s.toLowerCase();
     const isPet = lower.includes('pet') || lower.includes('animal');
@@ -122,7 +138,18 @@ export function HotelPoliciesSection({
                   lower.includes('crib') || 
                   lower.includes('cot') ||
                   lower.includes('room category');
-    return !isPet && !isDeposit && !isBed;
+    const isAdditionalInfo = lower.includes('resort fee') ||
+                             lower.includes('request') ||
+                             lower.includes('adjoining') ||
+                             lower.includes('connecting') ||
+                             lower.includes('cash') ||
+                             lower.includes('credit') ||
+                             lower.includes('payment') ||
+                             lower.includes('front desk') ||
+                             lower.includes('accepts') ||
+                             lower.includes('property') ||
+                             lower.includes('meal');
+    return !isPet && !isDeposit && !isBed && !isAdditionalInfo;
   }));
 
   const hasPolicies = generalSentences.length > 0;
@@ -234,18 +261,22 @@ export function HotelPoliciesSection({
           )}
 
           {/* Additional Information */}
-          <div className="bg-muted/50 rounded-lg p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <MessageCircle className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold text-foreground">Additional Information</h3>
+          {additionalInfoSentences.length > 0 && (
+            <div className="bg-muted/50 rounded-lg p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <MessageCircle className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold text-foreground">Additional Information</h3>
+              </div>
+              <ul className="space-y-2">
+                {additionalInfoSentences.map((sentence, idx) => (
+                  <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                    <span className="text-primary mt-0.5">•</span>
+                    {sentence}
+                  </li>
+                ))}
+              </ul>
             </div>
-            <ul className="space-y-2">
-              <li className="text-sm text-muted-foreground flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                Front desk is open 24/7.
-              </li>
-            </ul>
-          </div>
+          )}
         </div>
       </div>
     </section>
