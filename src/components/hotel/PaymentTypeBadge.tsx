@@ -16,13 +16,23 @@ const paymentConfig: Record<string, { label: string; icon: React.ReactNode; clas
     icon: <CreditCard className="w-3 h-3" />,
     className: "bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100",
   },
+  now_net: {
+    label: "Pay Now (NET)",
+    icon: <CreditCard className="w-3 h-3" />,
+    className: "bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100",
+  },
+  now_gross: {
+    label: "Client Card (GROSS)",
+    icon: <CreditCard className="w-3 h-3" />,
+    className: "bg-green-100 text-green-700 border-green-200 hover:bg-green-100",
+  },
   deposit: {
-    label: "Deposit",
+    label: "Book Now, Pay Later",
     icon: <Wallet className="w-3 h-3" />,
     className: "bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100",
   },
   hotel: {
-    label: "Pay at Hotel",
+    label: "Pay at Property",
     icon: <Building className="w-3 h-3" />,
     className: "bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-100",
   },
@@ -36,6 +46,8 @@ export const getPaymentTypeLabel = (type: string): string => {
 export const normalizePaymentType = (type: string): PaymentTypeCode => {
   if (!type) return "hotel";
   const lowerType = type.toLowerCase();
+  if (lowerType === "now_net") return "now_net";
+  if (lowerType === "now_gross") return "now_gross";
   if (lowerType === "now" || lowerType.includes("pay now") || lowerType.includes("card")) return "now";
   if (lowerType === "deposit" || lowerType.includes("deposit")) return "deposit";
   return "hotel";

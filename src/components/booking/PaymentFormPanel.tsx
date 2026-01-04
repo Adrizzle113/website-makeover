@@ -52,24 +52,36 @@ const PAYMENT_METHODS: Array<{
   label: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
+  note?: string;
+  badge?: string;
 }> = [
   {
     value: "deposit",
-    label: "Deposit Payment",
-    description: "Pay a deposit now, remaining balance due later",
+    label: "Book Now, Pay Later",
+    description: "Create an invoice and pay via bank transfer, card, or payment link from your account",
     icon: Wallet,
+    note: "Most flexible option",
+  },
+  {
+    value: "now_net",
+    label: "Pay Now (NET Price)",
+    description: "Your card will be charged the NET rate immediately upon booking",
+    icon: CreditCard,
+    note: "Best for direct payments",
+  },
+  {
+    value: "now_gross",
+    label: "Pay by Client's Card",
+    description: "Client's card is charged the full price. You'll receive your commission per contract terms.",
+    icon: CreditCard,
+    badge: "GROSS + Commission",
   },
   {
     value: "hotel",
-    label: "Pay at Hotel",
-    description: "Payment collected at the property upon check-in",
+    label: "Pay at Property",
+    description: "Guest pays directly at the hotel upon check-in",
     icon: Building2,
-  },
-  {
-    value: "now",
-    label: "Pay Now (Card)",
-    description: "Full payment with credit/debit card",
-    icon: CreditCard,
+    note: "Rate dependent",
   },
 ];
 
@@ -172,9 +184,21 @@ export function PaymentFormPanel({
                 >
                   <Icon className="h-6 w-6" />
                 </div>
-                <div className="flex-1">
-                  <p className="font-heading text-heading-sm text-foreground">{method.label}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-heading text-heading-sm text-foreground">{method.label}</p>
+                    {method.badge && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                        {method.badge}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-body-sm text-muted-foreground mt-1">{method.description}</p>
+                  {method.note && (
+                    <p className="text-xs text-muted-foreground/70 italic mt-1">
+                      {method.note}
+                    </p>
+                  )}
                 </div>
                 <div
                   className={cn(
@@ -195,8 +219,8 @@ export function PaymentFormPanel({
         </RadioGroup>
       </div>
 
-      {/* Card Payment Form - Only show for "now" payment type */}
-      {paymentType === "now" && (
+      {/* Card Payment Form - Only show for card payment types */}
+      {(paymentType === "now" || paymentType === "now_net" || paymentType === "now_gross") && (
         <div className="space-y-8 animate-fade-in">
           <div>
             <div className="flex items-center justify-between mb-6">

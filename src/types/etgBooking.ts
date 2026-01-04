@@ -1,6 +1,6 @@
 // ETG / RateHawk APIv3 Booking Types
 
-export type PaymentType = "deposit" | "hotel" | "now";
+export type PaymentType = "deposit" | "hotel" | "now" | "now_net" | "now_gross";
 
 export type OrderStatus = 
   | "idle" 
