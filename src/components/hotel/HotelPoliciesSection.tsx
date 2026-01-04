@@ -46,7 +46,33 @@ export function HotelPoliciesSection({
   pets = defaultPets,
 }: HotelPoliciesSectionProps) {
   const hasCheckTimes = hotel.checkInTime || hotel.checkOutTime;
-  const hasPolicies = hotel.policies && hotel.policies.length > 0;
+  
+  // Helper to get policy text
+  const getPolicyText = (policy: string | { title?: string; content?: string }): string => {
+    return typeof policy === 'string' 
+      ? policy 
+      : (policy?.content || policy?.title || '');
+  };
+
+  // Categorize policies
+  const allPolicies = hotel.policies || [];
+  
+  const petPolicies = allPolicies.filter(policy => {
+    const text = getPolicyText(policy).toLowerCase();
+    return text.includes('pet');
+  });
+
+  const depositPolicies = allPolicies.filter(policy => {
+    const text = getPolicyText(policy).toLowerCase();
+    return text.includes('deposit') && !text.includes('pet');
+  });
+
+  const generalPolicies = allPolicies.filter(policy => {
+    const text = getPolicyText(policy).toLowerCase();
+    return !text.includes('deposit') && !text.includes('pet');
+  });
+
+  const hasPolicies = generalPolicies.length > 0;
 
   return (
     <section className="py-8 bg-background">
@@ -91,6 +117,12 @@ export function HotelPoliciesSection({
                 <span className="text-muted-foreground block">Price</span>
                 <span className="font-medium text-foreground">{deposit.price}</span>
               </div>
+              {depositPolicies.map((policy, idx) => (
+                <div key={idx} className="text-muted-foreground flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  {getPolicyText(policy)}
+                </div>
+              ))}
             </div>
           </div>
 
@@ -129,6 +161,12 @@ export function HotelPoliciesSection({
                 <span className="text-muted-foreground block">Price</span>
                 <span className="font-medium text-foreground">{pets.price}</span>
               </div>
+              {petPolicies.map((policy, idx) => (
+                <div key={idx} className="text-muted-foreground flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  {getPolicyText(policy)}
+                </div>
+              ))}
             </div>
           </div>
 
@@ -140,18 +178,12 @@ export function HotelPoliciesSection({
                 <h3 className="font-semibold text-foreground">Hotel Policies</h3>
               </div>
               <ul className="space-y-2">
-                {hotel.policies!.map((policy, idx) => {
-                  // Handle both string and object policies
-                  const policyText = typeof policy === 'string' 
-                    ? policy 
-                    : ((policy as { title?: string; content?: string })?.content || (policy as { title?: string; content?: string })?.title || '');
-                  return (
-                    <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                      <span className="text-primary mt-0.5">•</span>
-                      {policyText}
-                    </li>
-                  );
-                })}
+                {generalPolicies.map((policy, idx) => (
+                  <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                    <span className="text-primary mt-0.5">•</span>
+                    {getPolicyText(policy)}
+                  </li>
+                ))}
               </ul>
             </div>
           )}
