@@ -379,8 +379,16 @@ const processRoomsWithRoomGroups = (hotel: HotelDetails): ProcessedRoom[] => {
           (r) => (r.match_hash || r.book_hash) === bestRate.id
         );
 
-        // Determine occupancy
-        let occupancy = getOccupancyFromName(mainName);
+        // Determine occupancy from API data or fallback to room name parsing
+        let occupancy = "2 guests";
+        if (bestRateRaw?.rg_ext?.capacity) {
+          occupancy = `${bestRateRaw.rg_ext.capacity} guest${bestRateRaw.rg_ext.capacity !== 1 ? "s" : ""}`;
+        } else if ((bestRateRaw as any)?.rooms?.[0]?.max_occupancy) {
+          const maxOcc = (bestRateRaw as any).rooms[0].max_occupancy;
+          occupancy = `${maxOcc} guest${maxOcc !== 1 ? "s" : ""}`;
+        } else {
+          occupancy = getOccupancyFromName(mainName);
+        }
 
         // Extract amenities from best rate
         let roomAmenities: string[] = [];
