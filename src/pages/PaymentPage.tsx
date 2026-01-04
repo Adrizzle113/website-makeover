@@ -36,8 +36,8 @@ const PaymentPage = () => {
   const [itemId, setItemId] = useState<string | null>(null);
   const [formDataLoaded, setFormDataLoaded] = useState(false);
 
-  // Dynamic payment methods from API (always include "now" per user request)
-  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<PaymentType[]>(["deposit", "hotel", "now"]);
+  // Dynamic payment methods from API
+  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<PaymentType[]>(["deposit", "hotel", "now_net", "now_gross"]);
   
   // Payota tokenization data
   const [payUuid, setPayUuid] = useState<string | null>(null);
@@ -145,11 +145,20 @@ const PaymentPage = () => {
       setIsNeedCreditCardData(formResponse.data.is_need_credit_card_data || false);
       setIsNeedCvc(formResponse.data.is_need_cvc ?? true);
 
-      // Determine available payment methods - always include "now" per user request
+      // Determine available payment methods - map API "now" to both net/gross options
       const apiPaymentTypes = formResponse.data.payment_types_available || ["deposit"];
-      const paymentMethods: PaymentType[] = apiPaymentTypes.includes("now") 
-        ? apiPaymentTypes 
-        : [...apiPaymentTypes, "now"];
+      const paymentMethods: PaymentType[] = [];
+      apiPaymentTypes.forEach(type => {
+        if (type === "now") {
+          paymentMethods.push("now_net", "now_gross");
+        } else {
+          paymentMethods.push(type);
+        }
+      });
+      // Always ensure deposit is available if not already
+      if (!paymentMethods.includes("deposit")) {
+        paymentMethods.unshift("deposit");
+      }
       setAvailablePaymentMethods(paymentMethods);
 
       console.log("📋 Order form loaded:", {
@@ -303,8 +312,16 @@ const PaymentPage = () => {
     return true;
   };
 
+  // Helper to map UI payment types to API payment type
+  const getApiPaymentType = (type: PaymentType): "deposit" | "hotel" | "now" => {
+    if (type === "now_net" || type === "now_gross") return "now";
+    return type;
+  };
+
+  const isCardPayment = paymentType === "now" || paymentType === "now_net" || paymentType === "now_gross";
+
   const handlePayment = async () => {
-    if (paymentType === "now" && !validateForm()) return;
+    if (isCardPayment && !validateForm()) return;
 
     if (!orderId || !itemId) {
       toast({
@@ -321,8 +338,9 @@ const PaymentPage = () => {
     try {
       const leadGuest = bookingData!.guests.find((g) => g.isLead);
 
-      // Step 1: Tokenize card if payment type is "now"
-      if (paymentType === "now") {
+      // Step 1: Tokenize card if card payment type
+      if (isCardPayment) {
+        const isClientCard = paymentType === "now_gross";
         const [month, year] = expiryDate.split("/");
         
         const tokenRequest = {
@@ -344,6 +362,7 @@ const PaymentPage = () => {
         console.log("💳 Card tokenization request prepared:", { 
           ...tokenRequest, 
           cvc: "***",
+          isClientCard,
           credit_card_data_core: { 
             ...tokenRequest.credit_card_data_core, 
             card_number: `****${tokenRequest.credit_card_data_core.card_number.slice(-4)}` 
@@ -367,7 +386,7 @@ const PaymentPage = () => {
         order_id: orderId,
         item_id: itemId,
         partner_order_id: bookingData!.bookingId,
-        payment_type: paymentType,
+        payment_type: getApiPaymentType(paymentType),
         guests: bookingData!.guests.map((g) => ({
           first_name: g.firstName,
           last_name: g.lastName,
@@ -419,12 +438,12 @@ const PaymentPage = () => {
     const displayPrice = priceVerified ? verifiedPrice : bookingData?.totalPrice || 0;
     const currency = bookingData?.hotel?.currency || "USD";
     
-    if (paymentType === "now") {
+    if (isCardPayment) {
       return `Pay ${currency} ${displayPrice.toFixed(2)}`;
     } else if (paymentType === "deposit") {
-      return "Confirm Deposit Booking";
+      return "Confirm Booking";
     }
-    return "Confirm Pay at Hotel";
+    return "Confirm Pay at Property";
   };
 
   // Loading state
