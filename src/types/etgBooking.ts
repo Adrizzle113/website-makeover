@@ -78,12 +78,40 @@ export interface OrderFormResponse {
       amount: string;
       currency_code: string;
     };
+    // Payota credit card tokenization fields
+    pay_uuid?: string;
+    init_uuid?: string;
+    is_need_credit_card_data?: boolean;
+    is_need_cvc?: boolean;
   };
   status: string;
   error?: {
     message: string;
     code: string;
   };
+}
+
+// Payota Credit Card Token Request
+export interface PayotaTokenRequest {
+  object_id: string;          // order_id
+  pay_uuid: string;
+  init_uuid: string;
+  user_first_name: string;
+  user_last_name: string;
+  is_cvc_required: boolean;
+  cvc?: string;
+  credit_card_data_core: {
+    card_number: string;      // No spaces, just digits
+    card_holder: string;
+    month: string;            // "01" format
+    year: string;             // "25" format (2-digit)
+  };
+}
+
+// Payota Credit Card Token Response
+export interface PayotaTokenResponse {
+  status: "ok" | "error";
+  error?: string;
 }
 
 // Order Booking Finish params
