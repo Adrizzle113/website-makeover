@@ -26,10 +26,6 @@ export function BookingSidebar({ currency, hotelId }: BookingSidebarProps) {
   // Calculate total guests from searchParams
   const totalGuests = searchParams?.guests || 2;
 
-  // Check if any selected room has free cancellation
-  const hasFreeCancellation = selectedRooms.some((room) => {
-    return room.roomName?.toLowerCase().includes("free cancellation") || true; // Simplified check
-  });
 
   const handleBookNow = () => {
     if (totalRooms === 0) {
@@ -104,20 +100,27 @@ export function BookingSidebar({ currency, hotelId }: BookingSidebarProps) {
               </p>
             </div>
 
-            {/* Free Cancellation */}
-            <div className="flex items-center gap-2 text-sm">
-              {hasFreeCancellation ? (
-                <>
-                  <Check className="h-4 w-4 text-green-600" />
-                  <span className="text-green-600 font-medium">Free cancellation available</span>
-                </>
-              ) : (
-                <>
-                  <X className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Non-refundable</span>
-                </>
-              )}
-            </div>
+            {/* Cancellation Policy */}
+            {selectedRooms.map((room) => (
+              <div key={`cancel-${room.roomId}`} className="flex items-start gap-2 text-sm">
+                {room.cancellationPolicy?.toLowerCase().includes("free") || 
+                 room.cancellationPolicy?.toLowerCase().includes("refundable") ? (
+                  <>
+                    <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                    <span className="text-green-600 font-medium">
+                      {room.cancellationPolicy || "Free cancellation"}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <X className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <span className="text-muted-foreground">
+                      {room.cancellationPolicy || "Non-refundable"}
+                    </span>
+                  </>
+                )}
+              </div>
+            ))}
           </div>
 
           {/* Total */}
