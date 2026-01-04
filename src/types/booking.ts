@@ -51,6 +51,10 @@ export interface RateHawkRoomGroup {
     bedding_type?: string;
   };
   room_group_id?: number;
+  room_size?: string;
+  images?: string[];
+  image_count?: number;
+  room_amenities?: string[];
 }
 
 export interface RateHawkRate {
