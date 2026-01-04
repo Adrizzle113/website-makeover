@@ -19,9 +19,11 @@ import {
   BookingBreadcrumbs,
   SessionTimeout,
   RoomAddonsSection,
+  getBookingErrorType,
   type Guest,
   type PricingSnapshot,
   type TermsState,
+  type BookingErrorType,
 } from "@/components/booking";
 import { bookingApi } from "@/services/bookingApi";
 import { toast } from "@/hooks/use-toast";
@@ -66,6 +68,7 @@ const {
   const [termsValid, setTermsValid] = useState(false);
   const [termsState, setTermsState] = useState<TermsState | null>(null);
   const [pricingSnapshot, setPricingSnapshot] = useState<PricingSnapshot | null>(null);
+  const [bookingError, setBookingError] = useState<{ type: BookingErrorType; message?: string } | null>(null);
 
   useEffect(() => {
     // Short delay to allow store to hydrate from persistence
@@ -258,6 +261,7 @@ const {
     if (!validateForm()) return;
 
     setIsPrebooking(true);
+    setBookingError(null);
 
     try {
       const result = await runPrebook();
@@ -277,14 +281,31 @@ const {
       navigateToPayment(displayPrice, result.bookingHash);
       
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unable to confirm room availability";
+      const errorType = getBookingErrorType(error instanceof Error ? error : new Error(errorMessage));
+      
+      setBookingError({
+        type: errorType,
+        message: errorMessage,
+      });
+      
       toast({
-        title: "Availability Error",
-        description: "Unable to confirm room availability. Please try again.",
+        title: "Booking Error",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
       setIsPrebooking(false);
     }
+  };
+
+  const handleRetryBooking = () => {
+    setBookingError(null);
+    handleContinueToPayment();
+  };
+
+  const handleGoBackFromError = () => {
+    navigate(`/hoteldetails/${selectedHotel.id}`);
   };
 
   const navigateToPayment = (finalPrice: number, bookingHash?: string) => {
@@ -541,6 +562,9 @@ const {
                     currency={selectedHotel.currency}
                     isLoading={isPrebooking}
                     onContinue={handleContinueToPayment}
+                    error={bookingError}
+                    onRetry={handleRetryBooking}
+                    onGoBack={handleGoBackFromError}
                   />
                 </div>
               </div>
