@@ -1,10 +1,16 @@
 import { useState, useMemo } from "react";
-import { CreditCard, Lock, Wallet, Building2 } from "lucide-react";
+import { CreditCard, Lock, Wallet, Building2, Info } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { BillingAddressSection, type BillingAddress } from "@/components/booking/BillingAddressSection";
 import { PaymentTrustBadges } from "@/components/booking/PaymentTrustBadges";
 import {
@@ -52,36 +58,57 @@ const PAYMENT_METHODS: Array<{
   label: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
-  note?: string;
   badge?: string;
+  tooltip: {
+    pros: string[];
+    cons: string[];
+    bestFor: string;
+  };
 }> = [
   {
     value: "deposit",
     label: "Book Now, Pay Later",
-    description: "Create an invoice and pay via bank transfer, card, or payment link from your account",
+    description: "Pay via bank transfer, card, or invoice after booking",
     icon: Wallet,
-    note: "Most flexible option",
+    tooltip: {
+      pros: ["Most flexible payment timing", "Multiple payment options", "Appears in closing documents"],
+      cons: ["Requires manual payment follow-up", "Booking may cancel if not paid on time"],
+      bestFor: "Agency bookings with invoice requirements",
+    },
   },
   {
     value: "now_net",
-    label: "Pay Now (NET Price)",
-    description: "Your card will be charged the NET rate immediately upon booking",
+    label: "Pay Now (NET)",
+    description: "Your card charged at NET rate immediately",
     icon: CreditCard,
-    note: "Best for direct payments",
+    tooltip: {
+      pros: ["Instant confirmation", "Lower rate (NET price)", "Simple one-step process"],
+      cons: ["Immediate charge", "Not in closing documents"],
+      bestFor: "Direct agency payments when you want lowest price",
+    },
   },
   {
     value: "now_gross",
-    label: "Pay by Client's Card",
-    description: "Client's card is charged the full price. You'll receive your commission per contract terms.",
+    label: "Client's Card",
+    description: "Client pays full price, you earn commission",
     icon: CreditCard,
-    badge: "GROSS + Commission",
+    badge: "GROSS",
+    tooltip: {
+      pros: ["Earn commission automatically", "No upfront agency cost", "Client pays directly"],
+      cons: ["Not in closing documents", "Need client's card details"],
+      bestFor: "When client wants to pay directly and you earn commission",
+    },
   },
   {
     value: "hotel",
     label: "Pay at Property",
-    description: "Guest pays directly at the hotel upon check-in",
+    description: "Guest pays at check-in",
     icon: Building2,
-    note: "Rate dependent",
+    tooltip: {
+      pros: ["No upfront payment", "Flexible for guests", "Good for uncertain bookings"],
+      cons: ["Only available on select rates", "No payment guarantee"],
+      bestFor: "Rates that allow property payment",
+    },
   },
 ];
 
@@ -150,72 +177,104 @@ export function PaymentFormPanel({
           value={paymentType}
           onValueChange={(v) => onPaymentTypeChange(v as PaymentType)}
           disabled={isProcessing}
-          className="space-y-4"
+          className="space-y-3"
         >
-          {filteredMethods.map((method, index) => {
+        <TooltipProvider delayDuration={200}>
+          {filteredMethods.map((method) => {
             const Icon = method.icon;
             const isSelected = paymentType === method.value;
 
             return (
-              <Label
-                key={method.value}
-                htmlFor={`payment-${method.value}`}
-                className={cn(
-                  "flex items-center gap-4 p-5 rounded-2xl border-2 cursor-pointer",
-                  "transition-all duration-300",
-                  isSelected
-                    ? "border-primary bg-primary/5 shadow-soft"
-                    : "border-border hover:border-primary/50 hover:bg-muted/30",
-                  isProcessing && "opacity-50 cursor-not-allowed"
-                )}
-              >
-                <RadioGroupItem
-                  value={method.value}
-                  id={`payment-${method.value}`}
-                  className="sr-only"
-                />
-                <div
+              <div key={method.value} className="flex items-center gap-2">
+                <Label
+                  htmlFor={`payment-${method.value}`}
                   className={cn(
-                    "w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all duration-300",
-                    isSelected 
-                      ? "bg-primary text-primary-foreground scale-105" 
-                      : "bg-muted text-muted-foreground"
+                    "flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer flex-1",
+                    "transition-all duration-200",
+                    isSelected
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50 hover:bg-muted/30",
+                    isProcessing && "opacity-50 cursor-not-allowed"
                   )}
                 >
-                  <Icon className="h-6 w-6" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-heading text-heading-sm text-foreground">{method.label}</p>
-                    {method.badge && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                        {method.badge}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-body-sm text-muted-foreground mt-1">{method.description}</p>
-                  {method.note && (
-                    <p className="text-xs text-muted-foreground/70 italic mt-1">
-                      {method.note}
-                    </p>
-                  )}
-                </div>
-                <div
-                  className={cn(
-                    "w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200",
-                    isSelected ? "border-primary bg-primary/10" : "border-muted-foreground/30"
-                  )}
-                >
-                  <div 
-                    className={cn(
-                      "rounded-full bg-primary transition-all duration-200",
-                      isSelected ? "w-3 h-3" : "w-0 h-0"
-                    )} 
+                  <RadioGroupItem
+                    value={method.value}
+                    id={`payment-${method.value}`}
+                    className="sr-only"
                   />
-                </div>
-              </Label>
+                  <div
+                    className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200",
+                      isSelected 
+                        ? "bg-primary text-primary-foreground" 
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm text-foreground">{method.label}</p>
+                      {method.badge && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">
+                          {method.badge}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-1">{method.description}</p>
+                  </div>
+                  <div
+                    className={cn(
+                      "w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200",
+                      isSelected ? "border-primary" : "border-muted-foreground/30"
+                    )}
+                  >
+                    <div 
+                      className={cn(
+                        "rounded-full bg-primary transition-all duration-200",
+                        isSelected ? "w-2.5 h-2.5" : "w-0 h-0"
+                      )} 
+                    />
+                  </div>
+                </Label>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs p-3">
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <p className="font-semibold text-green-600 mb-1">✓ Pros</p>
+                        <ul className="space-y-0.5 text-muted-foreground">
+                          {method.tooltip.pros.map((pro, i) => (
+                            <li key={i}>• {pro}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-amber-600 mb-1">✗ Cons</p>
+                        <ul className="space-y-0.5 text-muted-foreground">
+                          {method.tooltip.cons.map((con, i) => (
+                            <li key={i}>• {con}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="pt-1 border-t">
+                        <p className="text-foreground"><span className="font-medium">Best for:</span> {method.tooltip.bestFor}</p>
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
             );
           })}
+        </TooltipProvider>
         </RadioGroup>
       </div>
 
