@@ -140,20 +140,25 @@ export function HotelPoliciesSection({
               <h3 className="font-semibold text-foreground">Deposit</h3>
             </div>
             <div className="space-y-2 text-sm">
-              <div>
-                <span className="text-muted-foreground block">Deposit type</span>
-                <span className="font-medium text-foreground">{deposit.type}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block">Price</span>
-                <span className="font-medium text-foreground">{deposit.price}</span>
-              </div>
-              {depositSentences.map((sentence, idx) => (
-                <div key={idx} className="text-muted-foreground flex items-start gap-2">
-                  <span className="text-primary mt-0.5">•</span>
-                  {sentence}
-                </div>
-              ))}
+              {depositSentences.length > 0 ? (
+                depositSentences.map((sentence, idx) => (
+                  <div key={idx} className="text-muted-foreground flex items-start gap-2">
+                    <span className="text-primary mt-0.5">•</span>
+                    {sentence}
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div>
+                    <span className="text-muted-foreground block">Deposit type</span>
+                    <span className="font-medium text-foreground">{deposit.type}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block">Price</span>
+                    <span className="font-medium text-foreground">{deposit.price}</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
