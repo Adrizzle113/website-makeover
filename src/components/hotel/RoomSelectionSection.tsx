@@ -221,11 +221,23 @@ const rateToRateOption = (rate: RateHawkRate, index: number): RateOption | null 
   // Extract cancellation deadline for differentiation
   const cancellationDeadline = (cancellationPolicy?.deadline as string) || (cancellationPolicy?.free_cancellation_before as string);
   
+  // Extract cancellation fee
+  const cancellationFee = (cancellationPolicy?.penalty_amount as string) || (cancellationPolicy?.fee as string);
+  
   // Extract rate-specific amenities
   const roomAmenities = [
     ...(rate.amenities || []),
     ...(rate.room_amenities || []),
   ].filter(Boolean).slice(0, 3);
+
+  // Determine room size from rate
+  const roomSize = rate.rooms?.[0]?.size;
+
+  // Detect if bed type is guaranteed from room name
+  const roomName = rate.room_name?.toLowerCase() || "";
+  const bedGuaranteed = !roomName.includes("bed type not guaranteed") && 
+    !roomName.includes("run of house") && 
+    !roomName.includes("room type assigned");
 
   return {
     id: rate.match_hash || rate.book_hash || `rate_${index}`,
@@ -241,6 +253,9 @@ const rateToRateOption = (rate: RateHawkRate, index: number): RateOption | null 
     allotment: rate.allotment,
     bookHash: rate.book_hash,
     matchHash: rate.match_hash,
+    roomSize,
+    bedGuaranteed,
+    cancellationFee,
   };
 };
 

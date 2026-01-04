@@ -20,6 +20,9 @@ export interface RateOption {
   allotment?: number;
   bookHash?: string;
   matchHash?: string;
+  roomSize?: string;
+  bedGuaranteed?: boolean;
+  cancellationFee?: string;
 }
 
 interface RateOptionsListProps {
@@ -46,13 +49,20 @@ const getMealIcon = (meal: string) => {
   return <Coffee className="w-3 h-3" />;
 };
 
-const getCancellationDisplay = (cancellation: string) => {
+const getCancellationDisplay = (cancellation: string, deadline?: string, fee?: string) => {
   const lower = cancellation?.toLowerCase() || "";
   const isFreeCancellation = lower.includes("free") || lower.includes("refundable");
   
+  // Build label with fee and deadline
+  let label = isFreeCancellation ? "Free cancellation" : "Non-refundable";
+  if (deadline) {
+    const feeDisplay = fee && fee !== "0" ? `$${fee}` : "$0";
+    label = `${feeDisplay} until ${deadline}`;
+  }
+  
   return {
     isFreeCancellation,
-    label: isFreeCancellation ? "Free cancellation" : "Non-refundable",
+    label,
     icon: isFreeCancellation ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />,
     className: isFreeCancellation ? "text-green-600" : "text-muted-foreground",
   };
@@ -99,9 +109,16 @@ export function RateOptionsList({
             {rates.map((rate) => {
               const mealLabel = getMealLabel(rate.meal);
               const mealIcon = getMealIcon(rate.meal);
-              const cancellationInfo = getCancellationDisplay(rate.cancellation);
+              const cancellationInfo = getCancellationDisplay(rate.cancellation, rate.cancellationDeadline, rate.cancellationFee);
               const pricePerNight = Math.round(rate.price / nights);
               const isSelected = rate.id === selectedRateId;
+
+              // Allotment display
+              const allotmentDisplay = rate.allotment 
+                ? rate.allotment >= 9 
+                  ? "9+ rooms" 
+                  : `${rate.allotment} room${rate.allotment !== 1 ? "s" : ""} left`
+                : null;
 
               return (
                 <Label
@@ -132,22 +149,25 @@ export function RateOptionsList({
                       <div className={cn("flex items-center gap-1 text-xs", cancellationInfo.className)}>
                         {cancellationInfo.icon}
                         {cancellationInfo.label}
-                        {rate.cancellationDeadline && (
-                          <span className="text-muted-foreground ml-1">
-                            ({rate.cancellationDeadline})
-                          </span>
-                        )}
                       </div>
                       {/* Show differentiating details */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        {rate.allotment && rate.allotment <= 3 && (
-                          <span className="text-xs text-orange-600 font-medium">
-                            Only {rate.allotment} left
+                        {rate.bedGuaranteed === false && (
+                          <span className="text-xs text-amber-600 font-medium">
+                            Bed type not guaranteed
                           </span>
                         )}
-                        {rate.roomAmenities && rate.roomAmenities.length > 0 && (
+                        {allotmentDisplay && (
+                          <span className={cn(
+                            "text-xs font-medium",
+                            rate.allotment && rate.allotment <= 3 ? "text-orange-600" : "text-muted-foreground"
+                          )}>
+                            {allotmentDisplay}
+                          </span>
+                        )}
+                        {rate.roomSize && (
                           <span className="text-xs text-muted-foreground">
-                            +{rate.roomAmenities.join(", ")}
+                            {rate.roomSize}
                           </span>
                         )}
                       </div>
