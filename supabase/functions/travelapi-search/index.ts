@@ -8,10 +8,10 @@ const corsHeaders = {
 };
 
 const RENDER_API_URL = "https://travelapi-bg6t.onrender.com";
-const MAX_RETRIES = 2;
-const RETRY_DELAY_MS = 3000;
-const REQUEST_TIMEOUT_MS = 90000;
-const WARMUP_TIMEOUT_MS = 15000;
+const MAX_RETRIES = 1;
+const RETRY_DELAY_MS = 2000;
+const REQUEST_TIMEOUT_MS = 25000;
+const WARMUP_TIMEOUT_MS = 8000;
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
