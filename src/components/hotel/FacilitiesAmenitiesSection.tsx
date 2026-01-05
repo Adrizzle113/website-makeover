@@ -19,7 +19,9 @@ import {
   PawPrint,
   ShieldCheck,
   MoreHorizontal,
+  Check,
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface FacilitiesAmenitiesSectionProps {
   amenities?: Partial<Record<string, string[]>>;
@@ -30,64 +32,80 @@ const categoryConfig: { key: string; title: string; icon: React.ElementType }[] 
   { key: "general", title: "General", icon: Building2 },
   { key: "rooms", title: "Rooms", icon: BedDouble },
   { key: "accessibility", title: "Accessibility", icon: Accessibility },
-  { key: "services", title: "Services and Amenities", icon: ConciergeBell },
+  { key: "services", title: "Services", icon: ConciergeBell },
   { key: "meals", title: "Meals", icon: UtensilsCrossed },
   { key: "internet", title: "Internet", icon: Wifi },
   { key: "transfer", title: "Transfer", icon: Car },
-  { key: "languages", title: "Languages Spoken", icon: Languages },
-  { key: "tourist", title: "Tourist Services", icon: Map },
+  { key: "languages", title: "Languages", icon: Languages },
+  { key: "tourist", title: "Tourist", icon: Map },
   { key: "recreation", title: "Recreation", icon: Palmtree },
   { key: "parking", title: "Parking", icon: ParkingCircle },
-  { key: "poolBeach", title: "Pool and Beach", icon: Waves },
+  { key: "poolBeach", title: "Pool & Beach", icon: Waves },
   { key: "business", title: "Business", icon: Briefcase },
   { key: "sports", title: "Sports", icon: Dumbbell },
-  { key: "beautyWellness", title: "Beauty and Wellness", icon: Sparkles },
+  { key: "beautyWellness", title: "Wellness", icon: Sparkles },
   { key: "kids", title: "Kids", icon: Baby },
   { key: "pets", title: "Pets", icon: PawPrint },
-  { key: "healthSafety", title: "Health and Safety Measures", icon: ShieldCheck },
-  { key: "uncategorized", title: "Other Amenities", icon: MoreHorizontal },
+  { key: "healthSafety", title: "Health & Safety", icon: ShieldCheck },
+  { key: "uncategorized", title: "Other", icon: MoreHorizontal },
 ];
 
 export function FacilitiesAmenitiesSection({ amenities }: FacilitiesAmenitiesSectionProps) {
-  // Only show categories that have data from API
   const categoriesWithItems = categoryConfig.filter(({ key }) => 
     amenities?.[key] && amenities[key]!.length > 0
   );
 
-  // Hide section entirely if no API amenities
   if (categoriesWithItems.length === 0) {
     return null;
   }
 
+  const defaultCategory = categoriesWithItems[0].key;
+
   return (
-    <section className="py-8 bg-background">
+    <section className="py-10 bg-muted/20">
       <div className="container">
-        <h2 className="font-heading text-heading-standard text-foreground mb-6">
-          Facilities & Amenities
-        </h2>
+        <div className="mb-6">
+          <h2 className="font-heading text-heading-standard text-foreground">
+            Facilities & Amenities
+          </h2>
+          <p className="text-muted-foreground text-sm mt-1">
+            Everything you need for a comfortable stay
+          </p>
+        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {categoriesWithItems.map(({ key, title, icon: Icon }) => {
+        <Tabs defaultValue={defaultCategory} className="w-full">
+          <TabsList className="h-auto p-1 bg-muted/50 rounded-xl flex flex-wrap gap-1 justify-start mb-6">
+            {categoriesWithItems.map(({ key, title, icon: Icon }) => (
+              <TabsTrigger
+                key={key}
+                value={key}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all"
+              >
+                <Icon className="h-4 w-4" />
+                <span>{title}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {categoriesWithItems.map(({ key }) => {
             const items = amenities![key]!;
-
             return (
-              <div key={key} className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Icon className="h-4 w-4 text-primary" />
-                  <h3 className="font-semibold text-foreground text-sm">{title}</h3>
-                </div>
-                <ul className="space-y-1.5">
+              <TabsContent key={key} value={key} className="mt-0 animate-fade-in">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                   {items.map((item, idx) => (
-                    <li key={idx} className="text-sm text-muted-foreground flex items-center gap-2">
-                      <span className="w-1 h-1 rounded-full bg-primary/50" />
-                      {item}
-                    </li>
+                    <div
+                      key={idx}
+                      className="flex items-center gap-3 bg-background rounded-lg px-4 py-3 border border-border/50 hover:border-primary/30 hover:shadow-sm transition-all"
+                    >
+                      <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                      <span className="text-sm text-foreground">{item}</span>
+                    </div>
                   ))}
-                </ul>
-              </div>
+                </div>
+              </TabsContent>
             );
           })}
-        </div>
+        </Tabs>
       </div>
     </section>
   );
