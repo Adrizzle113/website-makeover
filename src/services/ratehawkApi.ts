@@ -292,16 +292,18 @@ class RateHawkApiService {
       regionId = await this.lookupRegionId(destination);
       
       if (!regionId) {
-        throw new Error(
-          `Could not find location ID for "${destination}". Please select a destination from the autocomplete dropdown.`
-        );
+        // Allow searching with just destination string - backend may resolve it
+        console.log(`ℹ️ No regionId found, proceeding with destination string only: "${destination}"`);
+      } else {
+        console.log(`✅ Auto-lookup successful: ${regionId}`);
       }
-      console.log(`✅ Auto-lookup successful: ${regionId}`);
     }
 
-    // Include regionId in request
-    requestBody.regionId = regionId;
-    requestBody.region_id = regionId;
+    // Include regionId in request only if available
+    if (regionId) {
+      requestBody.regionId = regionId;
+      requestBody.region_id = regionId;
+    }
 
     // Add filters if provided
     const apiFilters = this.transformFiltersForApi(filters);

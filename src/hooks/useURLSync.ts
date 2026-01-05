@@ -58,7 +58,8 @@ export function parseSearchParamsFromURL(searchParams: URLSearchParams) {
     rooms,
     children,
     childrenAges,
-    hasSearchParams: !!(destination && destinationId && checkIn && checkOut),
+    // Allow searching with just destination + dates (destId can be resolved by API)
+    hasSearchParams: !!(destination && checkIn && checkOut),
   };
 }
 
