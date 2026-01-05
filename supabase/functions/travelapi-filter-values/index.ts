@@ -15,6 +15,7 @@ interface RateHawkFilterValuesResponse {
     countries: FilterValueItem[];
     languages: FilterValueItem[];
     serp_filters: FilterValueItem[];
+    hotel_kinds: FilterValueItem[];
   };
   status: string;
 }
@@ -25,6 +26,7 @@ let cachedData: {
     countries: FilterValueItem[];
     languages: FilterValueItem[];
     serpFilters: FilterValueItem[];
+    hotelKinds: FilterValueItem[];
     starRatings: number[];
   };
   expiresAt: number;
@@ -85,6 +87,17 @@ serve(async (req) => {
           { value: "is_pet_friendly", desc: "Pet Friendly" },
           { value: "has_airport_transfer", desc: "Airport Transfer" },
         ],
+        hotelKinds: [
+          { value: "Hotel", desc: "Hotel" },
+          { value: "Apart-hotel", desc: "Apart-Hotel" },
+          { value: "Guesthouse", desc: "Guesthouse" },
+          { value: "Hostel", desc: "Hostel" },
+          { value: "Resort", desc: "Resort" },
+          { value: "Villa", desc: "Villa" },
+          { value: "Apartment", desc: "Apartment" },
+          { value: "Motel", desc: "Motel" },
+          { value: "B&B", desc: "Bed & Breakfast" },
+        ],
         starRatings: [1, 2, 3, 4, 5],
       };
 
@@ -124,12 +137,14 @@ serve(async (req) => {
     console.log(`   Countries: ${result.data.countries?.length || 0}`);
     console.log(`   Languages: ${result.data.languages?.length || 0}`);
     console.log(`   SERP Filters: ${result.data.serp_filters?.length || 0}`);
+    console.log(`   Hotel Kinds: ${result.data.hotel_kinds?.length || 0}`);
 
     // Transform and cache the data
     const transformedData = {
       countries: result.data.countries || [],
       languages: result.data.languages || [],
       serpFilters: result.data.serp_filters || [],
+      hotelKinds: result.data.hotel_kinds || [],
       starRatings: [1, 2, 3, 4, 5],
     };
 

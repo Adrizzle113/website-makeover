@@ -271,6 +271,9 @@ export interface SearchFilters {
   roomTypes: RoomType[];
   bedTypes: BedType[];
 
+  // Hotel Types (from RateHawk hotel_kinds)
+  hotelKinds: string[];
+
   // Residency
   residency: string;
 
@@ -328,6 +331,7 @@ export const DEFAULT_FILTERS: SearchFilters = {
   showGrossRates: true,
   roomTypes: [],
   bedTypes: [],
+  hotelKinds: [],
   residency: "US",
   earlyCheckIn: false,
   lateCheckOut: false,

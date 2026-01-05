@@ -7,6 +7,7 @@ export interface FilterValuesData {
   countries: FilterValueOption[];
   languages: FilterValueOption[];
   serpFilters: FilterValueOption[];
+  hotelKinds: FilterValueOption[];
   starRatings: number[];
 }
 

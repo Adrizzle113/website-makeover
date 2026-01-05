@@ -336,6 +336,7 @@ export const useBookingStore = create<BookingStore>()(
         if (filters.rateType !== null) count++;
         if (filters.roomTypes.length > 0) count++;
         if (filters.bedTypes.length > 0) count++;
+        if (filters.hotelKinds.length > 0) count++;
         return count;
       },
     }),

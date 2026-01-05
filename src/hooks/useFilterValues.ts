@@ -36,6 +36,17 @@ const DEFAULT_FILTER_VALUES: FilterValuesData = {
     { value: "is_pet_friendly", desc: "Pet Friendly" },
     { value: "has_airport_transfer", desc: "Airport Transfer" },
   ],
+  hotelKinds: [
+    { value: "Hotel", desc: "Hotel" },
+    { value: "Apart-hotel", desc: "Apart-Hotel" },
+    { value: "Guesthouse", desc: "Guesthouse" },
+    { value: "Hostel", desc: "Hostel" },
+    { value: "Resort", desc: "Resort" },
+    { value: "Villa", desc: "Villa" },
+    { value: "Apartment", desc: "Apartment" },
+    { value: "Motel", desc: "Motel" },
+    { value: "B&B", desc: "Bed & Breakfast" },
+  ],
   starRatings: [1, 2, 3, 4, 5],
 };
 
