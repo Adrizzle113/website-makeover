@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.travelapi-search]
 verify_jwt = false
+
+[functions.travelapi-filter-values]
+verify_jwt = false
