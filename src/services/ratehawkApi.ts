@@ -54,6 +54,13 @@ interface ApiSearchFilters {
   roomTypes?: string[];
   bedTypes?: string[];
   residency?: string;
+  hotelKinds?: string[];
+  // Snake_case versions for backend compatibility
+  price_min?: number;
+  price_max?: number;
+  stars?: number[];
+  serp_filters?: string[];
+  hotel_kinds?: string[];
 }
 
 class RateHawkApiService {
@@ -121,37 +128,55 @@ class RateHawkApiService {
 
     const apiFilters: ApiSearchFilters = {};
 
-    // Price range
-    if (filters.priceMin !== undefined) apiFilters.minPrice = filters.priceMin;
-    if (filters.priceMax !== undefined) apiFilters.maxPrice = filters.priceMax;
+    // Price range - send both formats for backend compatibility
+    if (filters.priceMin !== undefined) {
+      apiFilters.minPrice = filters.priceMin;
+      apiFilters.price_min = filters.priceMin;
+    }
+    if (filters.priceMax !== undefined) {
+      apiFilters.maxPrice = filters.priceMax;
+      apiFilters.price_max = filters.priceMax;
+    }
 
-    // Star ratings
-    if (filters.starRatings.length > 0) apiFilters.starRatings = filters.starRatings;
+    // Star ratings - send both formats
+    if (filters.starRatings && filters.starRatings.length > 0) {
+      apiFilters.starRatings = filters.starRatings;
+      apiFilters.stars = filters.starRatings;
+    }
 
     // Cancellation
     if (filters.freeCancellationOnly) apiFilters.freeCancellation = true;
     if (filters.refundableOnly) apiFilters.refundableOnly = true;
 
     // Meal plans
-    if (filters.mealPlans.length > 0) apiFilters.mealPlans = filters.mealPlans;
+    if (filters.mealPlans && filters.mealPlans.length > 0) apiFilters.mealPlans = filters.mealPlans;
 
-    // Amenities
-    if (filters.amenities.length > 0) apiFilters.amenities = filters.amenities;
+    // Amenities - send both formats
+    if (filters.amenities && filters.amenities.length > 0) {
+      apiFilters.amenities = filters.amenities;
+      apiFilters.serp_filters = filters.amenities;
+    }
 
     // Payment types
-    if (filters.paymentTypes.length > 0) apiFilters.paymentTypes = filters.paymentTypes;
+    if (filters.paymentTypes && filters.paymentTypes.length > 0) apiFilters.paymentTypes = filters.paymentTypes;
 
     // Rate type
     if (filters.rateType) apiFilters.rateType = filters.rateType;
 
     // Room types
-    if (filters.roomTypes.length > 0) apiFilters.roomTypes = filters.roomTypes;
+    if (filters.roomTypes && filters.roomTypes.length > 0) apiFilters.roomTypes = filters.roomTypes;
 
     // Bed types
-    if (filters.bedTypes.length > 0) apiFilters.bedTypes = filters.bedTypes;
+    if (filters.bedTypes && filters.bedTypes.length > 0) apiFilters.bedTypes = filters.bedTypes;
+
+    // Hotel kinds - send both formats
+    if (filters.hotelKinds && filters.hotelKinds.length > 0) {
+      apiFilters.hotelKinds = filters.hotelKinds;
+      apiFilters.hotel_kinds = filters.hotelKinds;
+    }
 
     // Residency
-    if (filters.residency && filters.residency !== "US") apiFilters.residency = filters.residency;
+    if (filters.residency && filters.residency !== "US") apiFilters.residency = filters.residency.toLowerCase();
 
     // Return undefined if no filters are active
     return Object.keys(apiFilters).length > 0 ? apiFilters : undefined;
@@ -232,6 +257,8 @@ class RateHawkApiService {
     });
 
     // Build request body - ALWAYS include a destination string
+    // Use residency from filters if provided, otherwise default to "us"
+    const residency = filters?.residency?.toLowerCase() || "us";
     const requestBody: Record<string, unknown> = {
       userId,
       destination,
@@ -241,7 +268,7 @@ class RateHawkApiService {
       page,
       limit: 100, // ✅ Load 100 hotels per page for faster initial load
       currency: "USD",
-      residency: "us",
+      residency,
     };
 
     // Handle regionId - use provided ID or auto-lookup as fallback

@@ -129,6 +129,8 @@ export const useBookingStore = create<BookingStore>()(
   persist(
     (set, get) => ({
       ...initialState,
+      // Ensure filters always have all required fields by merging with defaults
+      filters: { ...DEFAULT_FILTERS, ...initialState.filters },
 
       setSearchParams: (params) => set({ searchParams: params, currentPage: 1 }),
 
@@ -342,6 +344,7 @@ export const useBookingStore = create<BookingStore>()(
     }),
     {
       name: "booking-storage",
+      version: 2, // Increment version to trigger migration
       partialize: (state) => ({
         searchParams: state.searchParams,
         // Exclude searchResults and selectedHotel - too large for localStorage
@@ -349,6 +352,18 @@ export const useBookingStore = create<BookingStore>()(
         sortBy: state.sortBy,
         residency: state.residency,
       }),
+      // Migrate old persisted state to ensure all filter fields exist
+      migrate: (persistedState: unknown, version: number) => {
+        const state = persistedState as Partial<BookingStore>;
+        if (version < 2) {
+          // Merge old filters with DEFAULT_FILTERS to add any missing fields
+          return {
+            ...state,
+            filters: { ...DEFAULT_FILTERS, ...(state.filters || {}) },
+          };
+        }
+        return state;
+      },
     }
   )
 );
