@@ -123,7 +123,7 @@ export function AdvancedFiltersDrawer() {
   };
 
   const handleHotelKindToggle = (kind: string) => {
-    const current = filters.hotelKinds;
+    const current = filters.hotelKinds || [];
     const newKinds = current.includes(kind)
       ? current.filter((k) => k !== kind)
       : [...current, kind];
@@ -183,8 +183,8 @@ export function AdvancedFiltersDrawer() {
                   return (
                     <div
                       key={kind.value}
-                      className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
-                        filters.hotelKinds.includes(kind.value)
+                    className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                        (filters.hotelKinds || []).includes(kind.value)
                           ? "border-primary bg-primary/5"
                           : "border-border hover:border-primary/50"
                       }`}
