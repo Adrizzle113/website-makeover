@@ -87,7 +87,10 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
                   </div>
                 </div>
               ) : (
-                <div className="text-muted-foreground text-sm px-4 py-3">Not yet rated</div>
+                <div className="flex items-center gap-2 bg-secondary/30 rounded-xl px-4 py-3 shrink-0">
+                  <Star className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Not yet rated</span>
+                </div>
               )}
             </div>
 
