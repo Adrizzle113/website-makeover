@@ -140,7 +140,8 @@ export function EnhancedSearchCard() {
   const handleDestinationChange = (value: string, id?: string) => {
     setDestination(value);
     setDestinationId(id);
-    setIsDestinationSelected(!!id);
+    // Treat destination as selected if id is defined (even empty string for fallback options)
+    setIsDestinationSelected(id !== undefined);
   };
 
   const toggleStar = (star: number) => {

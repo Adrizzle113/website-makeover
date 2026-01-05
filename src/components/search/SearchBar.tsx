@@ -43,10 +43,8 @@ export function SearchBar() {
     const urlChildren = urlSearchParams.get("children");
     const urlAges = urlSearchParams.get("ages");
 
-    console.log("🔍 SearchBar URL params:", { urlDest, urlDestId, urlCheckIn, urlCheckOut });
-
-    // If URL has params, use them
-    if (urlDest && urlDestId && urlCheckIn && urlCheckOut) {
+    // If URL has params, use them (destId is optional - can search by name)
+    if (urlDest && urlCheckIn && urlCheckOut) {
       const checkIn = parseISO(urlCheckIn);
       const checkOut = parseISO(urlCheckOut);
       const guests = parseInt(urlGuests || "2", 10);
@@ -61,12 +59,10 @@ export function SearchBar() {
         childrenAges: i === 0 ? childrenAges : []
       }));
 
-      console.log("✅ SearchBar using URL params, destinationId:", urlDestId);
-
       return {
         destination: urlDest,
-        destinationId: urlDestId,
-        isDestinationSelected: true,
+        destinationId: urlDestId || undefined,
+        isDestinationSelected: true, // URL params are considered valid selections
         checkIn,
         checkOut,
         rooms: roomsArray,
@@ -161,7 +157,8 @@ export function SearchBar() {
   const handleDestinationChange = (value: string, id?: string) => {
     setDestination(value);
     setDestinationId(id);
-    setIsDestinationSelected(!!id);
+    // Treat destination as selected if id is defined (even empty string for fallback options)
+    setIsDestinationSelected(id !== undefined);
   };
 
   const getValidationErrors = (): string[] => {
