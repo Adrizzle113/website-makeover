@@ -7,7 +7,9 @@ import { HotelDetails, POIData } from "@/types/booking";
 const categorizeAmenities = (
   flatAmenities: Array<{ id: string; name: string }>
 ): Record<string, string[]> => {
+  // Accessibility first to catch wheelchair items before other categories match partial keywords
   const categoryKeywords: Record<string, string[]> = {
+    accessibility: ["wheelchair", "accessible", "accessibility", "disability", "mobility", "disabled"],
     popular: ["wifi", "pool", "spa", "fitness", "restaurant", "breakfast", "gym"],
     general: [
       "24-hour", "reception", "atm", "air conditioning", "non-smoking", "smoke-free", 
@@ -18,7 +20,6 @@ const categorizeAmenities = (
       "cable tv", "flat-screen", "hairdryer", "hair dryer", "fireplace", "non-smoking room", 
       "room service", "shower", "bathtub", "toiletries", "minibar", "safe", "desk", "wardrobe", "iron"
     ],
-    accessibility: ["wheelchair", "accessible", "accessibility", "disability", "mobility"],
     services: [
       "concierge", "dry-cleaning", "dry cleaning", "iron and board", "laundry", 
       "luggage storage", "luggage", "safe-deposit", "shoe shine", "telephone", "wake-up", "wake up"
