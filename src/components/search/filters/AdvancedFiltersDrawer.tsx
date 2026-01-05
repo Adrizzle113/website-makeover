@@ -31,6 +31,11 @@ import {
   Plane,
   Globe,
   Check,
+  Building2,
+  Home,
+  Hotel,
+  Castle,
+  Tent,
 } from "lucide-react";
 import type { MealPlan, RoomType, BedType } from "@/types/booking";
 import { MEAL_PLAN_LABELS } from "@/types/booking";
@@ -47,6 +52,20 @@ const SERP_FILTER_ICONS: Record<string, React.ComponentType<{ className?: string
   is_pet_friendly: PawPrint,
   has_airport_transfer: Plane,
   has_conditioner: Wind,
+};
+
+// Map hotel kinds to icons
+const HOTEL_KIND_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  Hotel: Hotel,
+  "Apart-hotel": Building2,
+  Guesthouse: Home,
+  Hostel: Building2,
+  Resort: Castle,
+  Villa: Home,
+  Apartment: Building2,
+  Motel: Hotel,
+  "B&B": Home,
+  Camping: Tent,
 };
 
 const ROOM_TYPES: { value: RoomType; label: string }[] = [
@@ -103,6 +122,14 @@ export function AdvancedFiltersDrawer() {
     setFilters({ bedTypes: newTypes });
   };
 
+  const handleHotelKindToggle = (kind: string) => {
+    const current = filters.hotelKinds;
+    const newKinds = current.includes(kind)
+      ? current.filter((k) => k !== kind)
+      : [...current, kind];
+    setFilters({ hotelKinds: newKinds });
+  };
+
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
@@ -145,7 +172,33 @@ export function AdvancedFiltersDrawer() {
 
             <Separator />
 
-            {/* Meal Plans */}
+            {/* Hotel Types */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Property Type
+              </h3>
+              <div className="grid grid-cols-2 gap-2">
+                {filterValues.hotelKinds.map((kind) => {
+                  const Icon = HOTEL_KIND_ICONS[kind.value] || Building2;
+                  return (
+                    <div
+                      key={kind.value}
+                      className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                        filters.hotelKinds.includes(kind.value)
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                      onClick={() => handleHotelKindToggle(kind.value)}
+                    >
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{kind.desc}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <Separator />
             <div className="space-y-3">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                 Meal Plan
