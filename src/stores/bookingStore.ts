@@ -327,16 +327,16 @@ export const useBookingStore = create<BookingStore>()(
         const { filters } = get();
         let count = 0;
         if (filters.priceMin !== undefined || filters.priceMax !== undefined) count++;
-        if (filters.starRatings.length > 0) count++;
+        if (filters.starRatings?.length > 0) count++;
         if (filters.freeCancellationOnly) count++;
         if (filters.refundableOnly) count++;
-        if (filters.mealPlans.length > 0) count++;
-        if (filters.amenities.length > 0) count++;
-        if (filters.paymentTypes.length > 0) count++;
+        if (filters.mealPlans?.length > 0) count++;
+        if (filters.amenities?.length > 0) count++;
+        if (filters.paymentTypes?.length > 0) count++;
         if (filters.rateType !== null) count++;
-        if (filters.roomTypes.length > 0) count++;
-        if (filters.bedTypes.length > 0) count++;
-        if (filters.hotelKinds.length > 0) count++;
+        if (filters.roomTypes?.length > 0) count++;
+        if (filters.bedTypes?.length > 0) count++;
+        if (filters.hotelKinds?.length > 0) count++;
         return count;
       },
     }),
