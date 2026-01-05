@@ -130,9 +130,14 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
                 e.currentTarget.src = "/placeholder.svg";
               }}
             />
-            {hotel.reviewScore && (
+            {hotel.reviewScore && hotel.reviewScore > 0 ? (
               <div className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 bg-primary text-primary-foreground px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold">
                 {hotel.reviewScore.toFixed(1)}
+              </div>
+            ) : (
+              <div className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 bg-secondary/80 backdrop-blur-sm text-muted-foreground px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs flex items-center gap-1">
+                <Star className="w-2.5 h-2.5" />
+                <span className="hidden sm:inline">New</span>
               </div>
             )}
           </div>
@@ -176,9 +181,14 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
               e.currentTarget.src = "/placeholder.svg";
             }}
           />
-          {hotel.reviewScore && (
+          {hotel.reviewScore && hotel.reviewScore > 0 ? (
             <div className="absolute top-3 left-3 md:top-4 md:left-4 bg-primary text-primary-foreground px-2 md:px-3 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-semibold">
               {hotel.reviewScore.toFixed(1)}
+            </div>
+          ) : (
+            <div className="absolute top-3 left-3 md:top-4 md:left-4 bg-secondary/80 backdrop-blur-sm text-muted-foreground px-2 md:px-3 py-1 md:py-1.5 rounded-full text-xs md:text-sm flex items-center gap-1">
+              <Star className="w-3 h-3" />
+              <span>New</span>
             </div>
           )}
         </div>

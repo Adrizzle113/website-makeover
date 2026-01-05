@@ -416,16 +416,6 @@ const HotelDetailsPage = () => {
 
       if (responseData.success && responseData.data) {
         console.log("✅ Static info fetched successfully");
-        console.log("📊 All static info fields:", Object.keys(responseData.data));
-        console.log("📊 Rating-related fields:", {
-          rating: responseData.data.rating,
-          review_score: responseData.data.review_score,
-          reviewScore: responseData.data.reviewScore,
-          star_rating: responseData.data.star_rating,
-          guest_score: responseData.data.guest_score,
-          review_count: responseData.data.review_count,
-          reviewCount: responseData.data.reviewCount,
-        });
 
         if (responseData.data.description) {
           const preview = responseData.data.description.substring(0, 100);
