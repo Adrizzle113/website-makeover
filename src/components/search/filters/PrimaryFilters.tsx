@@ -1,4 +1,5 @@
 import { useBookingStore } from "@/stores/bookingStore";
+import { useFilterValues } from "@/hooks/useFilterValues";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -34,6 +35,7 @@ interface PrimaryFiltersProps {
 
 export function PrimaryFilters({ priceRange }: PrimaryFiltersProps) {
   const { filters, setFilters, resetFilters, getActiveFilterCount } = useBookingStore();
+  const { filterValues } = useFilterValues();
   const activeCount = getActiveFilterCount();
 
   const handleStarToggle = (star: number) => {
@@ -219,20 +221,15 @@ export function PrimaryFilters({ priceRange }: PrimaryFiltersProps) {
         value={filters.residency}
         onValueChange={(value) => setFilters({ residency: value })}
       >
-        <SelectTrigger className="h-9 w-[100px]">
+        <SelectTrigger className="h-9 w-[120px]">
           <SelectValue placeholder="Residency" />
         </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="US">US</SelectItem>
-          <SelectItem value="GB">UK</SelectItem>
-          <SelectItem value="DE">Germany</SelectItem>
-          <SelectItem value="FR">France</SelectItem>
-          <SelectItem value="ES">Spain</SelectItem>
-          <SelectItem value="IT">Italy</SelectItem>
-          <SelectItem value="AU">Australia</SelectItem>
-          <SelectItem value="CA">Canada</SelectItem>
-          <SelectItem value="AE">UAE</SelectItem>
-          <SelectItem value="SA">Saudi Arabia</SelectItem>
+        <SelectContent className="max-h-[300px]">
+          {filterValues.countries.slice(0, 30).map((country) => (
+            <SelectItem key={country.value} value={country.value}>
+              {country.value} - {country.desc.length > 15 ? country.desc.substring(0, 15) + "..." : country.desc}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
 

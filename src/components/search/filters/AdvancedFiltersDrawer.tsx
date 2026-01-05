@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useBookingStore } from "@/stores/bookingStore";
+import { useFilterValues } from "@/hooks/useFilterValues";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -27,20 +28,25 @@ import {
   PawPrint,
   Sparkles,
   Bus,
+  Plane,
+  Globe,
+  Check,
 } from "lucide-react";
 import type { MealPlan, RoomType, BedType } from "@/types/booking";
-import { MEAL_PLAN_LABELS, AMENITY_OPTIONS } from "@/types/booking";
+import { MEAL_PLAN_LABELS } from "@/types/booking";
 
-const AMENITY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  wifi: Wifi,
-  breakfast: Coffee,
-  parking: Car,
-  pool: Waves,
-  gym: Dumbbell,
-  ac: Wind,
-  pets: PawPrint,
-  spa: Sparkles,
-  shuttle: Bus,
+// Map RateHawk serp_filter values to icons
+const SERP_FILTER_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  has_wifi: Wifi,
+  has_internet: Globe,
+  has_parking: Car,
+  has_pool: Waves,
+  has_fitness: Dumbbell,
+  has_spa: Sparkles,
+  has_meal_breakfast: Coffee,
+  is_pet_friendly: PawPrint,
+  has_airport_transfer: Plane,
+  has_conditioner: Wind,
 };
 
 const ROOM_TYPES: { value: RoomType; label: string }[] = [
@@ -61,6 +67,7 @@ const BED_TYPES: { value: BedType; label: string }[] = [
 
 export function AdvancedFiltersDrawer() {
   const { filters, setFilters, resetFilters, getActiveFilterCount } = useBookingStore();
+  const { filterValues } = useFilterValues();
   const [isOpen, setIsOpen] = useState(false);
   const activeCount = getActiveFilterCount();
 
@@ -167,20 +174,20 @@ export function AdvancedFiltersDrawer() {
                 Amenities
               </h3>
               <div className="grid grid-cols-2 gap-2">
-                {AMENITY_OPTIONS.map((amenity) => {
-                  const Icon = AMENITY_ICONS[amenity.id];
+                {filterValues.serpFilters.map((amenity) => {
+                  const Icon = SERP_FILTER_ICONS[amenity.value] || Check;
                   return (
                     <div
-                      key={amenity.id}
+                      key={amenity.value}
                       className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
-                        filters.amenities.includes(amenity.id)
+                        filters.amenities.includes(amenity.value)
                           ? "border-primary bg-primary/5"
                           : "border-border hover:border-primary/50"
                       }`}
-                      onClick={() => handleAmenityToggle(amenity.id)}
+                      onClick={() => handleAmenityToggle(amenity.value)}
                     >
-                      {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
-                      <span className="text-sm">{amenity.label}</span>
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{amenity.desc}</span>
                     </div>
                   );
                 })}
