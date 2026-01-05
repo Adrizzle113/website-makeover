@@ -18,10 +18,12 @@ import {
   Baby,
   PawPrint,
   ShieldCheck,
-  MoreHorizontal,
   Check,
+  LayoutGrid,
+  ChevronDown,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 
 interface FacilitiesAmenitiesSectionProps {
   amenities?: Partial<Record<string, string[]>>;
@@ -47,7 +49,6 @@ const categoryConfig: { key: string; title: string; icon: React.ElementType }[] 
   { key: "kids", title: "Kids", icon: Baby },
   { key: "pets", title: "Pets", icon: PawPrint },
   { key: "healthSafety", title: "Health & Safety", icon: ShieldCheck },
-  { key: "uncategorized", title: "Other", icon: MoreHorizontal },
 ];
 
 export function FacilitiesAmenitiesSection({ amenities }: FacilitiesAmenitiesSectionProps) {
@@ -60,6 +61,7 @@ export function FacilitiesAmenitiesSection({ amenities }: FacilitiesAmenitiesSec
   }
 
   const defaultCategory = categoriesWithItems[0].key;
+  const allTabs = [...categoriesWithItems, { key: "showAll", title: "Show All", icon: LayoutGrid }];
 
   return (
     <section className="py-10 bg-muted/20">
@@ -75,7 +77,7 @@ export function FacilitiesAmenitiesSection({ amenities }: FacilitiesAmenitiesSec
 
         <Tabs defaultValue={defaultCategory} className="w-full">
           <TabsList className="h-auto p-1 bg-muted/50 rounded-xl flex flex-wrap gap-1 justify-start mb-6">
-            {categoriesWithItems.map(({ key, title, icon: Icon }) => (
+            {allTabs.map(({ key, title, icon: Icon }) => (
               <TabsTrigger
                 key={key}
                 value={key}
@@ -105,6 +107,37 @@ export function FacilitiesAmenitiesSection({ amenities }: FacilitiesAmenitiesSec
               </TabsContent>
             );
           })}
+
+          <TabsContent value="showAll" className="mt-0 animate-fade-in">
+            <div className="space-y-4">
+              {categoriesWithItems.map(({ key, title, icon: Icon }) => {
+                const items = amenities![key]!;
+                return (
+                  <Collapsible key={key} defaultOpen>
+                    <CollapsibleTrigger className="flex items-center gap-2 w-full p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors group">
+                      <Icon className="h-4 w-4 text-primary" />
+                      <span className="font-medium text-foreground">{title}</span>
+                      <span className="text-muted-foreground text-sm">({items.length})</span>
+                      <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground group-data-[state=open]:rotate-180 transition-transform" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pt-3">
+                        {items.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center gap-3 bg-background rounded-lg px-4 py-3 border border-border/50 hover:border-primary/30 hover:shadow-sm transition-all"
+                          >
+                            <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                            <span className="text-sm text-foreground">{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                );
+              })}
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
     </section>
