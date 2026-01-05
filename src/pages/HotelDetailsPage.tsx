@@ -694,6 +694,7 @@ const HotelDetailsPage = () => {
             checkInTime={hotelDetails.checkInTime}
             checkOutTime={hotelDetails.checkOutTime}
           />
+          <FacilitiesAmenitiesSection amenities={categorizedAmenities} />
           <HotelPoliciesSection hotel={hotelDetails} />
           <HotelReviewsSection hotel={hotelDetails} />
           <MapSection
@@ -707,7 +708,6 @@ const HotelDetailsPage = () => {
             placesOfInterest={poiData?.placesOfInterest}
             isLoading={poiLoading}
           />
-          <FacilitiesAmenitiesSection amenities={categorizedAmenities} />
         </div>
       </div>
 
