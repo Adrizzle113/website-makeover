@@ -72,7 +72,7 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
               </h1>
 
               {/* Review Score Badge */}
-              {hotel.reviewScore && (
+              {hotel.reviewScore !== undefined && hotel.reviewScore !== null && hotel.reviewScore > 0 ? (
                 <div className="flex items-center gap-3 bg-secondary/50 rounded-xl px-4 py-3 shrink-0">
                   <div className="bg-primary text-primary-foreground w-12 h-12 rounded-lg flex items-center justify-center font-bold text-xl">
                     {hotel.reviewScore.toFixed(1)}
@@ -86,6 +86,8 @@ export function HotelHeroSection({ hotel }: HotelHeroSectionProps) {
                     </span>
                   </div>
                 </div>
+              ) : (
+                <div className="text-muted-foreground text-sm px-4 py-3">Not yet rated</div>
               )}
             </div>
 

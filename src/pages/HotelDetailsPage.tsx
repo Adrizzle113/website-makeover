@@ -618,6 +618,10 @@ const HotelDetailsPage = () => {
           mainImage: pickedMainImage,
           image: pickedMainImage,
 
+          // Review score and count from static info
+          reviewScore: staticInfo?.rating ?? staticInfo?.review_score ?? staticInfo?.reviewScore ?? data.hotel.reviewScore,
+          reviewCount: staticInfo?.review_count ?? staticInfo?.reviewCount ?? data.hotel.reviewCount,
+
           // Rate data - prefer API rates, fallback to stored rates from search
           ratehawk_data: {
             ...data.hotel.ratehawk_data,
@@ -635,6 +639,7 @@ const HotelDetailsPage = () => {
       console.log(`   - ${staticInfo?.checkInTime ? "Check-in time ✅" : "Check-in time ❌"}`);
       console.log(`   - ${staticInfo?.policies?.length || 0} policies`);
       console.log(`   - ${staticInfo?.amenities?.length || 0} amenities from static info`);
+      console.log(`   - Review score: ${staticInfo?.rating ?? staticInfo?.review_score ?? 'N/A'}`);
 
       setHotelData(updatedHotelData);
       
