@@ -219,33 +219,36 @@ export function SearchResultsSection() {
 
   // Calculate price range from results
   const priceRange = useMemo(() => {
-    const baseHotels = searchResults;
-    const prices = baseHotels.map((h) => h.priceFrom);
+    const prices = searchResults
+      .map((h) => h.priceFrom)
+      .filter((p): p is number => typeof p === 'number' && !isNaN(p) && p > 0);
     return {
-      min: Math.min(...prices, 0),
-      max: Math.max(...prices, 1000),
+      min: prices.length > 0 ? Math.min(...prices) : 0,
+      max: prices.length > 0 ? Math.max(...prices) : 1000,
     };
   }, [searchResults]);
 
   // Apply client-side filtering AND sorting for immediate UI feedback
-  // This ensures filters work even if backend doesn't fully support them
   const hotels = useMemo(() => {
     let filteredHotels = [...searchResults];
 
-    // Client-side filtering for immediate feedback
-    // Star ratings filter
+    // Star ratings filter - guard against undefined
     if (filters.starRatings && filters.starRatings.length > 0) {
       filteredHotels = filteredHotels.filter(h => 
-        filters.starRatings!.includes(h.starRating)
+        h.starRating !== undefined && h.starRating > 0 && filters.starRatings!.includes(h.starRating)
       );
     }
 
-    // Price range filter
+    // Price range filter - guard against undefined
     if (filters.priceMin !== undefined && filters.priceMin > 0) {
-      filteredHotels = filteredHotels.filter(h => h.priceFrom >= filters.priceMin!);
+      filteredHotels = filteredHotels.filter(h => 
+        typeof h.priceFrom === 'number' && h.priceFrom >= filters.priceMin!
+      );
     }
     if (filters.priceMax !== undefined && filters.priceMax < Infinity) {
-      filteredHotels = filteredHotels.filter(h => h.priceFrom <= filters.priceMax!);
+      filteredHotels = filteredHotels.filter(h => 
+        typeof h.priceFrom === 'number' && h.priceFrom <= filters.priceMax!
+      );
     }
 
     // Free cancellation filter
@@ -263,25 +266,23 @@ export function SearchResultsSection() {
       });
     }
 
-    // Apply sorting
+    // Apply sorting with fallback values
     return filteredHotels.sort((a, b) => {
       switch (sortBy) {
         case "price-low":
-          return a.priceFrom - b.priceFrom;
+          return (a.priceFrom || 0) - (b.priceFrom || 0);
         case "price-high":
-          return b.priceFrom - a.priceFrom;
+          return (b.priceFrom || 0) - (a.priceFrom || 0);
         case "rating":
           return (b.reviewScore || 0) - (a.reviewScore || 0);
         case "distance":
-          // Would need distance data from API
           return 0;
         case "free-cancellation":
-          // Sort by free cancellation first
           const aFree = (a as any).freeCancellation ? 1 : 0;
           const bFree = (b as any).freeCancellation ? 1 : 0;
           return bFree - aFree;
         case "cheapest-rate":
-          return a.priceFrom - b.priceFrom;
+          return (a.priceFrom || 0) - (b.priceFrom || 0);
         case "popularity":
         default:
           return (b.reviewCount || 0) - (a.reviewCount || 0);
