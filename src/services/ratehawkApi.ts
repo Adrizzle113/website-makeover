@@ -312,9 +312,18 @@ class RateHawkApiService {
     // Call edge function (handles CORS and proxies to Render backend)
     console.log("🔍 Search Request:", {
       destination,
+      regionId: requestBody.regionId,
       page,
       limit: 100,
+      residency,
     });
+    
+    // Log filters being sent to backend
+    if (apiFilters) {
+      console.log("🎯 Filters being sent to backend:", apiFilters);
+    } else {
+      console.log("🎯 No filters applied");
+    }
 
     try {
       const { data, error } = await supabase.functions.invoke("travelapi-search", {
