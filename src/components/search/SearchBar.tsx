@@ -43,6 +43,8 @@ export function SearchBar() {
     const urlChildren = urlSearchParams.get("children");
     const urlAges = urlSearchParams.get("ages");
 
+    console.log("🔍 SearchBar URL params:", { urlDest, urlDestId, urlCheckIn, urlCheckOut });
+
     // If URL has params, use them
     if (urlDest && urlDestId && urlCheckIn && urlCheckOut) {
       const checkIn = parseISO(urlCheckIn);
@@ -58,6 +60,8 @@ export function SearchBar() {
         adults: i === 0 ? (guests - children - (adultsPerRoom * (rooms - 1))) : adultsPerRoom,
         childrenAges: i === 0 ? childrenAges : []
       }));
+
+      console.log("✅ SearchBar using URL params, destinationId:", urlDestId);
 
       return {
         destination: urlDest,
