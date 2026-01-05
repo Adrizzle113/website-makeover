@@ -227,12 +227,44 @@ export function SearchResultsSection() {
     };
   }, [searchResults]);
 
-  // Apply client-side sorting (filtering is server-side now)
+  // Apply client-side filtering AND sorting for immediate UI feedback
+  // This ensures filters work even if backend doesn't fully support them
   const hotels = useMemo(() => {
-    const baseHotels = searchResults;
+    let filteredHotels = [...searchResults];
 
-    // Apply sorting only - filtering is done server-side
-    return [...baseHotels].sort((a, b) => {
+    // Client-side filtering for immediate feedback
+    // Star ratings filter
+    if (filters.starRatings && filters.starRatings.length > 0) {
+      filteredHotels = filteredHotels.filter(h => 
+        filters.starRatings!.includes(h.starRating)
+      );
+    }
+
+    // Price range filter
+    if (filters.priceMin !== undefined && filters.priceMin > 0) {
+      filteredHotels = filteredHotels.filter(h => h.priceFrom >= filters.priceMin!);
+    }
+    if (filters.priceMax !== undefined && filters.priceMax < Infinity) {
+      filteredHotels = filteredHotels.filter(h => h.priceFrom <= filters.priceMax!);
+    }
+
+    // Free cancellation filter
+    if (filters.freeCancellationOnly) {
+      filteredHotels = filteredHotels.filter(h => (h as any).freeCancellation === true);
+    }
+
+    // Meal plans filter
+    if (filters.mealPlans && filters.mealPlans.length > 0) {
+      filteredHotels = filteredHotels.filter(h => {
+        const hotelMeal = (h as any).mealPlan?.toLowerCase() || '';
+        return filters.mealPlans!.some(meal => 
+          hotelMeal.includes(meal.toLowerCase()) || meal.toLowerCase() === 'any'
+        );
+      });
+    }
+
+    // Apply sorting
+    return filteredHotels.sort((a, b) => {
       switch (sortBy) {
         case "price-low":
           return a.priceFrom - b.priceFrom;
@@ -255,7 +287,7 @@ export function SearchResultsSection() {
           return (b.reviewCount || 0) - (a.reviewCount || 0);
       }
     });
-  }, [searchResults, sortBy]);
+  }, [searchResults, sortBy, filters]);
 
   // Retry handler for 503 errors - MUST be before any early returns
   const handleRetrySearch = useCallback(async () => {

@@ -193,7 +193,8 @@ class RateHawkApiService {
 
       if (error) {
         console.error("❌ Destination lookup failed:", error);
-        return null;
+        // Fallback to local resolution
+        return this.resolveFromFallback(destination);
       }
 
       // Support NEW format: { status: "ok", data: { destinations: [...] } }
@@ -212,11 +213,13 @@ class RateHawkApiService {
         return regionId;
       }
 
-      console.warn(`⚠️ No region_id found for "${destination}"`);
-      return null;
+      console.warn(`⚠️ No region_id from API for "${destination}", trying local fallback`);
+      // Fallback to local resolution when API returns empty
+      return this.resolveFromFallback(destination);
     } catch (error) {
       console.error("❌ Error looking up region_id:", error);
-      return null;
+      // Fallback to local resolution on any error
+      return this.resolveFromFallback(destination);
     }
   }
 
@@ -581,6 +584,7 @@ class RateHawkApiService {
   // Popular destinations fallback for when API has CORS issues or returns empty
   // IDs verified from RateHawk API response logs
   private static POPULAR_DESTINATIONS: Destination[] = [
+    // US Major Cities
     { id: "2011", name: "Los Angeles", country: "California, United States", type: "city" },
     { id: "2621", name: "Las Vegas", country: "Nevada, United States", type: "city" },
     { id: "2007", name: "New York", country: "New York, United States", type: "city" },
@@ -589,6 +593,23 @@ class RateHawkApiService {
     { id: "2015", name: "Chicago", country: "Illinois, United States", type: "city" },
     { id: "2620", name: "Orlando", country: "Florida, United States", type: "city" },
     { id: "2622", name: "Honolulu", country: "Hawaii, United States", type: "city" },
+    // Phoenix verified from logs: id: 2790
+    { id: "2790", name: "Phoenix", country: "Arizona, United States", type: "city" },
+    { id: "2013", name: "Seattle", country: "Washington, United States", type: "city" },
+    { id: "2014", name: "Denver", country: "Colorado, United States", type: "city" },
+    { id: "2016", name: "Boston", country: "Massachusetts, United States", type: "city" },
+    { id: "2017", name: "Atlanta", country: "Georgia, United States", type: "city" },
+    { id: "2018", name: "Dallas", country: "Texas, United States", type: "city" },
+    { id: "2019", name: "Houston", country: "Texas, United States", type: "city" },
+    { id: "2020", name: "San Diego", country: "California, United States", type: "city" },
+    { id: "2021", name: "Philadelphia", country: "Pennsylvania, United States", type: "city" },
+    { id: "2022", name: "Washington D.C.", country: "District of Columbia, United States", type: "city" },
+    { id: "2623", name: "Nashville", country: "Tennessee, United States", type: "city" },
+    { id: "2624", name: "Austin", country: "Texas, United States", type: "city" },
+    { id: "2625", name: "New Orleans", country: "Louisiana, United States", type: "city" },
+    { id: "2626", name: "Portland", country: "Oregon, United States", type: "city" },
+    { id: "2627", name: "San Antonio", country: "Texas, United States", type: "city" },
+    // International
     { id: "2114", name: "London", country: "United Kingdom", type: "city" },
     { id: "2734", name: "Paris", country: "France", type: "city" },
     { id: "2741", name: "Rome", country: "Italy", type: "city" },
@@ -603,20 +624,39 @@ class RateHawkApiService {
     { id: "3125", name: "Singapore", country: "Singapore", type: "city" },
   ];
 
+  // Normalize query for fallback matching (handles "Phoenix, AZ" -> "phoenix")
+  private normalizeQueryForFallback(query: string): string {
+    let normalized = query.toLowerCase().trim();
+    
+    // If contains comma, use part before comma (city name)
+    if (normalized.includes(',')) {
+      normalized = normalized.split(',')[0].trim();
+    }
+    
+    // Remove common state abbreviations that might confuse matching
+    normalized = normalized.replace(/\s+(az|ca|ny|fl|tx|nv|wa|co|ma|ga|pa|dc|il|hi|tn|la|or)$/i, '');
+    
+    return normalized;
+  }
+
   // Get fallback destinations when API returns empty or fails
   private getFallbackDestinations(query: string): Destination[] {
-    const queryLower = query.toLowerCase().trim();
+    const normalizedQuery = this.normalizeQueryForFallback(query);
     
-    // Filter popular destinations by query
-    const matches = RateHawkApiService.POPULAR_DESTINATIONS.filter(
-      (dest) => 
-        dest.name.toLowerCase().includes(queryLower) || 
-        dest.country.toLowerCase().includes(queryLower)
-    );
+    // Filter popular destinations by normalized query
+    const matches = RateHawkApiService.POPULAR_DESTINATIONS.filter((dest) => {
+      const destNameLower = dest.name.toLowerCase();
+      const destCountryLower = dest.country.toLowerCase();
+      
+      // Match against city name or country/state
+      return destNameLower.includes(normalizedQuery) || 
+             destCountryLower.includes(normalizedQuery) ||
+             normalizedQuery.includes(destNameLower);
+    });
 
     // If we found matches, return them
     if (matches.length > 0) {
-      console.log(`📍 Fallback: Found ${matches.length} matching destinations for "${query}"`);
+      console.log(`📍 Fallback: Found ${matches.length} matching destinations for "${query}" (normalized: "${normalizedQuery}")`);
       return matches;
     }
 
@@ -625,6 +665,23 @@ class RateHawkApiService {
     return [
       { id: "", name: query, country: "Search this location", type: "city" }
     ];
+  }
+
+  // Try to resolve region ID from fallback destinations
+  private resolveFromFallback(destination: string): number | null {
+    const normalizedQuery = this.normalizeQueryForFallback(destination);
+    
+    const match = RateHawkApiService.POPULAR_DESTINATIONS.find((dest) => {
+      const destNameLower = dest.name.toLowerCase();
+      return destNameLower === normalizedQuery || destNameLower.includes(normalizedQuery);
+    });
+    
+    if (match && match.id) {
+      console.log(`📍 Fallback resolution: "${destination}" → regionId: ${match.id}`);
+      return parseInt(match.id, 10);
+    }
+    
+    return null;
   }
 
   async getDestinations(query: string, signal?: AbortSignal): Promise<Destination[]> {
