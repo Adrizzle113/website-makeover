@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "@/config/api";
 import { getOrCreateUserId } from "@/lib/getOrCreateUserId";
+import { geocodePlace } from "@/services/mapboxGeocode";
 import type {
   SearchParams,
   Hotel,
@@ -243,23 +244,19 @@ class RateHawkApiService {
       throw new Error("Check-out must be after check-in");
     }
 
-    // Determine if we already have a valid regionId
+    // Get regionId if available
     const hasValidRegionId = params.destinationId && /^\d+$/.test(params.destinationId);
+    const regionId = hasValidRegionId ? parseInt(params.destinationId!, 10) : null;
     
-    // Keep FULL destination when we have regionId (backend should use regionId, not resolve from destination)
-    // Only simplify destination when we DON'T have a regionId and need backend to resolve it
-    let destination = rawDestination;
-    if (!hasValidRegionId && rawDestination.includes(",")) {
-      destination = rawDestination.split(",")[0].trim();
-      console.log(`📍 Simplified destination (no regionId): "${rawDestination}" → "${destination}"`);
-    } else if (hasValidRegionId) {
-      console.log(`📍 Using full destination with regionId: "${destination}" (regionId: ${params.destinationId})`);
-    }
+    // Prepare destination variants
+    const fullDestination = rawDestination;
+    const simplifiedDestination = rawDestination.includes(",") 
+      ? rawDestination.split(",")[0].trim() 
+      : rawDestination;
 
     // Format guests as array of room objects (required by backend)
     const guestsPerRoom = Math.max(1, Math.floor(params.guests / params.rooms));
     const guests = Array.from({ length: params.rooms }, (_, index) => {
-      // Distribute adults across rooms, with extra going to first rooms
       const baseAdults = guestsPerRoom;
       const extraAdult = index < params.guests % params.rooms ? 1 : 0;
       return {
@@ -268,312 +265,349 @@ class RateHawkApiService {
       };
     });
 
-    // Build request body - ALWAYS include a destination string
-    // Use residency from filters if provided, otherwise default to "us"
+    // Base request body (shared across attempts)
     const residency = filters?.residency?.toLowerCase() || "us";
-    const requestBody: Record<string, unknown> = {
+    const baseBody: Record<string, unknown> = {
       userId,
-      destination,
       checkin: this.formatDate(params.checkIn),
       checkout: this.formatDate(params.checkOut),
       guests,
       page,
-      limit: 100, // ✅ Load 100 hotels per page for faster initial load
+      limit: 100,
       currency: "USD",
       residency,
     };
 
-    // Handle regionId - use provided ID or auto-lookup as fallback
-    const isNumericId = params.destinationId && /^\d+$/.test(params.destinationId);
-    let regionId: number | null = null;
-    
-    if (isNumericId) {
-      regionId = parseInt(params.destinationId!, 10);
-      
-      // Log warning for large IDs (for debugging), but DON'T reject them
-      // Large IDs like 966242095 are valid for smaller cities/regions
-      if (regionId > 100000) {
-        console.warn(`ℹ️ Large regionId: ${regionId} - may be a smaller city/region (valid)`);
-      }
-      console.log(`✅ Using provided regionId: ${regionId}`);
-    }
-    
-    if (!regionId) {
-      // Auto-lookup fallback
-      console.log(`⚠️ No valid region_id, auto-looking up for: "${destination}"`);
-      regionId = await this.lookupRegionId(destination);
-      
-      if (!regionId) {
-        // Allow searching with just destination string - backend may resolve it
-        console.log(`ℹ️ No regionId found, proceeding with destination string only: "${destination}"`);
-      } else {
-        console.log(`✅ Auto-lookup successful: ${regionId}`);
-      }
-    }
-
-    // Include regionId in request only if available
     if (regionId) {
-      requestBody.regionId = regionId;
-      requestBody.region_id = regionId;
+      baseBody.regionId = regionId;
+      baseBody.region_id = regionId;
     }
 
     // Add filters if provided
     const apiFilters = this.transformFiltersForApi(filters);
     if (apiFilters) {
-      requestBody.filters = apiFilters;
+      baseBody.filters = apiFilters;
     }
 
-    // Call edge function (handles CORS and proxies to Render backend)
-    console.log("🔍 Search Request:", {
-      destination,
-      regionId: requestBody.regionId,
-      page,
-      limit: 100,
-      residency,
-    });
-    
-    // Log filters being sent to backend
-    if (apiFilters) {
-      console.log("🎯 Filters being sent to backend:", apiFilters);
-    } else {
-      console.log("🎯 No filters applied");
-    }
+    // Define search attempts - try different request shapes
+    type SearchAttempt = { label: string; body: Record<string, unknown> };
+    const attempts: SearchAttempt[] = [];
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/ratehawk/search`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
+    if (regionId) {
+      // Attempt 1: regionId only (no destination) - forces backend to use region
+      attempts.push({
+        label: "regionId only (no destination)",
+        body: { ...baseBody },
       });
-
-      if (!response.ok) {
-        // Read the actual error message from backend
-        let errorMessage = `Search failed: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          console.error("❌ Search error:", response.status, errorData);
-          errorMessage = errorData.error || errorData.message || errorData.details || errorMessage;
-        } catch {
-          // If body isn't JSON, try text
-          try {
-            const errorText = await response.text();
-            console.error("❌ Search error (text):", response.status, errorText);
-            if (errorText) errorMessage = errorText;
-          } catch {
-            console.error("❌ Search error:", response.status);
-          }
-        }
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json();
-
-      console.log("✅ Search Response:", {
-        hotels: data.hotels?.length || 0,
-        total: data.total,
-        page: data.page,
-        hasMore: data.hasMore,
+      // Attempt 2: regionId + full destination
+      attempts.push({
+        label: "regionId + full destination",
+        body: { ...baseBody, destination: fullDestination },
       });
-
-      // Debug: Log first hotel structure to understand data format
-      if (data.hotels?.length > 0) {
-        const sample = data.hotels[0];
-        console.log("📦 Sample hotel structure:", {
-          topLevelKeys: Object.keys(sample),
-          hotel_id: sample.hotel_id,
-          id: sample.id,
-          name: sample.name,
-          hasStaticVm: !!sample.static_vm,
-          staticVmKeys: sample.static_vm ? Object.keys(sample.static_vm) : [],
-          ratesCount: sample.rates?.length || 0,
-          sampleRate: sample.rates?.[0] ? Object.keys(sample.rates[0]) : [],
+      // Attempt 3: regionId + simplified destination
+      if (simplifiedDestination !== fullDestination) {
+        attempts.push({
+          label: "regionId + simplified destination",
+          body: { ...baseBody, destination: simplifiedDestination },
         });
       }
-
-      // Check if response indicates an error
-      if (data && typeof data === 'object' && 'error' in data) {
-        const errorData = data as { error: string; details?: string };
-        throw new Error(errorData.error || errorData.details || "Search failed");
+    } else {
+      // No regionId - try to auto-lookup first
+      console.log(`⚠️ No valid region_id, auto-looking up for: "${fullDestination}"`);
+      const lookedUpRegionId = await this.lookupRegionId(fullDestination);
+      
+      if (lookedUpRegionId) {
+        baseBody.regionId = lookedUpRegionId;
+        baseBody.region_id = lookedUpRegionId;
+        attempts.push({
+          label: "auto-lookup regionId + full destination",
+          body: { ...baseBody, destination: fullDestination },
+        });
       }
+      
+      // Fallback: destination string only
+      attempts.push({
+        label: "destination only (simplified)",
+        body: { ...baseBody, destination: simplifiedDestination },
+      });
+    }
 
-      // Raw response - flexible typing to handle backend format
-      const rawResponse = data as {
-        success: boolean;
-        hotels: any[];
-        total?: number;
-        hasMore?: boolean;
-        page?: number;
-      };
+    // Execute search attempts
+    let lastError: Error | null = null;
+    let isRegionNotFoundError = false;
 
-      // Transform backend response to match Hotel type - handle Render backend format
-      const hotels: Hotel[] = (rawResponse.hotels || []).map((h: any) => {
-        // Backend returns hotel_id, not id
-        const hotelId = h.hotel_id || h.id;
-        
-        // Static data from enrichment (static_data) or legacy format (static_vm)
-        const staticData = h.static_data || {};
-        const staticVm = h.static_vm || h.ratehawk_data?.static_vm;
-        
-        // Helper: Convert slug to human-readable name
-        const humanizeSlug = (slug: string): string => {
-          return slug
-            .replace(/_/g, ' ')
-            .replace(/\b\w/g, c => c.toUpperCase())
-            .trim();
-        };
-        
-        // Get hotel name - prefer actual names, humanize slug as last resort
-        const rawName = staticData.name || h.name || staticVm?.name;
-        const hotelName = rawName && rawName.trim() ? rawName : humanizeSlug(hotelId);
-        
-        // Get amenities from various sources
-        const amenityStrings = h.amenities || staticVm?.amenities || [];
-        
-        // Calculate price from rates array (Render backend format)
-        const rates = h.rates || h.ratehawk_data?.rates || [];
-        let priceFrom = 0;
-        let currency = "USD";
-        
-        if (rates.length > 0) {
-          // Find the lowest price from all rates
-          const prices = rates.map((rate: any) => {
-            const paymentType = rate.payment_options?.payment_types?.[0];
-            const amount = parseFloat(paymentType?.show_amount || paymentType?.amount || '0');
-            return { amount, currency: paymentType?.show_currency_code || paymentType?.currency_code || 'USD' };
-          }).filter((p: any) => p.amount > 0);
-          
-          if (prices.length > 0) {
-            const lowestPrice = prices.reduce((min: any, p: any) => p.amount < min.amount ? p : min, prices[0]);
-            priceFrom = lowestPrice.amount;
-            currency = lowestPrice.currency;
-          }
-        }
-        
-        // Fallback to h.price if no rates
-        if (priceFrom === 0 && h.price?.amount) {
-          priceFrom = h.price.amount;
-          currency = h.price.currency || "USD";
-        }
-        
-        // Get images from enriched static_data first, then static_vm
-        let images: Array<{ url: string; alt: string }> = [];
-        
-        // Enriched static_data images - may need {size} template replacement
-        if (staticData.images && staticData.images.length > 0) {
-          images = staticData.images.slice(0, 10).map((url: string) => {
-            let processedUrl = typeof url === 'string' ? url : '';
-            // Replace {size} template if present
-            if (processedUrl.includes('{size}')) {
-              processedUrl = processedUrl.replace('{size}', '640x400');
-            }
-            return { url: processedUrl, alt: hotelName };
-          }).filter((img: any) => img.url && img.url.length > 30);
-        }
-        
-        // Fallback to static_vm images if static_data images are insufficient
-        if (images.length === 0 && staticVm?.images?.length > 0) {
-          images = staticVm.images.slice(0, 10).map((img: any) => {
-            const url = typeof img === 'string' 
-              ? img.replace('{size}', '640x400')
-              : img.tmpl?.replace("{size}", "640x400") || img.url || "";
-            return { url, alt: hotelName };
-          }).filter((img: any) => img.url && img.url.length > 30);
-        }
-        
-        const mainImage = images[0]?.url || h.image || "/placeholder.svg";
-        
-        // Debug: Log name and image extraction for first few hotels
-        if (rawResponse.hotels.indexOf(h) < 3) {
-          console.log(`🏨 Hotel ${hotelId}:`, {
-            nameSource: staticData.name ? 'static_data' : (h.name ? 'h.name' : (staticVm?.name ? 'static_vm' : 'humanized')),
-            finalName: hotelName,
-            imageSource: staticData.images?.length ? 'static_data' : (staticVm?.images?.length ? 'static_vm' : 'none'),
-            imageCount: images.length,
-            mainImage: mainImage?.substring(0, 60),
-          });
-        }
-        
-        // Extract cancellation and meal info from rates
-        const hasFreeCancellation = h.freeCancellation || 
-          rates.some((r: any) => r.free_cancellation === true || r.cancellationPolicy?.toLowerCase().includes("free"));
-        const mealPlan = h.mealPlan || rates[0]?.meal || rates[0]?.meal_data?.name;
-        const paymentTypes = rates[0]?.payment_options?.payment_types?.map((p: any) => p.type) || [];
-
-        // Get address, city, country from enriched data or static_vm.region
-        const address = staticData.address || staticVm?.address || h.location || "";
-        // static_vm uses region object with name (city), country_code, etc.
-        const regionName = staticVm?.region?.name || "";
-        
-        // Extract city from address as fallback (e.g., "1020 S Figueroa Street, Los Angeles" -> "Los Angeles")
-        let cityFromAddress = "";
-        if (address && !regionName && !staticData.city) {
-          const addressParts = address.split(',').map((p: string) => p.trim());
-          if (addressParts.length >= 2) {
-            // Take the last part that looks like a city (not a zip code)
-            const lastPart = addressParts[addressParts.length - 1];
-            cityFromAddress = /^\d/.test(lastPart) ? addressParts[addressParts.length - 2] || "" : lastPart;
-          }
-        }
-        
-        const city = staticData.city || regionName || cityFromAddress || "";
-        const country = staticData.country || staticVm?.region?.country_code || "";
-        
-        // Get star rating - enriched data is 1-5, static_vm might be 10-50
-        let starRating = 0;
-        if (staticData.star_rating) {
-          starRating = staticData.star_rating; // Already 1-5 from enrichment
-        } else if (staticVm?.star_rating) {
-          starRating = staticVm.star_rating > 5 ? Math.round(staticVm.star_rating / 10) : staticVm.star_rating;
-        } else if (h.rating) {
-          starRating = h.rating;
-        }
-
-        // Get coordinates
-        const latitude = staticData.coordinates?.lat || staticVm?.latitude;
-        const longitude = staticData.coordinates?.lon || staticVm?.longitude;
-
-        return {
-          id: hotelId,
-          name: hotelName,
-          description: staticVm?.description || h.description || "",
-          address,
-          city,
-          country,
-          starRating,
-          reviewScore: staticVm?.rating || h.reviewScore,
-          reviewCount: staticVm?.review_count || h.reviewCount || 0,
-          images,
-          mainImage,
-          amenities: amenityStrings.map((a: string, idx: number) => ({ id: `amenity-${idx}`, name: a })),
-          priceFrom,
-          currency,
-          latitude,
-          longitude,
-          // Preserve COMPLETE backend data for hotel details page
-          ratehawk_data: {
-            ...h,
-            static_vm: staticVm,
-          },
-          freeCancellation: hasFreeCancellation,
-          mealPlan,
-          paymentTypes,
-        } as Hotel;
+    for (let i = 0; i < attempts.length; i++) {
+      const attempt = attempts[i];
+      console.log(`🧪 Region search attempt ${i + 1}/${attempts.length}: ${attempt.label}`);
+      console.log("🔍 Search Request:", {
+        destination: attempt.body.destination,
+        regionId: attempt.body.regionId,
+        page,
+        limit: 100,
+        residency,
+        hasFilters: !!apiFilters,
       });
 
-      const totalResults = rawResponse.total || hotels.length;
-      const hasMore = rawResponse.hasMore ?? (hotels.length === 100);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/ratehawk/search`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(attempt.body),
+        });
+
+        if (!response.ok) {
+          // Read the actual error message from backend
+          let errorMessage = `Search failed: ${response.status}`;
+          let errorBody: any = null;
+          
+          try {
+            const text = await response.text();
+            try {
+              errorBody = JSON.parse(text);
+              errorMessage = errorBody.error || errorBody.message || errorBody.details || errorMessage;
+            } catch {
+              if (text) errorMessage = text;
+            }
+          } catch {
+            // Ignore body read errors
+          }
+
+          console.error(`❌ Attempt ${i + 1} failed:`, errorMessage);
+          lastError = new Error(errorMessage);
+          
+          // Check if this is a "region not found" error
+          isRegionNotFoundError = errorMessage.toLowerCase().includes("could not find region");
+          
+          // If it's a region-not-found error and we have more attempts, continue
+          if (isRegionNotFoundError && i < attempts.length - 1) {
+            continue;
+          }
+          
+          // If it's NOT a region error, don't retry (e.g., validation errors)
+          if (!isRegionNotFoundError) {
+            throw lastError;
+          }
+          
+          continue;
+        }
+
+        // Success! Parse and return results
+        const data = await response.json();
+        console.log(`✅ Attempt ${i + 1} succeeded:`, {
+          hotels: data.hotels?.length || 0,
+          total: data.total,
+        });
+
+        return this.parseSearchResponse(data, page);
+      } catch (error) {
+        if (error instanceof Error && !error.message.includes("could not find region")) {
+          // Non-recoverable error, throw immediately
+          throw error;
+        }
+        lastError = error instanceof Error ? error : new Error(String(error));
+      }
+    }
+
+    // All region attempts failed - try Geo fallback if it was a region error
+    if (isRegionNotFoundError) {
+      console.log(`🌍 All region attempts failed, trying Geo fallback for: "${rawDestination}"`);
+      
+      const coords = await geocodePlace(rawDestination);
+      if (coords) {
+        console.log(`📍 Geo fallback: searching near ${coords.lat}, ${coords.lon}`);
+        
+        try {
+          const geoResult = await this.searchByGeo({
+            latitude: coords.lat,
+            longitude: coords.lon,
+            checkin: params.checkIn,
+            checkout: params.checkOut,
+            guests,
+            radius: 10000, // 10km radius for city search
+            residency,
+            currency: "USD",
+          });
+          
+          console.log(`✅ Geo fallback succeeded: ${geoResult.hotels.length} hotels`);
+          return geoResult;
+        } catch (geoError) {
+          console.error("❌ Geo fallback also failed:", geoError);
+          // Fall through to throw original error
+        }
+      }
+    }
+
+    // All attempts failed
+    console.error("❌ All search attempts failed");
+    throw lastError || new Error("Search failed after all attempts");
+  }
+
+  /**
+   * Parse raw search response into SearchResponse format
+   */
+  private parseSearchResponse(data: any, page: number): SearchResponse {
+    // Check if response indicates an error
+    if (data && typeof data === 'object' && 'error' in data) {
+      throw new Error(data.error || data.details || "Search failed");
+    }
+
+    const rawResponse = data as {
+      success: boolean;
+      hotels: any[];
+      total?: number;
+      hasMore?: boolean;
+      page?: number;
+    };
+
+    console.log("✅ Search Response:", {
+      hotels: rawResponse.hotels?.length || 0,
+      total: rawResponse.total,
+      page: rawResponse.page,
+      hasMore: rawResponse.hasMore,
+    });
+
+    // Debug: Log first hotel structure
+    if (rawResponse.hotels?.length > 0) {
+      const sample = rawResponse.hotels[0];
+      console.log("📦 Sample hotel structure:", {
+        topLevelKeys: Object.keys(sample),
+        hotel_id: sample.hotel_id,
+        id: sample.id,
+        name: sample.name,
+        hasStaticVm: !!sample.static_vm,
+      });
+    }
+
+    // Transform backend response to match Hotel type
+    const hotels: Hotel[] = (rawResponse.hotels || []).map((h: any) => {
+      const hotelId = h.hotel_id || h.id;
+      const staticData = h.static_data || {};
+      const staticVm = h.static_vm || h.ratehawk_data?.static_vm;
+      
+      const humanizeSlug = (slug: string): string => {
+        return slug.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
+      };
+      
+      const rawName = staticData.name || h.name || staticVm?.name;
+      const hotelName = rawName && rawName.trim() ? rawName : humanizeSlug(hotelId);
+      
+      const amenityStrings = h.amenities || staticVm?.amenities || [];
+      
+      const rates = h.rates || h.ratehawk_data?.rates || [];
+      let priceFrom = 0;
+      let currency = "USD";
+      
+      if (rates.length > 0) {
+        const prices = rates.map((rate: any) => {
+          const paymentType = rate.payment_options?.payment_types?.[0];
+          const amount = parseFloat(paymentType?.show_amount || paymentType?.amount || '0');
+          return { amount, currency: paymentType?.show_currency_code || paymentType?.currency_code || 'USD' };
+        }).filter((p: any) => p.amount > 0);
+        
+        if (prices.length > 0) {
+          const lowestPrice = prices.reduce((min: any, p: any) => p.amount < min.amount ? p : min, prices[0]);
+          priceFrom = lowestPrice.amount;
+          currency = lowestPrice.currency;
+        }
+      }
+      
+      if (priceFrom === 0 && h.price?.amount) {
+        priceFrom = h.price.amount;
+        currency = h.price.currency || "USD";
+      }
+      
+      let images: Array<{ url: string; alt: string }> = [];
+      
+      if (staticData.images && staticData.images.length > 0) {
+        images = staticData.images.slice(0, 10).map((url: string) => {
+          let processedUrl = typeof url === 'string' ? url : '';
+          if (processedUrl.includes('{size}')) {
+            processedUrl = processedUrl.replace('{size}', '640x400');
+          }
+          return { url: processedUrl, alt: hotelName };
+        }).filter((img: any) => img.url && img.url.length > 30);
+      }
+      
+      if (images.length === 0 && staticVm?.images?.length > 0) {
+        images = staticVm.images.slice(0, 10).map((img: any) => {
+          const url = typeof img === 'string' 
+            ? img.replace('{size}', '640x400')
+            : img.tmpl?.replace("{size}", "640x400") || img.url || "";
+          return { url, alt: hotelName };
+        }).filter((img: any) => img.url && img.url.length > 30);
+      }
+      
+      const mainImage = images[0]?.url || h.image || "/placeholder.svg";
+      
+      const hasFreeCancellation = h.freeCancellation || 
+        rates.some((r: any) => r.free_cancellation === true || r.cancellationPolicy?.toLowerCase().includes("free"));
+      const mealPlan = h.mealPlan || rates[0]?.meal || rates[0]?.meal_data?.name;
+      const paymentTypes = rates[0]?.payment_options?.payment_types?.map((p: any) => p.type) || [];
+
+      const address = staticData.address || staticVm?.address || h.location || "";
+      const regionName = staticVm?.region?.name || "";
+      
+      let cityFromAddress = "";
+      if (address && !regionName && !staticData.city) {
+        const addressParts = address.split(',').map((p: string) => p.trim());
+        if (addressParts.length >= 2) {
+          const lastPart = addressParts[addressParts.length - 1];
+          cityFromAddress = /^\d/.test(lastPart) ? addressParts[addressParts.length - 2] || "" : lastPart;
+        }
+      }
+      
+      const city = staticData.city || regionName || cityFromAddress || "";
+      const country = staticData.country || staticVm?.region?.country_code || "";
+      
+      let starRating = 0;
+      if (staticData.star_rating) {
+        starRating = staticData.star_rating;
+      } else if (staticVm?.star_rating) {
+        starRating = staticVm.star_rating > 5 ? Math.round(staticVm.star_rating / 10) : staticVm.star_rating;
+      } else if (h.rating) {
+        starRating = h.rating;
+      }
+
+      const latitude = staticData.coordinates?.lat || staticVm?.latitude;
+      const longitude = staticData.coordinates?.lon || staticVm?.longitude;
 
       return {
-        hotels,
-        totalResults,
-        hasMore,
-        nextPage: page + 1,
-        currentPage: page,
-      };
-    } catch (error) {
-      console.error("❌ Search failed:", error);
-      throw error;
-    }
+        id: hotelId,
+        name: hotelName,
+        description: staticVm?.description || h.description || "",
+        address,
+        city,
+        country,
+        starRating,
+        reviewScore: staticVm?.rating || h.reviewScore,
+        reviewCount: staticVm?.review_count || h.reviewCount || 0,
+        images,
+        mainImage,
+        amenities: amenityStrings.map((a: string, idx: number) => ({ id: `amenity-${idx}`, name: a })),
+        priceFrom,
+        currency,
+        latitude,
+        longitude,
+        ratehawk_data: {
+          ...h,
+          static_vm: staticVm,
+        },
+        freeCancellation: hasFreeCancellation,
+        mealPlan,
+        paymentTypes,
+      } as Hotel;
+    });
+
+    const totalResults = rawResponse.total || hotels.length;
+    const hasMore = rawResponse.hasMore ?? (hotels.length === 100);
+
+    return {
+      hotels,
+      totalResults,
+      hasMore,
+      nextPage: page + 1,
+      currentPage: page,
+    };
   }
 
   // ===== NEW SEARCH METHODS =====
