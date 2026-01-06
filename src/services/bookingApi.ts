@@ -11,6 +11,8 @@ import type {
   OrderInfoResponse,
   DocumentsResponse,
   PaymentType,
+  PayotaTokenRequest,
+  PayotaTokenResponse,
 } from "@/types/etgBooking";
 
 const BOOKING_ENDPOINTS = {
@@ -20,6 +22,10 @@ const BOOKING_ENDPOINTS = {
   ORDER_STATUS: "/api/ratehawk/order/status",
   ORDER_INFO: "/api/ratehawk/order/info",
   ORDER_DOCUMENTS: "/api/ratehawk/order/documents",
+  // New booking flow endpoints
+  CREATE_CARD_TOKEN: "/api/booking/create-credit-card-token",
+  BOOKING_START: "/api/booking/start",
+  BOOKING_STATUS: "/api/booking/status",
 } as const;
 
 class BookingApiService {
@@ -300,6 +306,85 @@ class BookingApiService {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8).toUpperCase();
     return `BK-${timestamp}-${random}`;
+  }
+
+  /**
+   * Step 4a: Create Credit Card Token (Payota API)
+   * Required for card payment types before starting booking
+   */
+  async createCreditCardToken(params: PayotaTokenRequest): Promise<PayotaTokenResponse> {
+    const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.CREATE_CARD_TOKEN}`;
+    const userId = this.getCurrentUserId();
+
+    console.log("💳 Create card token request:", {
+      object_id: params.object_id,
+      pay_uuid: params.pay_uuid,
+      init_uuid: params.init_uuid,
+      user_first_name: params.user_first_name,
+      user_last_name: params.user_last_name,
+      is_cvc_required: params.is_cvc_required,
+      // Don't log sensitive card data
+    });
+
+    const response = await this.fetchWithError<PayotaTokenResponse>(url, {
+      method: "POST",
+      body: JSON.stringify({
+        userId,
+        ...params,
+      }),
+    });
+
+    console.log("💳 Card token response:", { status: response.status });
+    return response;
+  }
+
+  /**
+   * Step 4b: Start Booking Process
+   * Called after card tokenization for card payments
+   */
+  async startBooking(orderId: string, paymentType: {
+    type: "deposit" | "hotel" | "now";
+    currency_code: string;
+    pay_uuid?: string;
+    init_uuid?: string;
+  }): Promise<OrderFinishResponse> {
+    const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.BOOKING_START}`;
+    const userId = this.getCurrentUserId();
+
+    console.log("🚀 Start booking request:", { orderId, paymentType, userId });
+
+    const response = await this.fetchWithError<OrderFinishResponse>(url, {
+      method: "POST",
+      body: JSON.stringify({
+        userId,
+        order_id: orderId,
+        payment_type: paymentType,
+      }),
+    });
+
+    console.log("🚀 Start booking response:", response);
+    return response;
+  }
+
+  /**
+   * Step 5b: Check Booking Status (alternative endpoint)
+   * Poll this for real-time booking status
+   */
+  async checkBookingStatus(orderId: string): Promise<OrderStatusResponse> {
+    const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.BOOKING_STATUS}/${orderId}`;
+    const userId = this.getCurrentUserId();
+
+    console.log("📊 Check booking status:", { orderId, userId });
+
+    const response = await this.fetchWithError<OrderStatusResponse>(url, {
+      method: "GET",
+      headers: {
+        "X-User-Id": userId,
+      },
+    });
+
+    console.log("📊 Booking status response:", response);
+    return response;
   }
 }
 
