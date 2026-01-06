@@ -13,6 +13,15 @@ interface HotelCardProps {
   onFocus?: (hotelId: string) => void;
 }
 
+// Normalize image URLs - handle backend placeholder that doesn't exist in frontend
+const normalizeImageUrl = (url?: string): string => {
+  if (!url) return "/placeholder.svg";
+  if (url === "placeholder-hotel.jpg" || url.includes("placeholder-hotel")) {
+    return "/placeholder.svg";
+  }
+  return url;
+};
+
 // Convert Hotel to HotelDetails, preserving all existing data including ratehawk_data
 const convertToHotelDetails = (hotel: Hotel): HotelDetails => ({
   ...hotel,
@@ -123,7 +132,7 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
         <div className="flex">
           <div className="relative w-24 sm:w-28 h-24 sm:h-28 flex-shrink-0 overflow-hidden">
             <img
-              src={hotel.mainImage || "/placeholder.svg"}
+              src={normalizeImageUrl(hotel.mainImage)}
               alt={hotel.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               onError={(e) => {
@@ -174,7 +183,7 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
         {/* Image */}
         <div className="relative w-full sm:w-48 md:w-80 h-48 sm:h-48 md:h-[340px] flex-shrink-0 overflow-hidden">
           <img
-            src={hotel.mainImage || "/placeholder.svg"}
+            src={normalizeImageUrl(hotel.mainImage)}
             alt={hotel.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             onError={(e) => {
