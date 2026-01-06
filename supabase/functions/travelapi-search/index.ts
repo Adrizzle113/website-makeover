@@ -1,3 +1,4 @@
+// Redeploy trigger - 2026-01-06
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
@@ -5,31 +6,33 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
 const RENDER_API_URL = "https://travelapi-bg6t.onrender.com";
 const MAX_RETRIES = 1;
 const RETRY_DELAY_MS = 2000;
-const REQUEST_TIMEOUT_MS = 25000;
-const WARMUP_TIMEOUT_MS = 8000;
+const REQUEST_TIMEOUT_MS = 20000;
+const WARMUP_TIMEOUT_MS = 5000;
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Initialize Supabase client
-function getSupabaseClient() {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  
-  if (!supabaseUrl || !supabaseKey) {
-    console.error('❌ Missing required env vars:', { 
-      hasUrl: !!supabaseUrl, 
-      hasKey: !!supabaseKey 
-    });
-    throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY - enrichment disabled');
+// Initialize Supabase client - returns null if env vars missing (graceful degradation)
+function getSupabaseClient(): ReturnType<typeof createClient> | null {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.warn('⚠️ Missing Supabase env vars - enrichment/cache disabled');
+      return null;
+    }
+    
+    return createClient(supabaseUrl, supabaseKey);
+  } catch (e) {
+    console.warn('⚠️ Failed to init Supabase client:', e);
+    return null;
   }
-  
-  console.log('✅ Supabase client initialized with service role key');
-  return createClient(supabaseUrl, supabaseKey);
 }
 
 interface StaticHotelData {
@@ -381,14 +384,17 @@ async function fetchWithRetry(
 }
 
 serve(async (req) => {
+  // Always handle OPTIONS with CORS headers
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   const requestStart = Date.now();
-  const supabase = getSupabaseClient();
 
   try {
+    // Initialize supabase inside try block - null means degraded mode (no cache/enrichment)
+    const supabase = getSupabaseClient();
+    
     const bodyText = await req.text();
     console.log(`📥 Request body length: ${bodyText.length} chars`);
 
@@ -423,14 +429,15 @@ serve(async (req) => {
       );
     }
 
-    // Check cache first (for fallback)
+    // Check cache first (for fallback) - only if supabase available
     let cachedResult = null;
-    if (regionId) {
+    if (regionId && supabase) {
       cachedResult = await getCachedSearch(regionId, supabase);
     }
 
-    // Warmup server
-    const warmup = await warmupServer();
+    // Fire warmup in background (non-blocking) to avoid pushing request over time limit
+    const warmupPromise = warmupServer();
+    let warmup = { ok: false, status: 0 };
 
     // Call Render API with retry
     const { response: renderResponse, attempts, lastStatus } = await fetchWithRetry(
@@ -449,8 +456,11 @@ serve(async (req) => {
     if (!renderResponse) {
       console.error('💥 All retries failed');
 
+      // Check warmup result for error message
+      try { warmup = await warmupPromise; } catch { /* ignore */ }
+      
       // If we have cached results, return them
-      if (cachedResult && cachedResult.hotels.length > 0) {
+      if (cachedResult && cachedResult.hotels.length > 0 && supabase) {
         console.log('📦 Returning cached results as fallback');
         
         // Enrich with static data
@@ -508,7 +518,10 @@ serve(async (req) => {
 
     // Handle server errors - try cache fallback
     if (renderResponse.status >= 500) {
-      if (cachedResult && cachedResult.hotels.length > 0) {
+      // Check warmup result for error message
+      try { warmup = await warmupPromise; } catch { /* ignore */ }
+      
+      if (cachedResult && cachedResult.hotels.length > 0 && supabase) {
         console.log('📦 Server error - returning cached results');
         
         const enrichedHotels = await enrichWithStaticData(cachedResult.hotels, supabase);
@@ -565,8 +578,8 @@ serve(async (req) => {
     try {
       const responseData = JSON.parse(responseText);
       
-      // Enrich hotels with static data
-      if (responseData.hotels && Array.isArray(responseData.hotels)) {
+      // Enrich hotels with static data (only if supabase available)
+      if (responseData.hotels && Array.isArray(responseData.hotels) && supabase) {
         responseData.hotels = await enrichWithStaticData(responseData.hotels, supabase);
         console.log(`✅ Enriched ${responseData.hotels.length} hotels with static data`);
       }
