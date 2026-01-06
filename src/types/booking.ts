@@ -372,3 +372,36 @@ export interface SearchResponse {
   nextPage: number;
   currentPage: number;
 }
+
+// New Search Types
+export type SearchType = 'region' | 'poi' | 'geo' | 'ids';
+
+export interface POISearchParams {
+  poiName: string;
+  checkin: Date;
+  checkout: Date;
+  guests: { adults: number; children: number[] }[];
+  radius?: number; // default 5000m
+  residency?: string;
+  currency?: string;
+}
+
+export interface GeoSearchParams {
+  latitude: number;
+  longitude: number;
+  checkin: Date;
+  checkout: Date;
+  guests: { adults: number; children: number[] }[];
+  radius?: number; // default 5000m
+  residency?: string;
+  currency?: string;
+}
+
+export interface IdsSearchParams {
+  hotelIds: string[];
+  checkin: Date;
+  checkout: Date;
+  guests: { adults: number; children: number[] }[];
+  residency?: string;
+  currency?: string;
+}
