@@ -7,6 +7,7 @@ import type {
   RoomSelection,
   SearchFilters,
   SortOption,
+  SearchType,
 } from "@/types/booking";
 import { DEFAULT_FILTERS } from "@/types/booking";
 import type { OrderStatus, PaymentType } from "@/types/etgBooking";
@@ -39,6 +40,9 @@ interface BookingStore {
   hasMoreResults: boolean;
   currentPage: number;
   totalResults: number;
+  
+  // Search Type State
+  searchType: SearchType;
   
   // Filter & Sort State
   filters: SearchFilters;
@@ -76,6 +80,9 @@ interface BookingStore {
   clearUpsells: () => void;
   getUpsellsForRoom: (roomId: string) => SelectedUpsell[];
   
+  // Search Type Actions
+  setSearchType: (type: SearchType) => void;
+
   // Filter & Sort Actions
   setFilters: (filters: Partial<SearchFilters>) => void;
   resetFilters: () => void;
@@ -112,6 +119,7 @@ const initialState = {
   hasMoreResults: false,
   currentPage: 1,
   totalResults: 0,
+  searchType: "region" as SearchType,
   filters: DEFAULT_FILTERS,
   sortBy: "popularity" as SortOption,
   // ETG Booking State
@@ -252,6 +260,9 @@ export const useBookingStore = create<BookingStore>()(
         return get().selectedUpsells.filter((u) => u.roomId === roomId);
       },
       
+      // Search Type Actions
+      setSearchType: (type) => set({ searchType: type }),
+
       // Filter & Sort Actions
       setFilters: (newFilters) => set((state) => ({
         filters: { ...state.filters, ...newFilters },
@@ -347,6 +358,7 @@ export const useBookingStore = create<BookingStore>()(
       version: 2, // Increment version to trigger migration
       partialize: (state) => ({
         searchParams: state.searchParams,
+        searchType: state.searchType,
         // Exclude searchResults and selectedHotel - too large for localStorage
         filters: state.filters,
         sortBy: state.sortBy,

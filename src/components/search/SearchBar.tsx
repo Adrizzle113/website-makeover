@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { format, addDays, addYears, differenceInDays, parseISO } from "date-fns";
 import { CalendarIcon, Search, AlertCircle } from "lucide-react";
@@ -13,10 +13,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { DestinationAutocomplete } from "./DestinationAutocomplete";
 import { GuestSelector, hasValidChildrenAges } from "./GuestSelector";
+import { SearchTypeSelector } from "./SearchTypeSelector";
+import { POISearchInput } from "./POISearchInput";
+import { GeoSearchInput } from "./GeoSearchInput";
+import { HotelIdsInput } from "./HotelIdsInput";
 import { useBookingStore } from "@/stores/bookingStore";
 import { ratehawkApi } from "@/services/ratehawkApi";
 import { toast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import type { SearchType } from "@/types/booking";
 
 interface Room {
   adults: number;
@@ -28,7 +33,7 @@ const MAX_YEARS_AHEAD = 2;
 
 export function SearchBar() {
   const [urlSearchParams] = useSearchParams();
-  const { setSearchParams, setSearchResults, setLoading, setError, filters, searchParams } = useBookingStore();
+  const { setSearchParams, setSearchResults, setLoading, setError, filters, searchParams, searchType, setSearchType } = useBookingStore();
   const isMobile = useIsMobile();
 
   // Parse URL params for initial state
@@ -109,6 +114,12 @@ export function SearchBar() {
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [checkOutOpen, setCheckOutOpen] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
+  
+  // Alternate search type states
+  const [poiName, setPOIName] = useState("");
+  const [geoCoords, setGeoCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [geoRadius, setGeoRadius] = useState(5000);
+  const [hotelIds, setHotelIds] = useState<string[]>([]);
 
   const totalGuests = rooms.reduce((sum, room) => sum + room.adults + room.childrenAges.length, 0);
   const totalChildren = rooms.reduce((sum, room) => sum + room.childrenAges.length, 0);
@@ -128,7 +139,23 @@ export function SearchBar() {
   const hasValidDates = checkIn && checkOut && checkOut > checkIn && nightCount <= MAX_STAY_NIGHTS;
   const hasValidGuestCount = rooms.every(room => room.adults + room.childrenAges.length <= 6);
 
-  const isFormValid = isDestinationSelected && hasValidDates && hasValidChildren && hasValidGuestCount;
+  // Form validity depends on search type
+  const getSearchTypeValid = (): boolean => {
+    switch (searchType) {
+      case "region":
+        return isDestinationSelected;
+      case "poi":
+        return poiName.trim().length > 0;
+      case "geo":
+        return geoCoords !== null;
+      case "ids":
+        return hotelIds.length > 0;
+      default:
+        return false;
+    }
+  };
+
+  const isFormValid = getSearchTypeValid() && hasValidDates && hasValidChildren && hasValidGuestCount;
 
   const handleCheckInSelect = (date: Date | undefined) => {
     if (date) {
@@ -163,7 +190,22 @@ export function SearchBar() {
 
   const getValidationErrors = (): string[] => {
     const errors: string[] = [];
-    if (!isDestinationSelected) errors.push("Please select a destination from suggestions");
+    
+    switch (searchType) {
+      case "region":
+        if (!isDestinationSelected) errors.push("Please select a destination from suggestions");
+        break;
+      case "poi":
+        if (!poiName.trim()) errors.push("Please enter a point of interest");
+        break;
+      case "geo":
+        if (!geoCoords) errors.push("Please set coordinates on the map");
+        break;
+      case "ids":
+        if (hotelIds.length === 0) errors.push("Please add at least one hotel ID");
+        break;
+    }
+    
     if (!hasValidDates) errors.push("Please select valid check-in and check-out dates");
     if (!hasValidChildren) errors.push("Please select age for all children");
     if (!hasValidGuestCount) errors.push("Maximum 6 guests per room");
@@ -195,21 +237,59 @@ export function SearchBar() {
     setError(null);
 
     try {
-      const searchParamsData = {
-        destination,
-        destinationId,
-        checkIn,
-        checkOut,
-        guests: totalGuests,
-        rooms: rooms.length,
-        children: totalChildren,
-        childrenAges: allChildrenAges,
-      };
+      const guestData = rooms.map(room => ({
+        adults: room.adults,
+        children: room.childrenAges,
+      }));
 
-      setSearchParams(searchParamsData);
+      let response;
 
-      // Pass filters to initial search for server-side filtering
-      const response = await ratehawkApi.searchHotels(searchParamsData, 1, filters);
+      switch (searchType) {
+        case "poi":
+          response = await ratehawkApi.searchByPOI({
+            poiName,
+            checkin: checkIn,
+            checkout: checkOut,
+            guests: guestData,
+            radius: 5000,
+          });
+          break;
+        case "geo":
+          if (!geoCoords) throw new Error("Coordinates required");
+          response = await ratehawkApi.searchByGeo({
+            latitude: geoCoords.lat,
+            longitude: geoCoords.lon,
+            checkin: checkIn,
+            checkout: checkOut,
+            guests: guestData,
+            radius: geoRadius,
+          });
+          break;
+        case "ids":
+          response = await ratehawkApi.searchByIds({
+            hotelIds,
+            checkin: checkIn,
+            checkout: checkOut,
+            guests: guestData,
+          });
+          break;
+        case "region":
+        default:
+          const searchParamsData = {
+            destination,
+            destinationId,
+            checkIn,
+            checkOut,
+            guests: totalGuests,
+            rooms: rooms.length,
+            children: totalChildren,
+            childrenAges: allChildrenAges,
+          };
+          setSearchParams(searchParamsData);
+          response = await ratehawkApi.searchHotels(searchParamsData, 1, filters);
+          break;
+      }
+
       setSearchResults(response.hotels, response.hasMore, response.totalResults);
       
       // Results kept in memory only - URL params preserve search criteria
@@ -243,8 +323,13 @@ export function SearchBar() {
   return (
     <div className="w-full max-w-5xl mx-auto" onKeyDown={handleKeyDown}>
       <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl p-4 md:p-6 border border-white/20">
-        {/* Warning when destination typed but not selected */}
-        {destination && !isDestinationSelected && (
+        {/* Search Type Selector */}
+        <div className="mb-4">
+          <SearchTypeSelector value={searchType} onChange={setSearchType} />
+        </div>
+
+        {/* Warning when destination typed but not selected (region mode only) */}
+        {searchType === "region" && destination && !isDestinationSelected && (
           <Alert variant="destructive" className="mb-4 bg-destructive/10 border-destructive/20">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
@@ -254,15 +339,47 @@ export function SearchBar() {
         )}
         
         <div className="grid grid-cols-1 md:grid-cols-2 xl:flex xl:flex-row gap-4 xl:items-end">
-          {/* Destination - spans full width on mobile and tablet */}
+          {/* Search Input - changes based on search type */}
           <div className="md:col-span-2 xl:flex-1 xl:min-w-0">
             <label className="text-xs font-semibold text-primary uppercase tracking-wider mb-2 block">
-              Destination
+              {searchType === "region" && "Destination"}
+              {searchType === "poi" && "Point of Interest"}
+              {searchType === "geo" && "Coordinates"}
+              {searchType === "ids" && "Hotel IDs"}
             </label>
-            <DestinationAutocomplete
-              value={destination}
-              onChange={handleDestinationChange}
-            />
+            
+            {searchType === "region" && (
+              <DestinationAutocomplete
+                value={destination}
+                onChange={handleDestinationChange}
+              />
+            )}
+            
+            {searchType === "poi" && (
+              <POISearchInput
+                value={poiName}
+                onChange={setPOIName}
+                placeholder="e.g., Eiffel Tower, Times Square..."
+              />
+            )}
+            
+            {searchType === "geo" && (
+              <GeoSearchInput
+                latitude={geoCoords?.lat}
+                longitude={geoCoords?.lon}
+                radius={geoRadius}
+                onLatitudeChange={(lat) => setGeoCoords(prev => lat !== undefined ? { lat, lon: prev?.lon ?? 0 } : null)}
+                onLongitudeChange={(lon) => setGeoCoords(prev => lon !== undefined ? { lat: prev?.lat ?? 0, lon } : null)}
+                onRadiusChange={setGeoRadius}
+              />
+            )}
+            
+            {searchType === "ids" && (
+              <HotelIdsInput
+                value={hotelIds}
+                onChange={setHotelIds}
+              />
+            )}
           </div>
 
           {/* Check-in Date */}
