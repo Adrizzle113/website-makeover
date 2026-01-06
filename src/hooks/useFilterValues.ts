@@ -57,10 +57,10 @@ export function useFilterValues() {
 
   useEffect(() => {
     const fetchFilterValues = async () => {
-      try {
-        // Check localStorage cache first
-        const cached = localStorage.getItem(CACHE_KEY);
-        if (cached) {
+      // Check localStorage cache first
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        try {
           const parsedCache: CachedFilterValues = JSON.parse(cached);
           if (parsedCache.expiresAt > Date.now()) {
             console.log("📋 Using cached filter values");
@@ -68,16 +68,35 @@ export function useFilterValues() {
             setIsLoading(false);
             return;
           }
+        } catch {
+          localStorage.removeItem(CACHE_KEY);
         }
+      }
 
+      // Check if we recently failed (avoid spamming)
+      const failedKey = `${CACHE_KEY}_failed`;
+      const lastFailed = localStorage.getItem(failedKey);
+      if (lastFailed && Date.now() - parseInt(lastFailed) < 5 * 60 * 1000) {
+        console.log("📋 Using defaults (API recently unavailable)");
+        setIsLoading(false);
+        return;
+      }
+
+      // Fetch with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      try {
         console.log("📋 Fetching filter values from API");
         const response = await fetch(`${API_BASE_URL}/api/ratehawk/filter-values`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
-          throw new Error(`Filter values API error: ${response.status}`);
+          throw new Error(`${response.status}`);
         }
 
         const data = await response.json();
@@ -85,6 +104,7 @@ export function useFilterValues() {
         if (data?.success && data?.data) {
           console.log("✅ Filter values fetched successfully");
           setFilterValues(data.data);
+          localStorage.removeItem(failedKey);
 
           const cacheData: CachedFilterValues = {
             data: data.data,
@@ -95,9 +115,11 @@ export function useFilterValues() {
           console.warn("⚠️ Filter values API returned no data, using defaults");
         }
       } catch (err) {
-        console.error("❌ Error fetching filter values:", err);
-        setError(err instanceof Error ? err.message : "Failed to load filter values");
-        // Keep using default values on error
+        clearTimeout(timeoutId);
+        const message = err instanceof Error ? err.message : "unknown";
+        console.warn(`⚠️ Filter values unavailable (${message}), using defaults`);
+        localStorage.setItem(failedKey, Date.now().toString());
+        // Keep using default values - already in state
       } finally {
         setIsLoading(false);
       }
