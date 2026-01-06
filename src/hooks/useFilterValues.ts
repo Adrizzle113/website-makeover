@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { API_BASE_URL } from "@/config/api";
 import type { FilterValuesData } from "@/types/filterValues";
 
 const CACHE_KEY = "ratehawk_filter_values";
@@ -71,19 +71,21 @@ export function useFilterValues() {
         }
 
         console.log("📋 Fetching filter values from API");
-        const { data, error: apiError } = await supabase.functions.invoke(
-          "travelapi-filter-values"
-        );
+        const response = await fetch(`${API_BASE_URL}/api/ratehawk/filter-values`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
 
-        if (apiError) {
-          throw new Error(apiError.message);
+        if (!response.ok) {
+          throw new Error(`Filter values API error: ${response.status}`);
         }
+
+        const data = await response.json();
 
         if (data?.success && data?.data) {
           console.log("✅ Filter values fetched successfully");
           setFilterValues(data.data);
 
-          // Cache in localStorage
           const cacheData: CachedFilterValues = {
             data: data.data,
             expiresAt: Date.now() + CACHE_TTL,
