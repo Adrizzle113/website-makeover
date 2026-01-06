@@ -243,11 +243,17 @@ class RateHawkApiService {
       throw new Error("Check-out must be after check-in");
     }
 
-    // Prefer sending a plain city name to the backend (it often fails on "City, State")
+    // Determine if we already have a valid regionId
+    const hasValidRegionId = params.destinationId && /^\d+$/.test(params.destinationId);
+    
+    // Keep FULL destination when we have regionId (backend should use regionId, not resolve from destination)
+    // Only simplify destination when we DON'T have a regionId and need backend to resolve it
     let destination = rawDestination;
-    if (rawDestination.includes(",")) {
+    if (!hasValidRegionId && rawDestination.includes(",")) {
       destination = rawDestination.split(",")[0].trim();
-      console.log(`📍 Simplified destination: "${rawDestination}" → "${destination}"`);
+      console.log(`📍 Simplified destination (no regionId): "${rawDestination}" → "${destination}"`);
+    } else if (hasValidRegionId) {
+      console.log(`📍 Using full destination with regionId: "${destination}" (regionId: ${params.destinationId})`);
     }
 
     // Format guests as array of room objects (required by backend)
@@ -341,8 +347,23 @@ class RateHawkApiService {
       });
 
       if (!response.ok) {
-        console.error("❌ Search error:", response.status);
-        throw new Error(`Search failed: ${response.status}`);
+        // Read the actual error message from backend
+        let errorMessage = `Search failed: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          console.error("❌ Search error:", response.status, errorData);
+          errorMessage = errorData.error || errorData.message || errorData.details || errorMessage;
+        } catch {
+          // If body isn't JSON, try text
+          try {
+            const errorText = await response.text();
+            console.error("❌ Search error (text):", response.status, errorText);
+            if (errorText) errorMessage = errorText;
+          } catch {
+            console.error("❌ Search error:", response.status);
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
