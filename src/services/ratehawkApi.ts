@@ -1,6 +1,10 @@
 import { API_BASE_URL } from "@/config/api";
 import { getOrCreateUserId } from "@/lib/getOrCreateUserId";
 import { geocodePlace } from "@/services/mapboxGeocode";
+
+// Build stamp for debugging deployed code version
+const RATEHAWK_API_BUILD = "2026-01-06T001";
+console.log(`🔧 RateHawkApiService build: ${RATEHAWK_API_BUILD}`);
 import type {
   SearchParams,
   Hotel,
@@ -228,6 +232,7 @@ class RateHawkApiService {
   }
 
   async searchHotels(params: SearchParams, page: number = 1, filters?: SearchFilters): Promise<SearchResponse> {
+    console.log(`🧪 searchHotels() build=${RATEHAWK_API_BUILD} start`);
     const userId = this.getCurrentUserId();
 
     // VALIDATION: Fail early with helpful errors
@@ -279,8 +284,11 @@ class RateHawkApiService {
     };
 
     if (regionId) {
+      // Send ALL possible field names for maximum backend compatibility
       baseBody.regionId = regionId;
       baseBody.region_id = regionId;
+      baseBody.destId = regionId;        // Backend may expect this
+      baseBody.destinationId = regionId; // Alternative name
     }
 
     // Add filters if provided
@@ -375,16 +383,23 @@ class RateHawkApiService {
           console.error(`❌ Attempt ${i + 1} failed:`, errorMessage);
           lastError = new Error(errorMessage);
           
-          // Check if this is a "region not found" error
-          isRegionNotFoundError = errorMessage.toLowerCase().includes("could not find region");
+          const lowerError = errorMessage.toLowerCase();
           
-          // If it's a region-not-found error and we have more attempts, continue
-          if (isRegionNotFoundError && i < attempts.length - 1) {
+          // Check if this is a recoverable error that warrants retry
+          isRegionNotFoundError = lowerError.includes("could not find region");
+          const isMissingFieldsError = lowerError.includes("missing required") || 
+                                        lowerError.includes("destid") ||
+                                        lowerError.includes("destination required");
+          const isRecoverable = isRegionNotFoundError || isMissingFieldsError;
+          
+          // If it's a recoverable error and we have more attempts, continue
+          if (isRecoverable && i < attempts.length - 1) {
+            console.log(`🔄 Recoverable error, trying next attempt...`);
             continue;
           }
           
-          // If it's NOT a region error, don't retry (e.g., validation errors)
-          if (!isRegionNotFoundError) {
+          // If it's NOT recoverable at all, throw immediately
+          if (!isRecoverable) {
             throw lastError;
           }
           
