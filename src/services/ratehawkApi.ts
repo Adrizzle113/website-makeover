@@ -1,5 +1,4 @@
 import { API_BASE_URL } from "@/config/api";
-import { supabase } from "@/integrations/supabase/client";
 import { getOrCreateUserId } from "@/lib/getOrCreateUserId";
 import type {
   SearchParams,
@@ -190,15 +189,18 @@ class RateHawkApiService {
     try {
       console.log(`🔍 Auto-looking up region_id for: "${destination}"`);
       
-      const { data, error } = await supabase.functions.invoke("travelapi-destination", {
-        body: { query: destination },
+      const response = await fetch(`${API_BASE_URL}/api/destination`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: destination }),
       });
 
-      if (error) {
-        console.error("❌ Destination lookup failed:", error);
-        // Fallback to local resolution
+      if (!response.ok) {
+        console.error("❌ Destination lookup failed:", response.status);
         return this.resolveFromFallback(destination);
       }
+
+      const data = await response.json();
 
       // Support NEW format: { status: "ok", data: { destinations: [...] } }
       const newFormatRegion = data?.data?.destinations?.[0];
@@ -217,11 +219,9 @@ class RateHawkApiService {
       }
 
       console.warn(`⚠️ No region_id from API for "${destination}", trying local fallback`);
-      // Fallback to local resolution when API returns empty
       return this.resolveFromFallback(destination);
     } catch (error) {
       console.error("❌ Error looking up region_id:", error);
-      // Fallback to local resolution on any error
       return this.resolveFromFallback(destination);
     }
   }
@@ -334,14 +334,18 @@ class RateHawkApiService {
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke("travelapi-search", {
-        body: requestBody,
+      const response = await fetch(`${API_BASE_URL}/api/ratehawk/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
       });
 
-      if (error) {
-        console.error("❌ Search error:", error);
-        throw new Error(error.message || "Search failed");
+      if (!response.ok) {
+        console.error("❌ Search error:", response.status);
+        throw new Error(`Search failed: ${response.status}`);
       }
+
+      const data = await response.json();
 
       console.log("✅ Search Response:", {
         hotels: data.hotels?.length || 0,
@@ -581,15 +585,18 @@ class RateHawkApiService {
     console.log("🔍 POI Search Request:", requestBody);
 
     try {
-      const { data, error } = await supabase.functions.invoke("travelapi-search-poi", {
-        body: requestBody,
+      const response = await fetch(`${API_BASE_URL}/api/ratehawk/search/by-poi`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
       });
 
-      if (error) {
-        console.error("❌ POI Search error:", error);
-        throw new Error(error.message || "POI search failed");
+      if (!response.ok) {
+        console.error("❌ POI Search error:", response.status);
+        throw new Error(`POI search failed: ${response.status}`);
       }
 
+      const data = await response.json();
       return this.transformSearchResponse(data);
     } catch (error) {
       console.error("❌ POI Search failed:", error);
@@ -626,15 +633,18 @@ class RateHawkApiService {
     console.log("🔍 Geo Search Request:", requestBody);
 
     try {
-      const { data, error } = await supabase.functions.invoke("travelapi-search-geo", {
-        body: requestBody,
+      const response = await fetch(`${API_BASE_URL}/api/ratehawk/search/by-geo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
       });
 
-      if (error) {
-        console.error("❌ Geo Search error:", error);
-        throw new Error(error.message || "Geo search failed");
+      if (!response.ok) {
+        console.error("❌ Geo Search error:", response.status);
+        throw new Error(`Geo search failed: ${response.status}`);
       }
 
+      const data = await response.json();
       return this.transformSearchResponse(data);
     } catch (error) {
       console.error("❌ Geo Search failed:", error);
@@ -670,15 +680,18 @@ class RateHawkApiService {
     console.log("🔍 IDs Search Request:", requestBody);
 
     try {
-      const { data, error } = await supabase.functions.invoke("travelapi-search-ids", {
-        body: requestBody,
+      const response = await fetch(`${API_BASE_URL}/api/ratehawk/search/by-ids`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
       });
 
-      if (error) {
-        console.error("❌ IDs Search error:", error);
-        throw new Error(error.message || "IDs search failed");
+      if (!response.ok) {
+        console.error("❌ IDs Search error:", response.status);
+        throw new Error(`IDs search failed: ${response.status}`);
       }
 
+      const data = await response.json();
       return this.transformSearchResponse(data);
     } catch (error) {
       console.error("❌ IDs Search failed:", error);
@@ -982,49 +995,45 @@ class RateHawkApiService {
   }
 
   async getDestinations(query: string, signal?: AbortSignal): Promise<Destination[]> {
-    // Check if already aborted before making request
     if (signal?.aborted) {
       throw new DOMException('Aborted', 'AbortError');
     }
 
     try {
-      // Call Supabase edge function to proxy to Render (avoids CORS)
-      const { data, error } = await supabase.functions.invoke('travelapi-destination', {
-        body: { query },
+      const response = await fetch(`${API_BASE_URL}/api/destination`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+        signal,
       });
 
-      // Check if aborted after request completes (before processing)
       if (signal?.aborted) {
         throw new DOMException('Aborted', 'AbortError');
       }
 
-      if (error) {
-        console.error("❌ Destination edge function error:", error);
-        throw error;
+      if (!response.ok) {
+        console.error("❌ Destination API error:", response.status);
+        throw new Error(`Destination lookup failed: ${response.status}`);
       }
 
-      // Check if response contains an abort/timeout error from edge function
+      const data = await response.json();
+
       if (data?.error) {
         const errorMsg = String(data.error);
         if (errorMsg.includes('aborted') || errorMsg.includes('Aborted') || errorMsg.includes('timeout')) {
-          // Throw AbortError so frontend handles it gracefully (ignored by catch)
           throw new DOMException('Aborted', 'AbortError');
         }
         console.warn('⚠️ Destination API returned error:', data.error);
         throw new Error(data.error);
       }
 
-      // Handle new structured response format from backend
-      // Format: { status: "ok", data: { destinations: [...] }, meta: { from_cache, duration_ms } }
       const isNewFormat = data?.status === 'ok' && data?.data?.destinations;
-      
       let suggestions: Destination[] = [];
-      
+
       if (isNewFormat) {
         const meta = data.meta || {};
         console.log(`🔍 Destination API response (cache: ${meta.from_cache}, ${meta.duration_ms}ms):`, data.data.destinations.length, 'results');
-        
-        // Transform new format destinations with "City, State" for US to avoid ambiguity
+
         suggestions = (data.data.destinations || []).map((dest: {
           label: string;
           region_id: number;
@@ -1033,17 +1042,13 @@ class RateHawkApiService {
           country_name?: string;
         }) => {
           const labelParts = dest.label.split(',').map(p => p.trim());
-          
-          // For US destinations, show "City, State" to distinguish e.g. "Los Angeles, California" vs "Los Angeles, Texas"
-          let displayName = labelParts[0]; // Default: just city name
+          let displayName = labelParts[0];
           if (labelParts.length >= 2 && dest.country_code === 'US') {
-            displayName = `${labelParts[0]}, ${labelParts[1]}`; // "Los Angeles, California"
+            displayName = `${labelParts[0]}, ${labelParts[1]}`;
           }
-          
-          // Country is everything after the display name parts
           const displayParts = displayName.split(',').length;
           const remainingParts = labelParts.slice(displayParts).join(', ');
-          
+
           return {
             id: String(dest.region_id),
             name: displayName,
@@ -1052,7 +1057,6 @@ class RateHawkApiService {
           };
         });
       } else {
-        // Legacy response format handling
         const response = data as {
           hotels?: Array<{
             otahotel_id: string;
@@ -1072,7 +1076,6 @@ class RateHawkApiService {
 
         console.log('🔍 Destination API response (legacy format):', response);
 
-        // Transform regions to Destination format (prioritize regions/cities)
         const regionDestinations: Destination[] = (response.regions || []).map((region) => ({
           id: String(region.id),
           name: region.name,
@@ -1080,7 +1083,6 @@ class RateHawkApiService {
           type: region.type.toLowerCase().includes("city") ? "city" : "region",
         }));
 
-        // Optionally include hotels as suggestions
         const hotelDestinations: Destination[] = (response.hotels || []).slice(0, 3).map((hotel) => ({
           id: hotel.otahotel_id,
           name: hotel.hotel_name,
@@ -1088,11 +1090,9 @@ class RateHawkApiService {
           type: "hotel" as const,
         }));
 
-        // Return regions first, then a few hotel suggestions
         suggestions = [...regionDestinations, ...hotelDestinations];
       }
 
-      // CRITICAL: If API returned empty results, use local fallback
       if (suggestions.length === 0) {
         console.log(`⚠️ API returned 0 results for "${query}", using local fallback`);
         return this.getFallbackDestinations(query);
@@ -1100,14 +1100,11 @@ class RateHawkApiService {
 
       return suggestions;
     } catch (error) {
-      // Re-throw AbortError so frontend can handle it properly
       if (error instanceof DOMException && error.name === 'AbortError') {
         throw error;
       }
 
       console.error("Error fetching destinations:", error);
-
-      // Fallback: Use local popular destinations when API fails
       console.log("📍 Using fallback destination search for:", query);
       return this.getFallbackDestinations(query);
     }
