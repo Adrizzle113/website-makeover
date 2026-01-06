@@ -9,6 +9,9 @@ import type {
   SearchFilters,
   RoomRate,
   RateHawkRate,
+  POISearchParams,
+  GeoSearchParams,
+  IdsSearchParams,
 } from "@/types/booking";
 
 export interface SearchResponse {
@@ -546,6 +549,300 @@ class RateHawkApiService {
       console.error("❌ Search failed:", error);
       throw error;
     }
+  }
+
+  // ===== NEW SEARCH METHODS =====
+
+  /**
+   * Search hotels by Point of Interest name (e.g., "The Forum in Inglewood")
+   */
+  async searchByPOI(params: POISearchParams): Promise<SearchResponse> {
+    const userId = this.getCurrentUserId();
+
+    if (!params.poiName?.trim()) {
+      throw new Error("Please enter a point of interest name");
+    }
+
+    if (!params.checkin || !params.checkout) {
+      throw new Error("Please select check-in and check-out dates");
+    }
+
+    const requestBody = {
+      userId,
+      poiName: params.poiName.trim(),
+      checkin: this.formatDate(params.checkin),
+      checkout: this.formatDate(params.checkout),
+      guests: params.guests,
+      radius: params.radius || 5000,
+      residency: params.residency?.toLowerCase() || "us",
+      currency: params.currency || "USD",
+    };
+
+    console.log("🔍 POI Search Request:", requestBody);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("travelapi-search-poi", {
+        body: requestBody,
+      });
+
+      if (error) {
+        console.error("❌ POI Search error:", error);
+        throw new Error(error.message || "POI search failed");
+      }
+
+      return this.transformSearchResponse(data);
+    } catch (error) {
+      console.error("❌ POI Search failed:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Search hotels by geographic coordinates (lat/lon)
+   */
+  async searchByGeo(params: GeoSearchParams): Promise<SearchResponse> {
+    const userId = this.getCurrentUserId();
+
+    if (params.latitude === undefined || params.longitude === undefined) {
+      throw new Error("Please provide coordinates");
+    }
+
+    if (!params.checkin || !params.checkout) {
+      throw new Error("Please select check-in and check-out dates");
+    }
+
+    const requestBody = {
+      userId,
+      latitude: params.latitude,
+      longitude: params.longitude,
+      checkin: this.formatDate(params.checkin),
+      checkout: this.formatDate(params.checkout),
+      guests: params.guests,
+      radius: params.radius || 5000,
+      residency: params.residency?.toLowerCase() || "us",
+      currency: params.currency || "USD",
+    };
+
+    console.log("🔍 Geo Search Request:", requestBody);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("travelapi-search-geo", {
+        body: requestBody,
+      });
+
+      if (error) {
+        console.error("❌ Geo Search error:", error);
+        throw new Error(error.message || "Geo search failed");
+      }
+
+      return this.transformSearchResponse(data);
+    } catch (error) {
+      console.error("❌ Geo Search failed:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Search hotels by hotel IDs (for favorites/saved hotels)
+   */
+  async searchByIds(params: IdsSearchParams): Promise<SearchResponse> {
+    const userId = this.getCurrentUserId();
+
+    if (!params.hotelIds || params.hotelIds.length === 0) {
+      throw new Error("Please select at least one hotel");
+    }
+
+    if (!params.checkin || !params.checkout) {
+      throw new Error("Please select check-in and check-out dates");
+    }
+
+    const requestBody = {
+      userId,
+      ids: params.hotelIds,
+      hids: params.hotelIds, // Send both formats for backend compatibility
+      checkin: this.formatDate(params.checkin),
+      checkout: this.formatDate(params.checkout),
+      guests: params.guests,
+      residency: params.residency?.toLowerCase() || "us",
+      currency: params.currency || "USD",
+    };
+
+    console.log("🔍 IDs Search Request:", requestBody);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("travelapi-search-ids", {
+        body: requestBody,
+      });
+
+      if (error) {
+        console.error("❌ IDs Search error:", error);
+        throw new Error(error.message || "IDs search failed");
+      }
+
+      return this.transformSearchResponse(data);
+    } catch (error) {
+      console.error("❌ IDs Search failed:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Transform raw API response to SearchResponse format
+   * Shared by all search methods
+   */
+  private transformSearchResponse(data: any): SearchResponse {
+    // Check if response indicates an error
+    if (data && typeof data === 'object' && 'error' in data) {
+      throw new Error(data.error || data.details || "Search failed");
+    }
+
+    const rawResponse = data as {
+      success: boolean;
+      hotels: any[];
+      total?: number;
+      hasMore?: boolean;
+      page?: number;
+    };
+
+    // Use the same hotel transformation logic as searchHotels
+    const hotels: Hotel[] = (rawResponse.hotels || []).map((h: any) => this.transformHotelData(h));
+
+    const totalResults = rawResponse.total || hotels.length;
+    const hasMore = rawResponse.hasMore ?? false;
+
+    return {
+      hotels,
+      totalResults,
+      hasMore,
+      nextPage: (rawResponse.page || 1) + 1,
+      currentPage: rawResponse.page || 1,
+    };
+  }
+
+  /**
+   * Transform raw hotel data to Hotel type
+   * Extracted for reuse across search methods
+   */
+  private transformHotelData(h: any): Hotel {
+    const hotelId = h.hotel_id || h.id;
+    const staticData = h.static_data || {};
+    const staticVm = h.static_vm || h.ratehawk_data?.static_vm;
+
+    const humanizeSlug = (slug: string): string => {
+      return slug
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, c => c.toUpperCase())
+        .trim();
+    };
+
+    const rawName = staticData.name || h.name || staticVm?.name;
+    const hotelName = rawName && rawName.trim() ? rawName : humanizeSlug(hotelId);
+
+    const amenityStrings = h.amenities || staticVm?.amenities || [];
+    const rates = h.rates || h.ratehawk_data?.rates || [];
+    
+    let priceFrom = 0;
+    let currency = "USD";
+
+    if (rates.length > 0) {
+      const prices = rates.map((rate: any) => {
+        const paymentType = rate.payment_options?.payment_types?.[0];
+        const amount = parseFloat(paymentType?.show_amount || paymentType?.amount || '0');
+        return { amount, currency: paymentType?.show_currency_code || paymentType?.currency_code || 'USD' };
+      }).filter((p: any) => p.amount > 0);
+
+      if (prices.length > 0) {
+        const lowestPrice = prices.reduce((min: any, p: any) => p.amount < min.amount ? p : min, prices[0]);
+        priceFrom = lowestPrice.amount;
+        currency = lowestPrice.currency;
+      }
+    }
+
+    if (priceFrom === 0 && h.price?.amount) {
+      priceFrom = h.price.amount;
+      currency = h.price.currency || "USD";
+    }
+
+    let images: Array<{ url: string; alt: string }> = [];
+
+    if (staticData.images && staticData.images.length > 0) {
+      images = staticData.images.slice(0, 10).map((url: string) => {
+        let processedUrl = typeof url === 'string' ? url : '';
+        if (processedUrl.includes('{size}')) {
+          processedUrl = processedUrl.replace('{size}', '640x400');
+        }
+        return { url: processedUrl, alt: hotelName };
+      }).filter((img: any) => img.url && img.url.length > 30);
+    }
+
+    if (images.length === 0 && staticVm?.images?.length > 0) {
+      images = staticVm.images.slice(0, 10).map((img: any) => {
+        const url = typeof img === 'string'
+          ? img.replace('{size}', '640x400')
+          : img.tmpl?.replace("{size}", "640x400") || img.url || "";
+        return { url, alt: hotelName };
+      }).filter((img: any) => img.url && img.url.length > 30);
+    }
+
+    const mainImage = images[0]?.url || h.image || "/placeholder.svg";
+
+    const hasFreeCancellation = h.freeCancellation ||
+      rates.some((r: any) => r.free_cancellation === true || r.cancellationPolicy?.toLowerCase().includes("free"));
+    const mealPlan = h.mealPlan || rates[0]?.meal || rates[0]?.meal_data?.name;
+    const paymentTypes = rates[0]?.payment_options?.payment_types?.map((p: any) => p.type) || [];
+
+    const address = staticData.address || staticVm?.address || h.location || "";
+    const regionName = staticVm?.region?.name || "";
+
+    let cityFromAddress = "";
+    if (address && !regionName && !staticData.city) {
+      const addressParts = address.split(',').map((p: string) => p.trim());
+      if (addressParts.length >= 2) {
+        const lastPart = addressParts[addressParts.length - 1];
+        cityFromAddress = /^\d/.test(lastPart) ? addressParts[addressParts.length - 2] || "" : lastPart;
+      }
+    }
+
+    const city = staticData.city || regionName || cityFromAddress || "";
+    const country = staticData.country || staticVm?.region?.country_code || "";
+
+    let starRating = 0;
+    if (staticData.star_rating) {
+      starRating = staticData.star_rating;
+    } else if (staticVm?.star_rating) {
+      starRating = staticVm.star_rating > 5 ? Math.round(staticVm.star_rating / 10) : staticVm.star_rating;
+    } else if (h.rating) {
+      starRating = h.rating;
+    }
+
+    const latitude = staticData.coordinates?.lat || staticVm?.latitude;
+    const longitude = staticData.coordinates?.lon || staticVm?.longitude;
+
+    return {
+      id: hotelId,
+      name: hotelName,
+      description: staticVm?.description || h.description || "",
+      address,
+      city,
+      country,
+      starRating,
+      reviewScore: staticVm?.rating || h.reviewScore,
+      reviewCount: staticVm?.review_count || h.reviewCount || 0,
+      images,
+      mainImage,
+      amenities: amenityStrings.map((a: string, idx: number) => ({ id: `amenity-${idx}`, name: a })),
+      priceFrom,
+      currency,
+      latitude,
+      longitude,
+      ratehawk_data: {
+        ...h,
+        static_vm: staticVm,
+      },
+      freeCancellation: hasFreeCancellation,
+      mealPlan,
+      paymentTypes,
+    } as Hotel;
   }
 
   async getHotelDetails(hotelId: string, searchParams?: SearchParams): Promise<HotelDetails | null> {

@@ -8,3 +8,12 @@ verify_jwt = false
 
 [functions.travelapi-filter-values]
 verify_jwt = false
+
+[functions.travelapi-search-poi]
+verify_jwt = false
+
+[functions.travelapi-search-geo]
+verify_jwt = false
+
+[functions.travelapi-search-ids]
+verify_jwt = false
