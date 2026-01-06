@@ -340,7 +340,10 @@ const PaymentPage = () => {
 
       // Step 1: Tokenize card if card payment type
       if (isCardPayment) {
-        const isClientCard = paymentType === "now_gross";
+        if (!payUuid || !initUuid) {
+          throw new Error("Payment session expired. Please refresh and try again.");
+        }
+
         const [month, year] = expiryDate.split("/");
         
         const tokenRequest = {
@@ -359,29 +362,45 @@ const PaymentPage = () => {
           },
         };
         
-        console.log("💳 Card tokenization request prepared:", { 
-          ...tokenRequest, 
-          cvc: "***",
-          isClientCard,
-          credit_card_data_core: { 
-            ...tokenRequest.credit_card_data_core, 
-            card_number: `****${tokenRequest.credit_card_data_core.card_number.slice(-4)}` 
-          } 
+        console.log("💳 Card tokenization request:", { 
+          object_id: tokenRequest.object_id,
+          pay_uuid: tokenRequest.pay_uuid,
+          init_uuid: tokenRequest.init_uuid,
+          card_last_4: tokenRequest.credit_card_data_core.card_number.slice(-4),
         });
+
+        // Call Payota tokenization endpoint
+        const tokenResponse = await bookingApi.createCreditCardToken(tokenRequest);
         
-        // TODO: Call backend Payota tokenization endpoint when ready
-        // const tokenResponse = await payotaApi.createCreditCardToken(tokenRequest);
-        // if (tokenResponse.status !== "ok") {
-        //   throw new Error(getPayotaErrorMessage(tokenResponse.error || ""));
-        // }
-        
-        toast({
-          title: "Card Payment",
-          description: "Card details captured. Backend tokenization integration coming soon.",
+        if (tokenResponse.status !== "ok") {
+          const errorMsg = getPayotaErrorMessage(tokenResponse.error || "UNKNOWN_ERROR");
+          throw new Error(errorMsg);
+        }
+
+        console.log("✅ Card tokenized successfully");
+
+        // Step 2: Start booking with card payment
+        const startResponse = await bookingApi.startBooking(orderId, {
+          type: "now",
+          currency_code: bookingData!.hotel.currency || "USD",
+          pay_uuid: payUuid,
+          init_uuid: initUuid,
         });
+
+        if (startResponse.error) {
+          throw new Error(startResponse.error.message);
+        }
+
+        const finalOrderId = startResponse.data?.order_id;
+        if (!finalOrderId) {
+          throw new Error("No order ID received from booking");
+        }
+        
+        navigate(`/processing/${finalOrderId}`);
+        return;
       }
 
-      // Step 2: Complete booking
+      // Step 2: Complete booking (non-card payments)
       const response = await bookingApi.finishBooking({
         order_id: orderId,
         item_id: itemId,
@@ -427,6 +446,22 @@ const PaymentPage = () => {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // Helper to get user-friendly Payota error messages
+  const getPayotaErrorMessage = (errorCode: string): string => {
+    const errorMessages: Record<string, string> = {
+      "INVALID_CARD_NUMBER": "The card number is invalid. Please check and try again.",
+      "CARD_EXPIRED": "This card has expired. Please use a different card.",
+      "INSUFFICIENT_FUNDS": "Insufficient funds. Please try a different card.",
+      "CARD_DECLINED": "Your card was declined. Please contact your bank or try another card.",
+      "INVALID_CVC": "The security code (CVV/CVC) is incorrect.",
+      "PROCESSING_ERROR": "Payment processing error. Please try again.",
+      "NETWORK_ERROR": "Network error. Please check your connection and try again.",
+      "SESSION_EXPIRED": "Payment session expired. Please refresh and try again.",
+      "UNKNOWN_ERROR": "An unexpected error occurred. Please try again.",
+    };
+    return errorMessages[errorCode] || `Payment error: ${errorCode}`;
   };
 
   // Get button text based on state
