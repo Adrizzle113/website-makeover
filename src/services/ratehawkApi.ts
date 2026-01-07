@@ -212,14 +212,89 @@ class RateHawkApiService {
   }
 
   /**
-   * Enrich hotels with static data - NOW HANDLED BY travelapi-search edge function
-   * The edge function already queries hotels_static and merges static_data into each hotel.
-   * This method is kept for backward compatibility but just applies destination fallback
-   * for any hotels that didn't get enriched by the edge function.
+   * Enrich hotels with static data by querying hotels_static table directly
+   * This is needed because searches go to external Render server which doesn't have Supabase access
+   */
+  private async enrichFromSupabase(hotels: any[]): Promise<any[]> {
+    if (!hotels || hotels.length === 0) return hotels;
+
+    // Extract numeric hids from hotels
+    const hids = hotels
+      .map(h => h.hid)
+      .filter(hid => hid !== undefined && hid !== null)
+      .map(hid => typeof hid === 'number' ? hid : parseInt(String(hid), 10))
+      .filter(hid => !isNaN(hid));
+
+    if (hids.length === 0) {
+      console.log('⚠️ No valid hids found for enrichment');
+      return hotels;
+    }
+
+    try {
+      console.log(`🔍 Enriching ${hids.length} hotels from hotels_static...`);
+      
+      // Query hotels_static table directly (max 100 to avoid query limits)
+      // Use type assertion since hotels_static may not be in generated types
+      const { data: staticData, error } = await (supabase as any)
+        .from('hotels_static')
+        .select('hid, name, address, region_name, country_code, star_rating, latitude, longitude, amenities, description')
+        .in('hid', hids.slice(0, 100));
+
+      if (error) {
+        console.warn('⚠️ Enrichment query failed:', error.message);
+        return hotels;
+      }
+
+      if (!staticData || staticData.length === 0) {
+        console.log('⚠️ No matches found in hotels_static');
+        return hotels;
+      }
+
+      console.log(`✅ Enrichment: ${staticData.length}/${hids.length} hotels matched in hotels_static`);
+
+      // Create lookup map by hid (cast staticData to any[] for type safety)
+      const staticMap = new Map((staticData as any[]).map((s: any) => [s.hid, s]));
+
+      // Merge static data into hotels
+      return hotels.map(hotel => {
+        const hid = typeof hotel.hid === 'number' ? hotel.hid : parseInt(String(hotel.hid), 10);
+        const staticInfo = staticMap.get(hid) as any;
+        
+        if (staticInfo) {
+          return {
+            ...hotel,
+            static_data: {
+              name: staticInfo.name,
+              address: staticInfo.address,
+              city: staticInfo.region_name,
+              country: staticInfo.country_code,
+              star_rating: staticInfo.star_rating,
+              coordinates: staticInfo.latitude && staticInfo.longitude 
+                ? { lat: staticInfo.latitude, lon: staticInfo.longitude } 
+                : undefined,
+              amenities: staticInfo.amenities || [],
+              description: staticInfo.description,
+            },
+          };
+        }
+        return hotel;
+      });
+    } catch (err) {
+      console.error('❌ Enrichment error:', err);
+      return hotels;
+    }
+  }
+
+  /**
+   * Enrich hotels with static data and apply destination fallback
    */
   private async enrichHotelsWithStaticData(data: any, destination?: string): Promise<any> {
-    // travelapi-search already enriches hotels with static_data from hotels_static table
-    // Just apply destination fallback for any hotels that didn't get enriched
+    if (!data?.hotels?.length) return data;
+
+    // Enrich hotels directly from Supabase hotels_static table
+    data.hotels = await this.enrichFromSupabase(data.hotels);
+
+    // Apply destination fallback for any hotels that didn't get enriched
     return this.applyDestinationFallback(data, destination);
   }
 
