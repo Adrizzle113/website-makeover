@@ -1,4 +1,4 @@
-// Redeploy trigger - 2026-01-07T18:20:00 - REDUCE LOAD FOR WORKER_LIMIT
+// Redeploy trigger - 2026-01-07T18:40:00 - ENRICH-ONLY MODE
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
@@ -12,8 +12,8 @@ const corsHeaders = {
 const RENDER_API_URL = "https://travelapi-bg6t.onrender.com";
 const MAX_RETRIES = 1;
 const RETRY_DELAY_MS = 2000;
-const REQUEST_TIMEOUT_MS = 12000;  // Reduced from 20000
-const WARMUP_TIMEOUT_MS = 3000;    // Reduced from 5000
+const REQUEST_TIMEOUT_MS = 12000;
+const WARMUP_TIMEOUT_MS = 3000;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -24,6 +24,72 @@ const inFlightRequests = new Map<string, Promise<Response>>();
 
 function getRequestKey(body: any): string {
   return `${body.regionId || body.region_id}-${body.checkin}-${body.checkout}-${body.guests?.length || 0}`;
+}
+
+// ============================================
+// ENRICH-ONLY MODE: Lightweight DB lookup by hids
+// Used when frontend calls Render directly and just needs static data
+// ============================================
+async function handleEnrichOnly(hids: number[], supabase: any): Promise<Response> {
+  console.log(`🔍 Enrich-only mode: ${hids.length} hids`);
+  
+  if (!supabase) {
+    return new Response(JSON.stringify({ byHid: {}, error: "No database connection" }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  if (hids.length === 0 || hids.length > 100) {
+    return new Response(JSON.stringify({ byHid: {}, error: hids.length === 0 ? "No hids" : "Too many hids (max 100)" }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  try {
+    const { data: staticData, error } = await supabase
+      .from("hotels_static")
+      .select(`hid, name, address, region_name, country_code, star_rating, latitude, longitude, amenities, description, check_in_time, check_out_time`)
+      .in("hid", hids);
+
+    if (error) {
+      console.error("❌ Enrich query error:", error.message);
+      return new Response(JSON.stringify({ byHid: {}, error: error.message }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Build lookup map
+    const byHid: Record<string, any> = {};
+    (staticData || []).forEach((row: any) => {
+      byHid[String(row.hid)] = {
+        name: row.name,
+        address: row.address,
+        city: row.region_name,
+        country: row.country_code,
+        star_rating: row.star_rating,
+        coordinates: { lat: row.latitude, lon: row.longitude },
+        amenities: row.amenities || [],
+        description: row.description,
+        check_in_time: row.check_in_time,
+        check_out_time: row.check_out_time,
+      };
+    });
+
+    console.log(`✅ Enrich-only returned ${Object.keys(byHid).length}/${hids.length} matches`);
+    return new Response(JSON.stringify({ byHid }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    console.error("❌ Enrich-only error:", err);
+    return new Response(JSON.stringify({ byHid: {}, error: String(err) }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 }
 
 // ============================================
@@ -430,6 +496,14 @@ serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ============================================
+    // ENRICH-ONLY MODE: Fast path for just DB lookup
+    // ============================================
+    if (requestBody.mode === "enrich-only" && Array.isArray(requestBody.hids)) {
+      const supabase = getSupabaseClient();
+      return handleEnrichOnly(requestBody.hids, supabase);
     }
 
     const requestKey = getRequestKey(requestBody);

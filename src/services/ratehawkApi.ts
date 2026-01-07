@@ -4,7 +4,7 @@ import { geocodePlace } from "@/services/mapboxGeocode";
 import { supabase } from "@/integrations/supabase/client";
 
 // Build stamp for debugging deployed code version
-const RATEHAWK_API_BUILD = "2026-01-06T001";
+const RATEHAWK_API_BUILD = "2026-01-07T002-DIRECT-SEARCH";
 console.log(`🔧 RateHawkApiService build: ${RATEHAWK_API_BUILD}`);
 import type {
   SearchParams,
@@ -69,6 +69,27 @@ interface ApiSearchFilters {
   stars?: number[];
   serp_filters?: string[];
   hotel_kinds?: string[];
+}
+
+// Circuit breaker: skip edge function for enrichment if it failed recently
+let enrichmentCircuitOpen = false;
+let enrichmentCircuitOpenedAt = 0;
+const CIRCUIT_BREAKER_DURATION_MS = 60_000; // 1 minute
+
+function isEnrichmentCircuitOpen(): boolean {
+  if (!enrichmentCircuitOpen) return false;
+  if (Date.now() - enrichmentCircuitOpenedAt > CIRCUIT_BREAKER_DURATION_MS) {
+    enrichmentCircuitOpen = false;
+    console.log("🔄 Enrichment circuit breaker closed (timeout expired)");
+    return false;
+  }
+  return true;
+}
+
+function openEnrichmentCircuit(): void {
+  enrichmentCircuitOpen = true;
+  enrichmentCircuitOpenedAt = Date.now();
+  console.warn("⚡ Enrichment circuit breaker OPENED for 60s");
 }
 
 class RateHawkApiService {
@@ -188,6 +209,119 @@ class RateHawkApiService {
 
     // Return undefined if no filters are active
     return Object.keys(apiFilters).length > 0 ? apiFilters : undefined;
+  }
+
+  /**
+   * Enrich hotels with static data via lightweight edge function call
+   * Uses circuit breaker to skip if enrichment is failing
+   */
+  private async enrichHotelsWithStaticData(data: any, destination?: string): Promise<any> {
+    const hotels = data?.hotels;
+    if (!hotels || !Array.isArray(hotels) || hotels.length === 0) {
+      return data;
+    }
+
+    // Skip enrichment if circuit breaker is open
+    if (isEnrichmentCircuitOpen()) {
+      console.log("⚡ Enrichment skipped (circuit open), using destination fallback");
+      return this.applyDestinationFallback(data, destination);
+    }
+
+    // Extract hids for enrichment (max 100)
+    const hids: number[] = [];
+    hotels.forEach((h: any) => {
+      if (h.hid) {
+        const numId = typeof h.hid === "number" ? h.hid : parseInt(String(h.hid), 10);
+        if (!isNaN(numId)) hids.push(numId);
+      }
+    });
+
+    if (hids.length === 0) {
+      console.log("⚠️ No hids found, using destination fallback");
+      return this.applyDestinationFallback(data, destination);
+    }
+
+    try {
+      console.log(`🔍 Enriching ${hids.length} hotels via enrich-only call...`);
+      
+      const { data: enrichData, error: enrichError } = await supabase.functions.invoke('travelapi-search', {
+        body: { mode: "enrich-only", hids: hids.slice(0, 100) },
+      });
+
+      if (enrichError) {
+        const msg = (enrichError.message || "").toString();
+        if (
+          msg.includes("WORKER_LIMIT") ||
+          msg.includes("not having enough compute resources") ||
+          msg.includes("returned 546")
+        ) {
+          openEnrichmentCircuit();
+        }
+        console.warn("⚠️ Enrichment failed, using destination fallback:", msg);
+        return this.applyDestinationFallback(data, destination);
+      }
+
+      const byHid = enrichData?.byHid || {};
+      const enrichedCount = Object.keys(byHid).length;
+      console.log(`✅ Enrichment returned ${enrichedCount}/${hids.length} matches`);
+
+      // Merge static data into hotels
+      data.hotels = hotels.map((hotel: any) => {
+        if (!hotel.hid) return hotel;
+        const staticInfo = byHid[String(hotel.hid)];
+        if (staticInfo) {
+          return {
+            ...hotel,
+            static_data: {
+              name: staticInfo.name,
+              address: staticInfo.address,
+              city: staticInfo.city,
+              country: staticInfo.country,
+              star_rating: staticInfo.star_rating,
+              images: [],
+              coordinates: staticInfo.coordinates,
+              amenities: staticInfo.amenities || [],
+              description: staticInfo.description,
+              check_in_time: staticInfo.check_in_time,
+              check_out_time: staticInfo.check_out_time,
+            },
+          };
+        }
+        return hotel;
+      });
+
+      // Apply destination fallback for hotels without enrichment
+      return this.applyDestinationFallback(data, destination);
+    } catch (err) {
+      console.error("❌ Enrichment error:", err);
+      return this.applyDestinationFallback(data, destination);
+    }
+  }
+
+  /**
+   * Apply destination as fallback city for hotels without static_data
+   */
+  private applyDestinationFallback(data: any, destination?: string): any {
+    if (!data?.hotels || !destination) return data;
+    
+    const destinationCity = destination.split(',')[0]?.trim() || "";
+    if (!destinationCity) return data;
+
+    data.hotels = data.hotels.map((hotel: any) => {
+      if (!hotel.static_data && destinationCity) {
+        return {
+          ...hotel,
+          static_data: {
+            city: destinationCity,
+            country: "",
+            star_rating: hotel.rating || 0,
+          },
+        };
+      }
+      return hotel;
+    });
+
+    return data;
   }
 
   // Auto-lookup region_id from destination string
@@ -351,14 +485,14 @@ class RateHawkApiService {
       });
     }
 
-    // Execute search attempts
+    // Execute search attempts - CALL RENDER DIRECTLY to avoid WORKER_LIMIT
     let lastError: Error | null = null;
     let isRegionNotFoundError = false;
 
     for (let i = 0; i < attempts.length; i++) {
       const attempt = attempts[i];
       console.log(`🧪 Region search attempt ${i + 1}/${attempts.length}: ${attempt.label}`);
-      console.log("🔍 Search Request:", {
+      console.log("🔍 Search Request (DIRECT TO RENDER):", {
         destination: attempt.body.destination,
         regionId: attempt.body.regionId,
         page,
@@ -368,66 +502,39 @@ class RateHawkApiService {
       });
 
       try {
-        // Route through Cloud Function for enrichment
-        const { data, error: supabaseError } = await supabase.functions.invoke('travelapi-search', {
-          body: attempt.body,
+        // STEP 1: Call Render API directly (avoids edge function WORKER_LIMIT)
+        const directData = await this.fetchWithError<any>(`${API_BASE_URL}/api/ratehawk/search`, {
+          method: "POST",
+          body: JSON.stringify(attempt.body),
         });
 
-        if (supabaseError) {
-          const msg = (supabaseError.message || "").toString();
-
-          // If the function runtime is out of workers, fall back to calling the upstream API directly
-          if (
-            msg.includes("WORKER_LIMIT") ||
-            msg.includes("not having enough compute resources") ||
-            msg.includes("returned 546")
-          ) {
-            console.warn(`⚠️ Function WORKER_LIMIT; falling back to direct search API (attempt ${i + 1})`);
-
-            try {
-              const directData = await this.fetchWithError<any>(`${API_BASE_URL}/api/ratehawk/search`, {
-                method: "POST",
-                body: JSON.stringify(attempt.body),
-              });
-
-              return this.parseSearchResponse(directData, page);
-            } catch (directError) {
-              console.error("❌ Direct search fallback also failed:", directError);
-              throw new Error("Search is temporarily busy. Please wait 20 seconds and try again.");
-            }
-          }
-
-          console.error(`❌ Attempt ${i + 1} Supabase error:`, msg);
-          lastError = new Error(msg);
-          continue;
-        }
-
-        if (data?.error) {
-          const errorMessage = data.error;
+        // Check for API-level errors
+        if (directData?.error) {
+          const errorMessage = directData.error;
           console.error(`❌ Attempt ${i + 1} failed:`, errorMessage);
           lastError = new Error(errorMessage);
           
           const lowerError = errorMessage.toLowerCase();
           isRegionNotFoundError = lowerError.includes("could not find region");
           
-          // If recoverable and more attempts available, continue
           if (isRegionNotFoundError && i < attempts.length - 1) {
             console.log(`🔄 Recoverable error, trying next attempt...`);
             continue;
           }
           
-          // Non-recoverable error, throw immediately
           if (!isRegionNotFoundError) throw lastError;
           continue;
         }
 
-        // Success! Parse and return results
-        console.log(`✅ Attempt ${i + 1} succeeded:`, {
-          hotels: data.hotels?.length || 0,
-          total: data.total,
+        console.log(`✅ Direct search succeeded:`, {
+          hotels: directData.hotels?.length || 0,
+          total: directData.total,
         });
 
-        return this.parseSearchResponse(data, page);
+        // STEP 2: Enrich with static data via lightweight edge function call (if circuit allows)
+        const enrichedData = await this.enrichHotelsWithStaticData(directData, attempt.body.destination as string);
+
+        return this.parseSearchResponse(enrichedData, page);
       } catch (error) {
         if (error instanceof Error && !error.message.includes("could not find region")) {
           throw error;
