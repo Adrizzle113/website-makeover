@@ -230,11 +230,12 @@ class RateHawkApiService {
 
     // Extract hotel_id strings for enrichment (max 100)
     // RateHawk returns "id" field which is the hotel_id string
+    // FORCE to string to ensure type consistency
     const hotelIds: string[] = [];
     hotels.forEach((h: any) => {
       const hotelId = h.id || h.hotel_id;
-      if (hotelId && typeof hotelId === "string") {
-        hotelIds.push(hotelId);
+      if (hotelId) {
+        hotelIds.push(String(hotelId));
       }
     });
 
@@ -243,11 +244,19 @@ class RateHawkApiService {
       return this.applyDestinationFallback(data, destination);
     }
 
+    // Generate trace ID for request correlation
+    const traceId = `enrich-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    
     try {
-      console.log(`🔍 Enriching ${hotelIds.length} hotels via enrich-only call...`);
+      console.log(`🔍 Enriching ${hotelIds.length} hotels via enrich-only call... (traceId: ${traceId})`);
       
       const { data: enrichData, error: enrichError } = await supabase.functions.invoke('travelapi-search', {
-        body: { mode: "enrich-only", hotelIds: hotelIds.slice(0, 100) },
+        method: "POST",
+        body: { 
+          mode: "enrich-only", 
+          hotelIds: hotelIds.slice(0, 100),
+          traceId,
+        },
       });
 
       if (enrichError) {

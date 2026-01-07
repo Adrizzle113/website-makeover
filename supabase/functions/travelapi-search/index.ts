@@ -1,7 +1,9 @@
-// Redeploy trigger - 2026-01-07T18:28:30 - ENRICH-ONLY FIX v2
+// Redeploy trigger - 2026-01-07T18:48:00 - ROBUST-ENRICH-V3
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+
+const EDGE_FUNCTION_VERSION = "2026-01-07T18:48:00-ROBUST-ENRICH-V3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -499,14 +501,53 @@ serve(async (req) => {
     }
 
     // ============================================
-    // ENRICH-ONLY MODE: Fast path for just DB lookup
-    // MUST be checked FIRST before any validation
+    // DIAGNOSTIC LOGGING - understand exact payload shape
     // ============================================
-    if (requestBody.mode === "enrich-only") {
-      console.log("🔍 Enrich-only mode detected, hotelIds:", requestBody.hotelIds?.length || 0);
+    console.log("📦 Request payload keys:", Object.keys(requestBody));
+    console.log("📦 requestBody.mode:", requestBody.mode, "type:", typeof requestBody.mode);
+    console.log("📦 requestBody.body?.mode:", requestBody.body?.mode);
+    console.log("📦 hotelIds present:", !!requestBody.hotelIds, "count:", requestBody.hotelIds?.length || 0);
+    console.log("📦 hotel_ids present:", !!requestBody.hotel_ids, "count:", requestBody.hotel_ids?.length || 0);
+    console.log("📦 traceId:", requestBody.traceId || "none");
+
+    // ============================================
+    // UNWRAP NESTED BODY - handle { body: { ... } } wrapping
+    // ============================================
+    if (requestBody.body && typeof requestBody.body === "object" && !Array.isArray(requestBody.body)) {
+      console.log("📦 Unwrapping nested body");
+      requestBody = requestBody.body;
+    }
+
+    // ============================================
+    // PING MODE: Verify deployed version
+    // ============================================
+    const normalizedMode = String(requestBody.mode ?? "").trim().toLowerCase();
+    if (normalizedMode === "ping") {
+      return new Response(JSON.stringify({ 
+        ok: true, 
+        version: EDGE_FUNCTION_VERSION, 
+        now: new Date().toISOString() 
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ============================================
+    // ENRICH-ONLY MODE: Fast path for just DB lookup
+    // ROBUST DETECTION: check mode + presence of hotelIds + absence of destination/regionId
+    // ============================================
+    const hotelIds = requestBody.hotelIds ?? requestBody.hotel_ids;
+    const isEnrichOnlyByMode = normalizedMode === "enrich-only" || normalizedMode === "enrich_only" || normalizedMode === "enrichonly";
+    const hasHotelIdsArray = Array.isArray(hotelIds) && hotelIds.length > 0;
+    const hasNoSearchParams = !requestBody.destination && !requestBody.regionId && !requestBody.region_id;
+    const isEnrichOnly = isEnrichOnlyByMode || (hasHotelIdsArray && hasNoSearchParams);
+
+    if (isEnrichOnly) {
+      console.log(`🔍 Enrich-only mode detected (byMode=${isEnrichOnlyByMode}, byShape=${hasHotelIdsArray && hasNoSearchParams}), hotelIds: ${hotelIds?.length || 0}`);
       const supabase = getSupabaseClient();
-      const hotelIds = Array.isArray(requestBody.hotelIds) ? requestBody.hotelIds : [];
-      return handleEnrichOnly(hotelIds, supabase);
+      const safeHotelIds = Array.isArray(hotelIds) ? hotelIds.map((id: any) => String(id)) : [];
+      return handleEnrichOnly(safeHotelIds, supabase);
     }
 
     const requestKey = getRequestKey(requestBody);
