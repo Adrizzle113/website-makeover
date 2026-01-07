@@ -212,108 +212,15 @@ class RateHawkApiService {
   }
 
   /**
-   * Enrich hotels with static data via lightweight edge function call
-   * Uses hotel_id (string) to query hotel_dump_data table
-   * Uses circuit breaker to skip if enrichment is failing
+   * Enrich hotels with static data - NOW HANDLED BY travelapi-search edge function
+   * The edge function already queries hotels_static and merges static_data into each hotel.
+   * This method is kept for backward compatibility but just applies destination fallback
+   * for any hotels that didn't get enriched by the edge function.
    */
   private async enrichHotelsWithStaticData(data: any, destination?: string): Promise<any> {
-    const hotels = data?.hotels;
-    if (!hotels || !Array.isArray(hotels) || hotels.length === 0) {
-      return data;
-    }
-
-    // Skip enrichment if circuit breaker is open
-    if (isEnrichmentCircuitOpen()) {
-      console.log("⚡ Enrichment skipped (circuit open), using destination fallback");
-      return this.applyDestinationFallback(data, destination);
-    }
-
-    // Extract hotel_id strings for enrichment (max 100)
-    // RateHawk returns "id" field which is the hotel_id string
-    // FORCE to string to ensure type consistency
-    const hotelIds: string[] = [];
-    hotels.forEach((h: any) => {
-      const hotelId = h.id || h.hotel_id;
-      if (hotelId) {
-        hotelIds.push(String(hotelId));
-      }
-    });
-
-    if (hotelIds.length === 0) {
-      console.log("⚠️ No hotel IDs found, using destination fallback");
-      return this.applyDestinationFallback(data, destination);
-    }
-
-    // Generate trace ID for request correlation
-    const traceId = `enrich-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    
-    try {
-      console.log(`🔍 Enriching ${hotelIds.length} hotels via enrich-only call... (traceId: ${traceId})`);
-      
-      const { data: enrichData, error: enrichError } = await supabase.functions.invoke('travelapi-enrich', {
-        method: "POST",
-        body: { 
-          mode: "enrich-only", 
-          hotelIds: hotelIds.slice(0, 100),
-          traceId,
-        },
-      });
-
-      if (enrichError) {
-        const msg = (enrichError.message || "").toString();
-        if (
-          msg.includes("WORKER_LIMIT") ||
-          msg.includes("not having enough compute resources") ||
-          msg.includes("returned 546")
-        ) {
-          openEnrichmentCircuit();
-        }
-        console.warn("⚠️ Enrichment failed, using destination fallback:", msg);
-        return this.applyDestinationFallback(data, destination);
-      }
-
-      // Support both byHid (numeric) and byHotelId (string) for compatibility
-      const byHid = enrichData?.byHid || {};
-      const byHotelId = enrichData?.byHotelId || {};
-      const enrichedCount = Object.keys(byHid).length || Object.keys(byHotelId).length;
-      console.log(`✅ Enrichment returned ${enrichedCount}/${hotelIds.length} matches`);
-
-      // Merge static data into hotels using hotel_id (try both lookup maps)
-      data.hotels = hotels.map((hotel: any) => {
-        const hotelId = hotel.id || hotel.hotel_id;
-        if (!hotelId) return hotel;
-        
-        // Try numeric lookup first (byHid), then string lookup (byHotelId)
-        const numericId = parseInt(String(hotelId), 10);
-        const staticInfo = byHid[numericId] || byHotelId[String(hotelId)];
-        
-        if (staticInfo) {
-          return {
-            ...hotel,
-            static_data: {
-              name: staticInfo.name,
-              address: staticInfo.address,
-              city: staticInfo.city,
-              country: staticInfo.country,
-              star_rating: staticInfo.star_rating,
-              images: [],
-              coordinates: staticInfo.coordinates,
-              amenities: staticInfo.amenities || [],
-              description: staticInfo.description,
-              check_in_time: staticInfo.check_in_time,
-              check_out_time: staticInfo.check_out_time,
-            },
-          };
-        }
-        return hotel;
-      });
-
-      // Apply destination fallback for hotels without enrichment
-      return this.applyDestinationFallback(data, destination);
-    } catch (err) {
-      console.error("❌ Enrichment error:", err);
-      return this.applyDestinationFallback(data, destination);
-    }
+    // travelapi-search already enriches hotels with static_data from hotels_static table
+    // Just apply destination fallback for any hotels that didn't get enriched
+    return this.applyDestinationFallback(data, destination);
   }
 
   /**
