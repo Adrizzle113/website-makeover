@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { Star, MapPin, ArrowRight } from "lucide-react";
+import { Star, MapPin, ArrowRight, Database, MapPinned } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,14 @@ interface HotelCardProps {
   onHover?: (hotelId: string | null) => void;
   onFocus?: (hotelId: string) => void;
 }
+
+// Check if hotel has full enrichment data (from database) vs fallback (destination only)
+const hasFullEnrichment = (hotel: Hotel): boolean => {
+  const staticData = (hotel as any).static_data;
+  if (!staticData) return false;
+  // Full enrichment has address, amenities, or description from database
+  return !!(staticData.address || staticData.amenities?.length > 0 || staticData.description);
+};
 
 // Normalize image URLs - handle backend placeholder that doesn't exist in frontend
 const normalizeImageUrl = (url?: string): string => {
@@ -190,6 +198,7 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
               e.currentTarget.src = "/placeholder.svg";
             }}
           />
+          {/* Review score badge */}
           {hotel.reviewScore && hotel.reviewScore > 0 ? (
             <div className="absolute top-3 left-3 md:top-4 md:left-4 bg-primary text-primary-foreground px-2 md:px-3 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-semibold">
               {hotel.reviewScore.toFixed(1)}
@@ -200,6 +209,27 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
               <span>New</span>
             </div>
           )}
+          {/* Enrichment status badge */}
+          <div 
+            className={`absolute bottom-3 left-3 md:bottom-4 md:left-4 px-2 py-1 rounded-full text-[10px] md:text-xs flex items-center gap-1 ${
+              hasFullEnrichment(hotel) 
+                ? "bg-emerald-500/90 text-white" 
+                : "bg-amber-500/90 text-white"
+            }`}
+            title={hasFullEnrichment(hotel) ? "Full hotel data from database" : "Basic data (destination fallback)"}
+          >
+            {hasFullEnrichment(hotel) ? (
+              <>
+                <Database className="w-3 h-3" />
+                <span className="hidden md:inline">Verified</span>
+              </>
+            ) : (
+              <>
+                <MapPinned className="w-3 h-3" />
+                <span className="hidden md:inline">Basic</span>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Content */}
