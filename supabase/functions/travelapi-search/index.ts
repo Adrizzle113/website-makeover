@@ -500,10 +500,13 @@ serve(async (req) => {
 
     // ============================================
     // ENRICH-ONLY MODE: Fast path for just DB lookup
+    // MUST be checked FIRST before any validation
     // ============================================
-    if (requestBody.mode === "enrich-only" && Array.isArray(requestBody.hotelIds)) {
+    if (requestBody.mode === "enrich-only") {
+      console.log("🔍 Enrich-only mode detected, hotelIds:", requestBody.hotelIds?.length || 0);
       const supabase = getSupabaseClient();
-      return handleEnrichOnly(requestBody.hotelIds, supabase);
+      const hotelIds = Array.isArray(requestBody.hotelIds) ? requestBody.hotelIds : [];
+      return handleEnrichOnly(hotelIds, supabase);
     }
 
     const requestKey = getRequestKey(requestBody);
