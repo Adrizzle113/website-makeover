@@ -362,13 +362,13 @@ class RateHawkApiService {
         destination: attempt.body.destination,
         regionId: attempt.body.regionId,
         page,
-        limit: 50,
+        limit: (attempt.body as any).limit,
         residency,
         hasFilters: !!apiFilters,
       });
 
       try {
-        // Route through Supabase Edge Function for enrichment
+        // Route through Cloud Function for enrichment
         const { data, error: supabaseError } = await supabase.functions.invoke('travelapi-search', {
           body: attempt.body,
         });
@@ -376,13 +376,25 @@ class RateHawkApiService {
         if (supabaseError) {
           const msg = (supabaseError.message || "").toString();
 
-          // If the edge runtime is out of workers, don't spam multiple attempts.
+          // If the function runtime is out of workers, fall back to calling the upstream API directly
           if (
             msg.includes("WORKER_LIMIT") ||
             msg.includes("not having enough compute resources") ||
             msg.includes("returned 546")
           ) {
-            throw new Error("Search is temporarily busy. Please wait 15 seconds and try again.");
+            console.warn(`⚠️ Function WORKER_LIMIT; falling back to direct search API (attempt ${i + 1})`);
+
+            try {
+              const directData = await this.fetchWithError<any>(`${API_BASE_URL}/api/ratehawk/search`, {
+                method: "POST",
+                body: JSON.stringify(attempt.body),
+              });
+
+              return this.parseSearchResponse(directData, page);
+            } catch (directError) {
+              console.error("❌ Direct search fallback also failed:", directError);
+              throw new Error("Search is temporarily busy. Please wait 20 seconds and try again.");
+            }
           }
 
           console.error(`❌ Attempt ${i + 1} Supabase error:`, msg);
