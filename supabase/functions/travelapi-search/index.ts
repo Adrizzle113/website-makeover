@@ -96,8 +96,8 @@ async function enrichWithStaticData(hotels: any[], supabase: any): Promise<any[]
   // Skip enrichment for large result sets to avoid resource exhaustion
   if (!hotels || hotels.length === 0) return hotels;
   if (!supabase) return hotels;
-  if (hotels.length > 50) {
-    console.log(`⚠️ Skipping enrichment: ${hotels.length} hotels exceeds limit of 50`);
+  if (hotels.length > 200) {
+    console.log(`⚠️ Skipping enrichment: ${hotels.length} hotels exceeds limit of 200`);
     return hotels;
   }
 
