@@ -163,17 +163,13 @@ interface HotelsStaticRow {
 async function enrichWithStaticData(hotels: any[], supabase: any): Promise<any[]> {
   console.log(`🔍 enrichWithStaticData called with ${hotels?.length || 0} hotels`);
   
-  // Skip enrichment for large result sets to avoid resource exhaustion
+  // Validate inputs before enrichment
   if (!hotels || hotels.length === 0) {
     console.log("⚠️ No hotels to enrich");
     return hotels;
   }
   if (!supabase) {
     console.log("⚠️ No Supabase client - skipping enrichment");
-    return hotels;
-  }
-  if (hotels.length > 200) {
-    console.log(`⚠️ Skipping enrichment: ${hotels.length} hotels exceeds limit of 200`);
     return hotels;
   }
 
