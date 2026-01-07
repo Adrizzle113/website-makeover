@@ -1,4 +1,4 @@
-// Redeploy trigger - 2026-01-07 - FIXED: WORKER_LIMIT optimizations
+// Redeploy trigger - 2026-01-07T17:45:00 - FORCE CACHE CLEAR + DEBUG LOGGING
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
@@ -93,9 +93,17 @@ interface HotelsStaticRow {
 // Skip enrichment for large result sets
 // ============================================
 async function enrichWithStaticData(hotels: any[], supabase: any): Promise<any[]> {
+  console.log(`🔍 enrichWithStaticData called with ${hotels?.length || 0} hotels`);
+  
   // Skip enrichment for large result sets to avoid resource exhaustion
-  if (!hotels || hotels.length === 0) return hotels;
-  if (!supabase) return hotels;
+  if (!hotels || hotels.length === 0) {
+    console.log("⚠️ No hotels to enrich");
+    return hotels;
+  }
+  if (!supabase) {
+    console.log("⚠️ No Supabase client - skipping enrichment");
+    return hotels;
+  }
   if (hotels.length > 200) {
     console.log(`⚠️ Skipping enrichment: ${hotels.length} hotels exceeds limit of 200`);
     return hotels;
@@ -112,6 +120,9 @@ async function enrichWithStaticData(hotels: any[], supabase: any): Promise<any[]
   });
 
   console.log(`📊 Enrichment: ${numericHids.length} hotels have hid`);
+  if (numericHids.length > 0) {
+    console.log(`📊 Sample hids: [${numericHids.slice(0, 5).join(', ')}]`);
+  }
 
   if (numericHids.length === 0) {
     console.log("⚠️ No valid hid values found in API response");
@@ -148,12 +159,17 @@ async function enrichWithStaticData(hotels: any[], supabase: any): Promise<any[]
 
     const staticArray = staticData as HotelsStaticRow[] | null;
 
+    console.log(`🗄️ Database returned ${staticArray?.length || 0} matching rows`);
+
     if (!staticArray || staticArray.length === 0) {
-      console.log("⚠️ No matching hotels found in hotels_static");
+      console.log("⚠️ No matching hotels found in hotels_static - hids may not exist in database");
       return hotels;
     }
 
     console.log(`✅ Found ${staticArray.length}/${numericHids.length} hotels in hotels_static`);
+    if (staticArray.length > 0) {
+      console.log(`✅ Sample match: hid=${staticArray[0].hid}, region=${staticArray[0].region_name}, country=${staticArray[0].country_code}`);
+    }
 
     // Create lookup map by hid
     const staticMap = new Map<number, HotelsStaticRow>();
@@ -338,6 +354,23 @@ async function handleSearchRequest(req: Request, requestBody: any, requestKey: s
     if (responseData.hotels && Array.isArray(responseData.hotels) && supabase) {
       console.log(`🏨 Enriching ${responseData.hotels.length} hotels from hotels_static...`);
       responseData.hotels = await enrichWithStaticData(responseData.hotels, supabase);
+      
+      // Fallback: If enrichment didn't add static_data, use destination as city
+      const destination = requestBody.destination || "";
+      const destinationCity = destination.split(',')[0]?.trim() || "";
+      responseData.hotels = responseData.hotels.map((hotel: any) => {
+        if (!hotel.static_data && destinationCity) {
+          return {
+            ...hotel,
+            static_data: {
+              city: destinationCity,
+              country: "",
+              star_rating: hotel.rating || 0,
+            },
+          };
+        }
+        return hotel;
+      });
     }
 
     // Cache successful response
