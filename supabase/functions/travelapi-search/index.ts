@@ -27,21 +27,21 @@ function getRequestKey(body: any): string {
 }
 
 // ============================================
-// ENRICH-ONLY MODE: Lightweight DB lookup by hids
-// Used when frontend calls Render directly and just needs static data
+// ENRICH-ONLY MODE: Lightweight DB lookup by hotel_id strings
+// Uses hotel_dump_data table which has hotel_id (string) not hid (number)
 // ============================================
-async function handleEnrichOnly(hids: number[], supabase: any): Promise<Response> {
-  console.log(`🔍 Enrich-only mode: ${hids.length} hids`);
+async function handleEnrichOnly(hotelIds: string[], supabase: any): Promise<Response> {
+  console.log(`🔍 Enrich-only mode: ${hotelIds.length} hotel IDs`);
   
   if (!supabase) {
-    return new Response(JSON.stringify({ byHid: {}, error: "No database connection" }), {
+    return new Response(JSON.stringify({ byHotelId: {}, error: "No database connection" }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  if (hids.length === 0 || hids.length > 100) {
-    return new Response(JSON.stringify({ byHid: {}, error: hids.length === 0 ? "No hids" : "Too many hids (max 100)" }), {
+  if (hotelIds.length === 0 || hotelIds.length > 100) {
+    return new Response(JSON.stringify({ byHotelId: {}, error: hotelIds.length === 0 ? "No hotel IDs" : "Too many IDs (max 100)" }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -49,26 +49,26 @@ async function handleEnrichOnly(hids: number[], supabase: any): Promise<Response
 
   try {
     const { data: staticData, error } = await supabase
-      .from("hotels_static")
-      .select(`hid, name, address, region_name, country_code, star_rating, latitude, longitude, amenities, description, check_in_time, check_out_time`)
-      .in("hid", hids);
+      .from("hotel_dump_data")
+      .select(`hotel_id, name, address, city, country, star_rating, latitude, longitude, amenities, description, check_in_time, check_out_time`)
+      .in("hotel_id", hotelIds);
 
     if (error) {
       console.error("❌ Enrich query error:", error.message);
-      return new Response(JSON.stringify({ byHid: {}, error: error.message }), {
+      return new Response(JSON.stringify({ byHotelId: {}, error: error.message }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Build lookup map
-    const byHid: Record<string, any> = {};
+    // Build lookup map by hotel_id
+    const byHotelId: Record<string, any> = {};
     (staticData || []).forEach((row: any) => {
-      byHid[String(row.hid)] = {
+      byHotelId[row.hotel_id] = {
         name: row.name,
         address: row.address,
-        city: row.region_name,
-        country: row.country_code,
+        city: row.city,
+        country: row.country,
         star_rating: row.star_rating,
         coordinates: { lat: row.latitude, lon: row.longitude },
         amenities: row.amenities || [],
@@ -78,14 +78,14 @@ async function handleEnrichOnly(hids: number[], supabase: any): Promise<Response
       };
     });
 
-    console.log(`✅ Enrich-only returned ${Object.keys(byHid).length}/${hids.length} matches`);
-    return new Response(JSON.stringify({ byHid }), {
+    console.log(`✅ Enrich-only returned ${Object.keys(byHotelId).length}/${hotelIds.length} matches`);
+    return new Response(JSON.stringify({ byHotelId }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("❌ Enrich-only error:", err);
-    return new Response(JSON.stringify({ byHid: {}, error: String(err) }), {
+    return new Response(JSON.stringify({ byHotelId: {}, error: String(err) }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -501,9 +501,9 @@ serve(async (req) => {
     // ============================================
     // ENRICH-ONLY MODE: Fast path for just DB lookup
     // ============================================
-    if (requestBody.mode === "enrich-only" && Array.isArray(requestBody.hids)) {
+    if (requestBody.mode === "enrich-only" && Array.isArray(requestBody.hotelIds)) {
       const supabase = getSupabaseClient();
-      return handleEnrichOnly(requestBody.hids, supabase);
+      return handleEnrichOnly(requestBody.hotelIds, supabase);
     }
 
     const requestKey = getRequestKey(requestBody);

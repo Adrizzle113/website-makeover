@@ -213,6 +213,7 @@ class RateHawkApiService {
 
   /**
    * Enrich hotels with static data via lightweight edge function call
+   * Uses hotel_id (string) to query hotel_dump_data table
    * Uses circuit breaker to skip if enrichment is failing
    */
   private async enrichHotelsWithStaticData(data: any, destination?: string): Promise<any> {
@@ -227,25 +228,26 @@ class RateHawkApiService {
       return this.applyDestinationFallback(data, destination);
     }
 
-    // Extract hids for enrichment (max 100)
-    const hids: number[] = [];
+    // Extract hotel_id strings for enrichment (max 100)
+    // RateHawk returns "id" field which is the hotel_id string
+    const hotelIds: string[] = [];
     hotels.forEach((h: any) => {
-      if (h.hid) {
-        const numId = typeof h.hid === "number" ? h.hid : parseInt(String(h.hid), 10);
-        if (!isNaN(numId)) hids.push(numId);
+      const hotelId = h.id || h.hotel_id;
+      if (hotelId && typeof hotelId === "string") {
+        hotelIds.push(hotelId);
       }
     });
 
-    if (hids.length === 0) {
-      console.log("⚠️ No hids found, using destination fallback");
+    if (hotelIds.length === 0) {
+      console.log("⚠️ No hotel IDs found, using destination fallback");
       return this.applyDestinationFallback(data, destination);
     }
 
     try {
-      console.log(`🔍 Enriching ${hids.length} hotels via enrich-only call...`);
+      console.log(`🔍 Enriching ${hotelIds.length} hotels via enrich-only call...`);
       
       const { data: enrichData, error: enrichError } = await supabase.functions.invoke('travelapi-search', {
-        body: { mode: "enrich-only", hids: hids.slice(0, 100) },
+        body: { mode: "enrich-only", hotelIds: hotelIds.slice(0, 100) },
       });
 
       if (enrichError) {
@@ -261,14 +263,15 @@ class RateHawkApiService {
         return this.applyDestinationFallback(data, destination);
       }
 
-      const byHid = enrichData?.byHid || {};
-      const enrichedCount = Object.keys(byHid).length;
-      console.log(`✅ Enrichment returned ${enrichedCount}/${hids.length} matches`);
+      const byHotelId = enrichData?.byHotelId || {};
+      const enrichedCount = Object.keys(byHotelId).length;
+      console.log(`✅ Enrichment returned ${enrichedCount}/${hotelIds.length} matches`);
 
-      // Merge static data into hotels
+      // Merge static data into hotels using hotel_id
       data.hotels = hotels.map((hotel: any) => {
-        if (!hotel.hid) return hotel;
-        const staticInfo = byHid[String(hotel.hid)];
+        const hotelId = hotel.id || hotel.hotel_id;
+        if (!hotelId) return hotel;
+        const staticInfo = byHotelId[hotelId];
         if (staticInfo) {
           return {
             ...hotel,
