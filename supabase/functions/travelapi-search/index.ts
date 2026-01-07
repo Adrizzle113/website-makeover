@@ -1,4 +1,4 @@
-// Redeploy trigger - 2026-01-07 - FIXED: Query hotels_static by hid
+// Redeploy trigger - 2026-01-07 - FIXED: WORKER_LIMIT optimizations
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
@@ -12,10 +12,45 @@ const corsHeaders = {
 const RENDER_API_URL = "https://travelapi-bg6t.onrender.com";
 const MAX_RETRIES = 1;
 const RETRY_DELAY_MS = 2000;
-const REQUEST_TIMEOUT_MS = 20000;
-const WARMUP_TIMEOUT_MS = 5000;
+const REQUEST_TIMEOUT_MS = 12000;  // Reduced from 20000
+const WARMUP_TIMEOUT_MS = 3000;    // Reduced from 5000
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// ============================================
+// Request deduplication - prevent duplicate concurrent requests
+// ============================================
+const inFlightRequests = new Map<string, Promise<Response>>();
+
+function getRequestKey(body: any): string {
+  return `${body.regionId || body.region_id}-${body.checkin}-${body.checkout}-${body.guests?.length || 0}`;
+}
+
+// ============================================
+// Response cache - 5 minute TTL
+// ============================================
+const responseCache = new Map<string, { data: any; expiresAt: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function getCachedResponse(key: string): any | null {
+  const cached = responseCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    console.log(`✅ Cache hit for: ${key}`);
+    return cached.data;
+  }
+  return null;
+}
+
+function setCachedResponse(key: string, data: any): void {
+  responseCache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+  // Clean old entries if cache gets too big
+  if (responseCache.size > 100) {
+    const now = Date.now();
+    for (const [k, v] of responseCache) {
+      if (v.expiresAt < now) responseCache.delete(k);
+    }
+  }
+}
 
 function getSupabaseClient(): ReturnType<typeof createClient> | null {
   try {
@@ -37,13 +72,13 @@ function getSupabaseClient(): ReturnType<typeof createClient> | null {
 // ============================================
 interface HotelsStaticRow {
   id: number;
-  hid: number; // RateHawk numeric hotel ID - THE KEY!
+  hid: number;
   name: string | null;
   address: string | null;
   region_id: number | null;
-  region_name: string | null; // This is the CITY
+  region_name: string | null;
   region_type: string | null;
-  country_code: string | null; // This is the COUNTRY
+  country_code: string | null;
   latitude: number | null;
   longitude: number | null;
   star_rating: number | null;
@@ -55,16 +90,21 @@ interface HotelsStaticRow {
 
 // ============================================
 // FIXED: Query hotels_static by hid (numeric)
+// Skip enrichment for large result sets
 // ============================================
 async function enrichWithStaticData(hotels: any[], supabase: any): Promise<any[]> {
+  // Skip enrichment for large result sets to avoid resource exhaustion
   if (!hotels || hotels.length === 0) return hotels;
   if (!supabase) return hotels;
+  if (hotels.length > 50) {
+    console.log(`⚠️ Skipping enrichment: ${hotels.length} hotels exceeds limit of 50`);
+    return hotels;
+  }
 
   // Extract numeric hid from API response
   const numericHids: number[] = [];
 
   hotels.forEach((h) => {
-    // API returns hid as numeric ID
     if (h.hid) {
       const numId = typeof h.hid === "number" ? h.hid : parseInt(String(h.hid), 10);
       if (!isNaN(numId)) numericHids.push(numId);
@@ -72,7 +112,6 @@ async function enrichWithStaticData(hotels: any[], supabase: any): Promise<any[]
   });
 
   console.log(`📊 Enrichment: ${numericHids.length} hotels have hid`);
-  console.log(`📊 Sample hids: ${numericHids.slice(0, 5).join(", ")}`);
 
   if (numericHids.length === 0) {
     console.log("⚠️ No valid hid values found in API response");
@@ -80,13 +119,10 @@ async function enrichWithStaticData(hotels: any[], supabase: any): Promise<any[]
   }
 
   try {
-    // ============================================
-    // CORRECT: Query hotels_static by hid
-    // ============================================
     console.log(`🔍 Querying hotels_static.hid with ${numericHids.length} IDs...`);
 
     const { data: staticData, error } = await supabase
-      .from("hotels_static") // CORRECT TABLE!
+      .from("hotels_static")
       .select(
         `
         hid,
@@ -103,7 +139,7 @@ async function enrichWithStaticData(hotels: any[], supabase: any): Promise<any[]
         check_out_time
       `,
       )
-      .in("hid", numericHids); // CORRECT KEY!
+      .in("hid", numericHids);
 
     if (error) {
       console.error("❌ Database query error:", error.message);
@@ -114,19 +150,10 @@ async function enrichWithStaticData(hotels: any[], supabase: any): Promise<any[]
 
     if (!staticArray || staticArray.length === 0) {
       console.log("⚠️ No matching hotels found in hotels_static");
-      console.log("⚠️ Sample hids searched:", numericHids.slice(0, 5));
       return hotels;
     }
 
     console.log(`✅ Found ${staticArray.length}/${numericHids.length} hotels in hotels_static`);
-
-    // Log sample for debugging
-    if (staticArray.length > 0) {
-      const sample = staticArray[0];
-      console.log(
-        `📊 Sample: hid=${sample.hid}, name="${sample.name}", city="${sample.region_name}", country="${sample.country_code}"`,
-      );
-    }
 
     // Create lookup map by hid
     const staticMap = new Map<number, HotelsStaticRow>();
@@ -149,10 +176,10 @@ async function enrichWithStaticData(hotels: any[], supabase: any): Promise<any[]
           static_data: {
             name: staticInfo.name,
             address: staticInfo.address,
-            city: staticInfo.region_name, // region_name → city
-            country: staticInfo.country_code, // country_code → country
+            city: staticInfo.region_name,
+            country: staticInfo.country_code,
             star_rating: staticInfo.star_rating,
-            images: [], // No images in this table
+            images: [],
             coordinates: {
               lat: staticInfo.latitude,
               lon: staticInfo.longitude,
@@ -227,15 +254,113 @@ async function fetchWithRetry(
   return { response: null, attempts: maxRetries, lastStatus };
 }
 
+// ============================================
+// Main handler - processes search requests
+// ============================================
+async function handleSearchRequest(req: Request, requestBody: any, requestKey: string): Promise<Response> {
+  const requestStart = Date.now();
+  const supabase = getSupabaseClient();
+
+  console.log("📍 destination:", requestBody.destination);
+  const regionId = requestBody.regionId ?? requestBody.region_id;
+  console.log("🆔 regionId:", regionId);
+
+  if (!requestBody.destination && !regionId) {
+    return new Response(JSON.stringify({ error: "destination or regionId is required" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const warmupPromise = warmupServer();
+
+  const {
+    response: renderResponse,
+    attempts,
+    lastStatus,
+  } = await fetchWithRetry(
+    `${RENDER_API_URL}/api/ratehawk/search`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+    },
+    MAX_RETRIES,
+  );
+
+  const duration = Date.now() - requestStart;
+
+  if (!renderResponse) {
+    try {
+      await warmupPromise;
+    } catch {
+      /* ignore */
+    }
+    return new Response(
+      JSON.stringify({
+        error: "Service temporarily unavailable",
+        hotels: [],
+        totalHotels: 0,
+      }),
+      { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  const responseText = await renderResponse.text();
+  console.log(`📨 Render response: ${renderResponse.status} (${duration}ms)`);
+
+  if (responseText.includes("Could not find region") || responseText.includes("Destination not found")) {
+    return new Response(
+      JSON.stringify({
+        error: "Destination not available",
+        hotels: [],
+        totalHotels: 0,
+      }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  if (renderResponse.status >= 500) {
+    return new Response(
+      JSON.stringify({
+        error: "Backend service error",
+        hotels: [],
+        totalHotels: 0,
+      }),
+      { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  try {
+    const responseData = JSON.parse(responseText);
+
+    // Enrichment: Query hotels_static by hid
+    if (responseData.hotels && Array.isArray(responseData.hotels) && supabase) {
+      console.log(`🏨 Enriching ${responseData.hotels.length} hotels from hotels_static...`);
+      responseData.hotels = await enrichWithStaticData(responseData.hotels, supabase);
+    }
+
+    // Cache successful response
+    setCachedResponse(requestKey, responseData);
+
+    return new Response(JSON.stringify(responseData), {
+      status: renderResponse.status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch {
+    return new Response(responseText, {
+      status: renderResponse.status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
-  const requestStart = Date.now();
-
   try {
-    const supabase = getSupabaseClient();
     const bodyText = await req.text();
 
     if (!bodyText || bodyText.length === 0) {
@@ -255,97 +380,32 @@ serve(async (req) => {
       });
     }
 
-    console.log("📍 destination:", requestBody.destination);
-    const regionId = requestBody.regionId ?? requestBody.region_id;
-    console.log("🆔 regionId:", regionId);
+    const requestKey = getRequestKey(requestBody);
 
-    if (!requestBody.destination && !regionId) {
-      return new Response(JSON.stringify({ error: "destination or regionId is required" }), {
-        status: 400,
+    // Check cache first - return immediately if hit
+    const cachedData = getCachedResponse(requestKey);
+    if (cachedData) {
+      return new Response(JSON.stringify(cachedData), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const warmupPromise = warmupServer();
-    let warmup = { ok: false, status: 0 };
-
-    const {
-      response: renderResponse,
-      attempts,
-      lastStatus,
-    } = await fetchWithRetry(
-      `${RENDER_API_URL}/api/ratehawk/search`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      },
-      MAX_RETRIES,
-    );
-
-    const duration = Date.now() - requestStart;
-
-    if (!renderResponse) {
-      try {
-        warmup = await warmupPromise;
-      } catch {
-        /* ignore */
-      }
-      return new Response(
-        JSON.stringify({
-          error: "Service temporarily unavailable",
-          hotels: [],
-          totalHotels: 0,
-        }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    // Check for in-flight duplicate request - share the promise
+    const existingRequest = inFlightRequests.get(requestKey);
+    if (existingRequest) {
+      console.log(`🔄 Deduplicating request: ${requestKey}`);
+      return existingRequest;
     }
 
-    const responseText = await renderResponse.text();
-    console.log(`📨 Render response: ${renderResponse.status} (${duration}ms)`);
-
-    if (responseText.includes("Could not find region") || responseText.includes("Destination not found")) {
-      return new Response(
-        JSON.stringify({
-          error: "Destination not available",
-          hotels: [],
-          totalHotels: 0,
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    if (renderResponse.status >= 500) {
-      return new Response(
-        JSON.stringify({
-          error: "Backend service error",
-          hotels: [],
-          totalHotels: 0,
-        }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    // Create and track request promise
+    const requestPromise = handleSearchRequest(req, requestBody, requestKey);
+    inFlightRequests.set(requestKey, requestPromise);
 
     try {
-      const responseData = JSON.parse(responseText);
-
-      // ============================================
-      // ENRICHMENT: Query hotels_static by hid
-      // ============================================
-      if (responseData.hotels && Array.isArray(responseData.hotels) && supabase) {
-        console.log(`🏨 Enriching ${responseData.hotels.length} hotels from hotels_static...`);
-        responseData.hotels = await enrichWithStaticData(responseData.hotels, supabase);
-      }
-
-      return new Response(JSON.stringify(responseData), {
-        status: renderResponse.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    } catch {
-      return new Response(responseText, {
-        status: renderResponse.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return await requestPromise;
+    } finally {
+      inFlightRequests.delete(requestKey);
     }
   } catch (error) {
     console.error("💥 Edge function error:", error);
