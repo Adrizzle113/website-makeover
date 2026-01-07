@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.travelapi-search-ids]
 verify_jwt = false
+
+[functions.travelapi-enrich]
+verify_jwt = false
