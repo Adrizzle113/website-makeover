@@ -1,4 +1,4 @@
-// Redeploy trigger - 2026-01-06
+// Redeploy trigger - 2026-01-07 - FIXED FOR ACTUAL SCHEMA
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
@@ -35,21 +35,25 @@ function getSupabaseClient(): ReturnType<typeof createClient> | null {
   }
 }
 
-interface StaticHotelData {
-  id: string | null;
-  hotel_id: string | number;
+// ============================================
+// FIXED: Interface matches ACTUAL table schema
+// ============================================
+interface HotelDumpRow {
+  id: number;              // bigint row ID
+  hid: number;             // bigint - RateHawk hotel ID (primary lookup key)
   name: string | null;
   address: string | null;
-  city: string | null;
-  country: string | null;
-  star_rating: number | null;
-  images: any[] | string | null;
+  region_id: number | null;
+  region_name: string | null;  // This is the CITY
+  region_type: string | null;
+  country_code: string | null; // This is the COUNTRY
   latitude: number | null;
   longitude: number | null;
-  amenities: any[] | null;
-  description: string | null;
+  star_rating: number | null;
   check_in_time: string | null;
   check_out_time: string | null;
+  amenities: string[] | null;
+  description: string | null;
 }
 
 interface CacheData {
@@ -59,184 +63,109 @@ interface CacheData {
   expires_at: string;
 }
 
-// Enrich hotels with static data from hotel_dump_data (3.2M hotels)
+// ============================================
+// FIXED: Enrich hotels using ACTUAL table columns
+// ============================================
 async function enrichWithStaticData(
   hotels: any[], 
   supabase: any
 ): Promise<any[]> {
   if (!hotels || hotels.length === 0) return hotels;
+  if (!supabase) return hotels;
 
-  // Extract ALL possible IDs - prefer hid (numeric) which is the primary key in hotel_dump_data
+  // Extract numeric hotel IDs (hid) from API response
   const numericIds: number[] = [];
-  const stringIds: string[] = [];
   
   hotels.forEach(h => {
-    // hid is the numeric hotel ID from RateHawk - primary lookup key
+    // The API returns 'hid' as the numeric hotel ID
     if (h.hid) {
       const numId = typeof h.hid === 'number' ? h.hid : parseInt(String(h.hid), 10);
       if (!isNaN(numId)) numericIds.push(numId);
     }
-    // Fallback to hotel_id or id
-    if (h.hotel_id) stringIds.push(String(h.hotel_id));
-    if (h.id && h.id !== h.hotel_id) stringIds.push(String(h.id));
   });
 
-  console.log(`📊 Enrichment lookup: ${numericIds.length} numeric IDs, ${stringIds.length} string IDs`);
-  console.log(`📊 Sample IDs - numeric: ${numericIds.slice(0, 3)}, string: ${stringIds.slice(0, 3)}`);
+  console.log(`📊 Enrichment lookup: ${numericIds.length} hotel IDs`);
+  console.log(`📊 Sample IDs: ${numericIds.slice(0, 5).join(', ')}`);
 
-  if (numericIds.length === 0 && stringIds.length === 0) {
-    console.log('⚠️ No valid hotel IDs to look up');
+  if (numericIds.length === 0) {
+    console.log('⚠️ No valid hotel IDs (hid) to look up');
     return hotels;
   }
 
   try {
-    let staticArray: StaticHotelData[] = [];
+    // ============================================
+    // FIXED: Query YOUR actual columns
+    // ============================================
+    console.log(`🔍 Querying hotel_dump_data.hid with ${numericIds.length} IDs...`);
+    
+    const { data: staticData, error } = await supabase
+      .from('hotel_dump_data')
+      .select(`
+        id,
+        hid,
+        name,
+        address,
+        region_name,
+        country_code,
+        star_rating,
+        latitude,
+        longitude,
+        amenities,
+        description,
+        check_in_time,
+        check_out_time
+      `)
+      .in('hid', numericIds);
 
-    // Try 'id' column first (contains slugs like "hyatt_place_indianapolis_airport")
-    if (stringIds.length > 0) {
-      console.log(`🔍 Querying hotel_dump_data.id with slugs: ${stringIds.slice(0, 3).join(', ')}...`);
-      const { data: idData, error: idError } = await supabase
-        .from('hotel_dump_data')
-        .select(`
-          id,
-          hotel_id,
-          name,
-          address,
-          city,
-          country,
-          star_rating,
-          images,
-          latitude,
-          longitude,
-          amenities,
-          description,
-          check_in_time,
-          check_out_time
-        `)
-        .in('id', stringIds);
-
-      if (idError) {
-        console.error('❌ ID column query error:', idError.message);
-      } else if (idData && idData.length > 0) {
-        staticArray = idData as StaticHotelData[];
-        console.log(`✅ Found ${staticArray.length} hotels via 'id' column (slugs)`);
-      }
+    if (error) {
+      console.error('❌ Database query error:', error.message);
+      return hotels;
     }
 
-    // Fallback: try numeric IDs against hotel_id column
-    if (staticArray.length === 0 && numericIds.length > 0) {
-      console.log(`🔍 Fallback: Querying hotel_dump_data.hotel_id with numeric IDs`);
-      const { data: numericData, error: numericError } = await supabase
-        .from('hotel_dump_data')
-        .select(`
-          id,
-          hotel_id,
-          name,
-          address,
-          city,
-          country,
-          star_rating,
-          images,
-          latitude,
-          longitude,
-          amenities,
-          description,
-          check_in_time,
-          check_out_time
-        `)
-        .in('hotel_id', numericIds);
-
-      if (numericError) {
-        console.error('❌ Numeric ID query error:', numericError.message);
-      } else if (numericData && numericData.length > 0) {
-        staticArray = numericData as StaticHotelData[];
-        console.log(`✅ Found ${staticArray.length} hotels via numeric hotel_id`);
-      }
-    }
-
-    if (staticArray.length === 0) {
+    const staticArray = staticData as HotelDumpRow[] | null;
+    
+    if (!staticArray || staticArray.length === 0) {
       console.log('⚠️ No static data found in hotel_dump_data');
       return hotels;
     }
 
-    console.log(`✅ Total static data found: ${staticArray.length}/${hotels.length} hotels`);
+    console.log(`✅ Found ${staticArray.length}/${numericIds.length} hotels in database`);
+    
+    // Log sample for debugging
     if (staticArray.length > 0) {
       const sample = staticArray[0];
-      console.log(`📊 Sample static data: hotel_id=${sample.hotel_id}, name=${sample.name}, hasImages=${!!sample.images}`);
+      console.log(`📊 Sample: hid=${sample.hid}, name="${sample.name}", city="${sample.region_name}", country="${sample.country_code}"`);
     }
 
-    // Create lookup map - use both id (slug) and hotel_id as keys
-    const staticMap = new Map<string, StaticHotelData>();
+    // Create lookup map by hid (numeric hotel ID)
+    const staticMap = new Map<number, HotelDumpRow>();
     staticArray.forEach(s => {
-      // Primary key: slug (id column) - matches hotel.hotel_id from API
-      if (s.id) staticMap.set(String(s.id), s);
-      // Secondary key: hotel_id for backward compatibility
-      if (s.hotel_id) staticMap.set(String(s.hotel_id), s);
+      if (s.hid) staticMap.set(s.hid, s);
     });
-    console.log(`📊 Static map has ${staticMap.size} entries`);
 
     // Merge static data into hotels
     return hotels.map(hotel => {
-      // Try multiple keys to find match
-      const candidateKeys = [
-        hotel.hid ? String(hotel.hid) : null,
-        hotel.hotel_id ? String(hotel.hotel_id) : null,
-        hotel.id ? String(hotel.id) : null,
-      ].filter(Boolean) as string[];
-
-      let staticInfo: StaticHotelData | undefined;
-      for (const key of candidateKeys) {
-        staticInfo = staticMap.get(key);
-        if (staticInfo) break;
-      }
+      const hotelHid = typeof hotel.hid === 'number' ? hotel.hid : parseInt(String(hotel.hid), 10);
+      const staticInfo = staticMap.get(hotelHid);
 
       if (staticInfo) {
-        // Parse images - handle string JSON or array
-        let rawImages = staticInfo.images;
-        if (typeof rawImages === 'string') {
-          try {
-            rawImages = JSON.parse(rawImages);
-          } catch {
-            rawImages = [];
-          }
-        }
-
-        // Transform images - replace {size} template with 640x400 for cards
-        let images: string[] = [];
-        if (Array.isArray(rawImages)) {
-          images = rawImages.slice(0, 5).map((img: any) => {
-            let url = '';
-            if (typeof img === 'string') {
-              url = img;
-            } else if (img.tmpl) {
-              url = img.tmpl;
-            } else if (img.url) {
-              url = img.url;
-            }
-            // Replace size template
-            url = url.replace('{size}', '640x400');
-            // Force HTTPS
-            if (url.startsWith('http://')) {
-              url = url.replace('http://', 'https://');
-            }
-            return url;
-          }).filter(Boolean);
-        }
-
+        // ============================================
+        // FIXED: Map YOUR columns to expected format
+        // ============================================
         return {
           ...hotel,
           static_data: {
             name: staticInfo.name,
             address: staticInfo.address,
-            city: staticInfo.city,
-            country: staticInfo.country,
+            city: staticInfo.region_name,        // YOUR column → expected name
+            country: staticInfo.country_code,    // YOUR column → expected name
             star_rating: staticInfo.star_rating,
-            images,
+            images: [],                          // No images in your table (will need API)
             coordinates: {
               lat: staticInfo.latitude,
               lon: staticInfo.longitude,
             },
-            amenities: staticInfo.amenities,
+            amenities: staticInfo.amenities || [],
             description: staticInfo.description,
             check_in_time: staticInfo.check_in_time,
             check_out_time: staticInfo.check_out_time,
