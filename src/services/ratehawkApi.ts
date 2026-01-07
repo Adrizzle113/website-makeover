@@ -720,6 +720,7 @@ class RateHawkApiService {
 
       return {
         id: hotelId,
+        hotel_id: hotelId, // Add alias for backward compatibility with database/enrichment
         name: hotelName,
         description: staticVm?.description || h.description || "",
         address,

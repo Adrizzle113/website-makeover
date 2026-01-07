@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-const EDGE_FUNCTION_VERSION = "2026-01-07T18:55:30-ENRICH-FN-V1";
+const EDGE_FUNCTION_VERSION = "2026-01-07T20:00:00-ENRICH-FN-V2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -93,8 +93,12 @@ async function handleEnrich(hotelIds: string[], supabase: any): Promise<Response
 }
 
 serve(async (req) => {
+  console.log(`🚀 travelapi-enrich handler invoked, version: ${EDGE_FUNCTION_VERSION}`);
+  console.log(`📥 Request method: ${req.method}, URL: ${req.url}`);
+
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
+    console.log("✅ Handling OPTIONS preflight request");
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
