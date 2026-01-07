@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-const EDGE_FUNCTION_VERSION = "2026-01-07T20:15:00-ENRICH-FN-V3";
+const EDGE_FUNCTION_VERSION = "2026-01-07T20:30:00-ENRICH-FN-V4-CORRECT-TABLE";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,49 +25,61 @@ function getSupabaseClient(): ReturnType<typeof createClient> | null {
   }
 }
 
-async function handleEnrich(hotelIds: string[], supabase: any): Promise<Response> {
+/**
+ * Handle enrichment request - queries hotels_static table by numeric hid
+ * Accepts hotel IDs (which are hid values) and returns static hotel data
+ */
+async function handleEnrich(hotelIds: (string | number)[], supabase: any): Promise<Response> {
   console.log(`🔍 travelapi-enrich: request for ${hotelIds.length} hotel IDs`);
 
   if (!supabase) {
-    return new Response(JSON.stringify({ byHotelId: {}, error: "No database connection" }), {
+    return new Response(JSON.stringify({ byHotelId: {}, byHid: {}, error: "No database connection" }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const uniqueIds = Array.from(new Set(hotelIds.map((x) => String(x)).filter(Boolean)));
-  const limitedIds = uniqueIds.slice(0, 200);
+  // Convert to numbers (hid is numeric in hotels_static table)
+  const uniqueHids = Array.from(new Set(
+    hotelIds.map((x) => {
+      const num = typeof x === 'number' ? x : parseInt(String(x), 10);
+      return isNaN(num) ? null : num;
+    }).filter((n): n is number => n !== null)
+  ));
+  const limitedHids = uniqueHids.slice(0, 200);
 
-  if (limitedIds.length === 0) {
-    return new Response(JSON.stringify({ byHotelId: {} }), {
+  if (limitedHids.length === 0) {
+    return new Response(JSON.stringify({ byHotelId: {}, byHid: {} }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
   try {
+    // Query hotels_static table with correct column names
     const { data: staticData, error } = await supabase
-      .from("hotel_dump_data")
-      .select(
-        "hotel_id, name, address, city, country, star_rating, latitude, longitude, amenities, description, check_in_time, check_out_time",
-      )
-      .in("hotel_id", limitedIds);
+      .from("hotels_static")
+      .select("hid, name, address, region_name, country_code, star_rating, latitude, longitude, amenities, description, check_in_time, check_out_time")
+      .in("hid", limitedHids);
 
     if (error) {
       console.error("❌ travelapi-enrich query error:", error.message);
-      return new Response(JSON.stringify({ byHotelId: {}, error: error.message }), {
+      return new Response(JSON.stringify({ byHotelId: {}, byHid: {}, error: error.message }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // Build lookup maps - byHid (numeric) and byHotelId (string) for compatibility
+    const byHid: Record<number, any> = {};
     const byHotelId: Record<string, any> = {};
+    
     (staticData || []).forEach((row: any) => {
-      byHotelId[row.hotel_id] = {
+      const hotelData = {
         name: row.name,
         address: row.address,
-        city: row.city,
-        country: row.country,
+        city: row.region_name,       // Correct mapping: region_name -> city
+        country: row.country_code,   // Correct mapping: country_code -> country
         star_rating: row.star_rating,
         coordinates: { lat: row.latitude, lon: row.longitude },
         amenities: row.amenities || [],
@@ -75,17 +87,20 @@ async function handleEnrich(hotelIds: string[], supabase: any): Promise<Response
         check_in_time: row.check_in_time,
         check_out_time: row.check_out_time,
       };
+      
+      byHid[row.hid] = hotelData;
+      byHotelId[String(row.hid)] = hotelData; // String key for backward compatibility
     });
 
-    console.log(`✅ travelapi-enrich returned ${Object.keys(byHotelId).length}/${limitedIds.length} matches`);
+    console.log(`✅ travelapi-enrich returned ${Object.keys(byHid).length}/${limitedHids.length} matches from hotels_static`);
 
-    return new Response(JSON.stringify({ byHotelId }), {
+    return new Response(JSON.stringify({ byHotelId, byHid }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("❌ travelapi-enrich error:", err);
-    return new Response(JSON.stringify({ byHotelId: {}, error: String(err) }), {
+    return new Response(JSON.stringify({ byHotelId: {}, byHid: {}, error: String(err) }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

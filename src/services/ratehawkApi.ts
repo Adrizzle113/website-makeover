@@ -272,15 +272,21 @@ class RateHawkApiService {
         return this.applyDestinationFallback(data, destination);
       }
 
+      // Support both byHid (numeric) and byHotelId (string) for compatibility
+      const byHid = enrichData?.byHid || {};
       const byHotelId = enrichData?.byHotelId || {};
-      const enrichedCount = Object.keys(byHotelId).length;
+      const enrichedCount = Object.keys(byHid).length || Object.keys(byHotelId).length;
       console.log(`✅ Enrichment returned ${enrichedCount}/${hotelIds.length} matches`);
 
-      // Merge static data into hotels using hotel_id
+      // Merge static data into hotels using hotel_id (try both lookup maps)
       data.hotels = hotels.map((hotel: any) => {
         const hotelId = hotel.id || hotel.hotel_id;
         if (!hotelId) return hotel;
-        const staticInfo = byHotelId[hotelId];
+        
+        // Try numeric lookup first (byHid), then string lookup (byHotelId)
+        const numericId = parseInt(String(hotelId), 10);
+        const staticInfo = byHid[numericId] || byHotelId[String(hotelId)];
+        
         if (staticInfo) {
           return {
             ...hotel,
