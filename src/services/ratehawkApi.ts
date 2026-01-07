@@ -304,23 +304,24 @@ class RateHawkApiService {
     const attempts: SearchAttempt[] = [];
 
     if (regionId) {
-      // Attempt 1: regionId only (no destination) - forces backend to use region
-      attempts.push({
-        label: "regionId only (no destination)",
-        body: { ...baseBody },
-      });
-      // Attempt 2: regionId + full destination
+      // Always include destination for edge function fallback enrichment
+      // Attempt 1: regionId + full destination (best chance for enrichment fallback)
       attempts.push({
         label: "regionId + full destination",
         body: { ...baseBody, destination: fullDestination },
       });
-      // Attempt 3: regionId + simplified destination
+      // Attempt 2: regionId + simplified destination
       if (simplifiedDestination !== fullDestination) {
         attempts.push({
           label: "regionId + simplified destination",
           body: { ...baseBody, destination: simplifiedDestination },
         });
       }
+      // Attempt 3: regionId only (no destination) - last resort
+      attempts.push({
+        label: "regionId only (no destination)",
+        body: { ...baseBody },
+      });
     } else {
       // No regionId - try to auto-lookup first
       console.log(`⚠️ No valid region_id, auto-looking up for: "${fullDestination}"`);
