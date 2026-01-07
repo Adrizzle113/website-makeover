@@ -1109,36 +1109,47 @@ class RateHawkApiService {
       } else {
         const response = data as {
           hotels?: Array<{
-            otahotel_id: string;
-            hotel_name: string;
-            region_name: string;
-            country_name: string;
+            otahotel_id?: string;
+            id?: string;
+            hotel_name?: string;
+            name?: string;
+            region_name?: string;
+            country_name?: string;
+            country?: string;
             slug?: string;
           }>;
           regions?: Array<{
             id: number;
             name: string;
-            country: string;
-            type: string;
+            country?: string;
+            country_code?: string;
+            type?: string;
             slug?: string;
           }>;
         };
 
         console.log('🔍 Destination API response (legacy format):', response);
 
-        const regionDestinations: Destination[] = (response.regions || []).map((region) => ({
-          id: String(region.id),
-          name: region.name,
-          country: region.country,
-          type: region.type.toLowerCase().includes("city") ? "city" : "region",
-        }));
+        const regionDestinations: Destination[] = (response.regions || [])
+          .filter((region) => region.name)
+          .map((region) => ({
+            id: String(region.id),
+            name: region.name,
+            country: region.country || '',
+            type: region.type?.toLowerCase().includes("city") ? "city" : "region",
+          }));
 
-        const hotelDestinations: Destination[] = (response.hotels || []).slice(0, 3).map((hotel) => ({
-          id: hotel.otahotel_id,
-          name: hotel.hotel_name,
-          country: `${hotel.region_name}, ${hotel.country_name}`,
-          type: "hotel" as const,
-        }));
+        const hotelDestinations: Destination[] = (response.hotels || [])
+          .slice(0, 3)
+          .filter((hotel) => hotel.hotel_name || hotel.name)
+          .map((hotel) => ({
+            id: hotel.otahotel_id || hotel.id || '',
+            name: hotel.hotel_name || hotel.name || 'Unknown Hotel',
+            country: hotel.region_name 
+              ? `${hotel.region_name}, ${hotel.country_name || ''}` 
+              : (hotel.country || ''),
+            type: "hotel" as const,
+          }));
 
         suggestions = [...regionDestinations, ...hotelDestinations];
       }
