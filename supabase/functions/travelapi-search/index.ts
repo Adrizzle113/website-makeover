@@ -12,7 +12,8 @@ const corsHeaders = {
 const RENDER_API_URL = "https://travelapi-bg6t.onrender.com";
 const MAX_RETRIES = 1;
 const RETRY_DELAY_MS = 2000;
-const REQUEST_TIMEOUT_MS = 20000;
+// Keep this tight to avoid edge worker exhaustion (WORKER_LIMIT) when upstream is slow.
+const REQUEST_TIMEOUT_MS = 12000;
 const WARMUP_TIMEOUT_MS = 5000;
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -266,15 +267,18 @@ serve(async (req) => {
       );
     }
 
-    const warmupPromise = warmupServer();
-    let warmup = { ok: false, status: 0 };
+    // Clamp limit to reduce upstream response size + execution time (helps prevent WORKER_LIMIT)
+    const upstreamBody = { ...requestBody };
+    if (typeof upstreamBody.limit === 'number') {
+      upstreamBody.limit = Math.min(Math.max(upstreamBody.limit, 1), 50);
+    }
 
     const { response: renderResponse, attempts, lastStatus } = await fetchWithRetry(
       `${RENDER_API_URL}/api/ratehawk/search`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify(upstreamBody),
       },
       MAX_RETRIES
     );
@@ -282,7 +286,6 @@ serve(async (req) => {
     const duration = Date.now() - requestStart;
 
     if (!renderResponse) {
-      try { warmup = await warmupPromise; } catch { /* ignore */ }
       return new Response(
         JSON.stringify({
           error: 'Service temporarily unavailable',
