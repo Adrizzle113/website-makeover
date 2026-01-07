@@ -15,9 +15,11 @@ interface HotelCardProps {
 
 // Check if hotel has full enrichment data (from database) vs fallback (destination only)
 const hasFullEnrichment = (hotel: Hotel): boolean => {
-  const staticData = (hotel as any).static_data;
+  // Enrichment data is stored in ratehawk_data.static_data after parseSearchResponse
+  const staticData = (hotel as any).ratehawk_data?.static_data;
   if (!staticData) return false;
   // Full enrichment has address, amenities, or description from database
+  // Fallback only has city, country, star_rating
   return !!(staticData.address || staticData.amenities?.length > 0 || staticData.description);
 };
 
