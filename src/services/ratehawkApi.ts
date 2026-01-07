@@ -1111,8 +1111,10 @@ class RateHawkApiService {
           hotels?: Array<{
             otahotel_id?: string;
             id?: string;
+            hid?: number;
             hotel_name?: string;
             name?: string;
+            region_id?: string;
             region_name?: string;
             country_name?: string;
             country?: string;
@@ -1141,9 +1143,9 @@ class RateHawkApiService {
 
         const hotelDestinations: Destination[] = (response.hotels || [])
           .slice(0, 3)
-          .filter((hotel) => hotel.hotel_name || hotel.name)
+          .filter((hotel) => (hotel.hotel_name || hotel.name) && hotel.region_id)
           .map((hotel) => ({
-            id: hotel.otahotel_id || hotel.id || '',
+            id: hotel.region_id || '', // Use region_id so search works
             name: hotel.hotel_name || hotel.name || 'Unknown Hotel',
             country: hotel.region_name 
               ? `${hotel.region_name}, ${hotel.country_name || ''}` 
