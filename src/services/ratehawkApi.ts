@@ -250,7 +250,7 @@ class RateHawkApiService {
     try {
       console.log(`🔍 Enriching ${hotelIds.length} hotels via enrich-only call... (traceId: ${traceId})`);
       
-      const { data: enrichData, error: enrichError } = await supabase.functions.invoke('travelapi-search', {
+      const { data: enrichData, error: enrichError } = await supabase.functions.invoke('travelapi-enrich', {
         method: "POST",
         body: { 
           mode: "enrich-only", 
