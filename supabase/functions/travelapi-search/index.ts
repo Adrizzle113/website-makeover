@@ -70,26 +70,24 @@ async function enrichWithStaticData(
 ): Promise<any[]> {
   if (!hotels || hotels.length === 0) return hotels;
   if (!supabase) return hotels;
+  
+  // Skip enrichment for large result sets to avoid resource limits
+  if (hotels.length > 50) {
+    console.log(`⚠️ Skipping enrichment for ${hotels.length} hotels (too many)`);
+    return hotels;
+  }
 
   // Extract hotel names from API response for matching
   const hotelNames: string[] = [];
-  const hotelNameMap = new Map<string, string>(); // normalized -> original
   
   hotels.forEach(h => {
-    // Get name from slug (id field) or name field
     const slug = h.id || '';
     const nameFromSlug = slugToName(slug);
     const directName = h.name || nameFromSlug;
-    
-    if (directName) {
-      const normalized = normalizeName(directName);
-      hotelNames.push(directName);
-      hotelNameMap.set(normalized, directName);
-    }
+    if (directName) hotelNames.push(directName);
   });
 
   console.log(`📊 Enrichment lookup: ${hotelNames.length} hotels by name`);
-  console.log(`📊 Sample names: ${hotelNames.slice(0, 3).join(', ')}`);
 
   if (hotelNames.length === 0) {
     console.log('⚠️ No hotel names to look up');
@@ -97,29 +95,14 @@ async function enrichWithStaticData(
   }
 
   try {
-    // Query ALL hotels from the region to do client-side matching
-    // (Supabase doesn't support OR with multiple ILIKE efficiently)
+    // Query limited hotels from the region
     const regionName = hotels[0]?.location || hotels[0]?.region?.name;
     
     let query = supabase
       .from('hotels_static')
-      .select(`
-        hid,
-        name,
-        address,
-        region_name,
-        country_code,
-        star_rating,
-        latitude,
-        longitude,
-        amenities,
-        description,
-        check_in_time,
-        check_out_time
-      `)
-      .limit(1000);
+      .select('hid, name, address, region_name, country_code, star_rating, latitude, longitude, amenities, description, check_in_time, check_out_time')
+      .limit(200); // Reduced limit to avoid resource exhaustion
     
-    // If we know the region, filter by it for better performance
     if (regionName && regionName !== 'Unknown') {
       query = query.ilike('region_name', `%${regionName}%`);
     }
@@ -138,71 +121,41 @@ async function enrichWithStaticData(
       return hotels;
     }
 
-    console.log(`📊 Loaded ${staticArray.length} hotels from database for matching`);
+    console.log(`📊 Loaded ${staticArray.length} hotels from database`);
 
-    // Create lookup map by normalized name
+    // Create lookup map by normalized name (exact match only)
     const staticByName = new Map<string, HotelsStaticRow>();
     staticArray.forEach(s => {
       if (s.name) {
-        const normalized = normalizeName(s.name);
-        staticByName.set(normalized, s);
+        staticByName.set(normalizeName(s.name), s);
       }
     });
 
-    console.log(`📊 Created name lookup map with ${staticByName.size} entries`);
-
     let matchCount = 0;
 
-    // Merge static data into hotels
+    // Merge static data - exact match only (fast)
     const enrichedHotels = hotels.map(hotel => {
-      // Get the hotel name to match
       const slug = hotel.id || '';
       const nameFromSlug = slugToName(slug);
       const hotelName = hotel.name || nameFromSlug;
       
       if (!hotelName) return hotel;
       
-      const normalizedName = normalizeName(hotelName);
-      
-      // Try exact match first
-      let staticInfo = staticByName.get(normalizedName);
-      
-      // If no exact match, try partial matching
-      if (!staticInfo) {
-        // Try to find a close match
-        for (const [dbNormalized, dbData] of staticByName.entries()) {
-          // Check if one contains the other (handles slight variations)
-          if (dbNormalized.includes(normalizedName) || normalizedName.includes(dbNormalized)) {
-            staticInfo = dbData;
-            break;
-          }
-          // Check word overlap (at least 2 matching words)
-          const hotelWords = normalizedName.split(' ').filter(w => w.length > 2);
-          const dbWords = dbNormalized.split(' ').filter(w => w.length > 2);
-          const matchingWords = hotelWords.filter(w => dbWords.includes(w));
-          if (matchingWords.length >= 2) {
-            staticInfo = dbData;
-            break;
-          }
-        }
-      }
+      const staticInfo = staticByName.get(normalizeName(hotelName));
 
       if (staticInfo) {
         matchCount++;
         return {
           ...hotel,
-          hid: staticInfo.hid, // Add hid from database!
+          hid: staticInfo.hid,
           static_data: {
             name: staticInfo.name,
             address: staticInfo.address,
             city: staticInfo.region_name,
             country: staticInfo.country_code,
             star_rating: staticInfo.star_rating,
-            images: [], // No images in this table
-            coordinates: {
-              lat: staticInfo.latitude,
-              lon: staticInfo.longitude,
-            },
+            images: [],
+            coordinates: { lat: staticInfo.latitude, lon: staticInfo.longitude },
             amenities: staticInfo.amenities || [],
             description: staticInfo.description,
             check_in_time: staticInfo.check_in_time,
@@ -214,15 +167,7 @@ async function enrichWithStaticData(
       return hotel;
     });
 
-    console.log(`✅ Matched ${matchCount}/${hotels.length} hotels by name`);
-    
-    if (matchCount > 0) {
-      const sample = enrichedHotels.find(h => h.static_data);
-      if (sample) {
-        console.log(`📊 Sample match: "${sample.name}" → city="${sample.static_data.city}", country="${sample.static_data.country}"`);
-      }
-    }
-
+    console.log(`✅ Matched ${matchCount}/${hotels.length} hotels`);
     return enrichedHotels;
   } catch (error) {
     console.error('❌ Error enriching with static data:', error);
