@@ -284,8 +284,8 @@ class RateHawkApiService {
       checkout: this.formatDate(params.checkOut),
       guests,
       page,
-      // Keep this smaller to reduce edge function load and avoid WORKER_LIMIT
-      limit: 50,
+      // Reduced to avoid WORKER_LIMIT errors
+      limit: 30,
       currency: "USD",
       residency,
       // Debug flags - bypass cache and get enrichment diagnostics

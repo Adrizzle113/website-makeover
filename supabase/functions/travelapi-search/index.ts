@@ -1,4 +1,4 @@
-// Redeploy trigger - 2026-01-07T18:15:00 - FIX HID TYPE SAFETY + CACHE BYPASS
+// Redeploy trigger - 2026-01-07T18:20:00 - REDUCE LOAD FOR WORKER_LIMIT
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
