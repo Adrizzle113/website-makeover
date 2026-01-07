@@ -273,6 +273,11 @@ class RateHawkApiService {
 
     // Base request body (shared across attempts)
     const residency = filters?.residency?.toLowerCase() || "us";
+    
+    // Check for debug mode via URL param
+    const urlParams = new URLSearchParams(window.location.search);
+    const debugMode = urlParams.get('debug') === '1';
+    
     const baseBody: Record<string, unknown> = {
       userId,
       checkin: this.formatDate(params.checkIn),
@@ -283,6 +288,9 @@ class RateHawkApiService {
       limit: 50,
       currency: "USD",
       residency,
+      // Debug flags - bypass cache and get enrichment diagnostics
+      noCache: debugMode,
+      debug: debugMode,
     };
 
     if (regionId) {

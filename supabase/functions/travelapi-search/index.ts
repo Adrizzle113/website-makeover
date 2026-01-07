@@ -1,4 +1,4 @@
-// Redeploy trigger - 2026-01-07T17:50:00 - CACHE CLEARED V2
+// Redeploy trigger - 2026-01-07T18:15:00 - FIX HID TYPE SAFETY + CACHE BYPASS
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
@@ -171,10 +171,12 @@ async function enrichWithStaticData(hotels: any[], supabase: any): Promise<any[]
       console.log(`✅ Sample match: hid=${staticArray[0].hid}, region=${staticArray[0].region_name}, country=${staticArray[0].country_code}`);
     }
 
-    // Create lookup map by hid
-    const staticMap = new Map<number, HotelsStaticRow>();
+    // Create lookup map by hid - USE STRING KEYS to prevent type mismatch
+    const staticMap = new Map<string, HotelsStaticRow>();
     staticArray.forEach((s) => {
-      if (s.hid) staticMap.set(s.hid, s);
+      if (s.hid !== null && s.hid !== undefined) {
+        staticMap.set(String(s.hid), s);  // Convert to string key
+      }
     });
 
     // Merge static data into hotels
@@ -182,8 +184,8 @@ async function enrichWithStaticData(hotels: any[], supabase: any): Promise<any[]
     const enrichedHotels = hotels.map((hotel) => {
       if (!hotel.hid) return hotel;
 
-      const hotelHid = typeof hotel.hid === "number" ? hotel.hid : parseInt(String(hotel.hid), 10);
-      const staticInfo = staticMap.get(hotelHid);
+      const hotelHidKey = String(hotel.hid);  // Convert to string for lookup
+      const staticInfo = staticMap.get(hotelHidKey);
 
       if (staticInfo) {
         enrichedCount++;
@@ -273,7 +275,7 @@ async function fetchWithRetry(
 // ============================================
 // Main handler - processes search requests
 // ============================================
-async function handleSearchRequest(req: Request, requestBody: any, requestKey: string): Promise<Response> {
+async function handleSearchRequest(req: Request, requestBody: any, requestKey: string, bypassCache: boolean = false, debugMode: boolean = false): Promise<Response> {
   const requestStart = Date.now();
   const supabase = getSupabaseClient();
 
@@ -373,8 +375,25 @@ async function handleSearchRequest(req: Request, requestBody: any, requestKey: s
       });
     }
 
-    // Cache successful response
-    setCachedResponse(requestKey, responseData);
+    // Cache successful response (unless bypassed)
+    if (!bypassCache) {
+      setCachedResponse(requestKey, responseData);
+    }
+
+    // Add debug info if requested
+    if (debugMode) {
+      const hotelsWithHid = responseData.hotels?.filter((h: any) => h.hid)?.length || 0;
+      const enrichedCount = responseData.hotels?.filter((h: any) => h.static_data)?.length || 0;
+      responseData._debug = {
+        cache: { bypassed: bypassCache },
+        enrichment: {
+          totalHotels: responseData.hotels?.length || 0,
+          hotelsWithHid,
+          enrichedCount,
+          sampleHids: responseData.hotels?.slice(0, 3).map((h: any) => ({ hid: h.hid, type: typeof h.hid })) || [],
+        },
+      };
+    }
 
     return new Response(JSON.stringify(responseData), {
       status: renderResponse.status,
@@ -414,14 +433,20 @@ serve(async (req) => {
     }
 
     const requestKey = getRequestKey(requestBody);
+    const bypassCache = requestBody.noCache === true;
+    const debugMode = requestBody.debug === true;
 
-    // Check cache first - return immediately if hit
-    const cachedData = getCachedResponse(requestKey);
-    if (cachedData) {
-      return new Response(JSON.stringify(cachedData), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Check cache first - return immediately if hit (unless bypassed)
+    if (!bypassCache) {
+      const cachedData = getCachedResponse(requestKey);
+      if (cachedData) {
+        return new Response(JSON.stringify(cachedData), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    } else {
+      console.log("🔓 Cache bypassed (noCache=true)");
     }
 
     // Check for in-flight duplicate request - share the promise
@@ -432,7 +457,7 @@ serve(async (req) => {
     }
 
     // Create and track request promise
-    const requestPromise = handleSearchRequest(req, requestBody, requestKey);
+    const requestPromise = handleSearchRequest(req, requestBody, requestKey, bypassCache, debugMode);
     inFlightRequests.set(requestKey, requestPromise);
 
     try {
