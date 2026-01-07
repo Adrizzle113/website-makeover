@@ -279,7 +279,8 @@ class RateHawkApiService {
       checkout: this.formatDate(params.checkOut),
       guests,
       page,
-      limit: 100,
+      // Keep this smaller to reduce edge function load and avoid WORKER_LIMIT
+      limit: 50,
       currency: "USD",
       residency,
     };
@@ -324,7 +325,7 @@ class RateHawkApiService {
       // No regionId - try to auto-lookup first
       console.log(`⚠️ No valid region_id, auto-looking up for: "${fullDestination}"`);
       const lookedUpRegionId = await this.lookupRegionId(fullDestination);
-      
+
       if (lookedUpRegionId) {
         baseBody.regionId = lookedUpRegionId;
         baseBody.region_id = lookedUpRegionId;
@@ -333,7 +334,7 @@ class RateHawkApiService {
           body: { ...baseBody, destination: fullDestination },
         });
       }
-      
+
       // Fallback: destination string only
       attempts.push({
         label: "destination only (simplified)",
@@ -352,7 +353,7 @@ class RateHawkApiService {
         destination: attempt.body.destination,
         regionId: attempt.body.regionId,
         page,
-        limit: 100,
+        limit: 50,
         residency,
         hasFilters: !!apiFilters,
       });
@@ -364,8 +365,19 @@ class RateHawkApiService {
         });
 
         if (supabaseError) {
-          console.error(`❌ Attempt ${i + 1} Supabase error:`, supabaseError.message);
-          lastError = new Error(supabaseError.message);
+          const msg = (supabaseError.message || "").toString();
+
+          // If the edge runtime is out of workers, don't spam multiple attempts.
+          if (
+            msg.includes("WORKER_LIMIT") ||
+            msg.includes("not having enough compute resources") ||
+            msg.includes("returned 546")
+          ) {
+            throw new Error("Search is temporarily busy. Please wait 15 seconds and try again.");
+          }
+
+          console.error(`❌ Attempt ${i + 1} Supabase error:`, msg);
+          lastError = new Error(msg);
           continue;
         }
 
@@ -594,7 +606,7 @@ class RateHawkApiService {
     });
 
     const totalResults = rawResponse.total || hotels.length;
-    const hasMore = rawResponse.hasMore ?? (hotels.length === 100);
+    const hasMore = rawResponse.hasMore ?? (hotels.length === 50);
 
     return {
       hotels,
