@@ -1,6 +1,7 @@
 import { API_BASE_URL } from "@/config/api";
 import { getOrCreateUserId } from "@/lib/getOrCreateUserId";
 import { geocodePlace } from "@/services/mapboxGeocode";
+import { supabase } from "@/integrations/supabase/client";
 
 // Build stamp for debugging deployed code version
 const RATEHAWK_API_BUILD = "2026-01-06T001";
@@ -357,57 +358,37 @@ class RateHawkApiService {
       });
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/ratehawk/search`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(attempt.body),
+        // Route through Supabase Edge Function for enrichment
+        const { data, error: supabaseError } = await supabase.functions.invoke('travelapi-search', {
+          body: attempt.body,
         });
 
-        if (!response.ok) {
-          // Read the actual error message from backend
-          let errorMessage = `Search failed: ${response.status}`;
-          let errorBody: any = null;
-          
-          try {
-            const text = await response.text();
-            try {
-              errorBody = JSON.parse(text);
-              errorMessage = errorBody.error || errorBody.message || errorBody.details || errorMessage;
-            } catch {
-              if (text) errorMessage = text;
-            }
-          } catch {
-            // Ignore body read errors
-          }
+        if (supabaseError) {
+          console.error(`❌ Attempt ${i + 1} Supabase error:`, supabaseError.message);
+          lastError = new Error(supabaseError.message);
+          continue;
+        }
 
+        if (data?.error) {
+          const errorMessage = data.error;
           console.error(`❌ Attempt ${i + 1} failed:`, errorMessage);
           lastError = new Error(errorMessage);
           
           const lowerError = errorMessage.toLowerCase();
-          
-          // Check if this is a recoverable error that warrants retry
           isRegionNotFoundError = lowerError.includes("could not find region");
-          const isMissingFieldsError = lowerError.includes("missing required") || 
-                                        lowerError.includes("destid") ||
-                                        lowerError.includes("destination required");
-          const isRecoverable = isRegionNotFoundError || isMissingFieldsError;
           
-          // If it's a recoverable error and we have more attempts, continue
-          if (isRecoverable && i < attempts.length - 1) {
+          // If recoverable and more attempts available, continue
+          if (isRegionNotFoundError && i < attempts.length - 1) {
             console.log(`🔄 Recoverable error, trying next attempt...`);
             continue;
           }
           
-          // If it's NOT recoverable at all, throw immediately
-          if (!isRecoverable) {
-            throw lastError;
-          }
-          
+          // Non-recoverable error, throw immediately
+          if (!isRegionNotFoundError) throw lastError;
           continue;
         }
 
         // Success! Parse and return results
-        const data = await response.json();
         console.log(`✅ Attempt ${i + 1} succeeded:`, {
           hotels: data.hotels?.length || 0,
           total: data.total,
@@ -416,7 +397,6 @@ class RateHawkApiService {
         return this.parseSearchResponse(data, page);
       } catch (error) {
         if (error instanceof Error && !error.message.includes("could not find region")) {
-          // Non-recoverable error, throw immediately
           throw error;
         }
         lastError = error instanceof Error ? error : new Error(String(error));
