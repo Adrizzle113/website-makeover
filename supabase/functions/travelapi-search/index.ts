@@ -347,15 +347,32 @@ async function handleSearchRequest(req: Request, requestBody: any, requestKey: s
   const requestStart = Date.now();
   const supabase = getSupabaseClient();
 
+  // SAFETY NET: If enrich-only somehow falls through, handle it here too.
+  const normalizedMode = String(requestBody?.mode ?? "").trim().toLowerCase();
+  const maybeHotelIds = requestBody?.hotelIds ?? requestBody?.hotel_ids;
+  const isEnrichOnly = normalizedMode === "enrich-only" || normalizedMode === "enrich_only" || normalizedMode === "enrichonly";
+  if (isEnrichOnly) {
+    console.log("🧯 Enrich-only safety-net inside handleSearchRequest");
+    const safeHotelIds = Array.isArray(maybeHotelIds) ? maybeHotelIds.map((id: any) => String(id)) : [];
+    return handleEnrichOnly(safeHotelIds, supabase);
+  }
+
   console.log("📍 destination:", requestBody.destination);
   const regionId = requestBody.regionId ?? requestBody.region_id;
   console.log("🆔 regionId:", regionId);
 
   if (!requestBody.destination && !regionId) {
-    return new Response(JSON.stringify({ error: "destination or regionId is required" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        error: "destination or regionId is required",
+        version: EDGE_FUNCTION_VERSION,
+        traceId: requestBody?.traceId ?? null,
+      }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 
   const warmupPromise = warmupServer();
