@@ -1,4 +1,4 @@
-// Redeploy trigger - 2026-01-07 - FIXED V3 for hotels_static table
+// Redeploy trigger - 2026-01-06 - V4 Match by NAME when hid unavailable
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
@@ -17,17 +17,14 @@ const WARMUP_TIMEOUT_MS = 5000;
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Initialize Supabase client
 function getSupabaseClient(): ReturnType<typeof createClient> | null {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
     if (!supabaseUrl || !supabaseKey) {
-      console.warn('⚠️ Missing Supabase env vars - enrichment/cache disabled');
+      console.warn('⚠️ Missing Supabase env vars');
       return null;
     }
-    
     return createClient(supabaseUrl, supabaseKey);
   } catch (e) {
     console.warn('⚠️ Failed to init Supabase client:', e);
@@ -35,29 +32,38 @@ function getSupabaseClient(): ReturnType<typeof createClient> | null {
   }
 }
 
-// ============================================
-// CORRECT: hotels_static table schema
-// ============================================
 interface HotelsStaticRow {
   hid: number;
   name: string | null;
   address: string | null;
-  region_id: number | null;
   region_name: string | null;
-  region_type: string | null;
   country_code: string | null;
+  star_rating: number | null;
   latitude: number | null;
   longitude: number | null;
-  star_rating: number | null;
-  check_in_time: string | null;
-  check_out_time: string | null;
   amenities: string[] | null;
   description: string | null;
+  check_in_time: string | null;
+  check_out_time: string | null;
 }
 
-// ============================================
-// Enrich hotels from hotels_static table
-// ============================================
+// Convert slug like "royal_palm_tower" to "Royal Palm Tower" for name matching
+function slugToName(slug: string): string {
+  return slug
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
+
+// Normalize name for comparison (lowercase, remove special chars)
+function normalizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 async function enrichWithStaticData(
   hotels: any[], 
   supabase: any
@@ -65,27 +71,37 @@ async function enrichWithStaticData(
   if (!hotels || hotels.length === 0) return hotels;
   if (!supabase) return hotels;
 
-  const numericHids: number[] = [];
+  // Extract hotel names from API response for matching
+  const hotelNames: string[] = [];
+  const hotelNameMap = new Map<string, string>(); // normalized -> original
   
   hotels.forEach(h => {
-    if (h.hid) {
-      const numId = typeof h.hid === 'number' ? h.hid : parseInt(String(h.hid), 10);
-      if (!isNaN(numId)) numericHids.push(numId);
+    // Get name from slug (id field) or name field
+    const slug = h.id || '';
+    const nameFromSlug = slugToName(slug);
+    const directName = h.name || nameFromSlug;
+    
+    if (directName) {
+      const normalized = normalizeName(directName);
+      hotelNames.push(directName);
+      hotelNameMap.set(normalized, directName);
     }
   });
 
-  console.log(`📊 Enrichment lookup: ${numericHids.length} hotel hids`);
-  console.log(`📊 Sample hids: ${numericHids.slice(0, 5).join(', ')}`);
+  console.log(`📊 Enrichment lookup: ${hotelNames.length} hotels by name`);
+  console.log(`📊 Sample names: ${hotelNames.slice(0, 3).join(', ')}`);
 
-  if (numericHids.length === 0) {
-    console.log('⚠️ No valid hid values found in API response');
+  if (hotelNames.length === 0) {
+    console.log('⚠️ No hotel names to look up');
     return hotels;
   }
 
   try {
-    console.log(`🔍 Querying hotels_static.hid with ${numericHids.length} IDs...`);
+    // Query ALL hotels from the region to do client-side matching
+    // (Supabase doesn't support OR with multiple ILIKE efficiently)
+    const regionName = hotels[0]?.location || hotels[0]?.region?.name;
     
-    const { data: staticData, error } = await supabase
+    let query = supabase
       .from('hotels_static')
       .select(`
         hid,
@@ -101,7 +117,14 @@ async function enrichWithStaticData(
         check_in_time,
         check_out_time
       `)
-      .in('hid', numericHids);
+      .limit(1000);
+    
+    // If we know the region, filter by it for better performance
+    if (regionName && regionName !== 'Unknown') {
+      query = query.ilike('region_name', `%${regionName}%`);
+    }
+    
+    const { data: staticData, error } = await query;
 
     if (error) {
       console.error('❌ Database query error:', error.message);
@@ -112,38 +135,70 @@ async function enrichWithStaticData(
     
     if (!staticArray || staticArray.length === 0) {
       console.log('⚠️ No static data found in hotels_static');
-      console.log('⚠️ Sample hids searched:', numericHids.slice(0, 5));
       return hotels;
     }
 
-    console.log(`✅ Found ${staticArray.length}/${numericHids.length} hotels in database`);
-    
-    if (staticArray.length > 0) {
-      const sample = staticArray[0];
-      console.log(`📊 Sample: hid=${sample.hid}, name="${sample.name}", city="${sample.region_name}", country="${sample.country_code}"`);
-    }
+    console.log(`📊 Loaded ${staticArray.length} hotels from database for matching`);
 
-    const staticMap = new Map<number, HotelsStaticRow>();
+    // Create lookup map by normalized name
+    const staticByName = new Map<string, HotelsStaticRow>();
     staticArray.forEach(s => {
-      if (s.hid) staticMap.set(s.hid, s);
+      if (s.name) {
+        const normalized = normalizeName(s.name);
+        staticByName.set(normalized, s);
+      }
     });
 
-    return hotels.map(hotel => {
-      if (!hotel.hid) return hotel;
+    console.log(`📊 Created name lookup map with ${staticByName.size} entries`);
+
+    let matchCount = 0;
+
+    // Merge static data into hotels
+    const enrichedHotels = hotels.map(hotel => {
+      // Get the hotel name to match
+      const slug = hotel.id || '';
+      const nameFromSlug = slugToName(slug);
+      const hotelName = hotel.name || nameFromSlug;
       
-      const hotelHid = typeof hotel.hid === 'number' ? hotel.hid : parseInt(String(hotel.hid), 10);
-      const staticInfo = staticMap.get(hotelHid);
+      if (!hotelName) return hotel;
+      
+      const normalizedName = normalizeName(hotelName);
+      
+      // Try exact match first
+      let staticInfo = staticByName.get(normalizedName);
+      
+      // If no exact match, try partial matching
+      if (!staticInfo) {
+        // Try to find a close match
+        for (const [dbNormalized, dbData] of staticByName.entries()) {
+          // Check if one contains the other (handles slight variations)
+          if (dbNormalized.includes(normalizedName) || normalizedName.includes(dbNormalized)) {
+            staticInfo = dbData;
+            break;
+          }
+          // Check word overlap (at least 2 matching words)
+          const hotelWords = normalizedName.split(' ').filter(w => w.length > 2);
+          const dbWords = dbNormalized.split(' ').filter(w => w.length > 2);
+          const matchingWords = hotelWords.filter(w => dbWords.includes(w));
+          if (matchingWords.length >= 2) {
+            staticInfo = dbData;
+            break;
+          }
+        }
+      }
 
       if (staticInfo) {
+        matchCount++;
         return {
           ...hotel,
+          hid: staticInfo.hid, // Add hid from database!
           static_data: {
             name: staticInfo.name,
             address: staticInfo.address,
             city: staticInfo.region_name,
             country: staticInfo.country_code,
             star_rating: staticInfo.star_rating,
-            images: [],
+            images: [], // No images in this table
             coordinates: {
               lat: staticInfo.latitude,
               lon: staticInfo.longitude,
@@ -158,6 +213,17 @@ async function enrichWithStaticData(
 
       return hotel;
     });
+
+    console.log(`✅ Matched ${matchCount}/${hotels.length} hotels by name`);
+    
+    if (matchCount > 0) {
+      const sample = enrichedHotels.find(h => h.static_data);
+      if (sample) {
+        console.log(`📊 Sample match: "${sample.name}" → city="${sample.static_data.city}", country="${sample.static_data.country}"`);
+      }
+    }
+
+    return enrichedHotels;
   } catch (error) {
     console.error('❌ Error enriching with static data:', error);
     return hotels;
@@ -168,11 +234,9 @@ async function warmupServer(): Promise<{ ok: boolean; status: number }> {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), WARMUP_TIMEOUT_MS);
-    
     const response = await fetch(`${RENDER_API_URL}/api/health`, {
       signal: controller.signal,
     });
-    
     clearTimeout(timeoutId);
     return { ok: response.ok, status: response.status };
   } catch {
@@ -189,8 +253,7 @@ async function fetchWithRetry(
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`🔄 Attempt ${attempt}/${maxRetries} - ${url}`);
-      
+      console.log(`🔄 Attempt ${attempt}/${maxRetries}`);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
       
@@ -206,15 +269,12 @@ async function fetchWithRetry(
         return { response, attempts: attempt, lastStatus };
       }
       
-      console.warn(`⚠️ Attempt ${attempt} returned ${response.status}`);
-      
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`❌ Attempt ${attempt} failed:`, message);
       
       if (attempt < maxRetries) {
-        const waitTime = RETRY_DELAY_MS * attempt;
-        await delay(waitTime);
+        await delay(RETRY_DELAY_MS * attempt);
       }
     }
   }
@@ -231,9 +291,7 @@ serve(async (req) => {
 
   try {
     const supabase = getSupabaseClient();
-    
     const bodyText = await req.text();
-    console.log(`📥 Request body length: ${bodyText.length} chars`);
 
     if (!bodyText || bodyText.length === 0) {
       return new Response(
@@ -245,15 +303,13 @@ serve(async (req) => {
     let requestBody;
     try {
       requestBody = JSON.parse(bodyText);
-    } catch (parseError) {
-      console.error('❌ JSON parse error');
+    } catch {
       return new Response(
         JSON.stringify({ error: 'Invalid JSON' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('📋 Payload keys:', Object.keys(requestBody));
     console.log('📍 destination:', requestBody.destination);
     const regionId = requestBody.regionId ?? requestBody.region_id;
     console.log('🆔 regionId:', regionId);
@@ -281,20 +337,10 @@ serve(async (req) => {
     const duration = Date.now() - requestStart;
 
     if (!renderResponse) {
-      console.error('💥 All retries failed');
       try { warmup = await warmupPromise; } catch { /* ignore */ }
-
       return new Response(
         JSON.stringify({
-          error: 'Service temporarily unavailable. Please try again in 30 seconds.',
-          details: warmup.ok 
-            ? 'Backend is online but search endpoint is not responding'
-            : 'Backend server is waking up',
-          wasWarm: warmup.ok,
-          warmupStatus: warmup.status,
-          attempts,
-          lastStatus,
-          duration_ms: duration,
+          error: 'Service temporarily unavailable',
           hotels: [],
           totalHotels: 0,
         }),
@@ -304,13 +350,11 @@ serve(async (req) => {
 
     const responseText = await renderResponse.text();
     console.log(`📨 Render response: ${renderResponse.status} (${duration}ms)`);
-    console.log(`📨 Response preview: ${responseText.substring(0, 300)}`);
 
     if (responseText.includes('Could not find region') || responseText.includes('Destination not found')) {
-      const destination = String((requestBody as any).destination ?? "");
       return new Response(
         JSON.stringify({
-          error: `"${destination}" is not available for search. Try a major city nearby.`,
+          error: 'Destination not available',
           hotels: [],
           totalHotels: 0,
         }),
@@ -319,30 +363,26 @@ serve(async (req) => {
     }
 
     if (renderResponse.status >= 500) {
-      try { warmup = await warmupPromise; } catch { /* ignore */ }
-
       return new Response(
         JSON.stringify({
-          error: "Backend service error. Please try again.",
-          upstream_status: renderResponse.status,
-          attempts,
-          duration_ms: duration,
+          error: 'Backend service error',
           hotels: [],
           totalHotels: 0,
         }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     try {
       const responseData = JSON.parse(responseText);
       
+      // Enrich hotels with static data by NAME matching
       if (responseData.hotels && Array.isArray(responseData.hotels) && supabase) {
-        console.log(`🏨 Enriching ${responseData.hotels.length} hotels from hotels_static...`);
+        console.log(`🏨 Enriching ${responseData.hotels.length} hotels by name...`);
         responseData.hotels = await enrichWithStaticData(responseData.hotels, supabase);
         
         const enrichedCount = responseData.hotels.filter((h: any) => h.static_data).length;
-        console.log(`✅ Enriched ${enrichedCount}/${responseData.hotels.length} hotels with static data`);
+        console.log(`✅ Enriched ${enrichedCount}/${responseData.hotels.length} hotels`);
       }
 
       return new Response(JSON.stringify(responseData), {
@@ -357,16 +397,9 @@ serve(async (req) => {
     }
 
   } catch (error) {
-    const duration = Date.now() - requestStart;
     console.error('💥 Edge function error:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    
     return new Response(
-      JSON.stringify({
-        error: 'Internal error',
-        message,
-        duration_ms: duration,
-      }),
+      JSON.stringify({ error: 'Internal error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
