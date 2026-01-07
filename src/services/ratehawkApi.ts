@@ -1135,7 +1135,7 @@ class RateHawkApiService {
           .map((region) => ({
             id: String(region.id),
             name: region.name,
-            country: region.country || '',
+            country: region.country || region.country_code || '',
             type: region.type?.toLowerCase().includes("city") ? "city" : "region",
           }));
 
