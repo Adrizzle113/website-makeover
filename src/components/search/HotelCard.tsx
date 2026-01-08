@@ -1,25 +1,25 @@
-import { forwardRef } from "react";
+import { forwardRef, useState } from "react";
 import { Star, MapPin, ArrowRight, Database, MapPinned } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { Hotel, HotelDetails } from "@/types/booking";
 import { useBookingStore } from "@/stores/bookingStore";
+import { cn } from "@/lib/utils";
 
 interface HotelCardProps {
-  hotel: Hotel;
+  hotel: Hotel; // Raw hotel data (always present)
+  enrichedHotel?: Hotel; // Enriched data (may be undefined)
   compact?: boolean;
+  priority?: boolean; // Eager load first 6-8 images
   onHover?: (hotelId: string | null) => void;
   onFocus?: (hotelId: string) => void;
 }
 
 // Check if hotel has full enrichment data (from database) vs fallback (destination only)
 const hasFullEnrichment = (hotel: Hotel): boolean => {
-  // Enrichment data is stored in ratehawk_data.static_data after parseSearchResponse
   const staticData = (hotel as any).ratehawk_data?.static_data;
   if (!staticData) return false;
-  // Full enrichment has address, amenities, or description from database
-  // Fallback only has city, country, star_rating
   return !!(staticData.address || staticData.amenities?.length > 0 || staticData.description);
 };
 
@@ -29,7 +29,6 @@ const normalizeImageUrl = (url?: string): string => {
   if (url === "placeholder-hotel.jpg" || url.includes("placeholder-hotel")) {
     return "/placeholder.svg";
   }
-  // Replace any remaining {size} placeholders that slipped through
   if (url.includes("{size}")) {
     return url.replace("{size}", "640x400");
   }
@@ -39,25 +38,19 @@ const normalizeImageUrl = (url?: string): string => {
 // Convert Hotel to HotelDetails, preserving all existing data including ratehawk_data
 const convertToHotelDetails = (hotel: Hotel): HotelDetails => ({
   ...hotel,
-  // Preserve existing images, or fallback to mainImage
   images:
     hotel.images && hotel.images.length > 0
       ? hotel.images
       : hotel.mainImage
         ? [{ url: hotel.mainImage, alt: hotel.name }]
         : [],
-  // Preserve description or generate default
   description: hotel.description || `Experience exceptional hospitality at ${hotel.name}.`,
   fullDescription: hotel.description
     ? `${hotel.description} Located in ${hotel.city}, ${hotel.country}.`
     : `${hotel.name} offers comfortable accommodations in ${hotel.city}, ${hotel.country}. Enjoy modern amenities and excellent service during your stay.`,
-  // Preserve existing rooms from API
   rooms: hotel.rooms || [],
-  // Preserve the raw ratehawk_data for room processing
   ratehawk_data: hotel.ratehawk_data,
-  // Preserve review count
   reviewCount: hotel.reviewCount || 0,
-  // Default values for extended fields only if not present
   facilities: [],
   checkInTime: "3:00 PM",
   checkOutTime: "12:00 PM",
@@ -65,30 +58,39 @@ const convertToHotelDetails = (hotel: Hotel): HotelDetails => ({
 });
 
 export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function HotelCard(
-  { hotel, compact = false, onHover, onFocus },
+  { hotel, enrichedHotel, compact = false, priority = false, onHover, onFocus },
   ref,
 ) {
   const navigate = useNavigate();
   const { setSelectedHotel, searchParams } = useBookingStore();
+  const [imgLoaded, setImgLoaded] = useState(false);
+
+  // Use enriched data if available, fall back to raw
+  const displayHotel = enrichedHotel || hotel;
+  const displayName = displayHotel.name;
+  const displayCity = displayHotel.city;
+  const displayCountry = displayHotel.country;
+  const displayStars = displayHotel.starRating;
+  const displayPrice = displayHotel.priceFrom;
+  const displayAmenities = displayHotel.amenities;
+  const displayReviewScore = displayHotel.reviewScore;
+  const displayAddress = displayHotel.address;
+  const displayCurrency = displayHotel.currency;
+
+  // Image handling - use enriched image if available
+  const imageUrl = normalizeImageUrl(enrichedHotel?.mainImage || hotel.mainImage);
+  const hasImage = imageUrl !== "/placeholder.svg";
 
   const handleViewDetails = () => {
-    // Convert to HotelDetails and store in both Zustand and localStorage
-    const hotelDetails = convertToHotelDetails(hotel);
+    const hotelDetails = convertToHotelDetails(displayHotel);
 
-    // Debug: Log ratehawk_data being passed to store
     console.log(`🏨 HotelCard - Setting hotel ${hotel.id}:`, {
       hasRatehawkData: !!hotelDetails.ratehawk_data,
       ratehawkDataKeys: Object.keys(hotelDetails.ratehawk_data || {}),
-      roomGroups: hotelDetails.ratehawk_data?.room_groups?.length || 0,
-      enhancedRoomGroups: hotelDetails.ratehawk_data?.enhancedData?.room_groups?.length || 0,
-      rates: hotelDetails.ratehawk_data?.rates?.length || 0,
-      enhancedRates: hotelDetails.ratehawk_data?.enhancedData?.rates?.length || 0,
     });
 
     setSelectedHotel(hotelDetails);
 
-    // Store in localStorage for persistence across page refreshes
-    // Optimize by stripping large ratehawk_data arrays to avoid quota exceeded
     const optimizedHotel = {
       ...hotelDetails,
       ratehawk_data: hotelDetails.ratehawk_data ? {
@@ -96,7 +98,6 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
         ota_hotel_id: hotelDetails.ratehawk_data.ota_hotel_id,
         id: hotelDetails.ratehawk_data.id,
         hotel_id: hotelDetails.ratehawk_data.hotel_id,
-        // Keep rates and room_groups as fallback when API fails
         rates: hotelDetails.ratehawk_data.rates,
         room_groups: hotelDetails.ratehawk_data.room_groups,
         static_vm: hotelDetails.ratehawk_data.static_vm,
@@ -121,7 +122,6 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
       localStorage.setItem("selectedHotel", JSON.stringify(hotelDataPackage));
     } catch (e) {
       console.warn("Failed to cache hotel in localStorage:", e);
-      // Still works - data is in Zustand store
     }
 
     navigate(`/hoteldetails/${hotel.id}`);
@@ -144,19 +144,31 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
         onMouseLeave={() => onHover?.(null)}
       >
         <div className="flex">
-          <div className="relative w-24 sm:w-28 h-24 sm:h-28 flex-shrink-0 overflow-hidden">
-            <img
-              src={normalizeImageUrl(hotel.mainImage)}
-              alt={hotel.name}
-              loading="lazy"
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              onError={(e) => {
-                e.currentTarget.src = "/placeholder.svg";
-              }}
-            />
-            {hotel.reviewScore && hotel.reviewScore > 0 ? (
+          {/* Compact Image with shimmer */}
+          <div className="relative w-24 sm:w-28 h-24 sm:h-28 flex-shrink-0 overflow-hidden bg-muted">
+            {(!hasImage || !imgLoaded) && (
+              <div className="absolute inset-0 skeleton-shimmer" />
+            )}
+            {hasImage && (
+              <img
+                src={imageUrl}
+                alt={displayName}
+                loading={priority ? "eager" : "lazy"}
+                fetchPriority={priority ? "high" : "auto"}
+                onLoad={() => setImgLoaded(true)}
+                onError={(e) => {
+                  e.currentTarget.src = "/placeholder.svg";
+                  setImgLoaded(true);
+                }}
+                className={cn(
+                  "w-full h-full object-cover group-hover:scale-105 transition-transform duration-500",
+                  imgLoaded ? "opacity-100" : "opacity-0"
+                )}
+              />
+            )}
+            {displayReviewScore && displayReviewScore > 0 ? (
               <div className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 bg-primary text-primary-foreground px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold">
-                {hotel.reviewScore.toFixed(1)}
+                {displayReviewScore.toFixed(1)}
               </div>
             ) : (
               <div className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 bg-secondary/80 backdrop-blur-sm text-muted-foreground px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs flex items-center gap-1">
@@ -168,21 +180,21 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
           <div className="flex-1 p-2 sm:p-3 flex flex-col justify-between min-w-0">
             <div className="min-w-0">
               <div className="flex items-center gap-0.5 mb-0.5 sm:mb-1">
-                {Array.from({ length: hotel.starRating || 0 }).map((_, i) => (
+                {Array.from({ length: displayStars || 0 }).map((_, i) => (
                   <Star key={i} className="w-2.5 sm:w-3 h-2.5 sm:h-3 fill-amber-400 text-amber-400" />
                 ))}
               </div>
               <h3 className="font-heading text-xs sm:text-sm text-foreground line-clamp-1 group-hover:text-primary transition-colors">
-                {hotel.name}
+                {displayName}
               </h3>
               <div className="flex items-center gap-1 text-muted-foreground">
                 <MapPin className="w-2.5 sm:w-3 h-2.5 sm:h-3 text-primary flex-shrink-0" />
-                <span className="text-[10px] sm:text-xs truncate">{hotel.city}</span>
+                <span className="text-[10px] sm:text-xs truncate">{displayCity}</span>
               </div>
             </div>
             <div className="flex items-center justify-between">
               <p className="font-heading text-xs sm:text-sm text-primary font-semibold">
-                {hotel.priceFrom ? `$${hotel.priceFrom.toLocaleString()}` : "Price on request"}
+                {displayPrice ? `$${displayPrice.toLocaleString()}` : "Price on request"}
               </p>
               <ArrowRight className="h-3 sm:h-4 w-3 sm:w-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
             </div>
@@ -195,21 +207,35 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
   return (
     <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 bg-card border-border/50 group rounded-xl md:rounded-2xl">
       <div className="flex flex-col sm:flex-row">
-        {/* Image */}
-        <div className="relative w-full sm:w-48 md:w-80 h-48 sm:h-48 md:h-[340px] flex-shrink-0 overflow-hidden">
-          <img
-            src={normalizeImageUrl(hotel.mainImage)}
-            alt={hotel.name}
-            loading="lazy"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            onError={(e) => {
-              e.currentTarget.src = "/placeholder.svg";
-            }}
-          />
+        {/* Image with shimmer overlay */}
+        <div className="relative w-full sm:w-48 md:w-80 h-48 sm:h-48 md:h-[340px] flex-shrink-0 overflow-hidden bg-muted">
+          {/* Shimmer overlay until image loads */}
+          {(!hasImage || !imgLoaded) && (
+            <div className="absolute inset-0 skeleton-shimmer" />
+          )}
+          
+          {hasImage && (
+            <img
+              src={imageUrl}
+              alt={displayName}
+              loading={priority ? "eager" : "lazy"}
+              fetchPriority={priority ? "high" : "auto"}
+              onLoad={() => setImgLoaded(true)}
+              onError={(e) => {
+                e.currentTarget.src = "/placeholder.svg";
+                setImgLoaded(true);
+              }}
+              className={cn(
+                "w-full h-full object-cover group-hover:scale-105 transition-transform duration-500",
+                imgLoaded ? "opacity-100" : "opacity-0"
+              )}
+            />
+          )}
+          
           {/* Review score badge */}
-          {hotel.reviewScore && hotel.reviewScore > 0 ? (
+          {displayReviewScore && displayReviewScore > 0 ? (
             <div className="absolute top-3 left-3 md:top-4 md:left-4 bg-primary text-primary-foreground px-2 md:px-3 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-semibold">
-              {hotel.reviewScore.toFixed(1)}
+              {displayReviewScore.toFixed(1)}
             </div>
           ) : (
             <div className="absolute top-3 left-3 md:top-4 md:left-4 bg-secondary/80 backdrop-blur-sm text-muted-foreground px-2 md:px-3 py-1 md:py-1.5 rounded-full text-xs md:text-sm flex items-center gap-1">
@@ -217,16 +243,17 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
               <span>New</span>
             </div>
           )}
+          
           {/* Enrichment status badge */}
           <div 
             className={`absolute bottom-3 left-3 md:bottom-4 md:left-4 px-2 py-1 rounded-full text-[10px] md:text-xs flex items-center gap-1 ${
-              hasFullEnrichment(hotel) 
+              hasFullEnrichment(displayHotel) 
                 ? "bg-emerald-500/90 text-white" 
                 : "bg-amber-500/90 text-white"
             }`}
-            title={hasFullEnrichment(hotel) ? "Full hotel data from database" : "Basic data (destination fallback)"}
+            title={hasFullEnrichment(displayHotel) ? "Full hotel data from database" : "Basic data (destination fallback)"}
           >
-            {hasFullEnrichment(hotel) ? (
+            {hasFullEnrichment(displayHotel) ? (
               <>
                 <Database className="w-3 h-3" />
                 <span className="hidden md:inline">Verified</span>
@@ -245,14 +272,14 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
           <div className="flex-1">
             {/* Stars */}
             <div className="flex items-center gap-0.5 md:gap-1 mb-2 md:mb-3">
-              {Array.from({ length: hotel.starRating || 0 }).map((_, i) => (
+              {Array.from({ length: displayStars || 0 }).map((_, i) => (
                 <Star key={i} className="w-3 md:w-4 h-3 md:h-4 fill-amber-400 text-amber-400" />
               ))}
             </div>
 
             {/* Name */}
             <h3 className="font-heading text-base md:text-heading-standard text-foreground mb-1.5 md:mb-2 line-clamp-2 group-hover:text-primary transition-colors">
-              {hotel.name}
+              {displayName}
             </h3>
 
             {/* Location */}
@@ -260,20 +287,20 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
               <div className="flex items-center gap-1.5 md:gap-2 text-muted-foreground">
                 <MapPin className="w-3.5 md:w-4 h-3.5 md:h-4 text-primary flex-shrink-0" />
                 <span className="text-xs md:text-body-sm">
-                  {hotel.city}{hotel.city && hotel.country ? ", " : ""}{hotel.country}
+                  {displayCity}{displayCity && displayCountry ? ", " : ""}{displayCountry}
                 </span>
               </div>
-              {hotel.address && (
+              {displayAddress && (
                 <p className="text-[10px] md:text-xs text-muted-foreground/70 ml-5 md:ml-6 line-clamp-1">
-                  {hotel.address}
+                  {displayAddress}
                 </p>
               )}
             </div>
 
-            {/* Amenities */}
-            {hotel.amenities && hotel.amenities.length > 0 && (
+            {/* Amenities - show skeleton pills if not enriched */}
+            {displayAmenities && displayAmenities.length > 0 ? (
               <div className="flex flex-wrap gap-1.5 md:gap-2 mb-4 md:mb-5">
-                {hotel.amenities.slice(0, 3).map((amenity) => (
+                {displayAmenities.slice(0, 3).map((amenity) => (
                   <span
                     key={amenity.id}
                     className="badge-pill text-[10px] md:text-xs bg-sage/10 text-sage border-sage/20 px-2 md:px-3 py-0.5 md:py-1"
@@ -281,13 +308,20 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
                     {amenity.name}
                   </span>
                 ))}
-                {hotel.amenities.length > 3 && (
+                {displayAmenities.length > 3 && (
                   <span className="badge-pill text-[10px] md:text-xs bg-muted text-muted-foreground px-2 md:px-3 py-0.5 md:py-1">
-                    +{hotel.amenities.length - 3} more
+                    +{displayAmenities.length - 3} more
                   </span>
                 )}
               </div>
-            )}
+            ) : !enrichedHotel ? (
+              // Skeleton amenity pills while loading
+              <div className="flex gap-2 mb-4 md:mb-5">
+                <div className="h-6 w-20 rounded-full skeleton-shimmer" />
+                <div className="h-6 w-16 rounded-full skeleton-shimmer" />
+                <div className="h-6 w-24 rounded-full skeleton-shimmer" />
+              </div>
+            ) : null}
           </div>
 
           {/* Price & CTA */}
@@ -297,8 +331,8 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
                 Starting from
               </p>
               <p className="font-heading text-lg md:text-heading-medium text-primary">
-                {hotel.priceFrom
-                  ? `${hotel.currency || "USD"} ${hotel.priceFrom.toLocaleString()}`
+                {displayPrice
+                  ? `${displayCurrency || "USD"} ${displayPrice.toLocaleString()}`
                   : "Price on request"}
               </p>
               <p className="text-[10px] md:text-body-sm text-muted-foreground">per night</p>
