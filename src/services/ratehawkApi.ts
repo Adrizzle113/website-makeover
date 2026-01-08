@@ -254,10 +254,11 @@ class RateHawkApiService {
           const hid = typeof hotel.hid === 'number' ? hotel.hid : parseInt(String(hotel.hid), 10);
           const staticInfo = staticMap.get(hid) as any;
           
-          if (staticInfo) {
+        if (staticInfo) {
             return {
               ...hotel,
               static_data: {
+                ...hotel.static_data, // Preserve existing fields (like images)
                 name: staticInfo.name,
                 address: staticInfo.address,
                 city: staticInfo.region_name,
@@ -1104,7 +1105,8 @@ class RateHawkApiService {
       }).filter((img: any) => img.url && img.url.length > 30);
     }
 
-    const mainImage = images[0]?.url || h.image || "/placeholder.svg";
+    // Handle both raw API (h.image) and already-transformed Hotel (h.mainImage)
+    const mainImage = images[0]?.url || h.mainImage || h.image || "/placeholder.svg";
 
     const hasFreeCancellation = h.freeCancellation ||
       rates.some((r: any) => r.free_cancellation === true || r.cancellationPolicy?.toLowerCase().includes("free"));

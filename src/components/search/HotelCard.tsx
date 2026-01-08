@@ -23,11 +23,15 @@ const hasFullEnrichment = (hotel: Hotel): boolean => {
   return !!(staticData.address || staticData.amenities?.length > 0 || staticData.description);
 };
 
-// Normalize image URLs - handle backend placeholder that doesn't exist in frontend
+// Normalize image URLs - handle backend placeholder and {size} placeholders
 const normalizeImageUrl = (url?: string): string => {
   if (!url) return "/placeholder.svg";
   if (url === "placeholder-hotel.jpg" || url.includes("placeholder-hotel")) {
     return "/placeholder.svg";
+  }
+  // Replace any remaining {size} placeholders that slipped through
+  if (url.includes("{size}")) {
+    return url.replace("{size}", "640x400");
   }
   return url;
 };
