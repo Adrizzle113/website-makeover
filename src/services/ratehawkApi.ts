@@ -79,6 +79,33 @@ const CIRCUIT_BREAKER_DURATION_MS = 60_000; // 1 minute
 // Cache of hotel IDs already attempted for WorldOTA enrichment (prevents re-fetching)
 const worldOtaAttemptedCache = new Set<number>();
 
+/**
+ * Extract hotel ID (hid) from various possible locations in hotel object
+ * Works for raw API hotels, transformed Hotel objects, and re-enrichment scenarios
+ */
+function extractHid(hotel: any): number | null {
+  // Direct properties
+  const candidates = [
+    hotel.hid,
+    hotel.hotel_id,
+    // From ratehawk_data (raw API)
+    hotel.ratehawk_data?.hid,
+    hotel.ratehawk_data?.hotel_id,
+    // The 'id' field (transformed hotels use string IDs like 'test_hotel_pasadena')
+    hotel.id,
+  ];
+  
+  for (const val of candidates) {
+    if (val === undefined || val === null) continue;
+    const parsed = typeof val === 'number' ? val : parseInt(String(val), 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  
+  return null;
+}
+
 // Helper to check if a hotel needs image enrichment
 function needsImageEnrichment(hotel: any): boolean {
   // Check if images are missing or only placeholders
@@ -270,12 +297,10 @@ class RateHawkApiService {
   private async enrichFromSupabase(hotels: any[]): Promise<any[]> {
     if (!hotels || hotels.length === 0) return hotels;
 
-    // Extract numeric hids from hotels
+    // Extract numeric hids from hotels using robust extraction
     const hids = hotels
-      .map(h => h.hid)
-      .filter(hid => hid !== undefined && hid !== null)
-      .map(hid => typeof hid === 'number' ? hid : parseInt(String(hid), 10))
-      .filter(hid => !isNaN(hid));
+      .map(h => extractHid(h))
+      .filter((hid): hid is number => hid !== null);
 
     if (hids.length === 0) {
       console.log('⚠️ No valid hids found for enrichment');
@@ -348,9 +373,8 @@ class RateHawkApiService {
     
     // Find hotels that need image enrichment AND haven't been attempted yet
     const unenrichedHotels = hotels.filter(h => {
-      if (!h.hid) return false;
-      const hid = typeof h.hid === 'number' ? h.hid : parseInt(String(h.hid), 10);
-      if (isNaN(hid)) return false;
+      const hid = extractHid(h);
+      if (!hid) return false;
       if (worldOtaAttemptedCache.has(hid)) return false; // Already attempted
       return needsImageEnrichment(h);
     });
@@ -368,9 +392,8 @@ class RateHawkApiService {
     
     // Sequential fetching with 2-second delay between requests
     for (const hotel of hotelsToFetch) {
-      const hid = typeof hotel.hid === 'number' 
-        ? hotel.hid 
-        : parseInt(String(hotel.hid), 10);
+      const hid = extractHid(hotel);
+      if (!hid) continue;
       
       // Mark as attempted to prevent re-fetching
       worldOtaAttemptedCache.add(hid);
@@ -465,13 +488,20 @@ class RateHawkApiService {
     // Count hotels needing images BEFORE enrichment
     const needImagesBefore = hotels.filter(h => needsImageEnrichment(h)).length;
     
-    // Convert Hotel[] to any[] for enrichment
+    // Convert Hotel[] to any[] for enrichment, ensuring hid is set
     const hotelData = hotels.map(h => ({
       ...h,
-      hid: (h as any).hid || (h as any).hotel_id,
+      hid: extractHid(h),
     }));
     
-    const enrichedData = await this.enrichFromSupabase(hotelData);
+    // Filter out hotels without valid hids - they can't be enriched
+    const validHotelData = hotelData.filter(h => h.hid !== null);
+    if (validHotelData.length === 0) {
+      console.log('⚠️ No valid hids found for enrichment');
+      return { hotels, enrichedWithImages: 0, remainingNeedImages: 0 };
+    }
+    
+    const enrichedData = await this.enrichFromSupabase(validHotelData);
     
     // Apply destination fallback if we have destination info
     const destination = (hotels[0] as any)?.static_data?.city || '';
@@ -480,16 +510,22 @@ class RateHawkApiService {
     // Transform back to Hotel type
     const transformedHotels = finalData.hotels.map((h: any) => this.transformHotelData(h));
     
-    // Count hotels still needing images AFTER enrichment
-    const needImagesAfter = transformedHotels.filter((h: Hotel) => needsImageEnrichment(h)).length;
-    const enrichedWithImages = needImagesBefore - needImagesAfter;
+    // Count hotels that STILL need images AND can be retried (not yet attempted in WorldOTA)
+    const remainingEligible = transformedHotels.filter((h: Hotel) => {
+      if (!needsImageEnrichment(h)) return false;
+      const hid = extractHid(h);
+      if (!hid) return false;
+      return !worldOtaAttemptedCache.has(hid); // Not yet attempted
+    }).length;
     
-    console.log(`📊 Enrichment stats: ${enrichedWithImages} got images, ${needImagesAfter} still need images`);
+    const enrichedWithImages = needImagesBefore - remainingEligible;
+    
+    console.log(`📊 Enrichment stats: ${enrichedWithImages} got images, ${remainingEligible} still need images`);
     
     return { 
       hotels: transformedHotels, 
       enrichedWithImages,
-      remainingNeedImages: needImagesAfter 
+      remainingNeedImages: remainingEligible 
     };
   }
 
