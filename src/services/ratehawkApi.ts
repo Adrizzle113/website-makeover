@@ -375,7 +375,7 @@ class RateHawkApiService {
     const unenrichedHotels = hotels.filter(h => {
       const hid = extractHid(h);
       if (!hid) return false;
-      if (worldOtaAttemptedCache.has(hid)) return false; // Already attempted
+      if (worldOtaAttemptedCache.has(hid)) return false;
       return needsImageEnrichment(h);
     });
 
@@ -384,19 +384,53 @@ class RateHawkApiService {
       return hotels;
     }
 
-    // Limit to 10 hotels to stay well under 30/min rate limit
-    const hotelsToFetch = unenrichedHotels.slice(0, 10);
-    console.log(`🔍 Fetching ${hotelsToFetch.length} hotels from WorldOTA API for images...`);
+    // Split into priority (parallel) and secondary (sequential) batches
+    const priorityBatch = unenrichedHotels.slice(0, 6);  // First 6 in parallel
+    const secondaryBatch = unenrichedHotels.slice(6, 10); // Next 4 sequential
+    
+    console.log(`🚀 Fetching ${priorityBatch.length} hotels in parallel, ${secondaryBatch.length} sequential`);
 
     const results: Array<{hid: number, data: any}> = [];
     
-    // Sequential fetching with 2-second delay between requests
-    for (const hotel of hotelsToFetch) {
+    // Mark all as attempted immediately to prevent re-fetching
+    [...priorityBatch, ...secondaryBatch].forEach(h => {
+      const hid = extractHid(h);
+      if (hid) worldOtaAttemptedCache.add(hid);
+    });
+
+    // Parallel fetch for first 6 (visible hotels)
+    const priorityPromises = priorityBatch.map(async (hotel) => {
+      const hid = extractHid(hotel);
+      if (!hid) return null;
+      
+      try {
+        const response = await fetch(
+          `https://travelapi-bg6t.onrender.com/api/ratehawk/hotel/static-info/${hid}`
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.hotel) {
+            return { hid, data: data.hotel };
+          }
+        }
+      } catch (err) {
+        console.warn(`⚠️ Failed to fetch hotel ${hid}:`, err);
+      }
+      return null;
+    });
+
+    const priorityResults = await Promise.all(priorityPromises);
+    results.push(...priorityResults.filter((r): r is {hid: number, data: any} => r !== null));
+    
+    console.log(`✅ Parallel batch complete: ${results.length}/${priorityBatch.length} hotels enriched`);
+
+    // Sequential fetch for remaining 4 with delays
+    for (const hotel of secondaryBatch) {
       const hid = extractHid(hotel);
       if (!hid) continue;
       
-      // Mark as attempted to prevent re-fetching
-      worldOtaAttemptedCache.add(hid);
+      await delay(2000); // Rate limit protection
       
       try {
         const response = await fetch(
@@ -407,18 +441,12 @@ class RateHawkApiService {
           const data = await response.json();
           if (data.success && data.hotel) {
             results.push({ hid, data: data.hotel });
-            console.log(`✅ WorldOTA enriched: ${data.hotel.name} (thumbnail extracted)`);
+            console.log(`✅ WorldOTA enriched: ${data.hotel.name}`);
           }
         } else if (response.status === 429) {
           console.warn('⚠️ Rate limit hit, stopping WorldOTA enrichment');
-          break; // Stop fetching if rate limited
+          break;
         }
-        
-        // Wait 2 seconds between requests (30 req/min = 2 sec spacing)
-        if (hotelsToFetch.indexOf(hotel) < hotelsToFetch.length - 1) {
-          await delay(2000);
-        }
-        
       } catch (err) {
         console.warn(`⚠️ Failed to fetch hotel ${hid}:`, err);
       }
@@ -430,7 +458,7 @@ class RateHawkApiService {
     }
 
     const apiMap = new Map(results.map(r => [r.hid, r.data]));
-    console.log(`✅ WorldOTA enrichment: ${apiMap.size}/${hotelsToFetch.length} hotels got data`);
+    console.log(`✅ WorldOTA enrichment: ${apiMap.size} hotels got data`);
 
     // Merge API data into hotels - always merge if we have data, don't check city
     return hotels.map(hotel => {

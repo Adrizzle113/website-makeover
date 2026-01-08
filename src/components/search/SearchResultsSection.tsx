@@ -13,78 +13,6 @@ import { Progress } from "@/components/ui/progress";
 
 type ViewMode = "list" | "map" | "split";
 
-const mockHotels: Hotel[] = [
-  {
-    id: "hotel-1",
-    name: "The Grand Palace Hotel",
-    description: "Experience luxury at its finest with stunning city views and world-class amenities.",
-    address: "123 Main Street",
-    city: "Los Angeles",
-    country: "USA",
-    starRating: 5,
-    reviewScore: 9.2,
-    reviewCount: 1248,
-    mainImage: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800",
-    images: [{ url: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800" }],
-    amenities: [
-      { id: "wifi", name: "Free WiFi" },
-      { id: "pool", name: "Swimming Pool" },
-      { id: "spa", name: "Spa & Wellness" },
-      { id: "gym", name: "Fitness Center" },
-      { id: "restaurant", name: "Restaurant" },
-    ],
-    priceFrom: 299,
-    currency: "USD",
-    latitude: 34.0522,
-    longitude: -118.2437,
-  },
-  {
-    id: "hotel-2",
-    name: "Seaside Resort & Spa",
-    description: "A tranquil beachfront retreat with pristine beaches and exceptional dining.",
-    address: "456 Ocean Drive",
-    city: "Los Angeles",
-    country: "USA",
-    starRating: 4,
-    reviewScore: 8.7,
-    reviewCount: 892,
-    mainImage: "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800",
-    images: [{ url: "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800" }],
-    amenities: [
-      { id: "wifi", name: "Free WiFi" },
-      { id: "beach", name: "Private Beach" },
-      { id: "pool", name: "Infinity Pool" },
-      { id: "parking", name: "Free Parking" },
-    ],
-    priceFrom: 199,
-    currency: "USD",
-    latitude: 34.0195,
-    longitude: -118.4912,
-  },
-  {
-    id: "hotel-3",
-    name: "Urban Boutique Hotel",
-    description: "Modern design meets comfort in the heart of downtown.",
-    address: "789 Downtown Ave",
-    city: "Los Angeles",
-    country: "USA",
-    starRating: 4,
-    reviewScore: 8.4,
-    reviewCount: 567,
-    mainImage: "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800",
-    images: [{ url: "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800" }],
-    amenities: [
-      { id: "wifi", name: "Free WiFi" },
-      { id: "breakfast", name: "Breakfast Included" },
-      { id: "gym", name: "Fitness Center" },
-    ],
-    priceFrom: 149,
-    currency: "USD",
-    latitude: 34.0407,
-    longitude: -118.2468,
-  },
-];
-
 export function SearchResultsSection() {
   const { 
     searchResults, 
@@ -132,9 +60,9 @@ export function SearchResultsSection() {
   // Track if we need to continue enriching
   const [pendingEnrichmentCount, setPendingEnrichmentCount] = useState(0);
 
-  // Animate progress bar when loading or enriching
+  // Animate progress bar - complete when RAW results arrive (not enrichment)
   useEffect(() => {
-    if (isLoading || isFilterSearching || isEnriching) {
+    if (isLoading || isFilterSearching) {
       setLoadingProgress(0);
       const interval = setInterval(() => {
         setLoadingProgress(prev => {
@@ -144,11 +72,12 @@ export function SearchResultsSection() {
       }, 100);
       return () => clearInterval(interval);
     } else {
+      // Finish when search completes (enrichment continues in background)
       setLoadingProgress(100);
       const timeout = setTimeout(() => setLoadingProgress(0), 300);
       return () => clearTimeout(timeout);
     }
-  }, [isLoading, isFilterSearching, isEnriching]);
+  }, [isLoading, isFilterSearching]); // Remove isEnriching - progress completes when raw results arrive
 
   // Enrich a batch of hotels - continues until all have images
   const enrichBatch = useCallback(async (hotels: Hotel[]) => {
@@ -189,14 +118,11 @@ export function SearchResultsSection() {
 
   // Continue enriching if there are still eligible hotels
   useEffect(() => {
-    // Only continue if API says there are remaining eligible hotels
     if (pendingEnrichmentCount > 0 && !enrichmentInProgressRef.current) {
-      // Get all hotels from our enriched map for the next batch
       const allEnrichedHotels = Array.from(enrichedHotels.values());
       
       if (allEnrichedHotels.length > 0) {
         console.log(`🔄 Continuing enrichment: ${pendingEnrichmentCount} hotels still eligible`);
-        // Small delay to avoid hammering the API
         const timer = setTimeout(() => {
           enrichBatch(allEnrichedHotels);
         }, 500);
@@ -211,14 +137,11 @@ export function SearchResultsSection() {
     
     setIsFilterSearching(true);
     setLoading(true);
-    clearEnrichedHotels(); // Clear enrichment cache on new filter search
+    clearEnrichedHotels();
     
     try {
       const response = await ratehawkApi.searchHotels(searchParams, 1, filters);
-      // Store raw results and display first batch
       setRawSearchResults(response.hotels, response.totalResults);
-      
-      // Results kept in memory only - URL params preserve search criteria
     } catch (err) {
       console.error("Filtered search error:", err);
       toast({
@@ -234,16 +157,13 @@ export function SearchResultsSection() {
 
   // Watch for filter changes and trigger server-side search
   useEffect(() => {
-    // Skip if no search params or on initial render
     if (!searchParams || searchResults.length === 0) return;
     
-    // Check if filters actually changed
     const filtersChanged = JSON.stringify(filters) !== JSON.stringify(prevFiltersRef.current);
     if (!filtersChanged) return;
     
     prevFiltersRef.current = filters;
     
-    // Debounce filter changes to avoid too many API calls
     if (filterDebounceRef.current) {
       clearTimeout(filterDebounceRef.current);
     }
@@ -266,7 +186,6 @@ export function SearchResultsSection() {
     setLoadingMore(true);
     
     try {
-      // Get next batch from raw results
       const nextBatch = getNextBatchToDisplay();
       
       if (nextBatch.length > 0) {
@@ -325,87 +244,101 @@ export function SearchResultsSection() {
     };
   }, [searchResults]);
 
-  // Apply client-side filtering AND sorting, only show enriched hotels with images
-  const hotels = useMemo(() => {
-    // Only show hotels that have been enriched and have images ready
-    // Track original index for stable sorting
-    let displayHotels = searchResults
-      .map((h, originalIndex) => ({
-        hotel: enrichedHotels.get(h.id),
-        originalIndex
-      }))
-      .filter((item): item is { hotel: Hotel; originalIndex: number } => 
-        item.hotel !== undefined && !!item.hotel.mainImage
-      );
+  // Create rows that include both raw and enriched data
+  const rows = useMemo(() => {
+    return searchResults.map((rawHotel, originalIndex) => ({
+      raw: rawHotel,
+      enriched: enrichedHotels.get(rawHotel.id),
+      originalIndex,
+    }));
+  }, [searchResults, enrichedHotels]);
 
-    // Star ratings filter - guard against undefined
+  // Apply filtering and sorting on the rows
+  const filteredRows = useMemo(() => {
+    let displayRows = [...rows];
+    
+    // Use enriched data for filtering if available, else raw
+    const getHotel = (row: typeof rows[0]) => row.enriched || row.raw;
+
+    // Star ratings filter
     if (filters.starRatings && filters.starRatings.length > 0) {
-      displayHotels = displayHotels.filter(item => 
-        item.hotel.starRating !== undefined && item.hotel.starRating > 0 && filters.starRatings!.includes(item.hotel.starRating)
-      );
+      displayRows = displayRows.filter(row => {
+        const h = getHotel(row);
+        return h.starRating !== undefined && h.starRating > 0 && filters.starRatings!.includes(h.starRating);
+      });
     }
 
-    // Price range filter - guard against undefined
+    // Price range filter
     if (filters.priceMin !== undefined && filters.priceMin > 0) {
-      displayHotels = displayHotels.filter(item => 
-        typeof item.hotel.priceFrom === 'number' && item.hotel.priceFrom >= filters.priceMin!
-      );
+      displayRows = displayRows.filter(row => {
+        const h = getHotel(row);
+        return typeof h.priceFrom === 'number' && h.priceFrom >= filters.priceMin!;
+      });
     }
     if (filters.priceMax !== undefined && filters.priceMax < Infinity) {
-      displayHotels = displayHotels.filter(item => 
-        typeof item.hotel.priceFrom === 'number' && item.hotel.priceFrom <= filters.priceMax!
-      );
+      displayRows = displayRows.filter(row => {
+        const h = getHotel(row);
+        return typeof h.priceFrom === 'number' && h.priceFrom <= filters.priceMax!;
+      });
     }
 
     // Free cancellation filter
     if (filters.freeCancellationOnly) {
-      displayHotels = displayHotels.filter(item => (item.hotel as any).freeCancellation === true);
+      displayRows = displayRows.filter(row => (getHotel(row) as any).freeCancellation === true);
     }
 
     // Meal plans filter
     if (filters.mealPlans && filters.mealPlans.length > 0) {
-      displayHotels = displayHotels.filter(item => {
-        const hotelMeal = (item.hotel as any).mealPlan?.toLowerCase() || '';
+      displayRows = displayRows.filter(row => {
+        const h = getHotel(row);
+        const hotelMeal = (h as any).mealPlan?.toLowerCase() || '';
         return filters.mealPlans!.some(meal => 
           hotelMeal.includes(meal.toLowerCase()) || meal.toLowerCase() === 'any'
         );
       });
     }
 
-    // Apply sorting with stable fallback to original index
-    return displayHotels
-      .sort((a, b) => {
-        let result = 0;
-        switch (sortBy) {
-          case "price-low":
-            result = (a.hotel.priceFrom || 0) - (b.hotel.priceFrom || 0);
-            break;
-          case "price-high":
-            result = (b.hotel.priceFrom || 0) - (a.hotel.priceFrom || 0);
-            break;
-          case "rating":
-            result = (b.hotel.reviewScore || 0) - (a.hotel.reviewScore || 0);
-            break;
-          case "distance":
-            result = 0;
-            break;
-          case "free-cancellation":
-            const aFree = (a.hotel as any).freeCancellation ? 1 : 0;
-            const bFree = (b.hotel as any).freeCancellation ? 1 : 0;
-            result = bFree - aFree;
-            break;
-          case "cheapest-rate":
-            result = (a.hotel.priceFrom || 0) - (b.hotel.priceFrom || 0);
-            break;
-          case "popularity":
-          default:
-            result = (b.hotel.reviewCount || 0) - (a.hotel.reviewCount || 0);
-        }
-        // Fallback to original order for stability
-        return result !== 0 ? result : a.originalIndex - b.originalIndex;
-      })
-      .map(item => item.hotel);
-  }, [searchResults, enrichedHotels, sortBy, filters]);
+    // Sort using enriched data when available
+    return displayRows.sort((a, b) => {
+      const aHotel = getHotel(a);
+      const bHotel = getHotel(b);
+      let result = 0;
+      
+      switch (sortBy) {
+        case "price-low":
+          result = (aHotel.priceFrom || 0) - (bHotel.priceFrom || 0);
+          break;
+        case "price-high":
+          result = (bHotel.priceFrom || 0) - (aHotel.priceFrom || 0);
+          break;
+        case "rating":
+          result = (bHotel.reviewScore || 0) - (aHotel.reviewScore || 0);
+          break;
+        case "distance":
+          result = 0;
+          break;
+        case "free-cancellation":
+          const aFree = (aHotel as any).freeCancellation ? 1 : 0;
+          const bFree = (bHotel as any).freeCancellation ? 1 : 0;
+          result = bFree - aFree;
+          break;
+        case "cheapest-rate":
+          result = (aHotel.priceFrom || 0) - (bHotel.priceFrom || 0);
+          break;
+        case "popularity":
+        default:
+          result = (bHotel.reviewCount || 0) - (aHotel.reviewCount || 0);
+      }
+      
+      // Fallback to original order for stability
+      return result !== 0 ? result : a.originalIndex - b.originalIndex;
+    });
+  }, [rows, sortBy, filters]);
+
+  // Get hotels for map view (use enriched if available)
+  const hotelsForMap = useMemo(() => {
+    return filteredRows.map(row => row.enriched || row.raw);
+  }, [filteredRows]);
 
   // Retry handler for 503 errors
   const handleRetrySearch = useCallback(async () => {
@@ -426,6 +359,27 @@ export function SearchResultsSection() {
     }
   }, [searchParams, filters, setLoading, setError, setRawSearchResults, clearEnrichedHotels]);
 
+  // Preload next batch images when idle
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('requestIdleCallback' in window)) return;
+    if (filteredRows.length === 0) return;
+    
+    // Preload images for next 6 hotels beyond current display
+    const nextBatch = filteredRows
+      .slice(6, 12)
+      .map(r => r.enriched?.mainImage)
+      .filter((url): url is string => !!url);
+
+    const id = (window as any).requestIdleCallback(() => {
+      nextBatch.forEach(url => {
+        const img = new Image();
+        img.src = url;
+      });
+    });
+
+    return () => (window as any).cancelIdleCallback?.(id);
+  }, [filteredRows]);
+
   const activeFilterCount = getActiveFilterCount();
   const isFiltered = activeFilterCount > 0;
 
@@ -433,21 +387,11 @@ export function SearchResultsSection() {
     return null;
   }
 
-  if (isLoading && !isFilterSearching) {
-    return (
-      <section id="search-results" className="py-16 bg-cream/30">
-        <div className="container">
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-            <span className="text-body-lg text-muted-foreground">
-              Searching for the best deals...
-            </span>
-          </div>
-        </div>
-      </section>
-    );
-  }
+  // On mobile, default to list view if split was selected
+  const effectiveViewMode = viewMode === "split" && typeof window !== "undefined" && window.innerWidth < 1024 ? "list" : viewMode;
 
+  // Check if we're in initial loading state (no raw results yet)
+  const isInitialLoading = isLoading && !isFilterSearching && searchResults.length === 0;
 
   if (error) {
     const isServiceUnavailable = error.toLowerCase().includes('temporarily') || 
@@ -476,13 +420,10 @@ export function SearchResultsSection() {
     );
   }
 
-  // On mobile, default to list view if split was selected
-  const effectiveViewMode = viewMode === "split" && typeof window !== "undefined" && window.innerWidth < 1024 ? "list" : viewMode;
-
   return (
     <section id="search-results" className="py-8 md:py-16 bg-cream/30 relative">
       {/* Top Loading Progress Bar */}
-      {(isLoading || isFilterSearching || isEnriching || loadingProgress > 0) && (
+      {(isLoading || isFilterSearching || loadingProgress > 0) && (
         <div className="fixed top-0 left-0 right-0 z-50">
           <Progress 
             value={loadingProgress} 
@@ -556,17 +497,17 @@ export function SearchResultsSection() {
           </div>
         </div>
 
-        {/* Skeleton loaders while enriching */}
-        {hotels.length === 0 && searchResults.length > 0 && isEnriching && (
+        {/* Show 20 skeleton cards during initial loading (no raw results yet) */}
+        {isInitialLoading && (
           <div className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
-            {Array.from({ length: Math.min(searchResults.length, 5) }).map((_, i) => (
+            {Array.from({ length: 20 }).map((_, i) => (
               <HotelCardSkeleton key={`skeleton-${i}`} />
             ))}
           </div>
         )}
 
         {/* No Results */}
-        {hotels.length === 0 && !isEnriching && (
+        {!isInitialLoading && filteredRows.length === 0 && !isEnriching && (
           <div className="text-center py-20 space-y-4">
             {isFiltered ? (
               <>
@@ -594,23 +535,27 @@ export function SearchResultsSection() {
           </div>
         )}
 
-        {/* Results */}
-        {hotels.length > 0 && effectiveViewMode === "list" && (
+        {/* Results - Show raw cards immediately, upgrade as enrichment completes */}
+        {!isInitialLoading && filteredRows.length > 0 && effectiveViewMode === "list" && (
           <div className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
-            {hotels.map((hotel, index) => (
-              <HotelCard key={`${hotel.id}-${index}`} hotel={hotel} />
+            {filteredRows.map(({ raw, enriched, originalIndex }, index) => (
+              <HotelCard 
+                key={`${raw.id}-${originalIndex}`} 
+                hotel={raw}
+                enrichedHotel={enriched}
+                priority={index < 6} // Eager load first 6
+              />
             ))}
             
             {/* Infinite scroll sentinel */}
             <div ref={listSentinelRef} className="h-4" />
             
-            {/* Loading indicator */}
+            {/* Show skeleton cards for "load more" */}
             {isLoadingMore && (
-              <div className="flex justify-center py-6">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span>Loading more properties...</span>
-                </div>
+              <div className="space-y-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <HotelCardSkeleton key={`loadmore-skeleton-${i}`} />
+                ))}
               </div>
             )}
             
@@ -623,20 +568,22 @@ export function SearchResultsSection() {
           </div>
         )}
 
-        {hotels.length > 0 && effectiveViewMode === "map" && (
+        {!isInitialLoading && filteredRows.length > 0 && effectiveViewMode === "map" && (
           <div className="h-[calc(100vh-280px)] min-h-[400px] rounded-xl overflow-hidden">
-            <HotelMapView hotels={hotels} />
+            <HotelMapView hotels={hotelsForMap} />
           </div>
         )}
 
-        {hotels.length > 0 && effectiveViewMode === "split" && (
+        {!isInitialLoading && filteredRows.length > 0 && effectiveViewMode === "split" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
             <div className="space-y-3 md:space-y-4 max-h-[600px] overflow-y-auto pr-1 md:pr-2">
-              {hotels.map((hotel, index) => (
+              {filteredRows.map(({ raw, enriched, originalIndex }, index) => (
                 <HotelCard 
-                  key={`${hotel.id}-${index}`} 
-                  hotel={hotel} 
+                  key={`${raw.id}-${originalIndex}`} 
+                  hotel={raw}
+                  enrichedHotel={enriched}
                   compact 
+                  priority={index < 6}
                   onHover={setHoveredHotelId}
                   onFocus={setFocusedHotelId}
                 />
@@ -647,14 +594,16 @@ export function SearchResultsSection() {
               
               {/* Loading indicator */}
               {isLoadingMore && (
-                <div className="flex justify-center py-4">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <div className="space-y-3">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <HotelCardSkeleton key={`split-loadmore-${i}`} compact />
+                  ))}
                 </div>
               )}
             </div>
             <div className="hidden lg:block sticky top-0 h-[600px] rounded-xl overflow-hidden">
               <HotelMapView 
-                hotels={hotels} 
+                hotels={hotelsForMap} 
                 highlightedHotelId={hoveredHotelId} 
                 focusedHotelId={focusedHotelId}
               />
