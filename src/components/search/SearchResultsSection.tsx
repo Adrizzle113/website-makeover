@@ -3,7 +3,7 @@ import { useBookingStore } from "@/stores/bookingStore";
 import { HotelCard } from "./HotelCard";
 import { HotelMapView } from "./HotelMapView";
 import { PrimaryFilters, AdvancedFiltersDrawer, SortingDropdown, ActiveFilterChips } from "./filters";
-import { Loader2, List, Map, Columns } from "lucide-react";
+import { Loader2, List, Map as MapIcon, Columns } from "lucide-react";
 import type { Hotel, SortOption } from "@/types/booking";
 import { ratehawkApi } from "@/services/ratehawkApi";
 import { Button } from "@/components/ui/button";
@@ -86,18 +86,25 @@ const mockHotels: Hotel[] = [
 export function SearchResultsSection() {
   const { 
     searchResults, 
+    rawSearchResults,
     isLoading, 
     isLoadingMore,
+    isEnriching,
     error, 
     searchParams,
     hasMoreResults,
     currentPage,
     totalResults,
+    displayedCount,
     setSearchResults,
+    setRawSearchResults,
+    appendToDisplayed,
     appendSearchResults,
     setLoading,
     setLoadingMore,
+    setEnriching,
     setError,
+    getNextBatchToDisplay,
     filters,
     sortBy,
     getActiveFilterCount,
@@ -106,14 +113,53 @@ export function SearchResultsSection() {
   const [hoveredHotelId, setHoveredHotelId] = useState<string | null>(null);
   const [focusedHotelId, setFocusedHotelId] = useState<string | null>(null);
   const [isFilterSearching, setIsFilterSearching] = useState(false);
+  const [enrichedHotels, setEnrichedHotels] = useState<Map<string, Hotel>>(new Map());
   
   // Track previous filter state to detect changes
   const prevFiltersRef = useRef(filters);
   const filterDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const enrichmentInProgressRef = useRef(false);
   
   // Refs for infinite scroll
   const listSentinelRef = useRef<HTMLDivElement>(null);
   const splitSentinelRef = useRef<HTMLDivElement>(null);
+
+  // Enrich a batch of hotels
+  const enrichBatch = useCallback(async (hotels: Hotel[]) => {
+    if (hotels.length === 0 || enrichmentInProgressRef.current) return;
+    
+    enrichmentInProgressRef.current = true;
+    setEnriching(true);
+    
+    try {
+      const enriched = await ratehawkApi.enrichHotelBatch(hotels);
+      
+      // Update enriched hotels map
+      setEnrichedHotels(prev => {
+        const next = new Map(prev);
+        enriched.forEach(h => next.set(h.id, h));
+        return next;
+      });
+      
+      console.log(`✅ Batch enriched: ${enriched.length}/${hotels.length} hotels`);
+    } catch (err) {
+      console.error("❌ Enrichment failed:", err);
+    } finally {
+      setEnriching(false);
+      enrichmentInProgressRef.current = false;
+    }
+  }, [setEnriching]);
+
+  // Enrich displayed hotels when they change
+  useEffect(() => {
+    if (searchResults.length === 0) return;
+    
+    // Find hotels that need enrichment
+    const unenriched = searchResults.filter(h => !enrichedHotels.has(h.id));
+    if (unenriched.length > 0) {
+      enrichBatch(unenriched);
+    }
+  }, [searchResults, enrichedHotels, enrichBatch]);
 
   // Server-side filter search
   const executeFilteredSearch = useCallback(async () => {
@@ -121,10 +167,12 @@ export function SearchResultsSection() {
     
     setIsFilterSearching(true);
     setLoading(true);
+    setEnrichedHotels(new Map()); // Clear enrichment cache on new search
     
     try {
       const response = await ratehawkApi.searchHotels(searchParams, 1, filters);
-      setSearchResults(response.hotels, response.hasMore, response.totalResults);
+      // Store raw results and display first batch
+      setRawSearchResults(response.hotels, response.totalResults);
       
       // Results kept in memory only - URL params preserve search criteria
     } catch (err) {
@@ -138,7 +186,7 @@ export function SearchResultsSection() {
       setIsFilterSearching(false);
       setLoading(false);
     }
-  }, [searchParams, filters, setSearchResults, setLoading]);
+  }, [searchParams, filters, setRawSearchResults, setLoading]);
 
   // Watch for filter changes and trigger server-side search
   useEffect(() => {
@@ -167,19 +215,24 @@ export function SearchResultsSection() {
     };
   }, [filters, searchParams, searchResults.length, executeFilteredSearch]);
 
+  // Load more from raw results (no API call needed)
   const handleLoadMore = useCallback(async () => {
-    if (!searchParams || isLoadingMore || !hasMoreResults) return;
+    if (!hasMoreResults || isLoadingMore || isEnriching) return;
     
     setLoadingMore(true);
+    
     try {
-      const response = await ratehawkApi.searchHotels(searchParams, currentPage + 1, filters);
-      appendSearchResults(response.hotels, response.hasMore);
-    } catch (err) {
-      console.error("Error loading more results:", err);
+      // Get next batch from raw results
+      const nextBatch = getNextBatchToDisplay();
+      
+      if (nextBatch.length > 0) {
+        appendToDisplayed(nextBatch);
+        console.log(`📋 Loading next ${nextBatch.length} hotels (${displayedCount + nextBatch.length}/${rawSearchResults.length})`);
+      }
     } finally {
       setLoadingMore(false);
     }
-  }, [searchParams, isLoadingMore, hasMoreResults, currentPage, filters, appendSearchResults, setLoadingMore]);
+  }, [hasMoreResults, isLoadingMore, isEnriching, getNextBatchToDisplay, appendToDisplayed, setLoadingMore, displayedCount, rawSearchResults.length]);
 
   // Infinite scroll observer for list view
   useEffect(() => {
@@ -228,37 +281,38 @@ export function SearchResultsSection() {
     };
   }, [searchResults]);
 
-  // Apply client-side filtering AND sorting for immediate UI feedback
+  // Apply client-side filtering AND sorting, merge enriched data
   const hotels = useMemo(() => {
-    let filteredHotels = [...searchResults];
+    // Merge enriched data into search results
+    let displayHotels = searchResults.map(h => enrichedHotels.get(h.id) || h);
 
     // Star ratings filter - guard against undefined
     if (filters.starRatings && filters.starRatings.length > 0) {
-      filteredHotels = filteredHotels.filter(h => 
+      displayHotels = displayHotels.filter(h => 
         h.starRating !== undefined && h.starRating > 0 && filters.starRatings!.includes(h.starRating)
       );
     }
 
     // Price range filter - guard against undefined
     if (filters.priceMin !== undefined && filters.priceMin > 0) {
-      filteredHotels = filteredHotels.filter(h => 
+      displayHotels = displayHotels.filter(h => 
         typeof h.priceFrom === 'number' && h.priceFrom >= filters.priceMin!
       );
     }
     if (filters.priceMax !== undefined && filters.priceMax < Infinity) {
-      filteredHotels = filteredHotels.filter(h => 
+      displayHotels = displayHotels.filter(h => 
         typeof h.priceFrom === 'number' && h.priceFrom <= filters.priceMax!
       );
     }
 
     // Free cancellation filter
     if (filters.freeCancellationOnly) {
-      filteredHotels = filteredHotels.filter(h => (h as any).freeCancellation === true);
+      displayHotels = displayHotels.filter(h => (h as any).freeCancellation === true);
     }
 
     // Meal plans filter
     if (filters.mealPlans && filters.mealPlans.length > 0) {
-      filteredHotels = filteredHotels.filter(h => {
+      displayHotels = displayHotels.filter(h => {
         const hotelMeal = (h as any).mealPlan?.toLowerCase() || '';
         return filters.mealPlans!.some(meal => 
           hotelMeal.includes(meal.toLowerCase()) || meal.toLowerCase() === 'any'
@@ -267,7 +321,7 @@ export function SearchResultsSection() {
     }
 
     // Apply sorting with fallback values
-    return filteredHotels.sort((a, b) => {
+    return displayHotels.sort((a, b) => {
       switch (sortBy) {
         case "price-low":
           return (a.priceFrom || 0) - (b.priceFrom || 0);
@@ -288,25 +342,26 @@ export function SearchResultsSection() {
           return (b.reviewCount || 0) - (a.reviewCount || 0);
       }
     });
-  }, [searchResults, sortBy, filters]);
+  }, [searchResults, enrichedHotels, sortBy, filters]);
 
-  // Retry handler for 503 errors - MUST be before any early returns
+  // Retry handler for 503 errors
   const handleRetrySearch = useCallback(async () => {
     if (!searchParams) return;
     
     setLoading(true);
     setError(null);
+    setEnrichedHotels(new Map());
     
     try {
       const response = await ratehawkApi.searchHotels(searchParams, 1, filters);
-      setSearchResults(response.hotels, response.hasMore, response.totalResults);
+      setRawSearchResults(response.hotels, response.totalResults);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Search failed";
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, [searchParams, filters, setLoading, setError, setSearchResults]);
+  }, [searchParams, filters, setLoading, setError, setRawSearchResults]);
 
   const activeFilterCount = getActiveFilterCount();
   const isFiltered = activeFilterCount > 0;
@@ -372,11 +427,11 @@ export function SearchResultsSection() {
               <h2 className="font-heading text-lg md:text-heading-md text-foreground">
                 {searchParams.destination}:{" "}
                 <span className="text-muted-foreground font-normal">
-                  {totalResults} {totalResults === 1 ? "property" : "properties"}
+                  {displayedCount} of {totalResults} {totalResults === 1 ? "property" : "properties"}
                   {isFiltered && ` (filtered)`}
                 </span>
               </h2>
-              {(isFilterSearching || isLoading) && (
+              {(isFilterSearching || isLoading || isEnriching) && (
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
               )}
             </div>
@@ -421,7 +476,7 @@ export function SearchResultsSection() {
                 onClick={() => setViewMode("map")}
                 className="rounded-none px-3 md:px-4"
               >
-                <Map className="h-4 w-4" />
+                <MapIcon className="h-4 w-4" />
                 <span className="ml-1.5 hidden sm:inline">Map</span>
               </Button>
             </div>

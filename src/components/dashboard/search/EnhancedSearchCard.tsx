@@ -70,7 +70,7 @@ const MEAL_PLANS: { value: MealPlan; label: string; short: string }[] = [
 ];
 
 export function EnhancedSearchCard() {
-  const { setSearchParams, setSearchResults, setLoading, setError, filters, setFilters } = useBookingStore();
+  const { setSearchParams, setRawSearchResults, setLoading, setError, filters, setFilters } = useBookingStore();
   const isMobile = useIsMobile();
 
   const [destination, setDestination] = useState("");
@@ -215,7 +215,7 @@ export function EnhancedSearchCard() {
       setSearchParams(searchParamsData);
 
       const response = await ratehawkApi.searchHotels(searchParamsData, 1, updatedFilters);
-      setSearchResults(response.hotels, response.hasMore, response.totalResults);
+      setRawSearchResults(response.hotels, response.totalResults);
 
       // Results kept in memory only - URL params preserve search criteria
     } catch (error) {

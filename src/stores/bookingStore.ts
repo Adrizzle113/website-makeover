@@ -27,19 +27,25 @@ export interface SelectedUpsell extends Upsell {
   roomId: string;
 }
 
+// Display batch size constant
+const DISPLAY_BATCH_SIZE = 100;
+
 interface BookingStore {
   // State
   searchParams: SearchParams | null;
-  searchResults: Hotel[];
+  searchResults: Hotel[]; // Displayed hotels (enriched)
+  rawSearchResults: Hotel[]; // All hotels from API (unenriched)
   selectedHotel: HotelDetails | null;
   selectedRooms: RoomSelection[];
   selectedUpsells: SelectedUpsell[];
   isLoading: boolean;
   isLoadingMore: boolean;
+  isEnriching: boolean;
   error: string | null;
   hasMoreResults: boolean;
   currentPage: number;
   totalResults: number;
+  displayedCount: number;
   
   // Search Type State
   searchType: SearchType;
@@ -61,7 +67,11 @@ interface BookingStore {
   // Actions
   setSearchParams: (params: SearchParams) => void;
   setSearchResults: (results: Hotel[], hasMore?: boolean, total?: number) => void;
+  setRawSearchResults: (results: Hotel[], total: number) => void;
+  appendToDisplayed: (hotels: Hotel[]) => void;
   appendSearchResults: (results: Hotel[], hasMore?: boolean) => void;
+  setEnriching: (loading: boolean) => void;
+  getNextBatchToDisplay: () => Hotel[];
   setSelectedHotel: (hotel: HotelDetails | null) => void;
   addRoom: (room: RoomSelection) => void;
   removeRoom: (roomId: string) => void;
@@ -110,15 +120,18 @@ interface BookingStore {
 const initialState = {
   searchParams: null,
   searchResults: [],
+  rawSearchResults: [],
   selectedHotel: null,
   selectedRooms: [],
   selectedUpsells: [],
   isLoading: false,
   isLoadingMore: false,
+  isEnriching: false,
   error: null,
   hasMoreResults: false,
   currentPage: 1,
   totalResults: 0,
+  displayedCount: 0,
   searchType: "region" as SearchType,
   filters: DEFAULT_FILTERS,
   sortBy: "popularity" as SortOption,
@@ -154,14 +167,57 @@ export const useBookingStore = create<BookingStore>()(
           hasMoreResults: hasMore,
           totalResults: total || results.length,
           currentPage: 1,
+          displayedCount: results.length,
         });
+      },
+
+      // Store raw results and prepare first batch for display
+      setRawSearchResults: (results, total) => {
+        try {
+          localStorage.removeItem("selectedHotel");
+        } catch (e) {
+          console.warn("Failed to clear localStorage:", e);
+        }
+        const firstBatch = results.slice(0, DISPLAY_BATCH_SIZE);
+        set({ 
+          rawSearchResults: results,
+          searchResults: firstBatch, // First batch, will be enriched
+          totalResults: total || results.length,
+          displayedCount: firstBatch.length,
+          hasMoreResults: results.length > DISPLAY_BATCH_SIZE,
+          currentPage: 1,
+        });
+        console.log(`📋 Displaying first ${firstBatch.length} of ${results.length} hotels`);
+      },
+
+      // Append enriched hotels to display
+      appendToDisplayed: (hotels) => set((state) => {
+        const newDisplayed = [...state.searchResults, ...hotels];
+        const newCount = newDisplayed.length;
+        return {
+          searchResults: newDisplayed,
+          displayedCount: newCount,
+          hasMoreResults: newCount < state.rawSearchResults.length,
+        };
+      }),
+
+      // Get next batch from raw results
+      getNextBatchToDisplay: () => {
+        const state = get();
+        const start = state.displayedCount;
+        const end = start + DISPLAY_BATCH_SIZE;
+        return state.rawSearchResults.slice(start, end);
       },
 
       appendSearchResults: (results, hasMore = false) => set((state) => ({
         searchResults: [...state.searchResults, ...results],
+        rawSearchResults: [...state.rawSearchResults, ...results],
         hasMoreResults: hasMore,
         currentPage: state.currentPage + 1,
+        displayedCount: state.searchResults.length + results.length,
       })),
+
+      setEnriching: (loading) => set({ isEnriching: loading }),
 
       setSelectedHotel: (hotel) => set({ selectedHotel: hotel }),
 
@@ -225,6 +281,7 @@ export const useBookingStore = create<BookingStore>()(
         set({
           searchParams: null,
           searchResults: [],
+          rawSearchResults: [],
           selectedHotel: null,
           selectedRooms: [],
           selectedUpsells: [],
@@ -232,6 +289,7 @@ export const useBookingStore = create<BookingStore>()(
           hasMoreResults: false,
           currentPage: 1,
           totalResults: 0,
+          displayedCount: 0,
         }),
 
       reset: () => set(initialState),

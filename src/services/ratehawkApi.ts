@@ -375,6 +375,31 @@ class RateHawkApiService {
   }
 
   /**
+   * PUBLIC: Enrich a batch of hotels with static data (called from display layer)
+   * This enables lazy enrichment - only enrich hotels that are about to be displayed
+   */
+  async enrichHotelBatch(hotels: Hotel[]): Promise<Hotel[]> {
+    if (!hotels || hotels.length === 0) return hotels;
+    
+    console.log(`🔍 Enriching batch of ${hotels.length} hotels...`);
+    
+    // Convert Hotel[] to any[] for enrichment
+    const hotelData = hotels.map(h => ({
+      ...h,
+      hid: (h as any).hid || (h as any).hotel_id,
+    }));
+    
+    const enrichedData = await this.enrichFromSupabase(hotelData);
+    
+    // Apply destination fallback if we have destination info
+    const destination = (hotels[0] as any)?.static_data?.city || '';
+    const finalData = this.applyDestinationFallback({ hotels: enrichedData }, destination);
+    
+    // Transform back to Hotel type
+    return finalData.hotels.map((h: any) => this.transformHotelData(h));
+  }
+
+  /**
    * Enrich hotels with static data and apply destination fallback
    */
   private async enrichHotelsWithStaticData(data: any, destination?: string): Promise<any> {
@@ -620,10 +645,11 @@ class RateHawkApiService {
           total: directData.total,
         });
 
-        // STEP 2: Enrich with static data via lightweight edge function call (if circuit allows)
-        const enrichedData = await this.enrichHotelsWithStaticData(directData, attempt.body.destination as string);
+        // Return raw hotels WITHOUT enrichment - enrichment happens in display layer
+        // Just parse the response and apply destination fallback for minimal data
+        const parsedData = this.applyDestinationFallback(directData, attempt.body.destination as string);
 
-        return this.parseSearchResponse(enrichedData, page);
+        return this.parseSearchResponse(parsedData, page);
       } catch (error) {
         if (error instanceof Error && !error.message.includes("could not find region")) {
           throw error;
