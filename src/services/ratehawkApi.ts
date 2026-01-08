@@ -230,11 +230,12 @@ class RateHawkApiService {
       return hotels;
     }
 
+    let enrichedHotels = [...hotels];
+
     try {
       console.log(`🔍 Enriching ${hids.length} hotels from hotels_static...`);
       
       // Query hotels_static table directly (max 100 to avoid query limits)
-      // Use type assertion since hotels_static may not be in generated types
       const { data: staticData, error } = await (supabase as any)
         .from('hotels_static')
         .select('hid, name, address, region_name, country_code, star_rating, latitude, longitude, amenities, description')
@@ -242,45 +243,123 @@ class RateHawkApiService {
 
       if (error) {
         console.warn('⚠️ Enrichment query failed:', error.message);
-        return hotels;
-      }
+      } else if (staticData && staticData.length > 0) {
+        console.log(`✅ Enrichment: ${staticData.length}/${hids.length} hotels matched in hotels_static`);
 
-      if (!staticData || staticData.length === 0) {
+        // Create lookup map by hid
+        const staticMap = new Map((staticData as any[]).map((s: any) => [s.hid, s]));
+
+        // Merge static data into hotels
+        enrichedHotels = enrichedHotels.map(hotel => {
+          const hid = typeof hotel.hid === 'number' ? hotel.hid : parseInt(String(hotel.hid), 10);
+          const staticInfo = staticMap.get(hid) as any;
+          
+          if (staticInfo) {
+            return {
+              ...hotel,
+              static_data: {
+                name: staticInfo.name,
+                address: staticInfo.address,
+                city: staticInfo.region_name,
+                country: staticInfo.country_code,
+                star_rating: staticInfo.star_rating,
+                coordinates: staticInfo.latitude && staticInfo.longitude 
+                  ? { lat: staticInfo.latitude, lon: staticInfo.longitude } 
+                  : undefined,
+                amenities: staticInfo.amenities || [],
+                description: staticInfo.description,
+              },
+            };
+          }
+          return hotel;
+        });
+      } else {
         console.log('⚠️ No matches found in hotels_static');
+      }
+    } catch (err) {
+      console.error('❌ Enrichment error:', err);
+    }
+
+    // Step 2: WorldOTA API fallback for unenriched hotels
+    enrichedHotels = await this.enrichFromWorldOTA(enrichedHotels);
+
+    return enrichedHotels;
+  }
+
+  /**
+   * Fetch hotel info from WorldOTA API for hotels not found in hotels_static
+   * Rate limit: 30 requests per 60 seconds, so we limit to 20 per search
+   */
+  private async enrichFromWorldOTA(hotels: any[]): Promise<any[]> {
+    // Find hotels still missing city data
+    const unenrichedHotels = hotels.filter(
+      h => !h.static_data?.city && h.hid
+    );
+
+    if (unenrichedHotels.length === 0) {
+      return hotels;
+    }
+
+    // Limit to 20 to stay under 30/min rate limit
+    const hotelsToFetch = unenrichedHotels.slice(0, 20);
+    console.log(`🔍 Fetching ${hotelsToFetch.length} hotels from WorldOTA API...`);
+
+    try {
+      // Fetch in parallel with error handling
+      const apiResults = await Promise.allSettled(
+        hotelsToFetch.map(async (hotel) => {
+          const hid = typeof hotel.hid === 'number' ? hotel.hid : parseInt(String(hotel.hid), 10);
+          const response = await fetch(
+            `https://travelapi-bg6t.onrender.com/api/ratehawk/hotel/static-info/${hid}`
+          );
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const data = await response.json();
+          return { hid, data: data.success ? data.hotel : null };
+        })
+      );
+
+      // Extract successful results
+      const successfulResults = apiResults
+        .filter((r): r is PromiseFulfilledResult<{hid: number, data: any}> => 
+          r.status === 'fulfilled' && r.value.data !== null
+        )
+        .map(r => r.value);
+
+      if (successfulResults.length === 0) {
+        console.log('⚠️ No hotels enriched from WorldOTA API');
         return hotels;
       }
 
-      console.log(`✅ Enrichment: ${staticData.length}/${hids.length} hotels matched in hotels_static`);
+      // Create lookup map
+      const apiMap = new Map(successfulResults.map(r => [r.hid, r.data]));
+      console.log(`✅ API enrichment: ${apiMap.size}/${hotelsToFetch.length} hotels enriched`);
 
-      // Create lookup map by hid (cast staticData to any[] for type safety)
-      const staticMap = new Map((staticData as any[]).map((s: any) => [s.hid, s]));
-
-      // Merge static data into hotels
+      // Merge API data into hotels
       return hotels.map(hotel => {
         const hid = typeof hotel.hid === 'number' ? hotel.hid : parseInt(String(hotel.hid), 10);
-        const staticInfo = staticMap.get(hid) as any;
-        
-        if (staticInfo) {
+
+        if (!hotel.static_data?.city && apiMap.has(hid)) {
+          const apiData = apiMap.get(hid);
           return {
             ...hotel,
             static_data: {
-              name: staticInfo.name,
-              address: staticInfo.address,
-              city: staticInfo.region_name,
-              country: staticInfo.country_code,
-              star_rating: staticInfo.star_rating,
-              coordinates: staticInfo.latitude && staticInfo.longitude 
-                ? { lat: staticInfo.latitude, lon: staticInfo.longitude } 
+              ...hotel.static_data,
+              city: apiData.city,
+              country: apiData.country,
+              star_rating: apiData.star_rating || hotel.rating,
+              address: apiData.address,
+              coordinates: apiData.latitude && apiData.longitude
+                ? { lat: apiData.latitude, lon: apiData.longitude }
                 : undefined,
-              amenities: staticInfo.amenities || [],
-              description: staticInfo.description,
             },
           };
         }
         return hotel;
       });
     } catch (err) {
-      console.error('❌ Enrichment error:', err);
+      console.error('❌ WorldOTA API enrichment error:', err);
       return hotels;
     }
   }
