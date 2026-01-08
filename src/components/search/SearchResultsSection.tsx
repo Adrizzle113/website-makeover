@@ -88,6 +88,7 @@ export function SearchResultsSection() {
   const { 
     searchResults, 
     rawSearchResults,
+    enrichedHotels,
     isLoading, 
     isLoadingMore,
     isEnriching,
@@ -99,6 +100,8 @@ export function SearchResultsSection() {
     displayedCount,
     setSearchResults,
     setRawSearchResults,
+    setEnrichedHotels,
+    clearEnrichedHotels,
     appendToDisplayed,
     appendSearchResults,
     setLoading,
@@ -114,7 +117,6 @@ export function SearchResultsSection() {
   const [hoveredHotelId, setHoveredHotelId] = useState<string | null>(null);
   const [focusedHotelId, setFocusedHotelId] = useState<string | null>(null);
   const [isFilterSearching, setIsFilterSearching] = useState(false);
-  const [enrichedHotels, setEnrichedHotels] = useState<Map<string, Hotel>>(new Map());
   const [loadingProgress, setLoadingProgress] = useState(0);
   
   // Track previous filter state to detect changes
@@ -157,12 +159,8 @@ export function SearchResultsSection() {
     try {
       const { hotels: enriched, remainingNeedImages } = await ratehawkApi.enrichHotelBatch(hotels);
       
-      // Update enriched hotels map
-      setEnrichedHotels(prev => {
-        const next = new Map(prev);
-        enriched.forEach(h => next.set(h.id, h));
-        return next;
-      });
+      // Update enriched hotels in the store (cached)
+      setEnrichedHotels(enriched);
       
       // Track remaining for next batch
       setPendingEnrichmentCount(remainingNeedImages);
@@ -175,7 +173,7 @@ export function SearchResultsSection() {
       setEnriching(false);
       enrichmentInProgressRef.current = false;
     }
-  }, [setEnriching]);
+  }, [setEnriching, setEnrichedHotels]);
 
   // Enrich displayed hotels when they change
   useEffect(() => {
@@ -212,7 +210,7 @@ export function SearchResultsSection() {
     
     setIsFilterSearching(true);
     setLoading(true);
-    setEnrichedHotels(new Map()); // Clear enrichment cache on new search
+    clearEnrichedHotels(); // Clear enrichment cache on new filter search
     
     try {
       const response = await ratehawkApi.searchHotels(searchParams, 1, filters);
@@ -231,7 +229,7 @@ export function SearchResultsSection() {
       setIsFilterSearching(false);
       setLoading(false);
     }
-  }, [searchParams, filters, setRawSearchResults, setLoading]);
+  }, [searchParams, filters, setRawSearchResults, setLoading, clearEnrichedHotels]);
 
   // Watch for filter changes and trigger server-side search
   useEffect(() => {
@@ -414,7 +412,7 @@ export function SearchResultsSection() {
     
     setLoading(true);
     setError(null);
-    setEnrichedHotels(new Map());
+    clearEnrichedHotels();
     
     try {
       const response = await ratehawkApi.searchHotels(searchParams, 1, filters);
@@ -425,7 +423,7 @@ export function SearchResultsSection() {
     } finally {
       setLoading(false);
     }
-  }, [searchParams, filters, setLoading, setError, setRawSearchResults]);
+  }, [searchParams, filters, setLoading, setError, setRawSearchResults, clearEnrichedHotels]);
 
   const activeFilterCount = getActiveFilterCount();
   const isFiltered = activeFilterCount > 0;

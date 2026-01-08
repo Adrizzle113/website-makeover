@@ -35,6 +35,7 @@ interface BookingStore {
   searchParams: SearchParams | null;
   searchResults: Hotel[]; // Displayed hotels (enriched)
   rawSearchResults: Hotel[]; // All hotels from API (unenriched)
+  enrichedHotels: Map<string, Hotel>; // Cache of enriched hotel data
   selectedHotel: HotelDetails | null;
   selectedRooms: RoomSelection[];
   selectedUpsells: SelectedUpsell[];
@@ -72,6 +73,8 @@ interface BookingStore {
   appendSearchResults: (results: Hotel[], hasMore?: boolean) => void;
   setEnriching: (loading: boolean) => void;
   getNextBatchToDisplay: () => Hotel[];
+  setEnrichedHotels: (hotels: Hotel[]) => void;
+  clearEnrichedHotels: () => void;
   setSelectedHotel: (hotel: HotelDetails | null) => void;
   addRoom: (room: RoomSelection) => void;
   removeRoom: (roomId: string) => void;
@@ -121,6 +124,7 @@ const initialState = {
   searchParams: null,
   searchResults: [],
   rawSearchResults: [],
+  enrichedHotels: new Map<string, Hotel>(),
   selectedHotel: null,
   selectedRooms: [],
   selectedUpsells: [],
@@ -219,6 +223,14 @@ export const useBookingStore = create<BookingStore>()(
 
       setEnriching: (loading) => set({ isEnriching: loading }),
 
+      setEnrichedHotels: (hotels) => set((state) => {
+        const next = new Map(state.enrichedHotels);
+        hotels.forEach(h => next.set(h.id, h));
+        return { enrichedHotels: next };
+      }),
+
+      clearEnrichedHotels: () => set({ enrichedHotels: new Map() }),
+
       setSelectedHotel: (hotel) => set({ selectedHotel: hotel }),
 
       addRoom: (room) =>
@@ -282,6 +294,7 @@ export const useBookingStore = create<BookingStore>()(
           searchParams: null,
           searchResults: [],
           rawSearchResults: [],
+          enrichedHotels: new Map(),
           selectedHotel: null,
           selectedRooms: [],
           selectedUpsells: [],
