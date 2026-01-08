@@ -16,6 +16,11 @@ export function ImageGallerySection({ images, hotelName }: ImageGallerySectionPr
     { url: "/placeholder.svg", alt: hotelName },
   ];
 
+  // Hide gallery if only one image (hero already shows it)
+  if (displayImages.length <= 1) {
+    return null;
+  }
+
   const handlePrevious = () => {
     setCurrentIndex((prev) => (prev === 0 ? displayImages.length - 1 : prev - 1));
   };

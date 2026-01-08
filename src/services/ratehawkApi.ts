@@ -407,7 +407,7 @@ class RateHawkApiService {
           const data = await response.json();
           if (data.success && data.hotel) {
             results.push({ hid, data: data.hotel });
-            console.log(`✅ WorldOTA enriched: ${data.hotel.name} (${data.hotel.images?.length || 0} images)`);
+            console.log(`✅ WorldOTA enriched: ${data.hotel.name} (thumbnail extracted)`);
           }
         } else if (response.status === 429) {
           console.warn('⚠️ Rate limit hit, stopping WorldOTA enrichment');
