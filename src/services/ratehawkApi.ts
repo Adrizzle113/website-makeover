@@ -76,6 +76,58 @@ let enrichmentCircuitOpen = false;
 let enrichmentCircuitOpenedAt = 0;
 const CIRCUIT_BREAKER_DURATION_MS = 60_000; // 1 minute
 
+// Cache of hotel IDs already attempted for WorldOTA enrichment (prevents re-fetching)
+const worldOtaAttemptedCache = new Set<number>();
+
+// Helper to check if a hotel needs image enrichment
+function needsImageEnrichment(hotel: any): boolean {
+  // Check if images are missing or only placeholders
+  const images = hotel.static_data?.images || hotel.images || [];
+  if (!images.length) return true;
+  
+  // Check if mainImage is a placeholder
+  const mainImage = hotel.mainImage || hotel.image || "";
+  if (!mainImage || mainImage.includes("placeholder")) return true;
+  
+  // Check if images array only contains placeholders
+  const hasRealImage = images.some((img: any) => {
+    const url = typeof img === "string" ? img : img?.url || img?.tmpl || "";
+    return url && !url.includes("placeholder") && url.length > 30;
+  });
+  
+  return !hasRealImage;
+}
+
+// Helper to normalize image URLs - extract valid URL from various formats
+function normalizeImageUrl(img: any, fallbackAlt: string): { url: string; alt: string } | null {
+  let url = "";
+  
+  if (typeof img === "string") {
+    url = img;
+  } else if (img?.url) {
+    url = img.url;
+  } else if (img?.tmpl) {
+    url = img.tmpl;
+  }
+  
+  // Skip placeholders and invalid URLs
+  if (!url || url.includes("placeholder") || url.length < 30) {
+    return null;
+  }
+  
+  // Replace {size} placeholder
+  if (url.includes("{size}")) {
+    url = url.replace("{size}", "640x400");
+  }
+  
+  // Prefix protocol-relative URLs
+  if (url.startsWith("//")) {
+    url = "https:" + url;
+  }
+  
+  return { url, alt: fallbackAlt };
+}
+
 function isEnrichmentCircuitOpen(): boolean {
   if (!enrichmentCircuitOpen) return false;
   if (Date.now() - enrichmentCircuitOpenedAt > CIRCUIT_BREAKER_DURATION_MS) {
@@ -288,43 +340,51 @@ class RateHawkApiService {
   }
 
   /**
-   * Fetch hotel info from WorldOTA API for hotels not found in hotels_static
+   * Fetch hotel info from WorldOTA API for hotels missing images
    * Rate limit: 30 requests per 60 seconds - using sequential fetching with delays
    */
   private async enrichFromWorldOTA(hotels: any[]): Promise<any[]> {
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
     
-    // Find hotels still missing city data
-    const unenrichedHotels = hotels.filter(
-      h => !h.static_data?.city && h.hid
-    );
+    // Find hotels that need image enrichment AND haven't been attempted yet
+    const unenrichedHotels = hotels.filter(h => {
+      if (!h.hid) return false;
+      const hid = typeof h.hid === 'number' ? h.hid : parseInt(String(h.hid), 10);
+      if (isNaN(hid)) return false;
+      if (worldOtaAttemptedCache.has(hid)) return false; // Already attempted
+      return needsImageEnrichment(h);
+    });
 
     if (unenrichedHotels.length === 0) {
+      console.log('✅ WorldOTA: All hotels already have images or were attempted');
       return hotels;
     }
 
     // Limit to 10 hotels to stay well under 30/min rate limit
     const hotelsToFetch = unenrichedHotels.slice(0, 10);
-    console.log(`🔍 Fetching ${hotelsToFetch.length} hotels from WorldOTA API (throttled)...`);
+    console.log(`🔍 Fetching ${hotelsToFetch.length} hotels from WorldOTA API for images...`);
 
     const results: Array<{hid: number, data: any}> = [];
     
     // Sequential fetching with 2-second delay between requests
     for (const hotel of hotelsToFetch) {
+      const hid = typeof hotel.hid === 'number' 
+        ? hotel.hid 
+        : parseInt(String(hotel.hid), 10);
+      
+      // Mark as attempted to prevent re-fetching
+      worldOtaAttemptedCache.add(hid);
+      
       try {
-        const hid = typeof hotel.hid === 'number' 
-          ? hotel.hid 
-          : parseInt(String(hotel.hid), 10);
-        
         const response = await fetch(
           `https://travelapi-bg6t.onrender.com/api/ratehawk/hotel/static-info/${hid}`
         );
         
         if (response.ok) {
           const data = await response.json();
-          if (data.success) {
+          if (data.success && data.hotel) {
             results.push({ hid, data: data.hotel });
-            console.log(`✅ Enriched: ${data.hotel.name}`);
+            console.log(`✅ WorldOTA enriched: ${data.hotel.name} (${data.hotel.images?.length || 0} images)`);
           }
         } else if (response.status === 429) {
           console.warn('⚠️ Rate limit hit, stopping WorldOTA enrichment');
@@ -337,7 +397,7 @@ class RateHawkApiService {
         }
         
       } catch (err) {
-        console.warn(`⚠️ Failed to fetch hotel ${hotel.hid}:`, err);
+        console.warn(`⚠️ Failed to fetch hotel ${hid}:`, err);
       }
     }
 
@@ -347,28 +407,41 @@ class RateHawkApiService {
     }
 
     const apiMap = new Map(results.map(r => [r.hid, r.data]));
-    console.log(`✅ API enrichment: ${apiMap.size}/${hotelsToFetch.length} hotels enriched`);
+    console.log(`✅ WorldOTA enrichment: ${apiMap.size}/${hotelsToFetch.length} hotels got data`);
 
-    // Merge API data into hotels
+    // Merge API data into hotels - always merge if we have data, don't check city
     return hotels.map(hotel => {
       const hid = typeof hotel.hid === 'number' 
         ? hotel.hid 
         : parseInt(String(hotel.hid), 10);
 
-      if (!hotel.static_data?.city && apiMap.has(hid)) {
+      if (apiMap.has(hid)) {
         const apiData = apiMap.get(hid);
+        
+        // Extract and normalize images from API response
+        let newImages: string[] = [];
+        if (apiData.images && Array.isArray(apiData.images)) {
+          newImages = apiData.images
+            .map((img: any) => {
+              const normalized = normalizeImageUrl(img, apiData.name || hotel.name || "Hotel");
+              return normalized?.url;
+            })
+            .filter((url: string | undefined): url is string => !!url);
+        }
+        
         return {
           ...hotel,
           static_data: {
             ...hotel.static_data,
-            city: apiData.city,
-            country: apiData.country,
-            star_rating: apiData.star_rating || hotel.rating,
-            address: apiData.address,
+            city: apiData.city || hotel.static_data?.city,
+            country: apiData.country || hotel.static_data?.country,
+            star_rating: apiData.star_rating || hotel.static_data?.star_rating || hotel.rating,
+            address: apiData.address || hotel.static_data?.address,
             coordinates: apiData.latitude && apiData.longitude
               ? { lat: apiData.latitude, lon: apiData.longitude }
-              : undefined,
-            images: apiData.images || hotel.static_data?.images,
+              : hotel.static_data?.coordinates,
+            // Prioritize new images over existing (which may be empty/placeholder)
+            images: newImages.length > 0 ? newImages : hotel.static_data?.images,
           },
         };
       }
@@ -770,26 +843,31 @@ class RateHawkApiService {
       
       let images: Array<{ url: string; alt: string }> = [];
       
-      if (staticData.images && staticData.images.length > 0) {
-        images = staticData.images.slice(0, 10).map((url: string) => {
-          let processedUrl = typeof url === 'string' ? url : '';
-          if (processedUrl.includes('{size}')) {
-            processedUrl = processedUrl.replace('{size}', '640x400');
+      // Try multiple image sources using shared normalizer
+      const imageSources = [staticData.images, staticVm?.images];
+      for (const source of imageSources) {
+        if (source && Array.isArray(source) && source.length > 0) {
+          const normalized = source
+            .slice(0, 10)
+            .map((img: any) => normalizeImageUrl(img, hotelName))
+            .filter((img: { url: string; alt: string } | null): img is { url: string; alt: string } => img !== null);
+          
+          if (normalized.length > 0) {
+            images = normalized;
+            break;
           }
-          return { url: processedUrl, alt: hotelName };
-        }).filter((img: any) => img.url && img.url.length > 30);
+        }
       }
       
-      if (images.length === 0 && staticVm?.images?.length > 0) {
-        images = staticVm.images.slice(0, 10).map((img: any) => {
-          const url = typeof img === 'string' 
-            ? img.replace('{size}', '640x400')
-            : img.tmpl?.replace("{size}", "640x400") || img.url || "";
-          return { url, alt: hotelName };
-        }).filter((img: any) => img.url && img.url.length > 30);
+      // Determine mainImage with fallback chain
+      let mainImage = images[0]?.url || "";
+      if (!mainImage || mainImage.includes("placeholder")) {
+        const candidate = h.image;
+        if (candidate && !candidate.includes("placeholder") && candidate.length > 30) {
+          mainImage = candidate.includes("{size}") ? candidate.replace("{size}", "640x400") : candidate;
+        }
       }
-      
-      const mainImage = images[0]?.url || h.image || "/placeholder.svg";
+      if (!mainImage) mainImage = "/placeholder.svg";
       
       const hasFreeCancellation = h.freeCancellation || 
         rates.some((r: any) => r.free_cancellation === true || r.cancellationPolicy?.toLowerCase().includes("free"));
@@ -1086,27 +1164,41 @@ class RateHawkApiService {
 
     let images: Array<{ url: string; alt: string }> = [];
 
-    if (staticData.images && staticData.images.length > 0) {
-      images = staticData.images.slice(0, 10).map((url: string) => {
-        let processedUrl = typeof url === 'string' ? url : '';
-        if (processedUrl.includes('{size}')) {
-          processedUrl = processedUrl.replace('{size}', '640x400');
+    // Try multiple image sources in order of preference
+    const imageSources = [
+      staticData.images,
+      staticVm?.images,
+      h.images, // Already-transformed Hotel may have this
+      h.ratehawk_data?.static_vm?.images,
+    ];
+
+    for (const source of imageSources) {
+      if (source && Array.isArray(source) && source.length > 0) {
+        const normalized = source
+          .slice(0, 10)
+          .map((img: any) => normalizeImageUrl(img, hotelName))
+          .filter((img: { url: string; alt: string } | null): img is { url: string; alt: string } => img !== null);
+        
+        if (normalized.length > 0) {
+          images = normalized;
+          break;
         }
-        return { url: processedUrl, alt: hotelName };
-      }).filter((img: any) => img.url && img.url.length > 30);
+      }
     }
 
-    if (images.length === 0 && staticVm?.images?.length > 0) {
-      images = staticVm.images.slice(0, 10).map((img: any) => {
-        const url = typeof img === 'string'
-          ? img.replace('{size}', '640x400')
-          : img.tmpl?.replace("{size}", "640x400") || img.url || "";
-        return { url, alt: hotelName };
-      }).filter((img: any) => img.url && img.url.length > 30);
+    // Handle mainImage: check multiple sources including already-transformed Hotel
+    let mainImage = images[0]?.url || "";
+    if (!mainImage || mainImage.includes("placeholder")) {
+      // Try other sources
+      const mainImageCandidates = [h.mainImage, h.image];
+      for (const candidate of mainImageCandidates) {
+        if (candidate && !candidate.includes("placeholder") && candidate.length > 30) {
+          mainImage = candidate.includes("{size}") ? candidate.replace("{size}", "640x400") : candidate;
+          break;
+        }
+      }
     }
-
-    // Handle both raw API (h.image) and already-transformed Hotel (h.mainImage)
-    const mainImage = images[0]?.url || h.mainImage || h.image || "/placeholder.svg";
+    if (!mainImage) mainImage = "/placeholder.svg";
 
     const hasFreeCancellation = h.freeCancellation ||
       rates.some((r: any) => r.free_cancellation === true || r.cancellationPolicy?.toLowerCase().includes("free"));
