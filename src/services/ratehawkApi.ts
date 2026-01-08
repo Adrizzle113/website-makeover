@@ -449,11 +449,21 @@ class RateHawkApiService {
   /**
    * PUBLIC: Enrich a batch of hotels with static data (called from display layer)
    * This enables lazy enrichment - only enrich hotels that are about to be displayed
+   * Returns enrichment stats so caller can continue with more batches if needed
    */
-  async enrichHotelBatch(hotels: Hotel[]): Promise<Hotel[]> {
-    if (!hotels || hotels.length === 0) return hotels;
+  async enrichHotelBatch(hotels: Hotel[]): Promise<{ 
+    hotels: Hotel[], 
+    enrichedWithImages: number,
+    remainingNeedImages: number 
+  }> {
+    if (!hotels || hotels.length === 0) {
+      return { hotels, enrichedWithImages: 0, remainingNeedImages: 0 };
+    }
     
     console.log(`🔍 Enriching batch of ${hotels.length} hotels...`);
+    
+    // Count hotels needing images BEFORE enrichment
+    const needImagesBefore = hotels.filter(h => needsImageEnrichment(h)).length;
     
     // Convert Hotel[] to any[] for enrichment
     const hotelData = hotels.map(h => ({
@@ -468,7 +478,19 @@ class RateHawkApiService {
     const finalData = this.applyDestinationFallback({ hotels: enrichedData }, destination);
     
     // Transform back to Hotel type
-    return finalData.hotels.map((h: any) => this.transformHotelData(h));
+    const transformedHotels = finalData.hotels.map((h: any) => this.transformHotelData(h));
+    
+    // Count hotels still needing images AFTER enrichment
+    const needImagesAfter = transformedHotels.filter((h: Hotel) => needsImageEnrichment(h)).length;
+    const enrichedWithImages = needImagesBefore - needImagesAfter;
+    
+    console.log(`📊 Enrichment stats: ${enrichedWithImages} got images, ${needImagesAfter} still need images`);
+    
+    return { 
+      hotels: transformedHotels, 
+      enrichedWithImages,
+      remainingNeedImages: needImagesAfter 
+    };
   }
 
   /**

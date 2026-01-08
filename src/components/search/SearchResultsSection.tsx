@@ -124,7 +124,10 @@ export function SearchResultsSection() {
   const listSentinelRef = useRef<HTMLDivElement>(null);
   const splitSentinelRef = useRef<HTMLDivElement>(null);
 
-  // Enrich a batch of hotels
+  // Track if we need to continue enriching
+  const [pendingEnrichmentCount, setPendingEnrichmentCount] = useState(0);
+
+  // Enrich a batch of hotels - continues until all have images
   const enrichBatch = useCallback(async (hotels: Hotel[]) => {
     if (hotels.length === 0 || enrichmentInProgressRef.current) return;
     
@@ -132,7 +135,7 @@ export function SearchResultsSection() {
     setEnriching(true);
     
     try {
-      const enriched = await ratehawkApi.enrichHotelBatch(hotels);
+      const { hotels: enriched, remainingNeedImages } = await ratehawkApi.enrichHotelBatch(hotels);
       
       // Update enriched hotels map
       setEnrichedHotels(prev => {
@@ -141,9 +144,13 @@ export function SearchResultsSection() {
         return next;
       });
       
-      console.log(`✅ Batch enriched: ${enriched.length}/${hotels.length} hotels`);
+      // Track remaining for next batch
+      setPendingEnrichmentCount(remainingNeedImages);
+      
+      console.log(`✅ Batch enriched: ${enriched.length} hotels, ${remainingNeedImages} still need images`);
     } catch (err) {
       console.error("❌ Enrichment failed:", err);
+      setPendingEnrichmentCount(0);
     } finally {
       setEnriching(false);
       enrichmentInProgressRef.current = false;
@@ -154,12 +161,32 @@ export function SearchResultsSection() {
   useEffect(() => {
     if (searchResults.length === 0) return;
     
-    // Find hotels that need enrichment
+    // Find hotels that need enrichment (not yet in our map)
     const unenriched = searchResults.filter(h => !enrichedHotels.has(h.id));
     if (unenriched.length > 0) {
       enrichBatch(unenriched);
     }
   }, [searchResults, enrichedHotels, enrichBatch]);
+
+  // Continue enriching if there are still hotels needing images
+  useEffect(() => {
+    if (pendingEnrichmentCount > 0 && !enrichmentInProgressRef.current) {
+      // Get hotels from our enriched map that still need images
+      const hotelsNeedingImages = Array.from(enrichedHotels.values()).filter(h => {
+        const mainImg = h.mainImage || h.images?.[0]?.url;
+        return !mainImg || mainImg.includes('placeholder') || mainImg.includes('unsplash');
+      });
+      
+      if (hotelsNeedingImages.length > 0) {
+        console.log(`🔄 Continuing enrichment: ${hotelsNeedingImages.length} hotels still need images`);
+        // Small delay to avoid hammering the API
+        const timer = setTimeout(() => {
+          enrichBatch(hotelsNeedingImages);
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [pendingEnrichmentCount, enrichedHotels, enrichBatch]);
 
   // Server-side filter search
   const executeFilteredSearch = useCallback(async () => {
