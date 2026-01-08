@@ -10,6 +10,7 @@ import { ratehawkApi } from "@/services/ratehawkApi";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 
 type ViewMode = "list" | "map" | "split";
 
@@ -131,16 +132,16 @@ export function SearchResultsSection() {
     }
   }, [pendingEnrichmentCount, enrichedHotels, enrichBatch]);
 
-  // Server-side filter search
+  // Server-side filter search - keep current results visible until new ones arrive
   const executeFilteredSearch = useCallback(async () => {
     if (!searchParams) return;
     
+    // Only set filter searching state - DO NOT clear results or enrichment cache
     setIsFilterSearching(true);
-    setLoading(true);
-    clearEnrichedHotels();
     
     try {
       const response = await ratehawkApi.searchHotels(searchParams, 1, filters);
+      // Swap in new results only after they arrive
       setRawSearchResults(response.hotels, response.totalResults);
     } catch (err) {
       console.error("Filtered search error:", err);
@@ -151,9 +152,8 @@ export function SearchResultsSection() {
       });
     } finally {
       setIsFilterSearching(false);
-      setLoading(false);
     }
-  }, [searchParams, filters, setRawSearchResults, setLoading, clearEnrichedHotels]);
+  }, [searchParams, filters, setRawSearchResults]);
 
   // Watch for filter changes and trigger server-side search
   useEffect(() => {
@@ -390,8 +390,11 @@ export function SearchResultsSection() {
   // On mobile, default to list view if split was selected
   const effectiveViewMode = viewMode === "split" && typeof window !== "undefined" && window.innerWidth < 1024 ? "list" : viewMode;
 
-  // Check if we're in initial loading state (no raw results yet)
+  // Check if we're in initial loading state (no raw results yet) - brand new search only
   const isInitialLoading = isLoading && !isFilterSearching && searchResults.length === 0;
+  
+  // Filter update loading - keep old results visible with overlay
+  const isUpdatingFilters = isFilterSearching && filteredRows.length > 0;
 
   if (error) {
     const isServiceUnavailable = error.toLowerCase().includes('temporarily') || 
@@ -426,9 +429,17 @@ export function SearchResultsSection() {
       {(isLoading || isFilterSearching || loadingProgress > 0) && (
         <div className="fixed top-0 left-0 right-0 z-50">
           <Progress 
-            value={loadingProgress} 
+            value={isFilterSearching ? 50 : loadingProgress} 
             className="h-1 rounded-none bg-primary/20"
           />
+        </div>
+      )}
+      
+      {/* Updating Filters Overlay Banner */}
+      {isUpdatingFilters && (
+        <div className="fixed top-1 left-1/2 -translate-x-1/2 z-50 bg-primary text-primary-foreground px-4 py-1.5 rounded-full text-sm font-medium shadow-lg flex items-center gap-2">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Updating results...
         </div>
       )}
       
@@ -537,13 +548,16 @@ export function SearchResultsSection() {
 
         {/* Results - Show raw cards immediately, upgrade as enrichment completes */}
         {!isInitialLoading && filteredRows.length > 0 && effectiveViewMode === "list" && (
-          <div className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
+          <div className={cn(
+            "space-y-4 md:space-y-6 max-w-4xl mx-auto transition-opacity duration-200",
+            isUpdatingFilters && "opacity-60 pointer-events-none"
+          )}>
             {filteredRows.map(({ raw, enriched, originalIndex }, index) => (
               <HotelCard 
                 key={`${raw.id}-${originalIndex}`} 
                 hotel={raw}
                 enrichedHotel={enriched}
-                priority={index < 6} // Eager load first 6
+                priority={index < 6}
               />
             ))}
             
@@ -576,7 +590,10 @@ export function SearchResultsSection() {
 
         {!isInitialLoading && filteredRows.length > 0 && effectiveViewMode === "split" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-            <div className="space-y-3 md:space-y-4 max-h-[600px] overflow-y-auto pr-1 md:pr-2">
+            <div className={cn(
+              "space-y-3 md:space-y-4 max-h-[600px] overflow-y-auto pr-1 md:pr-2 transition-opacity duration-200",
+              isUpdatingFilters && "opacity-60 pointer-events-none"
+            )}>
               {filteredRows.map(({ raw, enriched, originalIndex }, index) => (
                 <HotelCard 
                   key={`${raw.id}-${originalIndex}`} 
