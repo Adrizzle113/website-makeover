@@ -168,20 +168,18 @@ export function SearchResultsSection() {
     }
   }, [searchResults, enrichedHotels, enrichBatch]);
 
-  // Continue enriching if there are still hotels needing images
+  // Continue enriching if there are still eligible hotels
   useEffect(() => {
+    // Only continue if API says there are remaining eligible hotels
     if (pendingEnrichmentCount > 0 && !enrichmentInProgressRef.current) {
-      // Get hotels from our enriched map that still need images
-      const hotelsNeedingImages = Array.from(enrichedHotels.values()).filter(h => {
-        const mainImg = h.mainImage || h.images?.[0]?.url;
-        return !mainImg || mainImg.includes('placeholder') || mainImg.includes('unsplash');
-      });
+      // Get all hotels from our enriched map for the next batch
+      const allEnrichedHotels = Array.from(enrichedHotels.values());
       
-      if (hotelsNeedingImages.length > 0) {
-        console.log(`🔄 Continuing enrichment: ${hotelsNeedingImages.length} hotels still need images`);
+      if (allEnrichedHotels.length > 0) {
+        console.log(`🔄 Continuing enrichment: ${pendingEnrichmentCount} hotels still eligible`);
         // Small delay to avoid hammering the API
         const timer = setTimeout(() => {
-          enrichBatch(hotelsNeedingImages);
+          enrichBatch(allEnrichedHotels);
         }, 500);
         return () => clearTimeout(timer);
       }
