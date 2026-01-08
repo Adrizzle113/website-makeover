@@ -33,7 +33,7 @@ const MAX_YEARS_AHEAD = 2;
 
 export function SearchBar() {
   const [urlSearchParams] = useSearchParams();
-  const { setSearchParams, setSearchResults, setLoading, setError, filters, searchParams, searchType, setSearchType } = useBookingStore();
+  const { setSearchParams, setRawSearchResults, setLoading, setError, filters, searchParams, searchType, setSearchType } = useBookingStore();
   const isMobile = useIsMobile();
 
   // Parse URL params for initial state
@@ -290,7 +290,7 @@ export function SearchBar() {
           break;
       }
 
-      setSearchResults(response.hotels, response.hasMore, response.totalResults);
+      setRawSearchResults(response.hotels, response.totalResults);
       
       // Results kept in memory only - URL params preserve search criteria
       
