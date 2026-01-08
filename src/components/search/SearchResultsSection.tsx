@@ -129,9 +129,9 @@ export function SearchResultsSection() {
   // Track if we need to continue enriching
   const [pendingEnrichmentCount, setPendingEnrichmentCount] = useState(0);
 
-  // Animate progress bar when loading
+  // Animate progress bar when loading or enriching
   useEffect(() => {
-    if (isLoading || isFilterSearching) {
+    if (isLoading || isFilterSearching || isEnriching) {
       setLoadingProgress(0);
       const interval = setInterval(() => {
         setLoadingProgress(prev => {
@@ -145,7 +145,7 @@ export function SearchResultsSection() {
       const timeout = setTimeout(() => setLoadingProgress(0), 300);
       return () => clearTimeout(timeout);
     }
-  }, [isLoading, isFilterSearching]);
+  }, [isLoading, isFilterSearching, isEnriching]);
 
   // Enrich a batch of hotels - continues until all have images
   const enrichBatch = useCallback(async (hotels: Hotel[]) => {
@@ -326,67 +326,86 @@ export function SearchResultsSection() {
     };
   }, [searchResults]);
 
-  // Apply client-side filtering AND sorting, merge enriched data
+  // Apply client-side filtering AND sorting, only show enriched hotels with images
   const hotels = useMemo(() => {
-    // Merge enriched data into search results
-    let displayHotels = searchResults.map(h => enrichedHotels.get(h.id) || h);
+    // Only show hotels that have been enriched and have images ready
+    // Track original index for stable sorting
+    let displayHotels = searchResults
+      .map((h, originalIndex) => ({
+        hotel: enrichedHotels.get(h.id),
+        originalIndex
+      }))
+      .filter((item): item is { hotel: Hotel; originalIndex: number } => 
+        item.hotel !== undefined && !!item.hotel.mainImage
+      );
 
     // Star ratings filter - guard against undefined
     if (filters.starRatings && filters.starRatings.length > 0) {
-      displayHotels = displayHotels.filter(h => 
-        h.starRating !== undefined && h.starRating > 0 && filters.starRatings!.includes(h.starRating)
+      displayHotels = displayHotels.filter(item => 
+        item.hotel.starRating !== undefined && item.hotel.starRating > 0 && filters.starRatings!.includes(item.hotel.starRating)
       );
     }
 
     // Price range filter - guard against undefined
     if (filters.priceMin !== undefined && filters.priceMin > 0) {
-      displayHotels = displayHotels.filter(h => 
-        typeof h.priceFrom === 'number' && h.priceFrom >= filters.priceMin!
+      displayHotels = displayHotels.filter(item => 
+        typeof item.hotel.priceFrom === 'number' && item.hotel.priceFrom >= filters.priceMin!
       );
     }
     if (filters.priceMax !== undefined && filters.priceMax < Infinity) {
-      displayHotels = displayHotels.filter(h => 
-        typeof h.priceFrom === 'number' && h.priceFrom <= filters.priceMax!
+      displayHotels = displayHotels.filter(item => 
+        typeof item.hotel.priceFrom === 'number' && item.hotel.priceFrom <= filters.priceMax!
       );
     }
 
     // Free cancellation filter
     if (filters.freeCancellationOnly) {
-      displayHotels = displayHotels.filter(h => (h as any).freeCancellation === true);
+      displayHotels = displayHotels.filter(item => (item.hotel as any).freeCancellation === true);
     }
 
     // Meal plans filter
     if (filters.mealPlans && filters.mealPlans.length > 0) {
-      displayHotels = displayHotels.filter(h => {
-        const hotelMeal = (h as any).mealPlan?.toLowerCase() || '';
+      displayHotels = displayHotels.filter(item => {
+        const hotelMeal = (item.hotel as any).mealPlan?.toLowerCase() || '';
         return filters.mealPlans!.some(meal => 
           hotelMeal.includes(meal.toLowerCase()) || meal.toLowerCase() === 'any'
         );
       });
     }
 
-    // Apply sorting with fallback values
-    return displayHotels.sort((a, b) => {
-      switch (sortBy) {
-        case "price-low":
-          return (a.priceFrom || 0) - (b.priceFrom || 0);
-        case "price-high":
-          return (b.priceFrom || 0) - (a.priceFrom || 0);
-        case "rating":
-          return (b.reviewScore || 0) - (a.reviewScore || 0);
-        case "distance":
-          return 0;
-        case "free-cancellation":
-          const aFree = (a as any).freeCancellation ? 1 : 0;
-          const bFree = (b as any).freeCancellation ? 1 : 0;
-          return bFree - aFree;
-        case "cheapest-rate":
-          return (a.priceFrom || 0) - (b.priceFrom || 0);
-        case "popularity":
-        default:
-          return (b.reviewCount || 0) - (a.reviewCount || 0);
-      }
-    });
+    // Apply sorting with stable fallback to original index
+    return displayHotels
+      .sort((a, b) => {
+        let result = 0;
+        switch (sortBy) {
+          case "price-low":
+            result = (a.hotel.priceFrom || 0) - (b.hotel.priceFrom || 0);
+            break;
+          case "price-high":
+            result = (b.hotel.priceFrom || 0) - (a.hotel.priceFrom || 0);
+            break;
+          case "rating":
+            result = (b.hotel.reviewScore || 0) - (a.hotel.reviewScore || 0);
+            break;
+          case "distance":
+            result = 0;
+            break;
+          case "free-cancellation":
+            const aFree = (a.hotel as any).freeCancellation ? 1 : 0;
+            const bFree = (b.hotel as any).freeCancellation ? 1 : 0;
+            result = bFree - aFree;
+            break;
+          case "cheapest-rate":
+            result = (a.hotel.priceFrom || 0) - (b.hotel.priceFrom || 0);
+            break;
+          case "popularity":
+          default:
+            result = (b.hotel.reviewCount || 0) - (a.hotel.reviewCount || 0);
+        }
+        // Fallback to original order for stability
+        return result !== 0 ? result : a.originalIndex - b.originalIndex;
+      })
+      .map(item => item.hotel);
   }, [searchResults, enrichedHotels, sortBy, filters]);
 
   // Retry handler for 503 errors
@@ -464,12 +483,24 @@ export function SearchResultsSection() {
   return (
     <section id="search-results" className="py-8 md:py-16 bg-cream/30 relative">
       {/* Top Loading Progress Bar */}
-      {(isLoading || isFilterSearching || loadingProgress > 0) && (
+      {(isLoading || isFilterSearching || isEnriching || loadingProgress > 0) && (
         <div className="fixed top-0 left-0 right-0 z-50">
           <Progress 
             value={loadingProgress} 
             className="h-1 rounded-none bg-primary/20"
           />
+        </div>
+      )}
+      
+      {/* Loading enrichment state - show when search results exist but no enriched hotels yet */}
+      {searchResults.length > 0 && hotels.length === 0 && isEnriching && (
+        <div className="container">
+          <div className="text-center py-20 space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+            <p className="text-muted-foreground text-body-lg">
+              Loading hotel details...
+            </p>
+          </div>
         </div>
       )}
       <div className="container px-3 md:px-4">
