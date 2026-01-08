@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useBookingStore } from "@/stores/bookingStore";
 import { HotelCard } from "./HotelCard";
+import { HotelCardSkeleton } from "./HotelCardSkeleton";
 import { HotelMapView } from "./HotelMapView";
 import { PrimaryFilters, AdvancedFiltersDrawer, SortingDropdown, ActiveFilterChips } from "./filters";
 import { Loader2, List, Map as MapIcon, Columns } from "lucide-react";
@@ -490,17 +491,6 @@ export function SearchResultsSection() {
         </div>
       )}
       
-      {/* Loading enrichment state - show when search results exist but no enriched hotels yet */}
-      {searchResults.length > 0 && hotels.length === 0 && isEnriching && (
-        <div className="container">
-          <div className="text-center py-20 space-y-4">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-            <p className="text-muted-foreground text-body-lg">
-              Loading hotel details...
-            </p>
-          </div>
-        </div>
-      )}
       <div className="container px-3 md:px-4">
         {/* Header */}
         <div className="mb-4 md:mb-6 space-y-4">
@@ -566,8 +556,17 @@ export function SearchResultsSection() {
           </div>
         </div>
 
+        {/* Skeleton loaders while enriching */}
+        {hotels.length === 0 && searchResults.length > 0 && isEnriching && (
+          <div className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
+            {Array.from({ length: Math.min(searchResults.length, 5) }).map((_, i) => (
+              <HotelCardSkeleton key={`skeleton-${i}`} />
+            ))}
+          </div>
+        )}
+
         {/* No Results */}
-        {hotels.length === 0 && (
+        {hotels.length === 0 && !isEnriching && (
           <div className="text-center py-20 space-y-4">
             {isFiltered ? (
               <>
@@ -578,7 +577,7 @@ export function SearchResultsSection() {
                   Clear All Filters
                 </Button>
               </>
-            ) : (
+            ) : searchResults.length === 0 ? (
               <>
                 <p className="text-muted-foreground text-body-lg">
                   No hotels found for "{searchParams.destination}" with these dates.
@@ -591,7 +590,7 @@ export function SearchResultsSection() {
                   Search Again
                 </Button>
               </>
-            )}
+            ) : null}
           </div>
         )}
 
