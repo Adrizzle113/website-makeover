@@ -555,19 +555,18 @@ const HotelDetailsPage = () => {
         console.warn("⚠️ Rates API not called (missing search dates)");
       }
 
-      const staticImages = normalizeStaticImages((staticInfo as any)?.images);
+      // Only use existing images from search - don't fetch additional images from static-info
       const existingImages = normalizeStaticImages((data.hotel as any)?.images);
+      const imagesToUse = existingImages.slice(0, 1); // Only keep the main thumbnail
 
-      const imagesToUse = hasRealImages(existingImages) ? existingImages : staticImages;
-
-      const staticFirstImageUrl = getFirstImageUrl(staticImages);
       const existingMainImage = typeof (data.hotel as any)?.mainImage === "string" ? (data.hotel as any).mainImage : undefined;
       const existingLegacyImage = typeof data.hotel.image === "string" ? data.hotel.image : undefined;
+      const existingFirstImage = getFirstImageUrl(existingImages);
 
       const pickedMainImageRaw =
         (existingMainImage && !isPlaceholderImage(existingMainImage) ? existingMainImage : undefined) ||
         (existingLegacyImage && !isPlaceholderImage(existingLegacyImage) ? existingLegacyImage : undefined) ||
-        staticFirstImageUrl;
+        existingFirstImage;
 
       const pickedMainImage = pickedMainImageRaw
         ? String(pickedMainImageRaw).replace("{size}", "1024x768")
