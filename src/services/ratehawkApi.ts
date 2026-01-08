@@ -367,6 +367,7 @@ class RateHawkApiService {
             coordinates: apiData.latitude && apiData.longitude
               ? { lat: apiData.latitude, lon: apiData.longitude }
               : undefined,
+            images: apiData.images || hotel.static_data?.images,
           },
         };
       }
