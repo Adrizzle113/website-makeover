@@ -28,7 +28,7 @@ export interface SelectedUpsell extends Upsell {
 }
 
 // Display batch size constant
-const DISPLAY_BATCH_SIZE = 100;
+const DISPLAY_BATCH_SIZE = 10;
 
 interface BookingStore {
   // State
