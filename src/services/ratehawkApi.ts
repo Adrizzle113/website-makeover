@@ -288,9 +288,11 @@ class RateHawkApiService {
 
   /**
    * Fetch hotel info from WorldOTA API for hotels not found in hotels_static
-   * Rate limit: 30 requests per 60 seconds, so we limit to 20 per search
+   * Rate limit: 30 requests per 60 seconds - using sequential fetching with delays
    */
   private async enrichFromWorldOTA(hotels: any[]): Promise<any[]> {
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    
     // Find hotels still missing city data
     const unenrichedHotels = hotels.filter(
       h => !h.static_data?.city && h.hid
@@ -300,68 +302,76 @@ class RateHawkApiService {
       return hotels;
     }
 
-    // Limit to 20 to stay under 30/min rate limit
-    const hotelsToFetch = unenrichedHotels.slice(0, 20);
-    console.log(`🔍 Fetching ${hotelsToFetch.length} hotels from WorldOTA API...`);
+    // Limit to 10 hotels to stay well under 30/min rate limit
+    const hotelsToFetch = unenrichedHotels.slice(0, 10);
+    console.log(`🔍 Fetching ${hotelsToFetch.length} hotels from WorldOTA API (throttled)...`);
 
-    try {
-      // Fetch in parallel with error handling
-      const apiResults = await Promise.allSettled(
-        hotelsToFetch.map(async (hotel) => {
-          const hid = typeof hotel.hid === 'number' ? hotel.hid : parseInt(String(hotel.hid), 10);
-          const response = await fetch(
-            `https://travelapi-bg6t.onrender.com/api/ratehawk/hotel/static-info/${hid}`
-          );
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
+    const results: Array<{hid: number, data: any}> = [];
+    
+    // Sequential fetching with 2-second delay between requests
+    for (const hotel of hotelsToFetch) {
+      try {
+        const hid = typeof hotel.hid === 'number' 
+          ? hotel.hid 
+          : parseInt(String(hotel.hid), 10);
+        
+        const response = await fetch(
+          `https://travelapi-bg6t.onrender.com/api/ratehawk/hotel/static-info/${hid}`
+        );
+        
+        if (response.ok) {
           const data = await response.json();
-          return { hid, data: data.success ? data.hotel : null };
-        })
-      );
-
-      // Extract successful results
-      const successfulResults = apiResults
-        .filter((r): r is PromiseFulfilledResult<{hid: number, data: any}> => 
-          r.status === 'fulfilled' && r.value.data !== null
-        )
-        .map(r => r.value);
-
-      if (successfulResults.length === 0) {
-        console.log('⚠️ No hotels enriched from WorldOTA API');
-        return hotels;
-      }
-
-      // Create lookup map
-      const apiMap = new Map(successfulResults.map(r => [r.hid, r.data]));
-      console.log(`✅ API enrichment: ${apiMap.size}/${hotelsToFetch.length} hotels enriched`);
-
-      // Merge API data into hotels
-      return hotels.map(hotel => {
-        const hid = typeof hotel.hid === 'number' ? hotel.hid : parseInt(String(hotel.hid), 10);
-
-        if (!hotel.static_data?.city && apiMap.has(hid)) {
-          const apiData = apiMap.get(hid);
-          return {
-            ...hotel,
-            static_data: {
-              ...hotel.static_data,
-              city: apiData.city,
-              country: apiData.country,
-              star_rating: apiData.star_rating || hotel.rating,
-              address: apiData.address,
-              coordinates: apiData.latitude && apiData.longitude
-                ? { lat: apiData.latitude, lon: apiData.longitude }
-                : undefined,
-            },
-          };
+          if (data.success) {
+            results.push({ hid, data: data.hotel });
+            console.log(`✅ Enriched: ${data.hotel.name}`);
+          }
+        } else if (response.status === 429) {
+          console.warn('⚠️ Rate limit hit, stopping WorldOTA enrichment');
+          break; // Stop fetching if rate limited
         }
-        return hotel;
-      });
-    } catch (err) {
-      console.error('❌ WorldOTA API enrichment error:', err);
+        
+        // Wait 2 seconds between requests (30 req/min = 2 sec spacing)
+        if (hotelsToFetch.indexOf(hotel) < hotelsToFetch.length - 1) {
+          await delay(2000);
+        }
+        
+      } catch (err) {
+        console.warn(`⚠️ Failed to fetch hotel ${hotel.hid}:`, err);
+      }
+    }
+
+    if (results.length === 0) {
+      console.log('⚠️ No hotels enriched from WorldOTA API');
       return hotels;
     }
+
+    const apiMap = new Map(results.map(r => [r.hid, r.data]));
+    console.log(`✅ API enrichment: ${apiMap.size}/${hotelsToFetch.length} hotels enriched`);
+
+    // Merge API data into hotels
+    return hotels.map(hotel => {
+      const hid = typeof hotel.hid === 'number' 
+        ? hotel.hid 
+        : parseInt(String(hotel.hid), 10);
+
+      if (!hotel.static_data?.city && apiMap.has(hid)) {
+        const apiData = apiMap.get(hid);
+        return {
+          ...hotel,
+          static_data: {
+            ...hotel.static_data,
+            city: apiData.city,
+            country: apiData.country,
+            star_rating: apiData.star_rating || hotel.rating,
+            address: apiData.address,
+            coordinates: apiData.latitude && apiData.longitude
+              ? { lat: apiData.latitude, lon: apiData.longitude }
+              : undefined,
+          },
+        };
+      }
+      return hotel;
+    });
   }
 
   /**
