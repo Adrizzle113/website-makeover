@@ -418,19 +418,16 @@ class RateHawkApiService {
       if (apiMap.has(hid)) {
         const apiData = apiMap.get(hid);
         
-        // Extract and normalize images from API response
-        let newImages: string[] = [];
-        if (apiData.images && Array.isArray(apiData.images)) {
-          newImages = apiData.images
-            .map((img: any) => {
-              const normalized = normalizeImageUrl(img, apiData.name || hotel.name || "Hotel");
-              return normalized?.url;
-            })
-            .filter((url: string | undefined): url is string => !!url);
+        // Extract ONLY the first image for thumbnail (full gallery loads on details page)
+        let thumbnailImage: string | undefined;
+        if (apiData.images && Array.isArray(apiData.images) && apiData.images.length > 0) {
+          const normalized = normalizeImageUrl(apiData.images[0], apiData.name || hotel.name || "Hotel");
+          thumbnailImage = normalized?.url;
         }
         
         return {
           ...hotel,
+          mainImage: thumbnailImage || hotel.mainImage, // Set main thumbnail directly
           static_data: {
             ...hotel.static_data,
             city: apiData.city || hotel.static_data?.city,
@@ -440,8 +437,8 @@ class RateHawkApiService {
             coordinates: apiData.latitude && apiData.longitude
               ? { lat: apiData.latitude, lon: apiData.longitude }
               : hotel.static_data?.coordinates,
-            // Prioritize new images over existing (which may be empty/placeholder)
-            images: newImages.length > 0 ? newImages : hotel.static_data?.images,
+            // Only store single thumbnail - full gallery fetched on details page
+            images: thumbnailImage ? [thumbnailImage] : hotel.static_data?.images,
           },
         };
       }
@@ -1174,8 +1171,9 @@ class RateHawkApiService {
 
     for (const source of imageSources) {
       if (source && Array.isArray(source) && source.length > 0) {
+        // Only keep ONE image for search results (full gallery on details page)
         const normalized = source
-          .slice(0, 10)
+          .slice(0, 1)
           .map((img: any) => normalizeImageUrl(img, hotelName))
           .filter((img: { url: string; alt: string } | null): img is { url: string; alt: string } => img !== null);
         
