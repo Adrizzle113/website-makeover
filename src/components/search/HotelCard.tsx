@@ -148,6 +148,7 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
             <img
               src={normalizeImageUrl(hotel.mainImage)}
               alt={hotel.name}
+              loading="lazy"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               onError={(e) => {
                 e.currentTarget.src = "/placeholder.svg";
@@ -199,6 +200,7 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
           <img
             src={normalizeImageUrl(hotel.mainImage)}
             alt={hotel.name}
+            loading="lazy"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             onError={(e) => {
               e.currentTarget.src = "/placeholder.svg";

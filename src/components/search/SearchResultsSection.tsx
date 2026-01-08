@@ -8,6 +8,7 @@ import type { Hotel, SortOption } from "@/types/booking";
 import { ratehawkApi } from "@/services/ratehawkApi";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
+import { Progress } from "@/components/ui/progress";
 
 type ViewMode = "list" | "map" | "split";
 
@@ -114,6 +115,7 @@ export function SearchResultsSection() {
   const [focusedHotelId, setFocusedHotelId] = useState<string | null>(null);
   const [isFilterSearching, setIsFilterSearching] = useState(false);
   const [enrichedHotels, setEnrichedHotels] = useState<Map<string, Hotel>>(new Map());
+  const [loadingProgress, setLoadingProgress] = useState(0);
   
   // Track previous filter state to detect changes
   const prevFiltersRef = useRef(filters);
@@ -126,6 +128,24 @@ export function SearchResultsSection() {
 
   // Track if we need to continue enriching
   const [pendingEnrichmentCount, setPendingEnrichmentCount] = useState(0);
+
+  // Animate progress bar when loading
+  useEffect(() => {
+    if (isLoading || isFilterSearching) {
+      setLoadingProgress(0);
+      const interval = setInterval(() => {
+        setLoadingProgress(prev => {
+          if (prev >= 90) return prev;
+          return prev + (90 - prev) * 0.1;
+        });
+      }, 100);
+      return () => clearInterval(interval);
+    } else {
+      setLoadingProgress(100);
+      const timeout = setTimeout(() => setLoadingProgress(0), 300);
+      return () => clearTimeout(timeout);
+    }
+  }, [isLoading, isFilterSearching]);
 
   // Enrich a batch of hotels - continues until all have images
   const enrichBatch = useCallback(async (hotels: Hotel[]) => {
@@ -442,7 +462,16 @@ export function SearchResultsSection() {
   const effectiveViewMode = viewMode === "split" && typeof window !== "undefined" && window.innerWidth < 1024 ? "list" : viewMode;
 
   return (
-    <section id="search-results" className="py-8 md:py-16 bg-cream/30">
+    <section id="search-results" className="py-8 md:py-16 bg-cream/30 relative">
+      {/* Top Loading Progress Bar */}
+      {(isLoading || isFilterSearching || loadingProgress > 0) && (
+        <div className="fixed top-0 left-0 right-0 z-50">
+          <Progress 
+            value={loadingProgress} 
+            className="h-1 rounded-none bg-primary/20"
+          />
+        </div>
+      )}
       <div className="container px-3 md:px-4">
         {/* Header */}
         <div className="mb-4 md:mb-6 space-y-4">
