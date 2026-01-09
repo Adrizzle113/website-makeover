@@ -58,7 +58,7 @@ export function DestinationAutocomplete({
       </div>
 
       {isOpen && suggestions.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-card overflow-hidden">
+        <div className="absolute z-[100] w-full mt-1 bg-card border border-border rounded-lg shadow-card overflow-hidden">
           {suggestions.map((destination: Destination) => (
             <button
               key={destination.id || destination.name}
