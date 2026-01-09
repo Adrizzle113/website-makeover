@@ -444,11 +444,19 @@ const HotelDetailsPage = () => {
 
   const fetchStaticHotelInfo = async (hotelId: string) => {
     try {
-      console.log("📚 Fetching static hotel info...");
+      console.log("📚 Fetching static hotel info via POST...");
 
-      // Use GET request with hotel ID in path (matching the working pattern from ratehawkApi.ts)
+      // Use POST request to get complete data with description_struct, amenity_groups, policy_struct
       const response = await fetch(
-        `${API_BASE_URL}/api/ratehawk/hotel/static-info/${hotelId}`
+        `${API_BASE_URL}/api/ratehawk/hotel/static-info`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            hotelId: hotelId,
+            language: "en" 
+          }),
+        }
       );
 
       if (!response.ok) {
@@ -458,16 +466,20 @@ const HotelDetailsPage = () => {
 
       const responseData = await response.json();
 
-      // Response format is { success: true, hotel: { ...data } }
-      if (responseData.success && responseData.hotel) {
+      // POST response format is { success: true, data: { ...data } }
+      if (responseData.success && responseData.data) {
+        const data = responseData.data;
+        
         console.log("✅ Static info fetched:", {
-          name: responseData.hotel.name,
-          imagesCount: responseData.hotel.images?.length || 0,
-          hasDescription: !!responseData.hotel.description,
+          name: data.name,
+          imagesCount: data.images?.length || 0,
+          hasDescription: !!data.description,
+          hasDescriptionStruct: !!data.description_struct,
+          hasAmenityGroups: !!data.amenity_groups,
+          checkInTime: data.check_in_time,
         });
-        const data = responseData.hotel;
 
-        // Try to extract description from description_struct
+        // Try to extract description from description_struct if not already present
         let extractedDescription = data.description;
         
         if (!extractedDescription && data.description_struct) {
@@ -771,10 +783,15 @@ const HotelDetailsPage = () => {
 
       console.log("🔄 Updated hotel with:");
       console.log(`   - ${rates.length} rates`);
-      console.log(`   - ${staticInfo?.description ? "Description ✅" : "Description ❌"}`);
-      console.log(`   - ${staticInfo?.checkInTime ? "Check-in time ✅" : "Check-in time ❌"}`);
-      console.log(`   - ${staticInfo?.policies?.length || 0} policies`);
-      console.log(`   - ${staticInfo?.amenities?.length || 0} amenities from static info`);
+      // Check both description and description_struct
+      console.log(`   - ${staticInfo?.description || staticInfo?.description_struct ? "Description ✅" : "Description ❌"}`);
+      // Check snake_case field from API
+      console.log(`   - ${staticInfo?.check_in_time || staticInfo?.checkInTime ? "Check-in time ✅" : "Check-in time ❌"}`);
+      // Check both policies array and policy_struct
+      console.log(`   - ${staticInfo?.policies?.length || staticInfo?.policy_struct?.length || 0} policies`);
+      // Check amenity_groups (count total amenities across all groups)
+      const amenityCount = staticInfo?.amenity_groups?.reduce((sum: number, group: any) => sum + (group.amenities?.length || 0), 0) || staticInfo?.amenities?.length || 0;
+      console.log(`   - ${amenityCount} amenities from static info`);
       console.log(`   - Review score: ${staticInfo?.rating ?? staticInfo?.review_score ?? 'N/A'}`);
 
       setHotelData(updatedHotelData);
