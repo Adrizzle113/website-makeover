@@ -703,6 +703,25 @@ const HotelDetailsPage = () => {
       const staticPhone = typeof (staticInfo as any)?.phone === "string" ? (staticInfo as any).phone : undefined;
       const staticEmail = typeof (staticInfo as any)?.email === "string" ? (staticInfo as any).email : undefined;
 
+      // Parse structured description from static info (more complete than flat description)
+      let structuredDescription = '';
+      if (staticInfo?.description_struct && Array.isArray(staticInfo.description_struct)) {
+        structuredDescription = staticInfo.description_struct
+          .map((section: { title?: string; paragraphs?: string[] }) => {
+            const paragraphs = section.paragraphs?.join(' ') || '';
+            return paragraphs;
+          })
+          .filter(Boolean)
+          .join('\n\n');
+      }
+
+      // Priority: structured description > WorldOTA > flat description > existing
+      const bestDescription = 
+        (structuredDescription && structuredDescription.length >= 100 ? structuredDescription : null) ||
+        (worldotaData.description && worldotaData.description.length >= 100 ? worldotaData.description : null) ||
+        (staticInfo?.description && staticInfo.description.length >= 100 ? staticInfo.description : null) ||
+        (data.hotel.description && data.hotel.description.length >= 100 ? data.hotel.description : null);
+
       // Merge all data together
       const updatedHotelData: HotelData = {
         ...data,
@@ -711,23 +730,11 @@ const HotelDetailsPage = () => {
           // Prefer a real hotel name from static info (fallback to humanized slug)
           name: nameToUse,
 
-          // Priority: WorldOTA description > static info > existing data
-          description: worldotaData.description 
-            || (staticInfo?.description && staticInfo.description.length >= 100 
-                ? staticInfo.description 
-                : undefined)
-            || (data.hotel.description && data.hotel.description.length >= 100
-                ? data.hotel.description
-                : undefined),
-          fullDescription: worldotaData.description 
-            || (staticInfo?.description && staticInfo.description.length >= 100
-                ? staticInfo.description
-                : undefined)
-            || (data.hotel.fullDescription && data.hotel.fullDescription.length >= 100
-                ? data.hotel.fullDescription
-                : undefined),
-          checkInTime: staticInfo?.checkInTime || data.hotel.checkInTime,
-          checkOutTime: staticInfo?.checkOutTime || data.hotel.checkOutTime,
+          description: bestDescription || data.hotel.description,
+          fullDescription: bestDescription || data.hotel.fullDescription,
+          // Use snake_case field names from API
+          checkInTime: staticInfo?.check_in_time || data.hotel.checkInTime,
+          checkOutTime: staticInfo?.check_out_time || data.hotel.checkOutTime,
           policies: staticInfo?.policies?.length > 0 ? staticInfo.policies : data.hotel.policies,
 
           address: staticAddress || data.hotel.address,
@@ -812,8 +819,24 @@ const HotelDetailsPage = () => {
   const { hotel } = hotelData;
   const hotelDetails = transformToHotelDetails(hotel);
 
-  // Categorize amenities from API for display (inline, no hook needed)
-  const categorizedAmenities = categorizeAmenities(hotelDetails.amenities || []);
+  // Use pre-grouped amenities from API if available, fallback to manual categorization
+  const staticInfoData = hotel.ratehawk_data?.static_info;
+  let groupedAmenities: Record<string, string[]> = {};
+
+  if (staticInfoData?.amenity_groups && Array.isArray(staticInfoData.amenity_groups)) {
+    staticInfoData.amenity_groups.forEach((group: { group_name: string; amenities: string[] }) => {
+      if (group.group_name && Array.isArray(group.amenities)) {
+        // Map API group names to component keys (e.g., "General" → "general", "Health and safety" → "healthandsafety")
+        const key = group.group_name.toLowerCase().replace(/[^a-z]/g, '');
+        groupedAmenities[key] = group.amenities;
+      }
+    });
+  }
+
+  // Fallback to manual categorization if no grouped amenities from API
+  if (Object.keys(groupedAmenities).length === 0) {
+    groupedAmenities = categorizeAmenities(hotelDetails.amenities || []);
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -828,7 +851,7 @@ const HotelDetailsPage = () => {
             checkInTime={hotelDetails.checkInTime}
             checkOutTime={hotelDetails.checkOutTime}
           />
-          <FacilitiesAmenitiesSection amenities={categorizedAmenities} />
+          <FacilitiesAmenitiesSection amenities={groupedAmenities} />
           <HotelPoliciesSection hotel={hotelDetails} />
           <HotelReviewsSection hotel={hotelDetails} />
           <MapSection
