@@ -395,6 +395,47 @@ const HotelDetailsPage = () => {
     }
   };
 
+  // Fetch description from WorldOTA via edge function (primary source)
+  const fetchWorldOtaDescription = async (hotelId: string): Promise<string | null> => {
+    try {
+      console.log("🌐 Fetching description from WorldOTA...");
+      
+      const numericId = parseInt(hotelId.replace(/\D/g, ""), 10);
+      if (isNaN(numericId)) {
+        console.warn("⚠️ Cannot convert hotelId to numeric:", hotelId);
+        return null;
+      }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/worldota-hotel-info`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ hid: numericId, language: "en" }),
+      });
+
+      if (!response.ok) {
+        console.warn(`⚠️ WorldOTA edge function returned ${response.status}`);
+        return null;
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.hotel?.description) {
+        console.log(`✅ WorldOTA description fetched (${data.hotel.description.length} chars, cached: ${data.cached})`);
+        return data.hotel.description;
+      }
+
+      console.log("⚠️ No description in WorldOTA response");
+      return null;
+    } catch (error) {
+      console.error("💥 Error fetching WorldOTA description:", error);
+      return null;
+    }
+  };
+
   const fetchStaticHotelInfo = async (hotelId: string) => {
     try {
       console.log("📚 Fetching static hotel info...");
@@ -528,6 +569,7 @@ const HotelDetailsPage = () => {
       };
 
       const staticInfoPromise = fetchStaticHotelInfo(ratehawkHotelId);
+      const worldotaDescPromise = fetchWorldOtaDescription(ratehawkHotelId);
 
       const ratesPromise: Promise<Response | null> = canFetchRates
         ? fetch(`${API_BASE_URL}/api/ratehawk/hotel/details`, {
@@ -548,12 +590,16 @@ const HotelDetailsPage = () => {
 
       console.log(
         canFetchRates
-          ? "📤 Fetching rates and static info in parallel with hotelId:"
-          : "📤 Fetching static hotel info (no search dates available) with hotelId:",
+          ? "📤 Fetching rates, static info, and WorldOTA description in parallel with hotelId:"
+          : "📤 Fetching static hotel info and WorldOTA description (no search dates available) with hotelId:",
         ratehawkHotelId,
       );
 
-      const [ratesResponse, staticInfo] = await Promise.all([ratesPromise, staticInfoPromise]);
+      const [ratesResponse, staticInfo, worldotaDescription] = await Promise.all([
+        ratesPromise, 
+        staticInfoPromise,
+        worldotaDescPromise
+      ]);
 
       // Fetch POI using Mapbox (non-blocking) so it doesn't delay page load
       const lat = staticInfo?.coordinates?.latitude || data.hotel.latitude;
@@ -621,19 +667,21 @@ const HotelDetailsPage = () => {
           // Prefer a real hotel name from static info (fallback to humanized slug)
           name: nameToUse,
 
-          // Static info from API - validate descriptions to filter out metadata
-          description: (staticInfo?.description && staticInfo.description.length >= 100) 
-            ? staticInfo.description 
-            : (data.hotel.description && data.hotel.description.length >= 100)
-              ? data.hotel.description
-              : undefined,
-          fullDescription: (staticInfo?.description && staticInfo.description.length >= 100)
-            ? staticInfo.description
-            : (staticInfo?.fullDescription && staticInfo.fullDescription.length >= 100)
-              ? staticInfo.fullDescription
-              : (data.hotel.fullDescription && data.hotel.fullDescription.length >= 100)
+          // Priority: WorldOTA description > static info > existing data
+          description: worldotaDescription 
+            || (staticInfo?.description && staticInfo.description.length >= 100 
+                ? staticInfo.description 
+                : undefined)
+            || (data.hotel.description && data.hotel.description.length >= 100
+                ? data.hotel.description
+                : undefined),
+          fullDescription: worldotaDescription 
+            || (staticInfo?.description && staticInfo.description.length >= 100
+                ? staticInfo.description
+                : undefined)
+            || (data.hotel.fullDescription && data.hotel.fullDescription.length >= 100
                 ? data.hotel.fullDescription
-                : undefined,
+                : undefined),
           checkInTime: staticInfo?.checkInTime || data.hotel.checkInTime,
           checkOutTime: staticInfo?.checkOutTime || data.hotel.checkOutTime,
           policies: staticInfo?.policies?.length > 0 ? staticInfo.policies : data.hotel.policies,
