@@ -985,8 +985,8 @@ class RateHawkApiService {
       const longitude = staticData.coordinates?.lon || staticVm?.longitude;
 
       return {
-        id: hotelId,
-        hotel_id: hotelId, // Add alias for backward compatibility with database/enrichment
+        id: String(hotelId), // Ensure string for consistent comparisons
+        hotel_id: String(hotelId), // Add alias for backward compatibility with database/enrichment
         name: hotelName,
         description: staticVm?.description || h.description || "",
         address,

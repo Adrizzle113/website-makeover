@@ -82,9 +82,11 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
   const hasImage = imageUrl !== "/placeholder.svg";
 
   const handleViewDetails = () => {
+    // Ensure consistent string ID for navigation and storage
+    const hotelIdString = String(hotel.id);
     const hotelDetails = convertToHotelDetails(displayHotel);
 
-    console.log(`🏨 HotelCard - Setting hotel ${hotel.id}:`, {
+    console.log(`🏨 HotelCard - Setting hotel ${hotelIdString}:`, {
       hasRatehawkData: !!hotelDetails.ratehawk_data,
       ratehawkDataKeys: Object.keys(hotelDetails.ratehawk_data || {}),
     });
@@ -93,6 +95,7 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
 
     const optimizedHotel = {
       ...hotelDetails,
+      id: hotelIdString, // Force string ID for consistency
       ratehawk_data: hotelDetails.ratehawk_data ? {
         requested_hotel_id: hotelDetails.ratehawk_data.requested_hotel_id,
         ota_hotel_id: hotelDetails.ratehawk_data.ota_hotel_id,
@@ -124,7 +127,7 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
       console.warn("Failed to cache hotel in localStorage:", e);
     }
 
-    navigate(`/hoteldetails/${hotel.id}`);
+    navigate(`/hoteldetails/${hotelIdString}`);
   };
 
   const handleClick = () => {
