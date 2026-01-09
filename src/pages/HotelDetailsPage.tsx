@@ -309,7 +309,8 @@ const hasRealImages = (images: AnyHotelImage[] | undefined): boolean => {
 };
 
 const HotelDetailsPage = () => {
-  const { hotelId } = useParams<{ hotelId: string }>();
+  const { hotelId: rawHotelId } = useParams<{ hotelId: string }>();
+  const hotelId = String(rawHotelId); // Normalize to string for consistent comparisons
   const navigate = useNavigate();
   const { selectedHotel, searchParams, searchResults, setSelectedHotel } = useBookingStore();
 
@@ -337,7 +338,7 @@ const HotelDetailsPage = () => {
 
       if (savedData) {
         const parsedData: HotelData = JSON.parse(savedData);
-        if (parsedData.hotel.id === hotelId) {
+        if (String(parsedData.hotel.id) === hotelId) {
           console.log("✅ Found saved hotel data:", {
             hotelId: parsedData.hotel.id,
             hotelName: parsedData.hotel.name,
@@ -351,8 +352,8 @@ const HotelDetailsPage = () => {
       // Fallback: use in-memory store data (covers cases where localStorage was cleared)
       if (!initialHotelData) {
         const storeHotel =
-          (selectedHotel && selectedHotel.id === hotelId ? selectedHotel : null) ||
-          (searchResults?.find((h) => h.id === hotelId) as any) ||
+          (selectedHotel && String(selectedHotel.id) === hotelId ? selectedHotel : null) ||
+          (searchResults?.find((h) => String(h.id) === hotelId) as any) ||
           null;
 
         if (storeHotel) {
