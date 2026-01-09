@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useClockFormat } from "@/hooks/useClockFormat";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { Button } from "@/components/ui/button";
@@ -88,6 +89,7 @@ export default function SettingsPage() {
     timezone: "America/New_York",
     currency: "USD",
     dateFormat: "MM/DD/YYYY",
+    clockFormat: "24h" as "12h" | "24h",
   });
 
   const [company, setCompany] = useState({
@@ -181,7 +183,15 @@ export default function SettingsPage() {
     toast.success("Notification preferences saved");
   };
 
+  const { clockFormat: storedClockFormat, setClockFormat: saveClockFormat } = useClockFormat();
+
+  // Sync clockFormat preference with hook on mount
+  useEffect(() => {
+    setPreferences(prev => ({ ...prev, clockFormat: storedClockFormat }));
+  }, [storedClockFormat]);
+
   const handleSavePreferences = () => {
+    saveClockFormat(preferences.clockFormat);
     toast.success("Preferences saved");
   };
 
@@ -928,6 +938,23 @@ export default function SettingsPage() {
                           <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
                           <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
                           <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Clock Format</Label>
+                      <Select
+                        value={preferences.clockFormat}
+                        onValueChange={(value: "12h" | "24h") =>
+                          setPreferences({ ...preferences, clockFormat: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-popover">
+                          <SelectItem value="24h">24-hour (14:00)</SelectItem>
+                          <SelectItem value="12h">12-hour (2:00 PM)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
