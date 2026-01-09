@@ -533,17 +533,23 @@ const HotelDetailsPage = () => {
 
       const context = data.searchContext;
 
-      // Get the actual RateHawk hotel ID from stored data instead of URL slug
+      // Get the string ID (slug) for WorldOTA API, not numeric hid
+      // Priority: hotel.id (string slug) > requested_hotel_id > hotel_id > URL param
       const ratehawkHotelId =
-        data.hotel.ratehawk_data?.requested_hotel_id ||
-        data.hotel.ratehawk_data?.ota_hotel_id ||
-        data.hotel.ratehawk_data?.id ||
-        hotelId;
+        data.hotel.id ||                                  // String slug from transformed Hotel
+        data.hotel.ratehawk_data?.requested_hotel_id ||   // Fallback: explicit requested ID
+        data.hotel.ratehawk_data?.hotel_id ||             // Fallback: raw hotel_id field
+        hotelId;                                          // Last resort: URL param
+
+      // Get numeric hid for edge functions that need it (like worldota-hotel-info)
+      const numericHid = 
+        data.hotel.ratehawk_data?.hid ||
+        (typeof hotelId === 'string' && /^\d+$/.test(hotelId) ? parseInt(hotelId, 10) : null);
 
       console.log("🆔 Hotel ID resolution:", {
         urlParam: hotelId,
-        ratehawkId: ratehawkHotelId,
-        fromData: data.hotel.ratehawk_data?.requested_hotel_id || data.hotel.ratehawk_data?.ota_hotel_id,
+        ratehawkId: ratehawkHotelId,    // Should be string slug like "the_beverly_hills_hotel"
+        hid: numericHid,                 // Should be numeric like 7497446
       });
 
       const canFetchRates = !!context?.checkin && !!context?.checkout;
