@@ -1,4 +1,5 @@
 // WorldOTA Hotel Info Edge Function - Fetches hotel descriptions with 7-day caching
+// Deployed: 2026-01-09 - Triggered redeployment to Supabase
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
