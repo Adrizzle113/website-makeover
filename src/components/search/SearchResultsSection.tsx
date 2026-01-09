@@ -445,7 +445,7 @@ export function SearchResultsSection() {
       
       <div className="container px-3 md:px-4">
         {/* Header */}
-        <div className="mb-4 md:mb-6 space-y-4">
+        <div className="mb-4 md:mb-6 space-y-4 relative z-20">
           {/* Title Row */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center gap-3">
