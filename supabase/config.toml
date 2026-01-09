@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.travelapi-enrich]
 verify_jwt = false
+
+[functions.worldota-hotel-info]
+verify_jwt = false
