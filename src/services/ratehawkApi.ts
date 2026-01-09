@@ -905,11 +905,37 @@ class RateHawkApiService {
       let priceFrom = 0;
       let currency = "USD";
       
+      // Extract lowest price from rates using multiple price sources
       if (rates.length > 0) {
         const prices = rates.map((rate: any) => {
+          let amount = 0;
+          let curr = 'USD';
+          
+          // Try payment_options first (most common)
           const paymentType = rate.payment_options?.payment_types?.[0];
-          const amount = parseFloat(paymentType?.show_amount || paymentType?.amount || '0');
-          return { amount, currency: paymentType?.show_currency_code || paymentType?.currency_code || 'USD' };
+          if (paymentType) {
+            amount = parseFloat(paymentType.show_amount || paymentType.amount || '0');
+            curr = paymentType.show_currency_code || paymentType.currency_code || 'USD';
+          }
+          
+          // Try daily_prices (sum of nightly rates)
+          if (amount <= 0 && rate.daily_prices) {
+            const dailyPrices = Array.isArray(rate.daily_prices) ? rate.daily_prices : [rate.daily_prices];
+            amount = dailyPrices.reduce((sum: number, p: any) => sum + parseFloat(String(p) || '0'), 0);
+          }
+          
+          // Try direct price field
+          if (amount <= 0 && rate.price) {
+            amount = parseFloat(rate.price);
+          }
+          
+          // Try show_amount at rate level
+          if (amount <= 0 && rate.show_amount) {
+            amount = parseFloat(rate.show_amount);
+            curr = rate.show_currency_code || rate.currency || 'USD';
+          }
+          
+          return { amount, currency: curr };
         }).filter((p: any) => p.amount > 0);
         
         if (prices.length > 0) {
@@ -919,9 +945,16 @@ class RateHawkApiService {
         }
       }
       
+      // Fallback to h.price
       if (priceFrom === 0 && h.price?.amount) {
         priceFrom = h.price.amount;
         currency = h.price.currency || "USD";
+      }
+      
+      // Fallback to h.priceFrom (already-transformed Hotel)
+      if (priceFrom === 0 && h.priceFrom) {
+        priceFrom = h.priceFrom;
+        currency = h.currency || "USD";
       }
       
       let images: Array<{ url: string; alt: string }> = [];
@@ -1226,11 +1259,37 @@ class RateHawkApiService {
     let priceFrom = 0;
     let currency = "USD";
 
+    // Extract lowest price from rates using multiple price sources
     if (rates.length > 0) {
       const prices = rates.map((rate: any) => {
+        let amount = 0;
+        let curr = 'USD';
+        
+        // Try payment_options first (most common)
         const paymentType = rate.payment_options?.payment_types?.[0];
-        const amount = parseFloat(paymentType?.show_amount || paymentType?.amount || '0');
-        return { amount, currency: paymentType?.show_currency_code || paymentType?.currency_code || 'USD' };
+        if (paymentType) {
+          amount = parseFloat(paymentType.show_amount || paymentType.amount || '0');
+          curr = paymentType.show_currency_code || paymentType.currency_code || 'USD';
+        }
+        
+        // Try daily_prices (sum of nightly rates)
+        if (amount <= 0 && rate.daily_prices) {
+          const dailyPrices = Array.isArray(rate.daily_prices) ? rate.daily_prices : [rate.daily_prices];
+          amount = dailyPrices.reduce((sum: number, p: any) => sum + parseFloat(String(p) || '0'), 0);
+        }
+        
+        // Try direct price field
+        if (amount <= 0 && rate.price) {
+          amount = parseFloat(rate.price);
+        }
+        
+        // Try show_amount at rate level
+        if (amount <= 0 && rate.show_amount) {
+          amount = parseFloat(rate.show_amount);
+          curr = rate.show_currency_code || rate.currency || 'USD';
+        }
+        
+        return { amount, currency: curr };
       }).filter((p: any) => p.amount > 0);
 
       if (prices.length > 0) {
@@ -1240,9 +1299,16 @@ class RateHawkApiService {
       }
     }
 
+    // Fallback to h.price
     if (priceFrom === 0 && h.price?.amount) {
       priceFrom = h.price.amount;
       currency = h.price.currency || "USD";
+    }
+    
+    // Fallback to h.priceFrom (already-transformed Hotel)
+    if (priceFrom === 0 && h.priceFrom) {
+      priceFrom = h.priceFrom;
+      currency = h.currency || "USD";
     }
 
     let images: Array<{ url: string; alt: string }> = [];
