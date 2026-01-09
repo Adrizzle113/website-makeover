@@ -95,12 +95,13 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
 
     const optimizedHotel = {
       ...hotelDetails,
-      id: hotelIdString, // Force string ID for consistency
+      id: hotelIdString, // Keep the string slug ID for WorldOTA API
       ratehawk_data: hotelDetails.ratehawk_data ? {
+        hid: hotelDetails.ratehawk_data.hid,              // Numeric ID for hotel/info edge function
         requested_hotel_id: hotelDetails.ratehawk_data.requested_hotel_id,
         ota_hotel_id: hotelDetails.ratehawk_data.ota_hotel_id,
-        id: hotelDetails.ratehawk_data.id,
-        hotel_id: hotelDetails.ratehawk_data.hotel_id,
+        id: hotelDetails.ratehawk_data.id,                // Raw ID (may be numeric)
+        hotel_id: hotelDetails.ratehawk_data.hotel_id,    // Alternative string field
         rates: hotelDetails.ratehawk_data.rates,
         room_groups: hotelDetails.ratehawk_data.room_groups,
         static_vm: hotelDetails.ratehawk_data.static_vm,
