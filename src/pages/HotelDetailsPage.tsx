@@ -399,14 +399,10 @@ const HotelDetailsPage = () => {
     try {
       console.log("📚 Fetching static hotel info...");
 
-      const response = await fetch(`${API_BASE_URL}/api/ratehawk/hotel/static-info`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          hotelId: hotelId,
-          residency: "en-us",
-        }),
-      });
+      // Use GET request with hotel ID in path (matching the working pattern from ratehawkApi.ts)
+      const response = await fetch(
+        `${API_BASE_URL}/api/ratehawk/hotel/static-info/${hotelId}`
+      );
 
       if (!response.ok) {
         console.warn(`⚠️ Static info endpoint returned ${response.status}`);
@@ -415,11 +411,12 @@ const HotelDetailsPage = () => {
 
       const responseData = await response.json();
 
-      if (responseData.success && responseData.data) {
+      // Response format is { success: true, hotel: { ...data } }
+      if (responseData.success && responseData.hotel) {
         console.log("✅ Static info fetched successfully");
-        const data = responseData.data;
+        const data = responseData.hotel;
 
-        // Try to extract description from description_struct if main description is empty
+        // Try to extract description from description_struct
         let extractedDescription = data.description;
         
         if (!extractedDescription && data.description_struct) {
@@ -427,7 +424,19 @@ const HotelDetailsPage = () => {
           if (typeof struct === 'string') {
             extractedDescription = struct;
           } else if (Array.isArray(struct)) {
-            extractedDescription = struct.filter((s: any) => typeof s === 'string').join(' ');
+            // description_struct.paragraphs format from WorldOTA
+            extractedDescription = struct
+              .map((item: any) => {
+                if (typeof item === 'string') return item;
+                if (item.paragraphs) return item.paragraphs.join(' ');
+                if (item.text) return item.text;
+                return '';
+              })
+              .filter(Boolean)
+              .join(' ');
+          } else if (struct.paragraphs && Array.isArray(struct.paragraphs)) {
+            // { paragraphs: [...], title: "..." } format
+            extractedDescription = struct.paragraphs.join(' ');
           } else if (struct.text || struct.content) {
             extractedDescription = struct.text || struct.content;
           }
