@@ -322,7 +322,7 @@ export function SearchBar() {
 
   return (
     <div className="w-full max-w-5xl mx-auto" onKeyDown={handleKeyDown}>
-      <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl p-4 md:p-6 border border-white/20 relative z-[60]">
+      <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl p-4 md:p-6 border border-white/20 relative z-40">
         {/* Search Type Selector */}
         <div className="mb-4">
           <SearchTypeSelector value={searchType} onChange={setSearchType} />
