@@ -460,7 +460,11 @@ const HotelDetailsPage = () => {
 
       // Response format is { success: true, hotel: { ...data } }
       if (responseData.success && responseData.hotel) {
-        console.log("✅ Static info fetched successfully");
+        console.log("✅ Static info fetched:", {
+          name: responseData.hotel.name,
+          imagesCount: responseData.hotel.images?.length || 0,
+          hasDescription: !!responseData.hotel.description,
+        });
         const data = responseData.hotel;
 
         // Try to extract description from description_struct
@@ -580,7 +584,10 @@ const HotelDetailsPage = () => {
         return [{ adults: 2, children: [] }];
       };
 
-      const staticInfoPromise = fetchStaticHotelInfo(ratehawkHotelId);
+      // Use numeric hid for static info endpoint (returns 29+ images from Render)
+      const staticInfoPromise = numericHid 
+        ? fetchStaticHotelInfo(String(numericHid))
+        : Promise.resolve(null);
       const worldotaDataPromise = fetchWorldOtaData(ratehawkHotelId);
 
       const ratesPromise: Promise<Response | null> = canFetchRates
@@ -641,16 +648,32 @@ const HotelDetailsPage = () => {
         console.warn("⚠️ Rates API not called (missing search dates)");
       }
 
-      // Use WorldOTA images if available, fallback to existing images from search
+      // Use static info images (29+ from Render), fallback to WorldOTA, then existing
+      const staticImages = Array.isArray(staticInfo?.images) ? staticInfo.images : [];
       const worldotaImages = worldotaData.images || [];
       const existingImages = normalizeStaticImages((data.hotel as any)?.images);
-      
-      // Prefer WorldOTA images (full gallery), fallback to existing
-      const imagesToUse = worldotaImages.length > 0 
-        ? worldotaImages.map((img: { url: string; alt: string }) => ({ url: img.url, alt: img.alt }))
-        : existingImages;
-      
-      console.log(`📸 Using ${imagesToUse.length} images (WorldOTA: ${worldotaImages.length}, existing: ${existingImages.length})`);
+
+      // Priority: staticInfo images (Render) > WorldOTA images > existing
+      let imagesToUse: Array<{ url: string; alt: string }>;
+
+      if (staticImages.length > 0) {
+        // Normalize static images (they may have {size} placeholder)
+        imagesToUse = staticImages.map((img: string | { url?: string; tmpl?: string }, idx: number) => {
+          const url = typeof img === 'string' 
+            ? img.replace('{size}', '1024x768')
+            : (img.url || (img as any).tmpl || '').replace('{size}', '1024x768');
+          return { url, alt: `Hotel image ${idx + 1}` };
+        });
+      } else if (worldotaImages.length > 0) {
+        imagesToUse = worldotaImages.map((img: { url: string; alt: string }) => ({ url: img.url, alt: img.alt }));
+      } else {
+        imagesToUse = existingImages.map((img, idx) => {
+          const url = typeof img === 'string' ? img : (img as any).url || '';
+          return { url: url.replace('{size}', '1024x768'), alt: `Hotel image ${idx + 1}` };
+        });
+      }
+
+      console.log(`📸 Using ${imagesToUse.length} images (static: ${staticImages.length}, WorldOTA: ${worldotaImages.length}, existing: ${existingImages.length})`);
 
       const existingMainImage = typeof (data.hotel as any)?.mainImage === "string" ? (data.hotel as any).mainImage : undefined;
       const existingLegacyImage = typeof data.hotel.image === "string" ? data.hotel.image : undefined;
