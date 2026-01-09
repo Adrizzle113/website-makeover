@@ -29,39 +29,62 @@ interface FacilitiesAmenitiesSectionProps {
   amenities?: Partial<Record<string, string[]>>;
 }
 
+// Map of API group names (lowercased, no spaces) to display config
 const categoryConfig: { key: string; title: string; icon: React.ElementType }[] = [
   { key: "popular", title: "Popular", icon: Star },
   { key: "general", title: "General", icon: Building2 },
   { key: "rooms", title: "Rooms", icon: BedDouble },
   { key: "accessibility", title: "Accessibility", icon: Accessibility },
   { key: "services", title: "Services", icon: ConciergeBell },
+  { key: "servicesandamenities", title: "Services & Amenities", icon: ConciergeBell },
   { key: "meals", title: "Meals", icon: UtensilsCrossed },
   { key: "internet", title: "Internet", icon: Wifi },
   { key: "transfer", title: "Transfer", icon: Car },
   { key: "languages", title: "Languages", icon: Languages },
+  { key: "languagesspoken", title: "Languages Spoken", icon: Languages },
   { key: "tourist", title: "Tourist", icon: Map },
+  { key: "touristservices", title: "Tourist Services", icon: Map },
   { key: "recreation", title: "Recreation", icon: Palmtree },
   { key: "parking", title: "Parking", icon: ParkingCircle },
   { key: "poolBeach", title: "Pool & Beach", icon: Waves },
+  { key: "poolandbeach", title: "Pool & Beach", icon: Waves },
   { key: "business", title: "Business", icon: Briefcase },
   { key: "sports", title: "Sports", icon: Dumbbell },
   { key: "beautyWellness", title: "Wellness", icon: Sparkles },
+  { key: "beautyandwellness", title: "Beauty & Wellness", icon: Sparkles },
   { key: "kids", title: "Kids", icon: Baby },
   { key: "pets", title: "Pets", icon: PawPrint },
   { key: "healthSafety", title: "Health & Safety", icon: ShieldCheck },
+  { key: "healthandsafetymeasures", title: "Health & Safety", icon: ShieldCheck },
+  { key: "healthandsafety", title: "Health & Safety", icon: ShieldCheck },
+  { key: "uncategorized", title: "Other", icon: LayoutGrid },
 ];
 
 export function FacilitiesAmenitiesSection({ amenities }: FacilitiesAmenitiesSectionProps) {
+  // Get categories that have items - first check predefined config, then handle dynamic ones
+  const knownCategoryKeys = new Set(categoryConfig.map(c => c.key));
+  
   const categoriesWithItems = categoryConfig.filter(({ key }) => 
     amenities?.[key] && amenities[key]!.length > 0
   );
 
-  if (categoriesWithItems.length === 0) {
+  // Handle any API group names not in predefined config (dynamic fallback)
+  const dynamicCategories = Object.keys(amenities || {})
+    .filter(key => !knownCategoryKeys.has(key) && amenities?.[key]?.length)
+    .map(key => ({
+      key,
+      title: key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, str => str.toUpperCase()),
+      icon: LayoutGrid,
+    }));
+
+  const allCategoriesWithItems = [...categoriesWithItems, ...dynamicCategories];
+
+  if (allCategoriesWithItems.length === 0) {
     return null;
   }
 
-  const defaultCategory = categoriesWithItems[0].key;
-  const allTabs = [...categoriesWithItems, { key: "showAll", title: "Show All", icon: LayoutGrid }];
+  const defaultCategory = allCategoriesWithItems[0].key;
+  const allTabs = [...allCategoriesWithItems, { key: "showAll", title: "Show All", icon: LayoutGrid }];
 
   return (
     <section className="py-10 bg-muted/20">
@@ -89,7 +112,7 @@ export function FacilitiesAmenitiesSection({ amenities }: FacilitiesAmenitiesSec
             ))}
           </TabsList>
 
-          {categoriesWithItems.map(({ key }) => {
+          {allCategoriesWithItems.map(({ key }) => {
             const items = amenities![key]!;
             return (
               <TabsContent key={key} value={key} className="mt-0 animate-fade-in">
@@ -110,7 +133,7 @@ export function FacilitiesAmenitiesSection({ amenities }: FacilitiesAmenitiesSec
 
           <TabsContent value="showAll" className="mt-0 animate-fade-in">
             <div className="space-y-4">
-              {categoriesWithItems.map(({ key, title, icon: Icon }) => {
+              {allCategoriesWithItems.map(({ key, title, icon: Icon }) => {
                 const items = amenities![key]!;
                 return (
                   <Collapsible key={key} defaultOpen>
