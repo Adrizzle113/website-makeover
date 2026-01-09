@@ -407,11 +407,13 @@ const HotelDetailsPage = () => {
       }
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const response = await fetch(`${supabaseUrl}/functions/v1/worldota-hotel-info`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          "apikey": supabaseKey,
+          "Authorization": `Bearer ${supabaseKey}`,
         },
         body: JSON.stringify({ hid: numericId, language: "en" }),
       });

@@ -4,6 +4,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
 };
 
 interface HotelInfoRequest {
@@ -17,9 +19,12 @@ interface DescriptionStruct {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
+  console.log(`📥 Request: ${req.method} from origin: ${req.headers.get("origin")}`);
+  
+  // Handle CORS preflight - must return 200 with all headers
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    console.log("✅ Handling OPTIONS preflight");
+    return new Response("ok", { status: 200, headers: corsHeaders });
   }
 
   try {
