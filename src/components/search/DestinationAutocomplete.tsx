@@ -17,15 +17,10 @@ export function DestinationAutocomplete({
 }: DestinationAutocompleteProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const {
-    query,
-    setQuery,
-    suggestions,
-    isLoading,
-    isOpen,
-    setIsOpen,
-    handleSelect,
-  } = useDestinationAutocomplete(onChange, { initialValue: value });
+  const { query, setQuery, suggestions, isLoading, isOpen, setIsOpen, handleSelect } = useDestinationAutocomplete(
+    onChange,
+    { initialValue: value },
+  );
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -58,7 +53,7 @@ export function DestinationAutocomplete({
       </div>
 
       {isOpen && suggestions.length > 0 && (
-        <div className="absolute z-[100] w-full mt-1 bg-card border border-border rounded-lg shadow-card overflow-hidden">
+        <div className="absolute z-[1000] w-full mt-1 bg-card border border-border rounded-lg shadow-card overflow-hidden">
           {suggestions.map((destination: Destination) => (
             <button
               key={destination.id || destination.name}
