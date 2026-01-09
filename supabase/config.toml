@@ -1,3 +1,4 @@
+# Edge Functions Configuration - Updated 2026-01-09 to trigger deployment
 project_id = "vewsxruqjeoehsjtgqyh"
 
 [functions.travelapi-destination]
