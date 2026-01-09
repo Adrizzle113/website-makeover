@@ -19,6 +19,17 @@ interface DescriptionStruct {
   paragraphs?: string[];
 }
 
+interface WorldOTAImage {
+  tmpl?: string;
+  source?: string;
+  url?: string;
+}
+
+interface NormalizedImage {
+  url: string;
+  alt: string;
+}
+
 Deno.serve(async (req) => {
   console.log(`📥 Request: ${req.method} from origin: ${req.headers.get("origin")}`);
   
@@ -60,6 +71,20 @@ Deno.serve(async (req) => {
       const expiresAt = new Date(cachedData.expires_at);
       if (expiresAt > new Date()) {
         console.log("✅ Returning cached hotel info");
+        
+        // Extract images from cached raw_data
+        const cachedRawImages = cachedData.raw_data?.images || [];
+        const cachedImages: NormalizedImage[] = cachedRawImages
+          .map((img: WorldOTAImage, index: number) => {
+            let imageUrl = img.tmpl || img.source || img.url || "";
+            if (imageUrl.includes("{size}")) {
+              imageUrl = imageUrl.replace("{size}", "1024x768");
+            }
+            if (!imageUrl) return null;
+            return { url: imageUrl, alt: `Hotel image ${index + 1}` };
+          })
+          .filter((img: NormalizedImage | null): img is NormalizedImage => img !== null);
+
         return new Response(
           JSON.stringify({
             success: true,
@@ -67,6 +92,7 @@ Deno.serve(async (req) => {
             hotel: {
               hid: numericHid,
               description: cachedData.description,
+              images: cachedImages,
               raw_data: cachedData.raw_data,
             },
           }),
@@ -147,6 +173,29 @@ Deno.serve(async (req) => {
       console.log(`✅ Using plain description: ${description?.length ?? 0} chars`);
     }
 
+    // Extract and normalize images
+    const rawImages: WorldOTAImage[] = worldotaData.data?.images || [];
+    const normalizedImages: NormalizedImage[] = rawImages
+      .map((img: WorldOTAImage, index: number) => {
+        // Handle different image URL formats from WorldOTA
+        let imageUrl = img.tmpl || img.source || img.url || "";
+        
+        // Replace {size} placeholder with high-res size
+        if (imageUrl.includes("{size}")) {
+          imageUrl = imageUrl.replace("{size}", "1024x768");
+        }
+        
+        if (!imageUrl) return null;
+        
+        return {
+          url: imageUrl,
+          alt: `Hotel image ${index + 1}`,
+        };
+      })
+      .filter((img): img is NormalizedImage => img !== null);
+
+    console.log(`📸 Extracted ${normalizedImages.length} images from WorldOTA response`);
+
     // Cache the result (expires in 7 days)
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
@@ -179,6 +228,7 @@ Deno.serve(async (req) => {
           hid: numericHid,
           description: description,
           description_struct: descriptionStruct,
+          images: normalizedImages,
           name: worldotaData.data?.name,
           address: worldotaData.data?.address,
           amenities: worldotaData.data?.amenity_groups,

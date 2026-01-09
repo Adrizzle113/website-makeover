@@ -395,15 +395,20 @@ const HotelDetailsPage = () => {
     }
   };
 
-  // Fetch description from WorldOTA via edge function (primary source)
-  const fetchWorldOtaDescription = async (hotelId: string): Promise<string | null> => {
+  // Fetch description AND images from WorldOTA via edge function (primary source)
+  interface WorldOTAData {
+    description: string | null;
+    images: Array<{ url: string; alt: string }>;
+  }
+  
+  const fetchWorldOtaData = async (hotelId: string): Promise<WorldOTAData> => {
     try {
-      console.log("🌐 Fetching description from WorldOTA...");
+      console.log("🌐 Fetching data from WorldOTA...");
       
       const numericId = parseInt(hotelId.replace(/\D/g, ""), 10);
       if (isNaN(numericId)) {
         console.warn("⚠️ Cannot convert hotelId to numeric:", hotelId);
-        return null;
+        return { description: null, images: [] };
       }
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -420,21 +425,20 @@ const HotelDetailsPage = () => {
 
       if (!response.ok) {
         console.warn(`⚠️ WorldOTA edge function returned ${response.status}`);
-        return null;
+        return { description: null, images: [] };
       }
 
       const data = await response.json();
       
-      if (data.success && data.hotel?.description) {
-        console.log(`✅ WorldOTA description fetched (${data.hotel.description.length} chars, cached: ${data.cached})`);
-        return data.hotel.description;
-      }
-
-      console.log("⚠️ No description in WorldOTA response");
-      return null;
+      const description = data.success && data.hotel?.description ? data.hotel.description : null;
+      const images = data.success && Array.isArray(data.hotel?.images) ? data.hotel.images : [];
+      
+      console.log(`✅ WorldOTA data fetched: ${description?.length || 0} chars description, ${images.length} images (cached: ${data.cached})`);
+      
+      return { description, images };
     } catch (error) {
-      console.error("💥 Error fetching WorldOTA description:", error);
-      return null;
+      console.error("💥 Error fetching WorldOTA data:", error);
+      return { description: null, images: [] };
     }
   };
 
@@ -571,7 +575,7 @@ const HotelDetailsPage = () => {
       };
 
       const staticInfoPromise = fetchStaticHotelInfo(ratehawkHotelId);
-      const worldotaDescPromise = fetchWorldOtaDescription(ratehawkHotelId);
+      const worldotaDataPromise = fetchWorldOtaData(ratehawkHotelId);
 
       const ratesPromise: Promise<Response | null> = canFetchRates
         ? fetch(`${API_BASE_URL}/api/ratehawk/hotel/details`, {
@@ -592,15 +596,15 @@ const HotelDetailsPage = () => {
 
       console.log(
         canFetchRates
-          ? "📤 Fetching rates, static info, and WorldOTA description in parallel with hotelId:"
-          : "📤 Fetching static hotel info and WorldOTA description (no search dates available) with hotelId:",
+          ? "📤 Fetching rates, static info, and WorldOTA data in parallel with hotelId:"
+          : "📤 Fetching static hotel info and WorldOTA data (no search dates available) with hotelId:",
         ratehawkHotelId,
       );
 
-      const [ratesResponse, staticInfo, worldotaDescription] = await Promise.all([
+      const [ratesResponse, staticInfo, worldotaData] = await Promise.all([
         ratesPromise, 
         staticInfoPromise,
-        worldotaDescPromise
+        worldotaDataPromise
       ]);
 
       // Fetch POI using Mapbox (non-blocking) so it doesn't delay page load
@@ -631,15 +635,24 @@ const HotelDetailsPage = () => {
         console.warn("⚠️ Rates API not called (missing search dates)");
       }
 
-      // Only use existing images from search - don't fetch additional images from static-info
+      // Use WorldOTA images if available, fallback to existing images from search
+      const worldotaImages = worldotaData.images || [];
       const existingImages = normalizeStaticImages((data.hotel as any)?.images);
-      const imagesToUse = existingImages.slice(0, 1); // Only keep the main thumbnail
+      
+      // Prefer WorldOTA images (full gallery), fallback to existing
+      const imagesToUse = worldotaImages.length > 0 
+        ? worldotaImages.map((img: { url: string; alt: string }) => ({ url: img.url, alt: img.alt }))
+        : existingImages;
+      
+      console.log(`📸 Using ${imagesToUse.length} images (WorldOTA: ${worldotaImages.length}, existing: ${existingImages.length})`);
 
       const existingMainImage = typeof (data.hotel as any)?.mainImage === "string" ? (data.hotel as any).mainImage : undefined;
       const existingLegacyImage = typeof data.hotel.image === "string" ? data.hotel.image : undefined;
       const existingFirstImage = getFirstImageUrl(existingImages);
+      const worldotaFirstImage = worldotaImages.length > 0 ? worldotaImages[0].url : undefined;
 
       const pickedMainImageRaw =
+        worldotaFirstImage ||
         (existingMainImage && !isPlaceholderImage(existingMainImage) ? existingMainImage : undefined) ||
         (existingLegacyImage && !isPlaceholderImage(existingLegacyImage) ? existingLegacyImage : undefined) ||
         existingFirstImage;
@@ -670,14 +683,14 @@ const HotelDetailsPage = () => {
           name: nameToUse,
 
           // Priority: WorldOTA description > static info > existing data
-          description: worldotaDescription 
+          description: worldotaData.description 
             || (staticInfo?.description && staticInfo.description.length >= 100 
                 ? staticInfo.description 
                 : undefined)
             || (data.hotel.description && data.hotel.description.length >= 100
                 ? data.hotel.description
                 : undefined),
-          fullDescription: worldotaDescription 
+          fullDescription: worldotaData.description 
             || (staticInfo?.description && staticInfo.description.length >= 100
                 ? staticInfo.description
                 : undefined)
