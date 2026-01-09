@@ -242,7 +242,7 @@ export function EnhancedSearchCard() {
 
   return (
     <div className="w-full max-w-4xl" onKeyDown={handleKeyDown}>
-      <div className="bg-card/95 backdrop-blur-md rounded-2xl shadow-xl p-6 md:p-8 border border-border/50">
+      <div className="bg-card/95 backdrop-blur-md rounded-2xl shadow-xl p-6 md:p-8 border border-border/50 relative z-[60]">
         {/* Warning when destination typed but not selected */}
         {destination && !isDestinationSelected && (
           <Alert variant="destructive" className="mb-4 bg-destructive/10 border-destructive/20">
