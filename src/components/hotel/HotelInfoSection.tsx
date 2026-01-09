@@ -1,6 +1,6 @@
 import type { HotelDetails } from "@/types/booking";
 import { BookingSidebar } from "./BookingSidebar";
-import { sanitizeDescription } from "@/lib/utils";
+import { sanitizeDescription, isValidDescription } from "@/lib/utils";
 
 interface HotelInfoSectionProps {
   hotel: HotelDetails;
@@ -23,6 +23,15 @@ function generateFallbackDescription(hotel: HotelDetails): string {
   
   // Build intro sentence
   parts.push(`Welcome to ${hotel.name}, a ${starText} property${locationText ? ` ${locationText}` : ''}.`);
+  
+  // Room count from ratehawk_data if available
+  const roomGroups = (hotel as any).ratehawk_data?.room_groups;
+  const rates = (hotel as any).ratehawk_data?.rates;
+  if (roomGroups?.length > 0) {
+    parts.push(`Choose from ${roomGroups.length} room categories to suit your needs.`);
+  } else if (rates?.length > 0) {
+    parts.push(`Multiple room options are available for your stay.`);
+  }
   
   // Amenities highlight
   if (hotel.amenities && hotel.amenities.length > 0) {
@@ -56,8 +65,15 @@ function generateFallbackDescription(hotel: HotelDetails): string {
 }
 
 export function HotelInfoSection({ hotel }: HotelInfoSectionProps) {
-  // Use API description or generate a smart fallback, then sanitize
-  const rawDescription = hotel.fullDescription || hotel.description || generateFallbackDescription(hotel);
+  // Check each description source for valid content (not metadata)
+  const apiDescription = isValidDescription(hotel.fullDescription) 
+    ? hotel.fullDescription 
+    : isValidDescription(hotel.description) 
+      ? hotel.description 
+      : null;
+  
+  // Use API description if valid, otherwise generate smart fallback
+  const rawDescription = apiDescription || generateFallbackDescription(hotel);
   const description = sanitizeDescription(rawDescription);
   
   return (

@@ -417,15 +417,33 @@ const HotelDetailsPage = () => {
 
       if (responseData.success && responseData.data) {
         console.log("✅ Static info fetched successfully");
+        const data = responseData.data;
 
-        if (responseData.data.description) {
-          const preview = responseData.data.description.substring(0, 100);
-          console.log(`📝 Description found (${responseData.data.description.length} chars): ${preview}...`);
+        // Try to extract description from description_struct if main description is empty
+        let extractedDescription = data.description;
+        
+        if (!extractedDescription && data.description_struct) {
+          const struct = data.description_struct;
+          if (typeof struct === 'string') {
+            extractedDescription = struct;
+          } else if (Array.isArray(struct)) {
+            extractedDescription = struct.filter((s: any) => typeof s === 'string').join(' ');
+          } else if (struct.text || struct.content) {
+            extractedDescription = struct.text || struct.content;
+          }
+        }
+
+        if (extractedDescription) {
+          const preview = extractedDescription.substring(0, 100);
+          console.log(`📝 Description found (${extractedDescription.length} chars): ${preview}...`);
         } else {
           console.log("📝 No description in static info response");
         }
 
-        return responseData.data;
+        return {
+          ...data,
+          description: extractedDescription,
+        };
       }
 
       console.log("⚠️ Static info response not in expected format");
@@ -594,9 +612,19 @@ const HotelDetailsPage = () => {
           // Prefer a real hotel name from static info (fallback to humanized slug)
           name: nameToUse,
 
-          // Static info from API
-          description: staticInfo?.description || data.hotel.description,
-          fullDescription: staticInfo?.description || staticInfo?.fullDescription || data.hotel.fullDescription,
+          // Static info from API - validate descriptions to filter out metadata
+          description: (staticInfo?.description && staticInfo.description.length >= 100) 
+            ? staticInfo.description 
+            : (data.hotel.description && data.hotel.description.length >= 100)
+              ? data.hotel.description
+              : undefined,
+          fullDescription: (staticInfo?.description && staticInfo.description.length >= 100)
+            ? staticInfo.description
+            : (staticInfo?.fullDescription && staticInfo.fullDescription.length >= 100)
+              ? staticInfo.fullDescription
+              : (data.hotel.fullDescription && data.hotel.fullDescription.length >= 100)
+                ? data.hotel.fullDescription
+                : undefined,
           checkInTime: staticInfo?.checkInTime || data.hotel.checkInTime,
           checkOutTime: staticInfo?.checkOutTime || data.hotel.checkOutTime,
           policies: staticInfo?.policies?.length > 0 ? staticInfo.policies : data.hotel.policies,
