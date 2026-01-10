@@ -250,11 +250,11 @@ class BookingApiService {
 
   /**
    * Step 3b: Get Multiroom Order Form - Retrieve order forms for multiple rooms
-   * @param prebookedRooms - Array of booking_hash from multiroom prebook response
+   * @param prebookedRooms - Array of book_hash from multiroom prebook response
    * @param partnerOrderId - Required unique partner order ID (same for all rooms)
    */
   async getMultiroomOrderForm(
-    prebookedRooms: Array<{ booking_hash: string }>,
+    prebookedRooms: Array<{ book_hash: string }>,
     partnerOrderId: string,
     language: string = "en"
   ): Promise<MultiroomOrderFormResponse> {
