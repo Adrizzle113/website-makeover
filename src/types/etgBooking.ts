@@ -342,6 +342,12 @@ export interface PendingBookingData {
     quantity: number;
     pricePerRoom: number;
     totalPrice: number;
+    taxes?: Array<{
+      name: string;
+      included_by_supplier: boolean;
+      amount: string;
+      currency_code: string;
+    }>;
   }>;
   guests: Array<{
     id: string;
