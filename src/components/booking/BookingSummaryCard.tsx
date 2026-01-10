@@ -62,10 +62,6 @@ export function BookingSummaryCard({
       {hotel.mainImage && <div className="relative h-32 overflow-hidden rounded-t-lg cursor-pointer group" onClick={() => navigate(`/hoteldetails/${hotel.id}`)}>
           <img src={hotel.mainImage} alt={hotel.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-          <div className="absolute bottom-2 right-2 flex items-center gap-1 text-white/80 text-xs">
-            <ExternalLink className="h-3 w-3" />
-            <span>View hotel</span>
-          </div>
         </div>}
 
       {/* Hotel Header */}
