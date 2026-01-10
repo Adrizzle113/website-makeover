@@ -16,7 +16,14 @@ import {
   validateExpiryDate,
   validateCVV,
 } from "@/lib/cardValidation";
-import type { PendingBookingData, PaymentType } from "@/types/etgBooking";
+import type { 
+  PendingBookingData, 
+  PaymentType,
+  MultiroomPendingBookingData,
+  OrderFormData,
+  MultiroomOrderFinishParams,
+  MultiroomGuests,
+} from "@/types/etgBooking";
 
 const PaymentPage = () => {
   const navigate = useNavigate();
@@ -28,13 +35,17 @@ const PaymentPage = () => {
   const [isVerifyingPrice, setIsVerifyingPrice] = useState(false);
   const [isLoadingForm, setIsLoadingForm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [bookingData, setBookingData] = useState<PendingBookingData | null>(null);
+  const [bookingData, setBookingData] = useState<PendingBookingData | MultiroomPendingBookingData | null>(null);
   const [paymentType, setPaymentType] = useState<PaymentType>("deposit");
   
-  // ETG API order form data
+  // ETG API order form data (single room)
   const [orderId, setOrderId] = useState<string | null>(null);
   const [itemId, setItemId] = useState<string | null>(null);
   const [formDataLoaded, setFormDataLoaded] = useState(false);
+
+  // Multiroom order form data
+  const [multiroomOrderForms, setMultiroomOrderForms] = useState<OrderFormData[]>([]);
+  const [isMultiroom, setIsMultiroom] = useState(false);
 
   // Dynamic payment methods from API
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState<PaymentType[]>(["deposit", "hotel", "now_net", "now_gross"]);
@@ -116,7 +127,23 @@ const PaymentPage = () => {
   }, [bookingId]);
 
   // Load order form to get order_id and item_id for finish step
-  const loadOrderForm = async (data: PendingBookingData) => {
+  const loadOrderForm = async (data: PendingBookingData | MultiroomPendingBookingData) => {
+    // Check if this is a multiroom booking
+    const multiroomData = data as MultiroomPendingBookingData;
+    const isMultiroomBooking = multiroomData.isMultiroom && multiroomData.prebookedRooms && multiroomData.prebookedRooms.length > 1;
+    setIsMultiroom(isMultiroomBooking);
+
+    if (isMultiroomBooking) {
+      // Multiroom order form flow
+      await loadMultiroomOrderForm(multiroomData);
+    } else {
+      // Single room order form flow
+      await loadSingleRoomOrderForm(data);
+    }
+  };
+
+  // Load single room order form (existing logic)
+  const loadSingleRoomOrderForm = async (data: PendingBookingData) => {
     if (!data.bookingHash || !data.bookingId) {
       console.warn("Missing bookingHash or bookingId for order form");
       setFormDataLoaded(true);
@@ -145,7 +172,7 @@ const PaymentPage = () => {
       setIsNeedCreditCardData(formResponse.data.is_need_credit_card_data || false);
       setIsNeedCvc(formResponse.data.is_need_cvc ?? true);
 
-      // Determine available payment methods - map API "now" to both net/gross options
+      // Determine available payment methods
       const apiPaymentTypes = formResponse.data.payment_types_available || ["deposit"];
       const paymentMethods: PaymentType[] = [];
       apiPaymentTypes.forEach(type => {
@@ -155,18 +182,13 @@ const PaymentPage = () => {
           paymentMethods.push(type);
         }
       });
-      // Always ensure deposit is available if not already
       if (!paymentMethods.includes("deposit")) {
         paymentMethods.unshift("deposit");
       }
       setAvailablePaymentMethods(paymentMethods);
 
-      console.log("📋 Order form loaded:", {
+      console.log("📋 Single room order form loaded:", {
         orderId: formResponse.data.order_id,
-        payUuid: formResponse.data.pay_uuid,
-        initUuid: formResponse.data.init_uuid,
-        isNeedCreditCardData: formResponse.data.is_need_credit_card_data,
-        isNeedCvc: formResponse.data.is_need_cvc,
         paymentTypes: paymentMethods,
       });
 
@@ -186,6 +208,118 @@ const PaymentPage = () => {
         title: "Form Loading Warning",
         description: "Unable to prepare booking form. You may continue, but booking might fail.",
         variant: "default",
+      });
+    } finally {
+      setIsLoadingForm(false);
+    }
+  };
+
+  // Load multiroom order forms
+  const loadMultiroomOrderForm = async (data: MultiroomPendingBookingData) => {
+    if (!data.prebookedRooms || data.prebookedRooms.length === 0) {
+      console.warn("No prebooked rooms for multiroom order form");
+      setFormDataLoaded(true);
+      return;
+    }
+
+    setIsLoadingForm(true);
+
+    try {
+      // Build prebooked_rooms array from prebookedRooms
+      const prebookedRoomsForApi = data.prebookedRooms.map(room => ({
+        booking_hash: room.booking_hash,
+      }));
+
+      console.log(`📋 Loading multiroom order form for ${prebookedRoomsForApi.length} rooms`);
+
+      const formResponse = await bookingApi.getMultiroomOrderForm(
+        prebookedRoomsForApi,
+        data.bookingId,
+        "en"
+      );
+
+      if (formResponse.error) {
+        throw new Error(formResponse.error.message);
+      }
+
+      // Check for partial failures
+      if (formResponse.data.failed_rooms > 0) {
+        console.warn(`⚠️ ${formResponse.data.failed_rooms} room(s) failed to get order form`);
+        toast({
+          title: "Some Rooms Unavailable",
+          description: `${formResponse.data.failed_rooms} room(s) could not be processed.`,
+          variant: "default",
+        });
+      }
+
+      // Store order forms for each room
+      const orderForms: OrderFormData[] = formResponse.data.rooms.map(room => ({
+        roomIndex: room.roomIndex,
+        order_id: String(room.order_id),
+        item_id: String(room.item_id),
+        booking_hash: room.booking_hash,
+        payment_types: room.payment_types,
+        pay_uuid: room.pay_uuid,
+        init_uuid: room.init_uuid,
+        is_need_credit_card_data: room.is_need_credit_card_data,
+        is_need_cvc: room.is_need_cvc,
+      }));
+
+      setMultiroomOrderForms(orderForms);
+      setFormDataLoaded(true);
+
+      // Use first room's data for Payota (same for all rooms)
+      if (orderForms.length > 0) {
+        const firstRoom = orderForms[0];
+        setOrderId(firstRoom.order_id);
+        setItemId(firstRoom.item_id);
+        setPayUuid(firstRoom.pay_uuid || null);
+        setInitUuid(firstRoom.init_uuid || null);
+        setIsNeedCreditCardData(firstRoom.is_need_credit_card_data || false);
+        setIsNeedCvc(firstRoom.is_need_cvc ?? true);
+      }
+
+      // Get common payment types (intersection of all rooms)
+      const commonPaymentTypes = formResponse.data.payment_types_available || 
+        orderForms.reduce((common, room) => {
+          if (common.length === 0) return room.payment_types;
+          return common.filter(type => room.payment_types.includes(type));
+        }, [] as PaymentType[]);
+
+      const paymentMethods: PaymentType[] = [];
+      commonPaymentTypes.forEach(type => {
+        if (type === "now") {
+          paymentMethods.push("now_net", "now_gross");
+        } else {
+          paymentMethods.push(type);
+        }
+      });
+      if (!paymentMethods.includes("deposit")) {
+        paymentMethods.unshift("deposit");
+      }
+      setAvailablePaymentMethods(paymentMethods);
+
+      console.log("📋 Multiroom order forms loaded:", {
+        totalRooms: orderForms.length,
+        paymentTypes: paymentMethods,
+      });
+
+      // Update booking data with order forms
+      const updatedData: MultiroomPendingBookingData = { 
+        ...data, 
+        orderForms,
+      };
+      setBookingData(updatedData);
+      sessionStorage.setItem("pending_booking", JSON.stringify(updatedData));
+
+    } catch (error) {
+      console.error("Failed to load multiroom order form:", error);
+      setFormDataLoaded(true);
+      
+      toast({
+        title: "Form Loading Error",
+        description: "Unable to prepare booking forms. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setIsLoadingForm(false);
@@ -323,13 +457,25 @@ const PaymentPage = () => {
   const handlePayment = async () => {
     if (isCardPayment && !validateForm()) return;
 
-    if (!orderId || !itemId) {
-      toast({
-        title: "Booking Error",
-        description: "Missing booking reference. Please go back and try again.",
-        variant: "destructive",
-      });
-      return;
+    // Validate order form data
+    if (isMultiroom) {
+      if (multiroomOrderForms.length === 0) {
+        toast({
+          title: "Booking Error",
+          description: "Missing room booking data. Please go back and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else {
+      if (!orderId || !itemId) {
+        toast({
+          title: "Booking Error",
+          description: "Missing booking reference. Please go back and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setIsProcessing(true);
@@ -347,7 +493,7 @@ const PaymentPage = () => {
         const [month, year] = expiryDate.split("/");
         
         const tokenRequest = {
-          object_id: orderId,
+          object_id: orderId!,
           pay_uuid: payUuid,
           init_uuid: initUuid,
           user_first_name: leadGuest?.firstName || "",
@@ -380,7 +526,7 @@ const PaymentPage = () => {
         console.log("✅ Card tokenized successfully");
 
         // Step 2: Start booking with card payment
-        const startResponse = await bookingApi.startBooking(orderId, {
+        const startResponse = await bookingApi.startBooking(orderId!, {
           type: "now",
           currency_code: bookingData!.hotel.currency || "USD",
           pay_uuid: payUuid,
@@ -396,38 +542,24 @@ const PaymentPage = () => {
           throw new Error("No order ID received from booking");
         }
         
-        navigate(`/processing/${finalOrderId}`);
+        // For multiroom, pass all order IDs to processing page
+        if (isMultiroom) {
+          const orderIds = multiroomOrderForms.map(f => f.order_id).join(",");
+          navigate(`/processing/${finalOrderId}?multiroom=true&order_ids=${orderIds}`);
+        } else {
+          navigate(`/processing/${finalOrderId}`);
+        }
         return;
       }
 
       // Step 2: Complete booking (non-card payments)
-      const response = await bookingApi.finishBooking({
-        order_id: orderId,
-        item_id: itemId,
-        partner_order_id: bookingData!.bookingId,
-        payment_type: getApiPaymentType(paymentType),
-        guests: bookingData!.guests.map((g) => ({
-          first_name: g.firstName,
-          last_name: g.lastName,
-          is_child: g.type === "child",
-          age: g.age,
-        })),
-        email: leadGuest?.email,
-        phone: bookingData!.bookingDetails.phoneNumber 
-          ? `${bookingData!.bookingDetails.countryCode}${bookingData!.bookingDetails.phoneNumber}`
-          : undefined,
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message);
+      if (isMultiroom) {
+        // Multiroom finish
+        await handleMultiroomFinish(leadGuest);
+      } else {
+        // Single room finish
+        await handleSingleRoomFinish(leadGuest);
       }
-
-      const finalOrderId = response.data?.order_id;
-      if (!finalOrderId) {
-        throw new Error("No order ID received from booking");
-      }
-      
-      navigate(`/processing/${finalOrderId}`);
       
     } catch (error) {
       console.error("Order finish failed:", error);
@@ -446,6 +578,94 @@ const PaymentPage = () => {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // Single room finish (existing logic)
+  const handleSingleRoomFinish = async (leadGuest: PendingBookingData["guests"][number] | undefined) => {
+    const response = await bookingApi.finishBooking({
+      order_id: orderId!,
+      item_id: itemId!,
+      partner_order_id: bookingData!.bookingId,
+      payment_type: getApiPaymentType(paymentType),
+      guests: bookingData!.guests.map((g) => ({
+        first_name: g.firstName,
+        last_name: g.lastName,
+        is_child: g.type === "child",
+        age: g.age,
+      })),
+      email: leadGuest?.email,
+      phone: bookingData!.bookingDetails.phoneNumber 
+        ? `${bookingData!.bookingDetails.countryCode}${bookingData!.bookingDetails.phoneNumber}`
+        : undefined,
+    });
+
+    if (response.error) {
+      throw new Error(response.error.message);
+    }
+
+    const finalOrderId = response.data?.order_id;
+    if (!finalOrderId) {
+      throw new Error("No order ID received from booking");
+    }
+    
+    navigate(`/processing/${finalOrderId}`);
+  };
+
+  // Multiroom finish
+  const handleMultiroomFinish = async (leadGuest: PendingBookingData["guests"][number] | undefined) => {
+    // Build rooms array for multiroom finish
+    const rooms: MultiroomOrderFinishParams["rooms"] = multiroomOrderForms.map((form, index) => {
+      // Build guests for this room
+      // For simplicity, use same guests for all rooms (can be enhanced later)
+      const searchParamsData = bookingData!.searchParams;
+      const adultsCount = searchParamsData?.guests || 2;
+      const childrenAges = searchParamsData?.childrenAges || [];
+      
+      const guestsForRoom: MultiroomGuests[] = [{
+        adults: adultsCount,
+        children: childrenAges.map(age => ({ age })),
+      }];
+
+      return {
+        order_id: form.order_id,
+        item_id: form.item_id,
+        guests: guestsForRoom,
+      };
+    });
+
+    console.log(`📤 Multiroom finish with ${rooms.length} rooms`);
+
+    const response = await bookingApi.finishBooking({
+      rooms,
+      payment_type: getApiPaymentType(paymentType),
+      partner_order_id: bookingData!.bookingId,
+      language: "en",
+    });
+
+    if (response.error) {
+      throw new Error(response.error.message);
+    }
+
+    // Handle partial failures
+    if (response.data.failed_rooms > 0) {
+      console.warn(`⚠️ ${response.data.failed_rooms} room(s) failed to complete`);
+      toast({
+        title: "Partial Booking Success",
+        description: `${response.data.successful_rooms} of ${response.data.total_rooms} rooms booked successfully.`,
+        variant: "default",
+      });
+    }
+
+    // Get first successful order ID for processing page
+    const orderIds = response.data.order_ids;
+    if (!orderIds || orderIds.length === 0) {
+      throw new Error("No order IDs received from multiroom booking");
+    }
+
+    // Navigate to processing page with all order IDs
+    const primaryOrderId = orderIds[0];
+    const allOrderIds = orderIds.join(",");
+    navigate(`/processing/${primaryOrderId}?multiroom=true&order_ids=${allOrderIds}&total=${response.data.total_rooms}&success=${response.data.successful_rooms}`);
   };
 
   // Helper to get user-friendly Payota error messages
