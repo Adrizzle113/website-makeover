@@ -602,12 +602,15 @@ const HotelDetailsPage = () => {
         : Promise.resolve(null);
       const worldotaDataPromise = fetchWorldOtaData(ratehawkHotelId);
 
+      // Use numeric hid for rates endpoint (backend expects numeric hotel ID)
+      const ratesHotelId = numericHid ? String(numericHid) : ratehawkHotelId;
+
       const ratesPromise: Promise<Response | null> = canFetchRates
         ? fetch(`${API_BASE_URL}/api/ratehawk/hotel/details`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              hotelId: ratehawkHotelId,
+              hotelId: ratesHotelId,
               searchContext: {
                 checkin: formatDate(context.checkin),
                 checkout: formatDate(context.checkout),
@@ -619,11 +622,20 @@ const HotelDetailsPage = () => {
           })
         : Promise.resolve(null);
 
+      if (canFetchRates) {
+        console.log("💰 Rates request params:", {
+          hotelId: ratesHotelId,
+          checkin: formatDate(context.checkin),
+          checkout: formatDate(context.checkout),
+          guests: formatGuests(context.guests),
+        });
+      }
+
       console.log(
         canFetchRates
           ? "📤 Fetching rates, static info, and WorldOTA data in parallel with hotelId:"
           : "📤 Fetching static hotel info and WorldOTA data (no search dates available) with hotelId:",
-        ratehawkHotelId,
+        ratesHotelId,
       );
 
       const [ratesResponse, staticInfo, worldotaData] = await Promise.all([
@@ -647,12 +659,33 @@ const HotelDetailsPage = () => {
 
       if (ratesResponse && ratesResponse.ok) {
         const ratesData = await ratesResponse.json();
+        console.log("📊 Rates API response structure:", {
+          success: ratesData.success,
+          hasHotel: !!ratesData.hotel,
+          hasData: !!ratesData.data,
+          hotelRatesCount: ratesData.hotel?.rates?.length,
+          dataHotelsCount: ratesData.data?.data?.hotels?.length,
+        });
 
-        if (ratesData.data?.data?.hotels?.[0]) {
+        // Try multiple response formats
+        if (ratesData.success && ratesData.hotel?.rates) {
+          // New format: { success: true, hotel: { rates: [...], room_groups: [...] } }
+          rates = ratesData.hotel.rates || [];
+          room_groups = ratesData.hotel.room_groups || [];
+          console.log(`✅ Found ${rates.length} rates (new format)`);
+        } else if (ratesData.data?.data?.hotels?.[0]) {
+          // Legacy format: { data: { data: { hotels: [{ rates: [...] }] } } }
           const hotelDetails = ratesData.data.data.hotels[0];
           rates = hotelDetails.rates || [];
           room_groups = hotelDetails.room_groups || [];
-          console.log(`✅ Found ${rates.length} rates and ${room_groups.length} room_groups`);
+          console.log(`✅ Found ${rates.length} rates (legacy format)`);
+        } else if (ratesData.hotels?.[0]?.rates) {
+          // Alternative format: { hotels: [{ rates: [...] }] }
+          rates = ratesData.hotels[0].rates || [];
+          room_groups = ratesData.hotels[0].room_groups || [];
+          console.log(`✅ Found ${rates.length} rates (hotels array format)`);
+        } else {
+          console.warn("⚠️ No rates found in any expected format:", Object.keys(ratesData));
         }
       } else if (ratesResponse) {
         console.warn(`⚠️ Rates API returned ${ratesResponse.status}`);
