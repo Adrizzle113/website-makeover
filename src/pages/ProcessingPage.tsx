@@ -8,7 +8,12 @@ import { Footer } from "@/components/layout/Footer";
 import { bookingApi } from "@/services/bookingApi";
 import { useBookingStore } from "@/stores/bookingStore";
 import { toast } from "@/hooks/use-toast";
-import type { OrderStatus } from "@/types/etgBooking";
+import { 
+  isFinalFailureError, 
+  isRetryableError, 
+  getBookingErrorMessage,
+  type BookingErrorCode 
+} from "@/types/etgBooking";
 
 const MAX_POLL_ATTEMPTS = 20;
 const POLL_INTERVAL_MS = 3000;
@@ -71,9 +76,21 @@ export default function ProcessingPage() {
         }
 
         if (orderStatus === "failed" || orderStatus === "cancelled") {
+          const errorCode = response.error?.code || "";
+          const userMessage = getBookingErrorMessage(errorCode);
           setStatus("failed");
-          setErrorMessage(response.error?.message || "Booking could not be completed");
+          setErrorMessage(userMessage);
           setOrderStatus("failed");
+          return;
+        }
+
+        // Check for specific error codes that indicate final failure
+        if (response.error?.code && isFinalFailureError(response.error.code)) {
+          const userMessage = getBookingErrorMessage(response.error.code);
+          setStatus("failed");
+          setErrorMessage(userMessage);
+          setOrderStatus("failed");
+          console.log(`❌ Final failure error: ${response.error.code}`);
           return;
         }
 

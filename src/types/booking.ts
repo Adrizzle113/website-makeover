@@ -417,6 +417,18 @@ export interface IdsSearchParams {
   currency?: string;
 }
 
+// Tax Types (RateHawk API Best Practices Section 3.5)
+export interface TaxItem {
+  name: string;
+  included_by_supplier: boolean;
+  amount: string;
+  currency_code: string;
+}
+
+export interface TaxData {
+  taxes: TaxItem[];
+}
+
 // API Upsells Request Types (for /api/ratehawk/hotel/details)
 export interface UpsellsRequest {
   early_checkin?: { time?: string }; // time in "HH:MM" format
