@@ -29,7 +29,7 @@ interface RoomUpsellsProps {
   lateCheckout?: EclcData;
 }
 
-// Build upsells from API data
+// Build upsells from API data - handles both explicit ECLC objects and serp_filters fallback
 const buildUpsellsFromApi = (
   roomId: string,
   currency: string,
@@ -40,43 +40,49 @@ const buildUpsellsFromApi = (
 ): Upsell[] => {
   const upsells: Upsell[] = [];
 
-  // Early check-in from API data
-  if (earlyCheckin?.available && earlyCheckin.time) {
+  // Early check-in from API data (available flag is sufficient, time is optional)
+  if (earlyCheckin?.available) {
     const price = earlyCheckin.price 
       ? parseFloat(earlyCheckin.price.amount) 
       : 0;
     const upsellCurrency = earlyCheckin.price?.currency || currency;
+    const hasTime = !!earlyCheckin.time;
     
     upsells.push({
       id: `early_checkin_${roomId}`,
       type: "early_checkin",
       name: "Early Check-in",
-      description: checkInTime 
-        ? `Check in at ${formatTimeWithPreference(earlyCheckin.time)} instead of ${formatTimeWithPreference(checkInTime)}`
-        : `Check in at ${formatTimeWithPreference(earlyCheckin.time)}`,
+      description: hasTime
+        ? (checkInTime 
+            ? `Check in at ${formatTimeWithPreference(earlyCheckin.time!)} instead of ${formatTimeWithPreference(checkInTime)}`
+            : `Check in at ${formatTimeWithPreference(earlyCheckin.time!)}`)
+        : "Early check-in available (time confirmed at booking)",
       price,
       currency: upsellCurrency,
-      newTime: formatTimeWithPreference(earlyCheckin.time),
+      newTime: hasTime ? formatTimeWithPreference(earlyCheckin.time!) : undefined,
     });
   }
 
-  // Late checkout from API data
-  if (lateCheckout?.available && lateCheckout.time) {
+  // Late checkout from API data (available flag is sufficient, time is optional)
+  if (lateCheckout?.available) {
     const price = lateCheckout.price 
       ? parseFloat(lateCheckout.price.amount) 
       : 0;
     const upsellCurrency = lateCheckout.price?.currency || currency;
+    const hasTime = !!lateCheckout.time;
     
     upsells.push({
       id: `late_checkout_${roomId}`,
       type: "late_checkout",
       name: "Late Checkout",
-      description: checkOutTime 
-        ? `Check out at ${formatTimeWithPreference(lateCheckout.time)} instead of ${formatTimeWithPreference(checkOutTime)}`
-        : `Check out at ${formatTimeWithPreference(lateCheckout.time)}`,
+      description: hasTime
+        ? (checkOutTime 
+            ? `Check out at ${formatTimeWithPreference(lateCheckout.time!)} instead of ${formatTimeWithPreference(checkOutTime)}`
+            : `Check out at ${formatTimeWithPreference(lateCheckout.time!)}`)
+        : "Late checkout available (time confirmed at booking)",
       price,
       currency: upsellCurrency,
-      newTime: formatTimeWithPreference(lateCheckout.time),
+      newTime: hasTime ? formatTimeWithPreference(lateCheckout.time!) : undefined,
     });
   }
 
