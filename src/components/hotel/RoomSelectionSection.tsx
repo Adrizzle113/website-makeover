@@ -393,6 +393,37 @@ const rateToRateOption = (rate: RateHawkRate, index: number): RateOption | null 
   const lateCheckout = (rate as any).late_checkout;
   const serpFilters = (rate as any).serp_filters as string[] | undefined;
 
+  // Check serp_filters for ECLC availability flags as fallback
+  const hasEarlyCheckinFlag = serpFilters?.includes('has_early_checkin') ?? false;
+  const hasLateCheckoutFlag = serpFilters?.includes('has_late_checkout') ?? false;
+
+  // Build final ECLC objects - use explicit data if available, otherwise create from flags
+  const finalEarlyCheckin = earlyCheckin 
+    ? { available: earlyCheckin.available ?? true, time: earlyCheckin.time, price: earlyCheckin.price }
+    : hasEarlyCheckinFlag 
+      ? { available: true } 
+      : undefined;
+
+  const finalLateCheckout = lateCheckout 
+    ? { available: lateCheckout.available ?? true, time: lateCheckout.time, price: lateCheckout.price }
+    : hasLateCheckoutFlag 
+      ? { available: true } 
+      : undefined;
+
+  // Debug logging for first rate to trace ECLC data
+  if (index === 0) {
+    console.log('[RoomSelection] Rate ECLC extraction:', {
+      rateId: rate.match_hash || rate.book_hash,
+      rawEarlyCheckin: earlyCheckin,
+      rawLateCheckout: lateCheckout,
+      serpFilters,
+      hasEarlyCheckinFlag,
+      hasLateCheckoutFlag,
+      finalEarlyCheckin,
+      finalLateCheckout,
+    });
+  }
+
   return {
     id: rate.match_hash || rate.book_hash || `rate_${index}`,
     price: Math.round(price),
@@ -413,17 +444,9 @@ const rateToRateOption = (rate: RateHawkRate, index: number): RateOption | null 
     roomSize,
     bedGuaranteed,
     cancellationFee,
-    // ECLC data
-    earlyCheckin: earlyCheckin ? {
-      available: earlyCheckin.available ?? true,
-      time: earlyCheckin.time,
-      price: earlyCheckin.price,
-    } : undefined,
-    lateCheckout: lateCheckout ? {
-      available: lateCheckout.available ?? true,
-      time: lateCheckout.time,
-      price: lateCheckout.price,
-    } : undefined,
+    // ECLC data (with serp_filters fallback)
+    earlyCheckin: finalEarlyCheckin,
+    lateCheckout: finalLateCheckout,
     serpFilters,
   };
 };
