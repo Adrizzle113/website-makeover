@@ -268,6 +268,9 @@ class BookingApiService {
 
     const requestBody = {
       userId,
+      // Some backend validators still require a top-level book_hash even for multiroom;
+      // we provide the first prebooked room hash (p-...) for compatibility.
+      book_hash: prebookedRooms[0]?.book_hash,
       prebooked_rooms: prebookedRooms,
       partner_order_id: partnerOrderId,
       language,
