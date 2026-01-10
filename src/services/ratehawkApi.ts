@@ -17,7 +17,9 @@ import type {
   POISearchParams,
   GeoSearchParams,
   IdsSearchParams,
+  UpsellsState,
 } from "@/types/booking";
+import { formatUpsellsForAPI } from "@/types/booking";
 
 export interface SearchResponse {
   hotels: Hotel[];
@@ -638,7 +640,7 @@ class RateHawkApiService {
     }
   }
 
-  async searchHotels(params: SearchParams, page: number = 1, filters?: SearchFilters): Promise<SearchResponse> {
+  async searchHotels(params: SearchParams, page: number = 1, filters?: SearchFilters, upsellsPreferences?: UpsellsState): Promise<SearchResponse> {
     console.log(`🧪 searchHotels() build=${RATEHAWK_API_BUILD} start`);
     const userId = this.getCurrentUserId();
 
@@ -711,6 +713,13 @@ class RateHawkApiService {
     const apiFilters = this.transformFiltersForApi(filters);
     if (apiFilters) {
       baseBody.filters = apiFilters;
+    }
+
+    // Add upsells if provided (for ECLC filtering)
+    if (upsellsPreferences) {
+      const upsellsPayload = formatUpsellsForAPI(upsellsPreferences);
+      baseBody.upsells = upsellsPayload;
+      console.log("🎁 Search upsells:", upsellsPayload);
     }
 
     // Define search attempts - try different request shapes
