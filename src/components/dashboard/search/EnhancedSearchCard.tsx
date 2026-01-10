@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { format, addDays, addYears, differenceInDays } from "date-fns";
+import { format, addDays, differenceInDays } from "date-fns";
 import { CalendarIcon, Search, ChevronDown, ChevronUp, AlertCircle, Clock, Coffee, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -31,27 +31,13 @@ interface Room {
   childrenAges: number[];
 }
 
-const MAX_STAY_NIGHTS = 30;
-const MAX_YEARS_AHEAD = 2;
+import { RATEHAWK_CONSTRAINTS } from "@/config/apiConstraints";
+import { getCountriesWithPopularFirst } from "@/config/countries";
 
-const COUNTRIES = [
-  { code: "US", name: "United States" },
-  { code: "GB", name: "United Kingdom" },
-  { code: "DE", name: "Germany" },
-  { code: "FR", name: "France" },
-  { code: "ES", name: "Spain" },
-  { code: "IT", name: "Italy" },
-  { code: "AU", name: "Australia" },
-  { code: "CA", name: "Canada" },
-  { code: "AE", name: "United Arab Emirates" },
-  { code: "SA", name: "Saudi Arabia" },
-  { code: "IN", name: "India" },
-  { code: "CN", name: "China" },
-  { code: "JP", name: "Japan" },
-  { code: "KR", name: "South Korea" },
-  { code: "BR", name: "Brazil" },
-  { code: "MX", name: "Mexico" },
-];
+const MAX_STAY_NIGHTS = RATEHAWK_CONSTRAINTS.MAX_STAY_NIGHTS;
+const MAX_DAYS_AHEAD = RATEHAWK_CONSTRAINTS.MAX_CHECKIN_DAYS_AHEAD;
+
+const COUNTRIES = getCountriesWithPopularFirst();
 
 const STAR_RATINGS = [
   { value: 0, label: "No stars" },
@@ -103,7 +89,7 @@ export function EnhancedSearchCard() {
   // Date constraints
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const maxCheckInDate = addYears(today, MAX_YEARS_AHEAD);
+  const maxCheckInDate = addDays(today, MAX_DAYS_AHEAD);
   const maxCheckOutDate = addDays(checkIn, MAX_STAY_NIGHTS);
 
   // Validation

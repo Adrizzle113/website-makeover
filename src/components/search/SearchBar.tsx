@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { format, addDays, addYears, differenceInDays, parseISO } from "date-fns";
+import { format, addDays, differenceInDays, parseISO } from "date-fns";
 import { CalendarIcon, Search, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -28,8 +28,10 @@ interface Room {
   childrenAges: number[];
 }
 
-const MAX_STAY_NIGHTS = 30;
-const MAX_YEARS_AHEAD = 2;
+import { RATEHAWK_CONSTRAINTS } from "@/config/apiConstraints";
+
+const MAX_STAY_NIGHTS = RATEHAWK_CONSTRAINTS.MAX_STAY_NIGHTS;
+const MAX_DAYS_AHEAD = RATEHAWK_CONSTRAINTS.MAX_CHECKIN_DAYS_AHEAD;
 
 export function SearchBar() {
   const [urlSearchParams] = useSearchParams();
@@ -131,7 +133,7 @@ export function SearchBar() {
   // Date constraints
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const maxCheckInDate = addYears(today, MAX_YEARS_AHEAD);
+  const maxCheckInDate = addDays(today, MAX_DAYS_AHEAD);
   const maxCheckOutDate = addDays(checkIn, MAX_STAY_NIGHTS);
 
   // Validation
