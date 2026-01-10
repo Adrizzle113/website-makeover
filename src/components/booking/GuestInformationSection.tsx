@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Plus, User, Baby, X, ChevronDown, ChevronUp, Users } from "lucide-react";
+import { Plus, User, Baby, X, ChevronDown, ChevronUp, Users, Check, ChevronsUpDown } from "lucide-react";
 import { useBookingStore } from "@/stores/bookingStore";
 import type { HotelDetails, RoomSelection } from "@/types/booking";
 import { cn } from "@/lib/utils";
@@ -290,7 +303,7 @@ const countries = [
   { code: "za", name: "South Africa" },
   { code: "zm", name: "Zambia" },
   { code: "zw", name: "Zimbabwe" },
-];
+].sort((a, b) => a.name.localeCompare(b.name));
 
 const childAges = Array.from({ length: 17 }, (_, i) => i + 1);
 
@@ -301,8 +314,14 @@ export function GuestInformationSection({
 }: GuestInformationSectionProps) {
   const { searchParams, setSearchParams, setResidency } = useBookingStore();
   const [citizenship, setCitizenship] = useState("us");
+  const [citizenshipOpen, setCitizenshipOpen] = useState(false);
   const [expandedRooms, setExpandedRooms] = useState<number[]>([0, 1, 2, 3, 4]); // All expanded by default
   const [sameAsLead, setSameAsLead] = useState<Record<number, boolean>>({});
+  
+  // Get selected country name for display
+  const selectedCountryName = useMemo(() => {
+    return countries.find(c => c.code === citizenship)?.name || "Select citizenship";
+  }, [citizenship]);
   
   // Initialize guests based on rooms
   const initializeGuests = useCallback(() => {
@@ -461,18 +480,47 @@ export function GuestInformationSection({
           <label className="block text-sm font-medium text-muted-foreground mb-2">
             Guests' Citizenship <span className="text-destructive">*</span>
           </label>
-          <Select value={citizenship} onValueChange={setCitizenship}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select citizenship" />
-            </SelectTrigger>
-            <SelectContent className="max-h-[300px]">
-              {countries.map((country) => (
-                <SelectItem key={country.code} value={country.code}>
-                  {country.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Popover open={citizenshipOpen} onOpenChange={setCitizenshipOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={citizenshipOpen}
+                className="w-full justify-between font-normal"
+              >
+                {selectedCountryName}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search country..." />
+                <CommandList className="max-h-[300px]">
+                  <CommandEmpty>No country found.</CommandEmpty>
+                  <CommandGroup>
+                    {countries.map((country) => (
+                      <CommandItem
+                        key={country.code}
+                        value={country.name}
+                        onSelect={() => {
+                          setCitizenship(country.code);
+                          setCitizenshipOpen(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            citizenship === country.code ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {country.name}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
           <p className="text-xs text-muted-foreground mt-1">
             Used as residency for booking rates
           </p>
