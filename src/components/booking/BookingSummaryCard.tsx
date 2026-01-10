@@ -215,7 +215,7 @@ export function BookingSummaryCard({
               Room ({nights} night{nights > 1 ? "s" : ""})
             </span>
             <span className="text-sm font-medium text-foreground">
-              {hotel.currency} {roomsTotal.toFixed(2)}
+              {hotel.currency} {roomsTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
 
@@ -224,7 +224,7 @@ export function BookingSummaryCard({
                 Add-ons
               </span>
               <span className="text-sm font-medium text-foreground">
-                {hotel.currency} {upsellsTotal.toFixed(2)}
+                {hotel.currency} {upsellsTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>}
 
@@ -233,7 +233,7 @@ export function BookingSummaryCard({
               Wholesale Price
             </span>
             <span className="text-sm font-medium text-foreground">
-              {hotel.currency} {netPrice.toFixed(2)}
+              {hotel.currency} {netPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
 
@@ -244,7 +244,7 @@ export function BookingSummaryCard({
                 Your Commission
               </span>
               <span className="text-base font-bold text-green-600 dark:text-green-400">
-                + {hotel.currency} {displayCommission.toFixed(2)}
+                + {hotel.currency} {displayCommission.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
           </div>
@@ -257,7 +257,7 @@ export function BookingSummaryCard({
           <div className="flex justify-between items-center pt-3 border-t border-border">
             <span className="font-semibold text-foreground">Client Price</span>
             <span className="text-xl font-bold text-primary">
-              {hotel.currency} {displayClientPrice.toFixed(2)}
+              {hotel.currency} {displayClientPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
         </div>
