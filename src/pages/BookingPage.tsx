@@ -10,7 +10,7 @@ import {
   BookingDetailsSection,
   BookingSummaryCard,
   ContinueToPaymentSection,
-  PriceChangeModal,
+  PriceConfirmationModal,
   AgentPricingSection,
   BookingProgressIndicator,
   ArrivalTimeSection,
@@ -59,6 +59,7 @@ const {
   const [showPriceChange, setShowPriceChange] = useState(false);
   const [originalPrice, setOriginalPrice] = useState(0);
   const [newPrice, setNewPrice] = useState(0);
+  const [priceChangeType, setPriceChangeType] = useState<"increase" | "decrease" | "unavailable">("increase");
 
   // Agent pricing state
   const [isPricingLocked, setIsPricingLocked] = useState(false);
@@ -206,7 +207,14 @@ const {
     return true;
   };
 
-  const runPrebook = async (): Promise<{ success: boolean; priceChanged: boolean; newPrice?: number; bookingHash?: string }> => {
+  const runPrebook = async (): Promise<{ 
+    success: boolean; 
+    priceChanged: boolean; 
+    newPrice?: number; 
+    originalPrice?: number;
+    bookingHash?: string;
+    unavailable?: boolean;
+  }> => {
     // ✅ Get book_hash from selected room (NOT match_hash from search results)
     const firstRoom = selectedRooms[0];
     const bookHash = firstRoom?.book_hash;
@@ -229,27 +237,34 @@ const {
 
     console.log("📤 Prebook with book_hash:", bookHash);
 
-    // Call real Prebook API
+    // Call real Prebook API with 20% price increase tolerance
     const response = await bookingApi.prebook({
       book_hash: bookHash,
       residency: residency || "US",
       currency: selectedHotel?.currency || "USD",
+      price_increase_percent: 20,
     });
 
+    // Handle error responses - check for unavailable rates
     if (response.error) {
+      if (response.error.code === "NO_AVAILABLE_RATES" || response.error.code === "RATE_NOT_FOUND") {
+        console.warn("⚠️ Rate no longer available:", response.error);
+        return { success: false, priceChanged: false, unavailable: true };
+      }
       throw new Error(response.error.message);
     }
 
-    const { booking_hash, price_changed, new_price } = response.data;
+    const { booking_hash, price_changed, new_price, original_price } = response.data;
 
-    // Store booking hash in store
+    // Store booking hash in store (this is the new p-... hash for order form!)
     setBookingHash(booking_hash);
 
-    if (price_changed && new_price) {
+    if (price_changed && new_price !== undefined) {
       return { 
         success: true, 
         priceChanged: true, 
         newPrice: new_price,
+        originalPrice: original_price || totalWithNights,
         bookingHash: booking_hash,
       };
     }
@@ -266,8 +281,19 @@ const {
     try {
       const result = await runPrebook();
       
+      // Handle unavailable rate - show modal to return to hotel
+      if (result.unavailable) {
+        setPriceChangeType("unavailable");
+        setShowPriceChange(true);
+        setIsPrebooking(false);
+        return;
+      }
+
+      // Handle price change
       if (result.priceChanged && result.newPrice) {
-        setOriginalPrice(totalWithNights);
+        const priceIncreased = result.newPrice > totalWithNights;
+        setPriceChangeType(priceIncreased ? "increase" : "decrease");
+        setOriginalPrice(result.originalPrice || totalWithNights);
         setNewPrice(result.newPrice);
         setShowPriceChange(true);
         setIsPrebooking(false);
@@ -389,10 +415,16 @@ const {
 
   const handleDeclinePriceChange = () => {
     setShowPriceChange(false);
-    toast({
-      title: "Booking Cancelled",
-      description: "The booking was cancelled due to the price change.",
-    });
+    
+    if (priceChangeType === "unavailable") {
+      // Navigate back to hotel page to select a different room
+      navigate(`/hoteldetails/${selectedHotel.id}`);
+    } else {
+      toast({
+        title: "Booking Cancelled",
+        description: "The booking was cancelled due to the price change.",
+      });
+    }
   };
 
   const handlePricingChange = (pricing: PricingSnapshot) => {
@@ -592,10 +624,11 @@ const {
 
       <Footer />
 
-      {/* Price Change Modal */}
-      <PriceChangeModal
+      {/* Price Change / Unavailable Modal */}
+      <PriceConfirmationModal
         open={showPriceChange}
         onOpenChange={setShowPriceChange}
+        type={priceChangeType}
         originalPrice={originalPrice}
         newPrice={newPrice}
         currency={selectedHotel.currency}
