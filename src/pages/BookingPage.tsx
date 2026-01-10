@@ -613,6 +613,7 @@ const {
                       isLoading={isPrebooking}
                       clientPrice={pricingSnapshot?.clientPrice}
                       commission={pricingSnapshot?.commission}
+                      taxes={selectedRooms.flatMap(room => room.taxes || [])}
                     />
                   </div>
                 </div>

@@ -424,6 +424,9 @@ const rateToRateOption = (rate: RateHawkRate, index: number): RateOption | null 
     });
   }
 
+  // Extract taxes from payment_options.payment_types[0].tax_data.taxes
+  const taxes = rate.payment_options?.payment_types?.[0]?.tax_data?.taxes || [];
+
   return {
     id: rate.match_hash || rate.book_hash || `rate_${index}`,
     price: Math.round(price),
@@ -448,6 +451,7 @@ const rateToRateOption = (rate: RateHawkRate, index: number): RateOption | null 
     earlyCheckin: finalEarlyCheckin,
     lateCheckout: finalLateCheckout,
     serpFilters,
+    taxes,
   };
 };
 
@@ -786,6 +790,7 @@ export function RoomSelectionSection({
           book_hash: newRate.bookHash,
           earlyCheckin: newRate.earlyCheckin,
           lateCheckout: newRate.lateCheckout,
+          taxes: newRate.taxes,
         });
       }
     }
@@ -805,6 +810,7 @@ export function RoomSelectionSection({
         book_hash: activeRate.bookHash,
         earlyCheckin: activeRate.earlyCheckin,
         lateCheckout: activeRate.lateCheckout,
+        taxes: activeRate.taxes,
       });
     } else {
       updateRoomQuantity(room.id, currentQty + 1);

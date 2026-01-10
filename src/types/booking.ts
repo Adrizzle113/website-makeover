@@ -89,6 +89,9 @@ export interface RateHawkRate {
           amount_show?: string;
         }>;
       };
+      tax_data?: {
+        taxes: TaxItem[];
+      };
     }>;
   };
   // Alternate cancellation locations (some API responses)
@@ -229,6 +232,8 @@ export interface RoomSelection {
     time?: string;
     price?: { amount: string; currency: string };
   };
+  // Non-included taxes (must be paid at property)
+  taxes?: TaxItem[];
 }
 
 export interface BookingState {

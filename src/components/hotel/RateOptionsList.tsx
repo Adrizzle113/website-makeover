@@ -6,6 +6,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { PaymentTypeBadge, normalizePaymentType } from "./PaymentTypeBadge";
 import { cn } from "@/lib/utils";
+import type { TaxItem } from "@/types/booking";
 
 export interface RateOption {
   id: string;
@@ -39,6 +40,7 @@ export interface RateOption {
     price?: { amount: string; currency: string };
   };
   serpFilters?: string[]; // For checking 'has_early_checkin', 'has_late_checkout'
+  taxes?: TaxItem[]; // Non-included taxes from payment_options.payment_types[].tax_data
 }
 
 interface RateOptionsListProps {
