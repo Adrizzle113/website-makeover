@@ -374,8 +374,25 @@ export function AdvancedFiltersDrawer() {
                 )}
               </div>
 
+              {/* Multiple ECLC - Show all available time options */}
+              <div className="flex items-center space-x-2 pt-2">
+                <Checkbox
+                  id="multiple-eclc-filter"
+                  checked={upsellsPreferences.multipleEclc}
+                  onCheckedChange={(checked) =>
+                    setUpsellsPreferences({
+                      ...upsellsPreferences,
+                      multipleEclc: checked === true
+                    })
+                  }
+                />
+                <Label htmlFor="multiple-eclc-filter" className="text-sm cursor-pointer">
+                  Show all available time options
+                </Label>
+              </div>
+
               {/* Only ECLC rates checkbox */}
-              {(upsellsPreferences.earlyCheckin.enabled || upsellsPreferences.lateCheckout.enabled) && (
+              {(upsellsPreferences.earlyCheckin.enabled || upsellsPreferences.lateCheckout.enabled || upsellsPreferences.multipleEclc) && (
                 <div className="flex items-center space-x-2 pt-2">
                   <Checkbox
                     id="only-eclc"

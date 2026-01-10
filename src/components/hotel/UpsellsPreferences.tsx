@@ -45,7 +45,7 @@ export function UpsellsPreferences({
 }: UpsellsPreferencesProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const hasActiveUpsells = value.earlyCheckin.enabled || value.lateCheckout.enabled;
+  const hasActiveUpsells = value.earlyCheckin.enabled || value.lateCheckout.enabled || value.multipleEclc;
 
   const handleEarlyCheckinToggle = (enabled: boolean) => {
     onChange({
@@ -79,6 +79,13 @@ export function UpsellsPreferences({
     onChange({
       ...value,
       onlyEclc: checked,
+    });
+  };
+
+  const handleMultipleEclcToggle = (checked: boolean) => {
+    onChange({
+      ...value,
+      multipleEclc: checked,
     });
   };
 
@@ -202,19 +209,37 @@ export function UpsellsPreferences({
               )}
             </div>
 
+            {/* Multiple ECLC - Show all available time options */}
+            <div className="flex items-start gap-3 p-4 rounded-lg bg-accent/30">
+              <Checkbox
+                id="multiple-eclc"
+                checked={value.multipleEclc}
+                onCheckedChange={(checked) => handleMultipleEclcToggle(checked === true)}
+                disabled={disabled || isLoading}
+              />
+              <div className="space-y-1">
+                <Label htmlFor="multiple-eclc" className="font-medium cursor-pointer">
+                  Show all available time options
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Request all available early check-in and late checkout time slots
+                </p>
+              </div>
+            </div>
+
             {/* Only show rates with ECLC filter */}
             <div className="flex items-start gap-3 p-4 rounded-lg border border-border/50">
               <Checkbox
                 id="only-eclc"
                 checked={value.onlyEclc}
                 onCheckedChange={(checked) => handleOnlyEclcToggle(checked === true)}
-                disabled={disabled || isLoading || (!value.earlyCheckin.enabled && !value.lateCheckout.enabled)}
+                disabled={disabled || isLoading || (!value.earlyCheckin.enabled && !value.lateCheckout.enabled && !value.multipleEclc)}
               />
               <div className="space-y-1">
                 <Label
                   htmlFor="only-eclc"
                   className={`font-medium cursor-pointer ${
-                    !value.earlyCheckin.enabled && !value.lateCheckout.enabled
+                    !value.earlyCheckin.enabled && !value.lateCheckout.enabled && !value.multipleEclc
                       ? "text-muted-foreground"
                       : ""
                   }`}
