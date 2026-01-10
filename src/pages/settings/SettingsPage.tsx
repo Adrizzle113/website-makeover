@@ -879,12 +879,39 @@ export default function SettingsPage() {
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="bg-popover">
+                        <SelectContent className="bg-popover max-h-[300px]">
                           <SelectItem value="en">English</SelectItem>
-                          <SelectItem value="es">Español</SelectItem>
-                          <SelectItem value="fr">Français</SelectItem>
-                          <SelectItem value="de">Deutsch</SelectItem>
-                          <SelectItem value="ar">العربية</SelectItem>
+                          <SelectItem value="ar">العربية (Arabic)</SelectItem>
+                          <SelectItem value="bg">Български (Bulgarian)</SelectItem>
+                          <SelectItem value="cs">Čeština (Czech)</SelectItem>
+                          <SelectItem value="da">Dansk (Danish)</SelectItem>
+                          <SelectItem value="de">Deutsch (German)</SelectItem>
+                          <SelectItem value="el">Ελληνικά (Greek)</SelectItem>
+                          <SelectItem value="es">Español (Spanish)</SelectItem>
+                          <SelectItem value="fi">Suomi (Finnish)</SelectItem>
+                          <SelectItem value="fr">Français (French)</SelectItem>
+                          <SelectItem value="he">עברית (Hebrew)</SelectItem>
+                          <SelectItem value="hu">Magyar (Hungarian)</SelectItem>
+                          <SelectItem value="it">Italiano (Italian)</SelectItem>
+                          <SelectItem value="ja">日本語 (Japanese)</SelectItem>
+                          <SelectItem value="kk">Қазақша (Kazakh)</SelectItem>
+                          <SelectItem value="ko">한국어 (Korean)</SelectItem>
+                          <SelectItem value="nl">Nederlands (Dutch)</SelectItem>
+                          <SelectItem value="no">Norsk (Norwegian)</SelectItem>
+                          <SelectItem value="pl">Polski (Polish)</SelectItem>
+                          <SelectItem value="pt">Português (Portuguese)</SelectItem>
+                          <SelectItem value="pt_PT">Português - Portugal</SelectItem>
+                          <SelectItem value="ro">Română (Romanian)</SelectItem>
+                          <SelectItem value="ru">Русский (Russian)</SelectItem>
+                          <SelectItem value="sq">Shqip (Albanian)</SelectItem>
+                          <SelectItem value="sr">Српски (Serbian)</SelectItem>
+                          <SelectItem value="sv">Svenska (Swedish)</SelectItem>
+                          <SelectItem value="th">ไทย (Thai)</SelectItem>
+                          <SelectItem value="tr">Türkçe (Turkish)</SelectItem>
+                          <SelectItem value="uk">Українська (Ukrainian)</SelectItem>
+                          <SelectItem value="vi">Tiếng Việt (Vietnamese)</SelectItem>
+                          <SelectItem value="zh_CN">简体中文 (Simplified Chinese)</SelectItem>
+                          <SelectItem value="zh_TW">繁體中文 (Traditional Chinese)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

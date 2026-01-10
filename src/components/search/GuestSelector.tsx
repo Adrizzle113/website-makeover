@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { RATEHAWK_CONSTRAINTS, VALIDATION_MESSAGES } from "@/config/apiConstraints";
 
 interface Room {
   adults: number;
@@ -61,10 +62,14 @@ export function GuestSelector({ rooms, onRoomsChange, showValidation = false }: 
   };
 
   const addRoom = () => {
-    if (rooms.length < 5) {
+    if (rooms.length < RATEHAWK_CONSTRAINTS.MAX_ROOMS_PER_REQUEST) {
       onRoomsChange([...rooms, { adults: 2, childrenAges: [] }]);
     }
   };
+
+  // Check if room has reached max children limit
+  const hasMaxChildren = (room: Room) => 
+    room.childrenAges.length >= RATEHAWK_CONSTRAINTS.MAX_CHILDREN_PER_ROOM;
 
   const removeRoom = (roomIndex: number) => {
     if (rooms.length > 1) {
@@ -75,7 +80,9 @@ export function GuestSelector({ rooms, onRoomsChange, showValidation = false }: 
   const addChild = (roomIndex: number) => {
     const room = rooms[roomIndex];
     const totalInRoom = room.adults + room.childrenAges.length;
-    if (totalInRoom < 6) {
+    // Check both total guests per room AND max children per room limits
+    if (totalInRoom < RATEHAWK_CONSTRAINTS.MAX_GUESTS_PER_ROOM && 
+        room.childrenAges.length < RATEHAWK_CONSTRAINTS.MAX_CHILDREN_PER_ROOM) {
       // Add child with UNSELECTED_AGE to require explicit selection
       updateRoom(roomIndex, { childrenAges: [...room.childrenAges, UNSELECTED_AGE] });
     }
@@ -221,13 +228,19 @@ export function GuestSelector({ rooms, onRoomsChange, showValidation = false }: 
                     ))}
                   </div>
                 ) : null}
-                {room.adults + room.childrenAges.length < 6 && (
+                {room.adults + room.childrenAges.length < RATEHAWK_CONSTRAINTS.MAX_GUESTS_PER_ROOM && 
+                 room.childrenAges.length < RATEHAWK_CONSTRAINTS.MAX_CHILDREN_PER_ROOM && (
                   <button
                     onClick={() => addChild(roomIndex)}
                     className="text-primary text-sm font-medium hover:underline mt-2"
                   >
                     + Add a child
                   </button>
+                )}
+                {hasMaxChildren(room) && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {VALIDATION_MESSAGES.MAX_CHILDREN}
+                  </p>
                 )}
               </div>
 
@@ -236,13 +249,17 @@ export function GuestSelector({ rooms, onRoomsChange, showValidation = false }: 
           ))}
 
           <div className="flex items-center justify-between pt-3 border-t border-border">
-            {rooms.length < 5 && (
+            {rooms.length < RATEHAWK_CONSTRAINTS.MAX_ROOMS_PER_REQUEST ? (
               <button
                 onClick={addRoom}
                 className="text-primary text-sm font-medium hover:underline"
               >
                 + Add a room
               </button>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {VALIDATION_MESSAGES.MAX_ROOMS}
+              </p>
             )}
             <Button
               onClick={() => setIsOpen(false)}

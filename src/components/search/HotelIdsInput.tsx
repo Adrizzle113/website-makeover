@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Heart, X, Plus } from "lucide-react";
+import { Heart, X, Plus, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { RATEHAWK_CONSTRAINTS, VALIDATION_MESSAGES } from "@/config/apiConstraints";
 
 interface HotelIdsInputProps {
   value: string[];
@@ -14,9 +15,11 @@ interface HotelIdsInputProps {
 export function HotelIdsInput({ value, onChange, className }: HotelIdsInputProps) {
   const [inputValue, setInputValue] = useState("");
 
+  const isAtLimit = value.length >= RATEHAWK_CONSTRAINTS.MAX_HOTELS_PER_ID_SEARCH;
+
   const handleAdd = () => {
     const trimmed = inputValue.trim();
-    if (trimmed && !value.includes(trimmed)) {
+    if (trimmed && !value.includes(trimmed) && !isAtLimit) {
       onChange([...value, trimmed]);
       setInputValue("");
     }
@@ -54,7 +57,7 @@ export function HotelIdsInput({ value, onChange, className }: HotelIdsInputProps
           variant="outline"
           size="icon"
           onClick={handleAdd}
-          disabled={!inputValue.trim()}
+          disabled={!inputValue.trim() || isAtLimit}
           className="h-10 w-10"
         >
           <Plus className="h-4 w-4" />
@@ -89,9 +92,17 @@ export function HotelIdsInput({ value, onChange, className }: HotelIdsInputProps
       )}
 
       {value.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          {value.length} hotel{value.length !== 1 ? "s" : ""} selected
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-muted-foreground">
+            {value.length} hotel{value.length !== 1 ? "s" : ""} selected
+          </p>
+          {isAtLimit && (
+            <div className="flex items-center gap-1 text-xs text-amber-600">
+              <AlertCircle className="h-3 w-3" />
+              <span>{VALIDATION_MESSAGES.MAX_HOTELS}</span>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
