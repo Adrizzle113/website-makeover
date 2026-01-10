@@ -1023,16 +1023,6 @@ const HotelDetailsPage = () => {
         <div className="space-y-8">
           <HotelInfoSection hotel={hotelDetails} />
           
-          {/* Upsells Preferences - above room selection */}
-          <UpsellsPreferences
-            value={upsells}
-            onChange={setUpsells}
-            defaultCheckinTime={hotelDetails.checkInTime}
-            defaultCheckoutTime={hotelDetails.checkOutTime}
-            onApply={refreshRatesWithUpsells}
-            isLoading={isRefreshingRates}
-          />
-          
           <RoomSelectionSection 
             hotel={hotelDetails} 
             isLoading={isRefreshingRates}
