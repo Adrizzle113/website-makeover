@@ -8,8 +8,9 @@ import type {
   SearchFilters,
   SortOption,
   SearchType,
+  UpsellsState,
 } from "@/types/booking";
-import { DEFAULT_FILTERS } from "@/types/booking";
+import { DEFAULT_FILTERS, DEFAULT_UPSELLS_STATE } from "@/types/booking";
 import type { OrderStatus, PaymentType } from "@/types/etgBooking";
 
 // Upsell types
@@ -54,6 +55,9 @@ interface BookingStore {
   // Filter & Sort State
   filters: SearchFilters;
   sortBy: SortOption;
+  
+  // Upsells Preferences (for API requests)
+  upsellsPreferences: UpsellsState;
 
   // ETG Booking State
   bookingHash: string | null;      // book_hash from prebook
@@ -100,6 +104,10 @@ interface BookingStore {
   setFilters: (filters: Partial<SearchFilters>) => void;
   resetFilters: () => void;
   setSortBy: (sort: SortOption) => void;
+  
+  // Upsells Preferences Actions
+  setUpsellsPreferences: (upsells: UpsellsState) => void;
+  resetUpsellsPreferences: () => void;
 
   // ETG Booking Actions
   setBookingHash: (hash: string | null) => void;
@@ -139,6 +147,7 @@ const initialState = {
   searchType: "region" as SearchType,
   filters: DEFAULT_FILTERS,
   sortBy: "popularity" as SortOption,
+  upsellsPreferences: DEFAULT_UPSELLS_STATE,
   // ETG Booking State
   bookingHash: null as string | null,
   partnerOrderId: null as string | null,
@@ -342,6 +351,11 @@ export const useBookingStore = create<BookingStore>()(
       resetFilters: () => set({ filters: DEFAULT_FILTERS }),
       
       setSortBy: (sort) => set({ sortBy: sort }),
+      
+      // Upsells Preferences Actions
+      setUpsellsPreferences: (upsells) => set({ upsellsPreferences: upsells }),
+      
+      resetUpsellsPreferences: () => set({ upsellsPreferences: DEFAULT_UPSELLS_STATE }),
 
       // ETG Booking Actions
       setBookingHash: (hash) => set({ bookingHash: hash }),
@@ -408,7 +422,7 @@ export const useBookingStore = create<BookingStore>()(
       },
       
       getActiveFilterCount: () => {
-        const { filters } = get();
+        const { filters, upsellsPreferences } = get();
         let count = 0;
         if (filters.priceMin !== undefined || filters.priceMax !== undefined) count++;
         if (filters.starRatings?.length > 0) count++;
@@ -421,6 +435,8 @@ export const useBookingStore = create<BookingStore>()(
         if (filters.roomTypes?.length > 0) count++;
         if (filters.bedTypes?.length > 0) count++;
         if (filters.hotelKinds?.length > 0) count++;
+        // Count upsells preferences
+        if (upsellsPreferences.earlyCheckin.enabled || upsellsPreferences.lateCheckout.enabled) count++;
         return count;
       },
     }),
@@ -434,6 +450,7 @@ export const useBookingStore = create<BookingStore>()(
         filters: state.filters,
         sortBy: state.sortBy,
         residency: state.residency,
+        upsellsPreferences: state.upsellsPreferences,
       }),
       // Migrate old persisted state to ensure all filter fields exist
       migrate: (persistedState: unknown, version: number) => {
