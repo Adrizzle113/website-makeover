@@ -8,7 +8,7 @@ import { useState } from "react";
 import { useBookingStore, type SelectedUpsell } from "@/stores/bookingStore";
 import type { HotelDetails, SearchParams, RoomSelection, TaxItem } from "@/types/booking";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { TaxSummary } from "./TaxSummary";
+import { TaxBreakdown } from "./TaxBreakdown";
 interface BookingSummaryCardProps {
   hotel: HotelDetails;
   rooms: RoomSelection[];
@@ -253,9 +253,9 @@ export function BookingSummaryCard({
             </div>
           </div>
 
-          {/* Non-included Taxes (Payable at Property) */}
+          {/* Full Tax Breakdown */}
           {taxes.length > 0 && (
-            <TaxSummary taxes={taxes} currency={hotel.currency} />
+            <TaxBreakdown taxes={taxes} currency={hotel.currency} />
           )}
 
           <div className="flex justify-between items-center pt-3 border-t border-border">
