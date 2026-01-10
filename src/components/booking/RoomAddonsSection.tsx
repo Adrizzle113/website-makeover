@@ -10,8 +10,13 @@ interface RoomAddonsSectionProps {
 }
 
 export function RoomAddonsSection({ rooms, hotel }: RoomAddonsSectionProps) {
-  // Only show if we have rooms and check-in/out times (needed for upsells)
-  if (!rooms.length || (!hotel.checkInTime && !hotel.checkOutTime)) {
+  // Check if any room has ECLC options available from the API
+  const hasAnyUpsells = rooms.some(
+    (room) => room.earlyCheckin?.available || room.lateCheckout?.available
+  );
+
+  // Only show if we have rooms with available upsells
+  if (!rooms.length || !hasAnyUpsells) {
     return null;
   }
 
@@ -48,9 +53,11 @@ export function RoomAddonsSection({ rooms, hotel }: RoomAddonsSectionProps) {
               <RoomUpsells
                 roomId={room.roomId}
                 roomName={room.roomName}
-                currency={hotel.currency}
+                currency={room.currency || hotel.currency}
                 checkInTime={hotel.checkInTime}
                 checkOutTime={hotel.checkOutTime}
+                earlyCheckin={room.earlyCheckin}
+                lateCheckout={room.lateCheckout}
               />
             </div>
           ))}

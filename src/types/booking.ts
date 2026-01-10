@@ -218,6 +218,17 @@ export interface RoomSelection {
   amenities?: string[];
   cancellationPolicy?: string;
   meal?: string;
+  // ECLC data for upsells
+  earlyCheckin?: {
+    available?: boolean;
+    time?: string;
+    price?: { amount: string; currency: string };
+  };
+  lateCheckout?: {
+    available?: boolean;
+    time?: string;
+    price?: { amount: string; currency: string };
+  };
 }
 
 export interface BookingState {
