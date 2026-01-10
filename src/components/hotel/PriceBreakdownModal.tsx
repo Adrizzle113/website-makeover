@@ -1,4 +1,4 @@
-import { X, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -8,6 +8,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useBookingStore } from "@/stores/bookingStore";
 import { differenceInDays } from "date-fns";
+import { TaxSummary } from "@/components/booking/TaxSummary";
+import type { TaxItem } from "@/types/booking";
 
 interface PriceBreakdownModalProps {
   open: boolean;
@@ -35,12 +37,18 @@ export function PriceBreakdownModal({
   const roomSubtotal = selectedRooms.reduce((sum, room) => sum + room.totalPrice, 0);
   const upsellsTotal = selectedUpsells.reduce((sum, upsell) => sum + upsell.price, 0);
   
-  // Estimated taxes (10% for demo purposes)
-  const taxRate = 0.10;
-  const taxesIncluded = Math.round((roomSubtotal + upsellsTotal) * taxRate);
-  const taxesAtHotel = 0; // Some hotels charge taxes at property
+  // Aggregate taxes from all selected rooms
+  const allTaxes: TaxItem[] = selectedRooms.flatMap(room => room.taxes || []);
   
-  const grandTotal = roomSubtotal + upsellsTotal + taxesIncluded + taxesAtHotel;
+  // Separate included vs non-included taxes
+  const includedTaxes = allTaxes.filter(t => t.included_by_supplier);
+  const nonIncludedTaxes = allTaxes.filter(t => !t.included_by_supplier);
+  
+  // Calculate tax totals
+  const taxesIncluded = includedTaxes.reduce((sum, t) => sum + parseFloat(t.amount || "0"), 0);
+  const taxesAtHotel = nonIncludedTaxes.reduce((sum, t) => sum + parseFloat(t.amount || "0"), 0);
+  
+  const grandTotal = roomSubtotal + upsellsTotal;
   const payNow = grandTotal;
   const payAtHotel = taxesAtHotel;
 
@@ -121,19 +129,31 @@ export function PriceBreakdownModal({
             <span className="font-medium">{formatCurrency(roomSubtotal + upsellsTotal)}</span>
           </div>
 
-          {/* Taxes */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Taxes & fees (included)</span>
-              <span className="font-medium">{formatCurrency(taxesIncluded)}</span>
-            </div>
-            {taxesAtHotel > 0 && (
+          {/* Taxes - Show real tax data if available */}
+          {(taxesIncluded > 0 || includedTaxes.length > 0) && (
+            <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Taxes at hotel</span>
-                <span className="font-medium">{formatCurrency(taxesAtHotel)}</span>
+                <span className="text-muted-foreground">Taxes & fees (included)</span>
+                <span className="font-medium">{formatCurrency(taxesIncluded)}</span>
               </div>
-            )}
-          </div>
+              {/* Itemized included taxes */}
+              {includedTaxes.length > 0 && (
+                <div className="pl-3 space-y-1">
+                  {includedTaxes.map((tax, idx) => (
+                    <div key={`incl-${tax.name}-${idx}`} className="flex justify-between text-xs text-muted-foreground">
+                      <span className="capitalize">{tax.name.replace(/_/g, " ")}</span>
+                      <span>{tax.currency_code} {parseFloat(tax.amount).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Non-included Taxes - Use TaxSummary component */}
+          {nonIncludedTaxes.length > 0 && (
+            <TaxSummary taxes={nonIncludedTaxes} currency={currency} />
+          )}
 
           {/* Grand Total */}
           <Separator />
@@ -144,7 +164,7 @@ export function PriceBreakdownModal({
             </div>
             {payAtHotel > 0 && (
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Total at hotel</span>
+                <span className="text-muted-foreground">Total at property</span>
                 <span className="font-medium">{formatCurrency(payAtHotel)}</span>
               </div>
             )}

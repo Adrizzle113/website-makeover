@@ -42,7 +42,9 @@ import { toast } from "@/hooks/use-toast";
 import { bookingApi } from "@/services/bookingApi";
 import { createBookingCalendarEvent, downloadICSFile } from "@/lib/calendarUtils";
 import { BookingTimeline } from "@/components/booking";
+import { TaxSummary } from "@/components/booking/TaxSummary";
 import type { PendingBookingData } from "@/types/etgBooking";
+import type { TaxItem } from "@/types/booking";
 
 interface ConfirmedBooking {
   id: string;
@@ -94,6 +96,7 @@ interface ConfirmedBooking {
     totalAtHotel: number;
     currency: string;
   };
+  taxes?: TaxItem[];  // Non-included taxes from rate payment_options
   payment: {
     method: string;
     status: string;
@@ -179,6 +182,8 @@ export default function BookingConfirmationPage() {
             totalAtHotel: 0,
             currency: data.hotel.currency || "USD",
           },
+          // Extract taxes from rooms
+          taxes: data.rooms?.flatMap((r: any) => r.taxes || []) || [],
           payment: {
             method: "deposit",
             status: "paid",
@@ -832,6 +837,13 @@ export default function BookingConfirmationPage() {
                     </div>
                   )}
                 </div>
+                
+                {/* Non-included Taxes (Payable at Property) */}
+                {booking.taxes && booking.taxes.length > 0 && (
+                  <div className="mt-4">
+                    <TaxSummary taxes={booking.taxes} currency={booking.pricing.currency} />
+                  </div>
+                )}
               </CardContent>
             </Card>
 
