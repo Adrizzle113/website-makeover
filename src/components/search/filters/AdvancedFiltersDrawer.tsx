@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
@@ -27,7 +28,6 @@ import {
   Wind,
   PawPrint,
   Sparkles,
-  Bus,
   Plane,
   Globe,
   Check,
@@ -36,9 +36,12 @@ import {
   Hotel,
   Castle,
   Tent,
+  Clock,
+  Sun,
+  Moon,
 } from "lucide-react";
 import type { MealPlan, RoomType, BedType } from "@/types/booking";
-import { MEAL_PLAN_LABELS } from "@/types/booking";
+import { MEAL_PLAN_LABELS, DEFAULT_UPSELLS_STATE } from "@/types/booking";
 
 // Map RateHawk serp_filter values to icons
 const SERP_FILTER_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -85,7 +88,15 @@ const BED_TYPES: { value: BedType; label: string }[] = [
 ];
 
 export function AdvancedFiltersDrawer() {
-  const { filters, setFilters, resetFilters, getActiveFilterCount } = useBookingStore();
+  const { 
+    filters, 
+    setFilters, 
+    resetFilters, 
+    getActiveFilterCount,
+    upsellsPreferences,
+    setUpsellsPreferences,
+    resetUpsellsPreferences,
+  } = useBookingStore();
   const { filterValues } = useFilterValues();
   const [isOpen, setIsOpen] = useState(false);
   const activeCount = getActiveFilterCount();
@@ -280,6 +291,111 @@ export function AdvancedFiltersDrawer() {
 
             <Separator />
 
+            {/* Check-in/Check-out Preferences */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Check-in/Check-out
+              </h3>
+              
+              {/* Early Check-in */}
+              <div className="space-y-2 p-3 rounded-lg bg-accent/30">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sun className="h-4 w-4 text-amber-500" />
+                    <Label htmlFor="early-checkin" className="cursor-pointer">
+                      Early Check-in
+                    </Label>
+                  </div>
+                  <Switch
+                    id="early-checkin"
+                    checked={upsellsPreferences.earlyCheckin.enabled}
+                    onCheckedChange={(checked) => 
+                      setUpsellsPreferences({
+                        ...upsellsPreferences,
+                        earlyCheckin: { ...upsellsPreferences.earlyCheckin, enabled: checked }
+                      })
+                    }
+                  />
+                </div>
+                {upsellsPreferences.earlyCheckin.enabled && (
+                  <div className="pl-6">
+                    <Label className="text-xs text-muted-foreground">Preferred time (optional)</Label>
+                    <Input
+                      type="time"
+                      value={upsellsPreferences.earlyCheckin.time || ""}
+                      onChange={(e) =>
+                        setUpsellsPreferences({
+                          ...upsellsPreferences,
+                          earlyCheckin: { ...upsellsPreferences.earlyCheckin, time: e.target.value || null }
+                        })
+                      }
+                      className="w-28 h-8 mt-1"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Late Checkout */}
+              <div className="space-y-2 p-3 rounded-lg bg-accent/30">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Moon className="h-4 w-4 text-indigo-500" />
+                    <Label htmlFor="late-checkout" className="cursor-pointer">
+                      Late Checkout
+                    </Label>
+                  </div>
+                  <Switch
+                    id="late-checkout"
+                    checked={upsellsPreferences.lateCheckout.enabled}
+                    onCheckedChange={(checked) =>
+                      setUpsellsPreferences({
+                        ...upsellsPreferences,
+                        lateCheckout: { ...upsellsPreferences.lateCheckout, enabled: checked }
+                      })
+                    }
+                  />
+                </div>
+                {upsellsPreferences.lateCheckout.enabled && (
+                  <div className="pl-6">
+                    <Label className="text-xs text-muted-foreground">Preferred time (optional)</Label>
+                    <Input
+                      type="time"
+                      value={upsellsPreferences.lateCheckout.time || ""}
+                      onChange={(e) =>
+                        setUpsellsPreferences({
+                          ...upsellsPreferences,
+                          lateCheckout: { ...upsellsPreferences.lateCheckout, time: e.target.value || null }
+                        })
+                      }
+                      className="w-28 h-8 mt-1"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Only ECLC rates checkbox */}
+              {(upsellsPreferences.earlyCheckin.enabled || upsellsPreferences.lateCheckout.enabled) && (
+                <div className="flex items-center space-x-2 pt-2">
+                  <Checkbox
+                    id="only-eclc"
+                    checked={upsellsPreferences.onlyEclc}
+                    onCheckedChange={(checked) =>
+                      setUpsellsPreferences({
+                        ...upsellsPreferences,
+                        onlyEclc: checked === true
+                      })
+                    }
+                  />
+                  <Label htmlFor="only-eclc" className="text-sm cursor-pointer">
+                    Only show rates with these options
+                  </Label>
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
             {/* Room Types */}
             <div className="space-y-3">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -325,7 +441,15 @@ export function AdvancedFiltersDrawer() {
         </ScrollArea>
 
         <SheetFooter className="mt-6 flex-row gap-2">
-          <Button variant="outline" onClick={() => { resetFilters(); setIsOpen(false); }} className="flex-1">
+          <Button 
+            variant="outline" 
+            onClick={() => { 
+              resetFilters(); 
+              resetUpsellsPreferences();
+              setIsOpen(false); 
+            }} 
+            className="flex-1"
+          >
             Clear All
           </Button>
           <SheetClose asChild>

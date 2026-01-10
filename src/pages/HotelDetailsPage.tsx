@@ -313,7 +313,7 @@ const HotelDetailsPage = () => {
   const { hotelId: rawHotelId } = useParams<{ hotelId: string }>();
   const hotelId = String(rawHotelId); // Normalize to string for consistent comparisons
   const navigate = useNavigate();
-  const { selectedHotel, searchParams, searchResults, setSelectedHotel } = useBookingStore();
+  const { selectedHotel, searchParams, searchResults, setSelectedHotel, upsellsPreferences } = useBookingStore();
 
   const [hotelData, setHotelData] = useState<HotelData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -321,7 +321,8 @@ const HotelDetailsPage = () => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [poiData, setPoiData] = useState<POIData | null>(null);
   const [poiLoading, setPoiLoading] = useState(false);
-  const [upsells, setUpsells] = useState<UpsellsState>(DEFAULT_UPSELLS_STATE);
+  // Initialize upsells from store preferences (set by Advanced Filters)
+  const [upsells, setUpsells] = useState<UpsellsState>(upsellsPreferences);
   const [isRefreshingRates, setIsRefreshingRates] = useState(false);
 
   useEffect(() => {
