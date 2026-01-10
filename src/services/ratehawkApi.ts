@@ -686,6 +686,10 @@ class RateHawkApiService {
     const urlParams = new URLSearchParams(window.location.search);
     const debugMode = urlParams.get('debug') === '1';
     
+    // Import language preference for localized hotel data
+    const { getLanguage } = await import("@/hooks/useLanguage");
+    const language = getLanguage();
+    
     const baseBody: Record<string, unknown> = {
       userId,
       checkin: this.formatDate(params.checkIn),
@@ -696,6 +700,7 @@ class RateHawkApiService {
       limit: 30,
       currency: "USD",
       residency,
+      language, // Send user's preferred language for localized hotel data
       // Debug flags - bypass cache and get enrichment diagnostics
       noCache: debugMode,
       debug: debugMode,
