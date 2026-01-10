@@ -1,7 +1,7 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
-import { HotelDetails, POIData } from "@/types/booking";
+import { HotelDetails, POIData, UpsellsState, DEFAULT_UPSELLS_STATE, formatUpsellsForAPI } from "@/types/booking";
 
 // Categorize flat amenities into grouped structure for display
 const categorizeAmenities = (
@@ -88,6 +88,7 @@ import { MapSection } from "../components/hotel/MapSection";
 import { HotelPoliciesSection } from "../components/hotel/HotelPoliciesSection";
 import { HotelReviewsSection } from "../components/hotel/HotelReviewsSection";
 import { StickyBookingBar } from "../components/hotel/StickyBookingBar";
+import { UpsellsPreferences } from "../components/hotel/UpsellsPreferences";
 import { Card, CardContent } from "../components/ui/card";
 
 interface SearchContext {
@@ -320,6 +321,8 @@ const HotelDetailsPage = () => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [poiData, setPoiData] = useState<POIData | null>(null);
   const [poiLoading, setPoiLoading] = useState(false);
+  const [upsells, setUpsells] = useState<UpsellsState>(DEFAULT_UPSELLS_STATE);
+  const [isRefreshingRates, setIsRefreshingRates] = useState(false);
 
   useEffect(() => {
     loadHotelData();
@@ -618,6 +621,7 @@ const HotelDetailsPage = () => {
               },
               residency: "en-us",
               currency: "USD",
+              ...(formatUpsellsForAPI(upsells) && { upsells: formatUpsellsForAPI(upsells) }),
             }),
           })
         : Promise.resolve(null);
@@ -837,6 +841,114 @@ const HotelDetailsPage = () => {
     }
   };
 
+  // Refresh rates when upsells change
+  const refreshRatesWithUpsells = useCallback(async () => {
+    if (!hotelData) return;
+
+    const context = hotelData.searchContext;
+    if (!context?.checkin || !context?.checkout) {
+      console.warn("⚠️ Cannot refresh rates without search context");
+      return;
+    }
+
+    setIsRefreshingRates(true);
+
+    try {
+      const formatDate = (date: string | Date): string => {
+        if (!date) return "";
+        if (typeof date === "string") {
+          if (date.includes("T")) return date.split("T")[0];
+          if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+        }
+        if (date instanceof Date) return date.toISOString().split("T")[0];
+        return String(date);
+      };
+
+      const formatGuests = (guests: any): Array<{ adults: number; children: number[] }> => {
+        if (Array.isArray(guests)) {
+          return guests.map((g) => {
+            const adults = typeof g === "object" ? g.adults || 2 : g || 2;
+            const children = typeof g === "object" && Array.isArray(g.children) ? g.children : [];
+            return { adults, children };
+          });
+        }
+        if (typeof guests === "number") {
+          return [{ adults: Math.max(1, guests), children: [] }];
+        }
+        return [{ adults: 2, children: [] }];
+      };
+
+      const numericHid =
+        hotelData.hotel.ratehawk_data?.hid ||
+        (typeof hotelId === "string" && /^\d+$/.test(hotelId) ? parseInt(hotelId, 10) : null);
+      const ratesHotelId = numericHid ? String(numericHid) : hotelData.hotel.id || hotelId;
+
+      console.log("🔄 Refreshing rates with upsells:", formatUpsellsForAPI(upsells));
+
+      const response = await fetch(`${API_BASE_URL}/api/ratehawk/hotel/details`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hotelId: ratesHotelId,
+          searchContext: {
+            checkin: formatDate(context.checkin),
+            checkout: formatDate(context.checkout),
+            guests: formatGuests(context.guests),
+          },
+          residency: "en-us",
+          currency: "USD",
+          ...(formatUpsellsForAPI(upsells) && { upsells: formatUpsellsForAPI(upsells) }),
+        }),
+      });
+
+      if (response.ok) {
+        const ratesData = await response.json();
+        let rates: any[] = [];
+        let room_groups: any[] = [];
+
+        if (ratesData.success && ratesData.hotel?.rates) {
+          rates = ratesData.hotel.rates || [];
+          room_groups = ratesData.hotel.room_groups || [];
+        } else if (ratesData.data?.data?.hotels?.[0]) {
+          const hotelDetails = ratesData.data.data.hotels[0];
+          rates = hotelDetails.rates || [];
+          room_groups = hotelDetails.room_groups || [];
+        } else if (ratesData.hotels?.[0]?.rates) {
+          rates = ratesData.hotels[0].rates || [];
+          room_groups = ratesData.hotels[0].room_groups || [];
+        }
+
+        console.log(`✅ Refreshed: ${rates.length} rates with upsells`);
+
+        // Update hotel data with new rates
+        setHotelData((prev) => {
+          if (!prev) return prev;
+          const updated = {
+            ...prev,
+            hotel: {
+              ...prev.hotel,
+              ratehawk_data: {
+                ...prev.hotel.ratehawk_data,
+                rates: rates.length > 0 ? rates : prev.hotel.ratehawk_data?.rates || [],
+                room_groups: room_groups.length > 0 ? room_groups : prev.hotel.ratehawk_data?.room_groups || [],
+              },
+            },
+          };
+          // Also update the Zustand store
+          const hotelDetails = transformToHotelDetails(updated.hotel);
+          setSelectedHotel(hotelDetails);
+          return updated;
+        });
+      } else {
+        console.warn(`⚠️ Rates refresh returned ${response.status}`);
+      }
+    } catch (error) {
+      console.error("💥 Error refreshing rates:", error);
+    } finally {
+      setIsRefreshingRates(false);
+    }
+  }, [hotelData, hotelId, upsells, setSelectedHotel]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -895,9 +1007,20 @@ const HotelDetailsPage = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="space-y-8">
           <HotelInfoSection hotel={hotelDetails} />
+          
+          {/* Upsells Preferences - above room selection */}
+          <UpsellsPreferences
+            value={upsells}
+            onChange={setUpsells}
+            defaultCheckinTime={hotelDetails.checkInTime}
+            defaultCheckoutTime={hotelDetails.checkOutTime}
+            onApply={refreshRatesWithUpsells}
+            isLoading={isRefreshingRates}
+          />
+          
           <RoomSelectionSection 
             hotel={hotelDetails} 
-            isLoading={false}
+            isLoading={isRefreshingRates}
             checkInTime={hotelDetails.checkInTime}
             checkOutTime={hotelDetails.checkOutTime}
           />
