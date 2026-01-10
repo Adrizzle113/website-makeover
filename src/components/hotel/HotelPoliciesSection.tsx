@@ -1,6 +1,43 @@
 import { Clock, Info, Wallet, PawPrint, BedDouble, MessageCircle } from "lucide-react";
 import type { HotelDetails } from "@/types/booking";
 import { sanitizeDescription } from "@/lib/utils";
+import { getLanguage } from "@/hooks/useLanguage";
+
+const translations: Record<string, Record<string, string>> = {
+  en: {
+    checkInOutTimes: "Check-in/out Times",
+    checkIn: "Check-in",
+    checkOut: "Check-out",
+    deposit: "Deposit",
+    additionalBed: "Additional bed",
+    pets: "Pets",
+    hotelPolicies: "Hotel Policies",
+    additionalInfo: "Additional Information",
+    noInfo: "No information available",
+  },
+  pt: {
+    checkInOutTimes: "Horários de Check-in/out",
+    checkIn: "Check-in",
+    checkOut: "Check-out",
+    deposit: "Depósito",
+    additionalBed: "Cama adicional",
+    pets: "Animais de estimação",
+    hotelPolicies: "Políticas do Hotel",
+    additionalInfo: "Informações Adicionais",
+    noInfo: "Informação não disponível",
+  },
+  es: {
+    checkInOutTimes: "Horarios de Check-in/out",
+    checkIn: "Check-in",
+    checkOut: "Check-out",
+    deposit: "Depósito",
+    additionalBed: "Cama adicional",
+    pets: "Mascotas",
+    hotelPolicies: "Políticas del Hotel",
+    additionalInfo: "Información Adicional",
+    noInfo: "Información no disponible",
+  },
+};
 
 interface DepositPolicy {
   type: string;
@@ -46,6 +83,8 @@ export function HotelPoliciesSection({
   additionalBed = defaultAdditionalBed,
   pets = defaultPets,
 }: HotelPoliciesSectionProps) {
+  const language = getLanguage();
+  const t = translations[language] || translations.en;
   const hasCheckTimes = hotel.checkInTime || hotel.checkOutTime;
   
   // Helper to get policy text with HTML stripped
@@ -163,18 +202,18 @@ export function HotelPoliciesSection({
             <div className="bg-muted/50 rounded-lg p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Clock className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold text-foreground">Check-in/out Times</h3>
+                <h3 className="font-semibold text-foreground">{t.checkInOutTimes}</h3>
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 {hotel.checkInTime && (
                   <div>
-                    <span className="text-muted-foreground block">Check-in</span>
+                    <span className="text-muted-foreground block">{t.checkIn}</span>
                     <span className="font-medium text-foreground">{hotel.checkInTime}</span>
                   </div>
                 )}
                 {hotel.checkOutTime && (
                   <div>
-                    <span className="text-muted-foreground block">Check-out</span>
+                    <span className="text-muted-foreground block">{t.checkOut}</span>
                     <span className="font-medium text-foreground">{hotel.checkOutTime}</span>
                   </div>
                 )}
@@ -186,7 +225,7 @@ export function HotelPoliciesSection({
           <div className="bg-muted/50 rounded-lg p-5">
             <div className="flex items-center gap-2 mb-4">
               <Wallet className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold text-foreground">Deposit</h3>
+              <h3 className="font-semibold text-foreground">{t.deposit}</h3>
             </div>
             <div className="space-y-2 text-sm">
               {depositSentences.length > 0 ? (
@@ -197,7 +236,7 @@ export function HotelPoliciesSection({
                   </div>
                 ))
               ) : (
-                <span className="text-muted-foreground">No information available</span>
+                <span className="text-muted-foreground">{t.noInfo}</span>
               )}
             </div>
           </div>
@@ -206,7 +245,7 @@ export function HotelPoliciesSection({
           <div className="bg-muted/50 rounded-lg p-5">
             <div className="flex items-center gap-2 mb-4">
               <BedDouble className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold text-foreground">Additional bed</h3>
+              <h3 className="font-semibold text-foreground">{t.additionalBed}</h3>
             </div>
             <div className="space-y-2 text-sm">
               {bedSentences.length > 0 ? (
@@ -217,7 +256,7 @@ export function HotelPoliciesSection({
                   </div>
                 ))
               ) : (
-                <span className="text-muted-foreground">No information available</span>
+                <span className="text-muted-foreground">{t.noInfo}</span>
               )}
             </div>
           </div>
@@ -226,7 +265,7 @@ export function HotelPoliciesSection({
           <div className="bg-muted/50 rounded-lg p-5">
             <div className="flex items-center gap-2 mb-4">
               <PawPrint className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold text-foreground">Pets</h3>
+              <h3 className="font-semibold text-foreground">{t.pets}</h3>
             </div>
             <div className="space-y-2 text-sm">
               {petSentences.length > 0 ? (
@@ -237,7 +276,7 @@ export function HotelPoliciesSection({
                   </div>
                 ))
               ) : (
-                <span className="text-muted-foreground">No information available</span>
+                <span className="text-muted-foreground">{t.noInfo}</span>
               )}
             </div>
           </div>
@@ -247,7 +286,7 @@ export function HotelPoliciesSection({
             <div className="bg-muted/50 rounded-lg p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Info className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold text-foreground">Hotel Policies</h3>
+                <h3 className="font-semibold text-foreground">{t.hotelPolicies}</h3>
               </div>
               <ul className="space-y-2">
                 {generalSentences.map((sentence, idx) => (
@@ -265,7 +304,7 @@ export function HotelPoliciesSection({
             <div className="bg-muted/50 rounded-lg p-5">
               <div className="flex items-center gap-2 mb-4">
                 <MessageCircle className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold text-foreground">Additional Information</h3>
+                <h3 className="font-semibold text-foreground">{t.additionalInfo}</h3>
               </div>
               <ul className="space-y-2">
                 {additionalInfoSentences.map((sentence, idx) => (
