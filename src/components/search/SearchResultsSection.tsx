@@ -42,6 +42,7 @@ export function SearchResultsSection() {
     filters,
     sortBy,
     getActiveFilterCount,
+    upsellsPreferences,
   } = useBookingStore();
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [hoveredHotelId, setHoveredHotelId] = useState<string | null>(null);
@@ -51,6 +52,7 @@ export function SearchResultsSection() {
   
   // Track previous filter state to detect changes
   const prevFiltersRef = useRef(filters);
+  const prevUpsellsRef = useRef(upsellsPreferences);
   const filterDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const enrichmentInProgressRef = useRef(false);
   
@@ -140,7 +142,7 @@ export function SearchResultsSection() {
     setIsFilterSearching(true);
     
     try {
-      const response = await ratehawkApi.searchHotels(searchParams, 1, filters);
+      const response = await ratehawkApi.searchHotels(searchParams, 1, filters, upsellsPreferences);
       // Swap in new results only after they arrive
       setRawSearchResults(response.hotels, response.totalResults);
     } catch (err) {
@@ -153,16 +155,19 @@ export function SearchResultsSection() {
     } finally {
       setIsFilterSearching(false);
     }
-  }, [searchParams, filters, setRawSearchResults]);
+  }, [searchParams, filters, upsellsPreferences, setRawSearchResults]);
 
-  // Watch for filter changes and trigger server-side search
+  // Watch for filter and upsells changes and trigger server-side search
   useEffect(() => {
     if (!searchParams || searchResults.length === 0) return;
     
     const filtersChanged = JSON.stringify(filters) !== JSON.stringify(prevFiltersRef.current);
-    if (!filtersChanged) return;
+    const upsellsChanged = JSON.stringify(upsellsPreferences) !== JSON.stringify(prevUpsellsRef.current);
+    
+    if (!filtersChanged && !upsellsChanged) return;
     
     prevFiltersRef.current = filters;
+    prevUpsellsRef.current = upsellsPreferences;
     
     if (filterDebounceRef.current) {
       clearTimeout(filterDebounceRef.current);
@@ -177,7 +182,7 @@ export function SearchResultsSection() {
         clearTimeout(filterDebounceRef.current);
       }
     };
-  }, [filters, searchParams, searchResults.length, executeFilteredSearch]);
+  }, [filters, upsellsPreferences, searchParams, searchResults.length, executeFilteredSearch]);
 
   // Load more from raw results (no API call needed)
   const handleLoadMore = useCallback(async () => {
@@ -349,7 +354,7 @@ export function SearchResultsSection() {
     clearEnrichedHotels();
     
     try {
-      const response = await ratehawkApi.searchHotels(searchParams, 1, filters);
+      const response = await ratehawkApi.searchHotels(searchParams, 1, filters, upsellsPreferences);
       setRawSearchResults(response.hotels, response.totalResults);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Search failed";
@@ -357,7 +362,7 @@ export function SearchResultsSection() {
     } finally {
       setLoading(false);
     }
-  }, [searchParams, filters, setLoading, setError, setRawSearchResults, clearEnrichedHotels]);
+  }, [searchParams, filters, upsellsPreferences, setLoading, setError, setRawSearchResults, clearEnrichedHotels]);
 
   // Preload next batch images when idle
   useEffect(() => {
