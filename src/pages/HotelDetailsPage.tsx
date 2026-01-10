@@ -694,7 +694,13 @@ const HotelDetailsPage = () => {
           console.warn("⚠️ No rates found in any expected format:", Object.keys(ratesData));
         }
       } else if (ratesResponse) {
-        console.warn(`⚠️ Rates API returned ${ratesResponse.status}`);
+        // Extract error details from failed response
+        try {
+          const errorData = await ratesResponse.json();
+          console.warn(`⚠️ Rates API returned ${ratesResponse.status}:`, errorData.error || errorData);
+        } catch {
+          console.warn(`⚠️ Rates API returned ${ratesResponse.status}`);
+        }
       } else {
         console.warn("⚠️ Rates API not called (missing search dates)");
       }
@@ -943,7 +949,13 @@ const HotelDetailsPage = () => {
           return updated;
         });
       } else {
-        console.warn(`⚠️ Rates refresh returned ${response.status}`);
+        // Extract error details from failed response
+        try {
+          const errorData = await response.json();
+          console.warn(`⚠️ Rates refresh returned ${response.status}:`, errorData.error || errorData);
+        } catch {
+          console.warn(`⚠️ Rates refresh returned ${response.status}`);
+        }
       }
     } catch (error) {
       console.error("💥 Error refreshing rates:", error);

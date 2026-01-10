@@ -440,16 +440,15 @@ export const DEFAULT_UPSELLS_STATE: UpsellsState = {
 export function formatUpsellsForAPI(state: UpsellsState): UpsellsRequest | undefined {
   const result: UpsellsRequest = {};
 
-  if (state.earlyCheckin.enabled) {
-    result.early_checkin = state.earlyCheckin.time
-      ? { time: state.earlyCheckin.time }
-      : {};
+  // Only include early_checkin if a time is actually specified
+  // Sending empty object causes API 500: "early checkin must be in datetime format"
+  if (state.earlyCheckin.enabled && state.earlyCheckin.time) {
+    result.early_checkin = { time: state.earlyCheckin.time };
   }
 
-  if (state.lateCheckout.enabled) {
-    result.late_checkout = state.lateCheckout.time
-      ? { time: state.lateCheckout.time }
-      : {};
+  // Only include late_checkout if a time is actually specified
+  if (state.lateCheckout.enabled && state.lateCheckout.time) {
+    result.late_checkout = { time: state.lateCheckout.time };
   }
 
   if (state.multipleEclc) {

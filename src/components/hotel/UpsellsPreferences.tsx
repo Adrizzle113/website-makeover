@@ -144,7 +144,7 @@ export function UpsellsPreferences({
               {value.earlyCheckin.enabled && (
                 <div className="pl-7 space-y-2">
                   <Label htmlFor="early-checkin-time" className="text-sm text-muted-foreground">
-                    Preferred time (optional)
+                    Preferred time
                   </Label>
                   <Input
                     id="early-checkin-time"
@@ -155,6 +155,11 @@ export function UpsellsPreferences({
                     className="w-32"
                     placeholder="HH:MM"
                   />
+                  {!value.earlyCheckin.time && (
+                    <p className="text-xs text-amber-600">
+                      Select a time to apply early check-in filter
+                    </p>
+                  )}
                   {defaultCheckinTime && (
                     <p className="text-xs text-muted-foreground">
                       Standard check-in: {formatTimeDisplay(defaultCheckinTime)}
@@ -189,7 +194,7 @@ export function UpsellsPreferences({
               {value.lateCheckout.enabled && (
                 <div className="pl-7 space-y-2">
                   <Label htmlFor="late-checkout-time" className="text-sm text-muted-foreground">
-                    Preferred time (optional)
+                    Preferred time
                   </Label>
                   <Input
                     id="late-checkout-time"
@@ -200,6 +205,11 @@ export function UpsellsPreferences({
                     className="w-32"
                     placeholder="HH:MM"
                   />
+                  {!value.lateCheckout.time && (
+                    <p className="text-xs text-amber-600">
+                      Select a time to apply late checkout filter
+                    </p>
+                  )}
                   {defaultCheckoutTime && (
                     <p className="text-xs text-muted-foreground">
                       Standard checkout: {formatTimeDisplay(defaultCheckoutTime)}

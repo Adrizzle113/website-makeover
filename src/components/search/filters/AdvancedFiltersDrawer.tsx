@@ -320,7 +320,7 @@ export function AdvancedFiltersDrawer() {
                 </div>
                 {upsellsPreferences.earlyCheckin.enabled && (
                   <div className="pl-6">
-                    <Label className="text-xs text-muted-foreground">Preferred time (optional)</Label>
+                    <Label className="text-xs text-muted-foreground">Preferred time</Label>
                     <Input
                       type="time"
                       value={upsellsPreferences.earlyCheckin.time || ""}
@@ -332,6 +332,9 @@ export function AdvancedFiltersDrawer() {
                       }
                       className="w-28 h-8 mt-1"
                     />
+                    {!upsellsPreferences.earlyCheckin.time && (
+                      <p className="text-xs text-amber-600 mt-1">Select time to enable</p>
+                    )}
                   </div>
                 )}
               </div>
@@ -358,7 +361,7 @@ export function AdvancedFiltersDrawer() {
                 </div>
                 {upsellsPreferences.lateCheckout.enabled && (
                   <div className="pl-6">
-                    <Label className="text-xs text-muted-foreground">Preferred time (optional)</Label>
+                    <Label className="text-xs text-muted-foreground">Preferred time</Label>
                     <Input
                       type="time"
                       value={upsellsPreferences.lateCheckout.time || ""}
@@ -370,6 +373,9 @@ export function AdvancedFiltersDrawer() {
                       }
                       className="w-28 h-8 mt-1"
                     />
+                    {!upsellsPreferences.lateCheckout.time && (
+                      <p className="text-xs text-amber-600 mt-1">Select time to enable</p>
+                    )}
                   </div>
                 )}
               </div>
