@@ -12,3 +12,4 @@ export { StickyBookingBar } from "./StickyBookingBar";
 export { RoomUpsells } from "./RoomUpsells";
 export { PriceBreakdownModal } from "./PriceBreakdownModal";
 export { HotelReviewsSection } from "./HotelReviewsSection";
+export { UpsellsPreferences } from "./UpsellsPreferences";

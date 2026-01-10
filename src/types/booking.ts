@@ -405,3 +405,53 @@ export interface IdsSearchParams {
   residency?: string;
   currency?: string;
 }
+
+// API Upsells Request Types (for /api/ratehawk/hotel/details)
+export interface UpsellsRequest {
+  early_checkin?: { time?: string }; // time in "HH:MM" format
+  late_checkout?: { time?: string };
+  only_eclc?: boolean; // Only show rates with early/late options
+}
+
+// Frontend Upsells State
+export interface UpsellsState {
+  earlyCheckin: {
+    enabled: boolean;
+    time: string | null; // "HH:MM" format or null for any time
+  };
+  lateCheckout: {
+    enabled: boolean;
+    time: string | null;
+  };
+  onlyEclc: boolean; // Filter: only show rates with these options
+}
+
+// Default upsells state
+export const DEFAULT_UPSELLS_STATE: UpsellsState = {
+  earlyCheckin: { enabled: false, time: null },
+  lateCheckout: { enabled: false, time: null },
+  onlyEclc: false,
+};
+
+// Helper to transform frontend state to API format
+export function formatUpsellsForAPI(state: UpsellsState): UpsellsRequest | undefined {
+  const result: UpsellsRequest = {};
+
+  if (state.earlyCheckin.enabled) {
+    result.early_checkin = state.earlyCheckin.time
+      ? { time: state.earlyCheckin.time }
+      : {};
+  }
+
+  if (state.lateCheckout.enabled) {
+    result.late_checkout = state.lateCheckout.time
+      ? { time: state.lateCheckout.time }
+      : {};
+  }
+
+  if (state.onlyEclc) {
+    result.only_eclc = true;
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
+}
