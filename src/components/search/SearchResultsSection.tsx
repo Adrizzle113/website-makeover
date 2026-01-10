@@ -3,7 +3,7 @@ import { useBookingStore } from "@/stores/bookingStore";
 import { HotelCard } from "./HotelCard";
 import { HotelCardSkeleton } from "./HotelCardSkeleton";
 import { HotelMapView } from "./HotelMapView";
-import { PrimaryFilters, AdvancedFiltersDrawer, SortingDropdown, ActiveFilterChips } from "./filters";
+import { PrimaryFilters, AdvancedFiltersDrawer, SortingDropdown, ActiveFilterChips, UpsellsPopover } from "./filters";
 import { Loader2, List, Map as MapIcon, Columns } from "lucide-react";
 import type { Hotel, SortOption } from "@/types/booking";
 import { ratehawkApi } from "@/services/ratehawkApi";
@@ -465,6 +465,7 @@ export function SearchResultsSection() {
           {/* Filters Row */}
           <div className="flex flex-wrap items-center gap-2 pb-2 border-b border-border">
             <PrimaryFilters priceRange={priceRange} />
+            <UpsellsPopover />
             <AdvancedFiltersDrawer />
           </div>
 
