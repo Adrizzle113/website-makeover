@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Star, Users, Calendar, Clock, Check, AlertTriangle, ChevronDown, ChevronUp, X, Sun, Moon, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { useBookingStore, type SelectedUpsell } from "@/stores/bookingStore";
-import type { HotelDetails, SearchParams, RoomSelection } from "@/types/booking";
+import type { HotelDetails, SearchParams, RoomSelection, TaxItem } from "@/types/booking";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { TaxSummary } from "./TaxSummary";
 interface BookingSummaryCardProps {
   hotel: HotelDetails;
   rooms: RoomSelection[];
@@ -16,6 +17,7 @@ interface BookingSummaryCardProps {
   isLoading?: boolean;
   clientPrice?: number;
   commission?: number;
+  taxes?: TaxItem[];  // Non-included taxes from rate payment_options
 }
 export function BookingSummaryCard({
   hotel,
@@ -24,7 +26,8 @@ export function BookingSummaryCard({
   totalPrice,
   isLoading,
   clientPrice,
-  commission
+  commission,
+  taxes = []
 }: BookingSummaryCardProps) {
   const navigate = useNavigate();
   const {
@@ -249,6 +252,11 @@ export function BookingSummaryCard({
               </span>
             </div>
           </div>
+
+          {/* Non-included Taxes (Payable at Property) */}
+          {taxes.length > 0 && (
+            <TaxSummary taxes={taxes} currency={hotel.currency} />
+          )}
 
           <div className="flex justify-between items-center pt-3 border-t border-border">
             <span className="font-semibold text-foreground">Client Price</span>

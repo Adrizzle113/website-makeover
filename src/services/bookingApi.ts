@@ -115,6 +115,7 @@ class BookingApiService {
 
   /**
    * Step 3: Get Order Booking Form - Retrieve required guest fields
+   * RateHawk Best Practices Section 5.3: Retry up to 10 times on 5xx, timeout, or unknown errors
    * @param bookHash - The book_hash from prebook response
    * @param partnerOrderId - Required unique partner order ID
    */
@@ -137,24 +138,67 @@ class BookingApiService {
 
     console.log("📤 Order form request:", requestBody);
 
-    let response: OrderFormResponse;
-    try {
-      response = await this.fetchWithError<OrderFormResponse>(url, {
-        method: "POST",
-        body: JSON.stringify(requestBody),
-      });
-    } catch (error) {
-      // Retry once for transient errors
-      console.warn("Order form failed, retrying once...", error);
-      await new Promise((r) => setTimeout(r, 1500));
-      response = await this.fetchWithError<OrderFormResponse>(url, {
-        method: "POST",
-        body: JSON.stringify(requestBody),
-      });
+    const MAX_RETRIES = 10;
+    let attempt = 0;
+    let lastError: Error | null = null;
+
+    while (attempt < MAX_RETRIES) {
+      attempt++;
+      
+      try {
+        const response = await this.fetchWithError<OrderFormResponse>(url, {
+          method: "POST",
+          body: JSON.stringify(requestBody),
+        });
+
+        // Check for retryable errors in response
+        if (response.error?.code) {
+          const errorCode = response.error.code.toLowerCase();
+          
+          // Non-retryable errors - fail immediately
+          if (["contract_mismatch", "double_booking_form", "duplicate_reservation", 
+               "hotel_not_found", "insufficient_b2b_balance", "reservation_is_not_allowed",
+               "rate_not_found", "sandbox_restriction"].includes(errorCode)) {
+            console.error(`❌ Order form non-retryable error: ${errorCode}`);
+            throw new Error(response.error.message || `Booking failed: ${errorCode}`);
+          }
+          
+          // Retryable errors - continue loop
+          if (["timeout", "unknown"].includes(errorCode) && attempt < MAX_RETRIES) {
+            console.warn(`⚠️ Order form attempt ${attempt}/${MAX_RETRIES} got ${errorCode}, retrying...`);
+            const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+            await new Promise((r) => setTimeout(r, backoffMs));
+            continue;
+          }
+        }
+
+        // Success
+        console.log("📥 Order form response:", response);
+        return response;
+        
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        const errorMsg = lastError.message.toLowerCase();
+        
+        // Check if it's a 5xx error or network error (retryable)
+        const is5xxError = errorMsg.includes("5") && errorMsg.includes("http");
+        const isNetworkError = errorMsg.includes("network") || errorMsg.includes("fetch");
+        
+        if ((is5xxError || isNetworkError) && attempt < MAX_RETRIES) {
+          console.warn(`⚠️ Order form attempt ${attempt}/${MAX_RETRIES} failed, retrying...`, error);
+          const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+          await new Promise((r) => setTimeout(r, backoffMs));
+          continue;
+        }
+        
+        // Non-retryable error
+        throw lastError;
+      }
     }
 
-    console.log("📥 Order form response:", response);
-    return response;
+    // All retries exhausted
+    console.error(`❌ Order form failed after ${MAX_RETRIES} attempts`);
+    throw lastError || new Error("Order form request failed after maximum retries");
   }
 
   /**

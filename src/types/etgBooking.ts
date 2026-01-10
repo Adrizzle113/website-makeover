@@ -256,6 +256,59 @@ export interface DocumentsResponse {
   };
 }
 
+// RateHawk API Error Codes (Best Practices Section 5.3)
+// Final failure errors - stop polling immediately
+export type FinalFailureErrorCode =
+  | "3ds"
+  | "block"
+  | "book_limit"
+  | "booking_finish_did_not_succeed"
+  | "charge"
+  | "soldout"
+  | "provider"
+  | "not_allowed";
+
+// Retryable errors - continue polling
+export type RetryableErrorCode = "timeout" | "unknown";
+
+// All booking error codes
+export type BookingErrorCode = FinalFailureErrorCode | RetryableErrorCode;
+
+// User-friendly error messages for each error code
+export const BOOKING_ERROR_MESSAGES: Record<BookingErrorCode, string> = {
+  "3ds": "Card authentication failed. Please try a different payment method.",
+  "block": "This booking has been blocked. Please contact support for assistance.",
+  "book_limit": "Booking limit reached for this property. Please try again later.",
+  "booking_finish_did_not_succeed": "Booking could not be completed. Please try again.",
+  "charge": "Payment could not be processed. Please check your card details and try again.",
+  "soldout": "This rate is no longer available. Please select a different room or rate.",
+  "provider": "The hotel's system is temporarily unavailable. Please try again in a few minutes.",
+  "not_allowed": "This booking is not permitted. Please contact support for assistance.",
+  "timeout": "Request timed out. We're still checking the status...",
+  "unknown": "An unexpected error occurred. We're still checking the status...",
+};
+
+// Check if an error code is a final failure (stop polling)
+export function isFinalFailureError(errorCode: string): boolean {
+  const finalErrors: FinalFailureErrorCode[] = [
+    "3ds", "block", "book_limit", "booking_finish_did_not_succeed",
+    "charge", "soldout", "provider", "not_allowed"
+  ];
+  return finalErrors.includes(errorCode as FinalFailureErrorCode);
+}
+
+// Check if an error code is retryable (continue polling)
+export function isRetryableError(errorCode: string): boolean {
+  const retryableErrors: RetryableErrorCode[] = ["timeout", "unknown"];
+  return retryableErrors.includes(errorCode as RetryableErrorCode);
+}
+
+// Get user-friendly message for an error code
+export function getBookingErrorMessage(errorCode: string): string {
+  return BOOKING_ERROR_MESSAGES[errorCode as BookingErrorCode] || 
+    "An unexpected error occurred. Please try again or contact support.";
+}
+
 // Selected upsell for booking
 export interface BookingUpsell {
   id: string;
