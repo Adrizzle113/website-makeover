@@ -410,6 +410,7 @@ export interface IdsSearchParams {
 export interface UpsellsRequest {
   early_checkin?: { time?: string }; // time in "HH:MM" format
   late_checkout?: { time?: string };
+  multiple_eclc?: boolean; // Request all available early/late checkout options
   only_eclc?: boolean; // Only show rates with early/late options
 }
 
@@ -423,6 +424,7 @@ export interface UpsellsState {
     enabled: boolean;
     time: string | null;
   };
+  multipleEclc: boolean; // Request all available ECLC time options
   onlyEclc: boolean; // Filter: only show rates with these options
 }
 
@@ -430,6 +432,7 @@ export interface UpsellsState {
 export const DEFAULT_UPSELLS_STATE: UpsellsState = {
   earlyCheckin: { enabled: false, time: null },
   lateCheckout: { enabled: false, time: null },
+  multipleEclc: false,
   onlyEclc: false,
 };
 
@@ -447,6 +450,10 @@ export function formatUpsellsForAPI(state: UpsellsState): UpsellsRequest | undef
     result.late_checkout = state.lateCheckout.time
       ? { time: state.lateCheckout.time }
       : {};
+  }
+
+  if (state.multipleEclc) {
+    result.multiple_eclc = true;
   }
 
   if (state.onlyEclc) {

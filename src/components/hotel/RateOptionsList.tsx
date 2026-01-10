@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Coffee, Check, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Coffee, Check, X, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { PaymentTypeBadge, normalizePaymentType } from "./PaymentTypeBadge";
@@ -23,6 +24,18 @@ export interface RateOption {
   roomSize?: string;
   bedGuaranteed?: boolean;
   cancellationFee?: string;
+  // ECLC (Early Check-in / Late Checkout) data from API
+  earlyCheckin?: {
+    available?: boolean;
+    time?: string;
+    price?: { amount: string; currency: string };
+  };
+  lateCheckout?: {
+    available?: boolean;
+    time?: string;
+    price?: { amount: string; currency: string };
+  };
+  serpFilters?: string[]; // For checking 'has_early_checkin', 'has_late_checkout'
 }
 
 interface RateOptionsListProps {
@@ -159,6 +172,34 @@ export function RateOptionsList({
                         {cancellationInfo.icon}
                         {cancellationInfo.label}
                       </div>
+                      {/* ECLC Indicators */}
+                      {(rate.earlyCheckin?.available || rate.lateCheckout?.available || 
+                        rate.serpFilters?.includes('has_early_checkin') || 
+                        rate.serpFilters?.includes('has_late_checkout')) && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {(rate.earlyCheckin?.available || rate.serpFilters?.includes('has_early_checkin')) && (
+                            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1">
+                              <Sun className="w-3 h-3" />
+                              Early Check-in
+                              {rate.earlyCheckin?.time && <span>({rate.earlyCheckin.time})</span>}
+                              {rate.earlyCheckin?.price && (
+                                <span className="font-semibold">+{rate.earlyCheckin.price.amount}</span>
+                              )}
+                            </Badge>
+                          )}
+                          {(rate.lateCheckout?.available || rate.serpFilters?.includes('has_late_checkout')) && (
+                            <Badge variant="outline" className="text-xs bg-indigo-50 text-indigo-700 border-indigo-200 flex items-center gap-1">
+                              <Moon className="w-3 h-3" />
+                              Late Checkout
+                              {rate.lateCheckout?.time && <span>({rate.lateCheckout.time})</span>}
+                              {rate.lateCheckout?.price && (
+                                <span className="font-semibold">+{rate.lateCheckout.price.amount}</span>
+                              )}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+
                       {/* Show differentiating details */}
                       <div className="flex items-center gap-2 flex-wrap">
                         {rate.bedGuaranteed === false && (

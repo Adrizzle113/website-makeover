@@ -325,6 +325,11 @@ const rateToRateOption = (rate: RateHawkRate, index: number): RateOption | null 
     !roomName.includes("run of house") && 
     !roomName.includes("room type assigned");
 
+  // Extract ECLC data from rate if available
+  const earlyCheckin = (rate as any).early_checkin;
+  const lateCheckout = (rate as any).late_checkout;
+  const serpFilters = (rate as any).serp_filters as string[] | undefined;
+
   return {
     id: rate.match_hash || rate.book_hash || `rate_${index}`,
     price: Math.round(price),
@@ -342,6 +347,18 @@ const rateToRateOption = (rate: RateHawkRate, index: number): RateOption | null 
     roomSize,
     bedGuaranteed,
     cancellationFee,
+    // ECLC data
+    earlyCheckin: earlyCheckin ? {
+      available: earlyCheckin.available ?? true,
+      time: earlyCheckin.time,
+      price: earlyCheckin.price,
+    } : undefined,
+    lateCheckout: lateCheckout ? {
+      available: lateCheckout.available ?? true,
+      time: lateCheckout.time,
+      price: lateCheckout.price,
+    } : undefined,
+    serpFilters,
   };
 };
 
@@ -614,13 +631,18 @@ const processRatesDirectly = (hotel: HotelDetails, rates: RateHawkRate[]): Proce
   }];
 };
 
+interface RoomSelectionSectionExtendedProps extends RoomSelectionSectionProps {
+  onRefreshRates?: () => void;
+}
+
 export function RoomSelectionSection({ 
   hotel, 
   isLoading = false,
   checkInTime,
-  checkOutTime 
-}: RoomSelectionSectionProps) {
-  const { selectedRooms, addRoom, updateRoomQuantity, searchParams } = useBookingStore();
+  checkOutTime,
+  onRefreshRates,
+}: RoomSelectionSectionExtendedProps) {
+  const { selectedRooms, addRoom, updateRoomQuantity, searchParams, upsellsPreferences, resetUpsellsPreferences } = useBookingStore();
   const [displayedRooms, setDisplayedRooms] = useState(6);
   const [selectedRates, setSelectedRates] = useState<Record<string, string>>({});
 
@@ -734,14 +756,43 @@ export function RoomSelectionSection({
     );
   }
 
+  // Check if upsells filters are active
+  const hasActiveUpsellFilters = 
+    upsellsPreferences.earlyCheckin.enabled || 
+    upsellsPreferences.lateCheckout.enabled || 
+    upsellsPreferences.multipleEclc ||
+    upsellsPreferences.onlyEclc;
+
   if (sortedRooms.length === 0) {
     return (
       <section className="py-8 bg-app-white-smoke">
         <div className="container">
-          <h2 className="font-heading text-heading-standard text-foreground mb-6">
-            Available Rooms
-          </h2>
-          <p className="text-muted-foreground">No rooms available for the selected dates.</p>
+          <div className="text-center max-w-md mx-auto">
+            <h2 className="font-heading text-heading-standard text-foreground mb-4">
+              No Rooms Available
+            </h2>
+            {hasActiveUpsellFilters ? (
+              <>
+                <p className="text-muted-foreground mb-4">
+                  No rates found with your selected early check-in or late checkout preferences. 
+                  Try adjusting your options.
+                </p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    resetUpsellsPreferences();
+                    onRefreshRates?.();
+                  }}
+                >
+                  Clear Preferences & Show All Rates
+                </Button>
+              </>
+            ) : (
+              <p className="text-muted-foreground">
+                No rooms available for the selected dates.
+              </p>
+            )}
+          </div>
         </div>
       </section>
     );
@@ -755,10 +806,15 @@ export function RoomSelectionSection({
             Choose Your Room
           </h2>
           <p className="text-muted-foreground">
-            Select from {sortedRooms.length} available room type{sortedRooms.length !== 1 ? "s" : ""}
+            {sortedRooms.length} room type{sortedRooms.length !== 1 ? "s" : ""} available
+            {hasActiveUpsellFilters && (
+              <span className="ml-2 text-primary">
+                (filtered by check-in/checkout preferences)
+              </span>
+            )}
             {hasMoreRooms && (
-              <span className="text-primary font-medium">
-                {" "}(Showing {displayedRooms} of {sortedRooms.length})
+              <span className="text-muted-foreground">
+                {" "}• Showing {displayedRooms} of {sortedRooms.length}
               </span>
             )}
           </p>

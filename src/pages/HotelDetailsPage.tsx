@@ -622,6 +622,7 @@ const HotelDetailsPage = () => {
               },
               residency: "en-us",
               currency: "USD",
+              timeout: 8, // 8-second timeout for faster responses
               ...(formatUpsellsForAPI(upsells) && { upsells: formatUpsellsForAPI(upsells) }),
             }),
           })
@@ -898,6 +899,7 @@ const HotelDetailsPage = () => {
           },
           residency: "en-us",
           currency: "USD",
+          timeout: 8, // 8-second timeout for faster responses
           ...(formatUpsellsForAPI(upsells) && { upsells: formatUpsellsForAPI(upsells) }),
         }),
       });
@@ -1024,6 +1026,7 @@ const HotelDetailsPage = () => {
             isLoading={isRefreshingRates}
             checkInTime={hotelDetails.checkInTime}
             checkOutTime={hotelDetails.checkOutTime}
+            onRefreshRates={refreshRatesWithUpsells}
           />
           <FacilitiesAmenitiesSection amenities={groupedAmenities} />
           <HotelPoliciesSection hotel={hotelDetails} />
