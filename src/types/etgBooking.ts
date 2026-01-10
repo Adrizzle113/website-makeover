@@ -385,3 +385,206 @@ export interface PendingBookingData {
   paymentType?: PaymentType;
   upsells?: BookingUpsell[];
 }
+
+// ============================================
+// MULTIROOM BOOKING TYPES (RateHawk APIv3)
+// ============================================
+
+// Guest configuration for multiroom
+export interface MultiroomGuests {
+  adults: number;
+  children: Array<{ age: number } | number>;
+}
+
+// Single room for multiroom prebook request
+export interface MultiroomPrebookRoom {
+  book_hash?: string;      // Use book_hash (h-...) for hotel search results
+  match_hash?: string;     // Use match_hash (m-...) for region search results
+  guests: MultiroomGuests[];
+  residency?: string;
+  price_increase_percent?: number; // 0-100, per room
+}
+
+// Multiroom Prebook Request
+export interface MultiroomPrebookParams {
+  rooms: MultiroomPrebookRoom[];
+  language?: string;
+  currency?: string;
+}
+
+// Single room result in multiroom prebook response
+export interface MultiroomPrebookRoomResult {
+  roomIndex: number;
+  booking_hash: string;    // p-... hash for order form
+  book_hash: string;       // Alias for booking_hash
+  price_changed: boolean;
+  new_price?: number;
+  original_price?: number;
+  currency: string;
+}
+
+// Failed room in multiroom response
+export interface MultiroomFailedRoom {
+  roomIndex: number;
+  error: string;
+  code: string;
+  book_hash?: string;      // Original hash that failed
+}
+
+// Multiroom Prebook Response
+export interface MultiroomPrebookResponse {
+  status: "ok" | "error";
+  success: boolean;        // true if ALL rooms succeeded, false if any failed
+  data: {
+    rooms: MultiroomPrebookRoomResult[];
+    failed?: MultiroomFailedRoom[];
+    total_rooms: number;
+    successful_rooms: number;
+    failed_rooms: number;
+  };
+  error?: {
+    message: string;
+    code: string;
+  };
+}
+
+// Single room in multiroom order form response
+export interface MultiroomOrderFormRoom {
+  roomIndex: number;
+  order_id: number | string;
+  item_id: number | string;
+  booking_hash: string;
+  payment_types: PaymentType[];
+  form_fields?: OrderFormField[];
+  // Payota tokenization fields
+  pay_uuid?: string;
+  init_uuid?: string;
+  is_need_credit_card_data?: boolean;
+  is_need_cvc?: boolean;
+}
+
+// Multiroom Order Form Response
+export interface MultiroomOrderFormResponse {
+  success: boolean;        // true if all rooms succeeded
+  data: {
+    rooms: MultiroomOrderFormRoom[];
+    failed?: MultiroomFailedRoom[];
+    total_rooms: number;
+    successful_rooms: number;
+    failed_rooms: number;
+    // Common payment types across all rooms
+    payment_types_available?: PaymentType[];
+  };
+  status: string;
+  error?: {
+    message: string;
+    code: string;
+  };
+}
+
+// Single room for multiroom order finish request
+export interface MultiroomOrderFinishRoom {
+  order_id: number | string;
+  item_id: number | string;
+  guests: MultiroomGuests[];
+}
+
+// Multiroom Order Finish Request
+export interface MultiroomOrderFinishParams {
+  rooms: MultiroomOrderFinishRoom[];
+  payment_type: "hotel" | "deposit" | "now"; // Same for all rooms
+  partner_order_id: string;                   // Same for all rooms (links them)
+  language?: string;
+  upsell_data?: unknown[];                    // Same for all rooms
+}
+
+// Single room result in multiroom order finish response
+export interface MultiroomOrderFinishRoomResult {
+  roomIndex: number;
+  order_id: number | string;
+  status: "processing" | "confirmed" | "failed";
+}
+
+// Multiroom Order Finish Response
+export interface MultiroomOrderFinishResponse {
+  success: boolean;        // true if all rooms succeeded
+  data: {
+    rooms: MultiroomOrderFinishRoomResult[];
+    failed?: MultiroomFailedRoom[];
+    partner_order_id: string;
+    order_ids: (number | string)[]; // All order IDs from successful bookings
+    total_rooms: number;
+    successful_rooms: number;
+    failed_rooms: number;
+  };
+  status: string;
+  error?: {
+    message: string;
+    code: string;
+  };
+}
+
+// Type guards for detecting multiroom vs single room
+export function isMultiroomPrebookParams(params: PrebookParams | MultiroomPrebookParams): params is MultiroomPrebookParams {
+  return 'rooms' in params && Array.isArray(params.rooms);
+}
+
+export function isMultiroomPrebookResponse(response: PrebookResponse | MultiroomPrebookResponse): response is MultiroomPrebookResponse {
+  return 'data' in response && 'rooms' in response.data && Array.isArray(response.data.rooms);
+}
+
+export function isMultiroomOrderFormResponse(response: OrderFormResponse | MultiroomOrderFormResponse): response is MultiroomOrderFormResponse {
+  return 'data' in response && 'rooms' in response.data && Array.isArray(response.data.rooms);
+}
+
+export function isMultiroomOrderFinishParams(params: OrderFinishParams | MultiroomOrderFinishParams): params is MultiroomOrderFinishParams {
+  return 'rooms' in params && Array.isArray(params.rooms);
+}
+
+// Multiroom prebooked room stored in state
+export interface PrebookedRoom {
+  roomIndex: number;
+  originalRoomId: string;  // From selectedRooms
+  booking_hash: string;    // p-... hash from prebook
+  book_hash: string;       // Original h-... or m-... hash
+  price_changed: boolean;
+  new_price?: number;
+  original_price?: number;
+  currency: string;
+}
+
+// Multiroom order form stored in state
+export interface OrderFormData {
+  roomIndex: number;
+  order_id: string;
+  item_id: string;
+  booking_hash: string;
+  payment_types: PaymentType[];
+  pay_uuid?: string;
+  init_uuid?: string;
+  is_need_credit_card_data?: boolean;
+  is_need_cvc?: boolean;
+}
+
+// Multiroom booking status tracking
+export interface MultiroomBookingStatus {
+  rooms: Array<{
+    roomIndex: number;
+    order_id: string;
+    status: "processing" | "confirmed" | "failed";
+    confirmation_number?: string;
+  }>;
+  failed?: MultiroomFailedRoom[];
+  partner_order_id: string;
+  total_rooms: number;
+  successful_rooms: number;
+  failed_rooms: number;
+}
+
+// Extended PendingBookingData for multiroom
+export interface MultiroomPendingBookingData extends PendingBookingData {
+  isMultiroom: boolean;
+  prebookedRooms?: PrebookedRoom[];
+  orderForms?: OrderFormData[];
+  multiroomStatus?: MultiroomBookingStatus;
+}

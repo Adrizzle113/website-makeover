@@ -13,6 +13,16 @@ import type {
   PaymentType,
   PayotaTokenRequest,
   PayotaTokenResponse,
+  // Multiroom types
+  MultiroomPrebookParams,
+  MultiroomPrebookResponse,
+  MultiroomOrderFormResponse,
+  MultiroomOrderFinishParams,
+  MultiroomOrderFinishResponse,
+} from "@/types/etgBooking";
+import {
+  isMultiroomPrebookParams,
+  isMultiroomOrderFinishParams,
 } from "@/types/etgBooking";
 
 const BOOKING_ENDPOINTS = {
@@ -76,26 +86,64 @@ class BookingApiService {
 
   /**
    * Step 2: Prebook - Validate availability and lock rate
-   * MUST be called before Order Booking Finish
+   * Supports both single-room and multiroom formats
    * @param params.price_increase_percent - Allow finding alternative rates within this % tolerance (default 20)
    */
-  async prebook(params: PrebookParams): Promise<PrebookResponse> {
+  async prebook(params: PrebookParams): Promise<PrebookResponse>;
+  async prebook(params: MultiroomPrebookParams): Promise<MultiroomPrebookResponse>;
+  async prebook(params: PrebookParams | MultiroomPrebookParams): Promise<PrebookResponse | MultiroomPrebookResponse> {
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.PREBOOK}`;
     const userId = this.getCurrentUserId();
 
+    // Detect if multiroom request
+    if (isMultiroomPrebookParams(params)) {
+      console.log("📤 Multiroom Prebook request:", { rooms: params.rooms.length, userId });
+
+      const requestInit: RequestInit = {
+        method: "POST",
+        body: JSON.stringify({
+          userId,
+          rooms: params.rooms.map(room => ({
+            book_hash: room.book_hash,
+            match_hash: room.match_hash,
+            guests: room.guests,
+            residency: room.residency || "US",
+            price_increase_percent: room.price_increase_percent ?? 20,
+          })),
+          language: params.language || "en",
+          currency: params.currency || "USD",
+        }),
+      };
+
+      let response: MultiroomPrebookResponse;
+      try {
+        response = await this.fetchWithError<MultiroomPrebookResponse>(url, requestInit);
+      } catch (error) {
+        console.warn("Multiroom prebook failed, retrying once...", error);
+        await new Promise((r) => setTimeout(r, 1200));
+        response = await this.fetchWithError<MultiroomPrebookResponse>(url, requestInit);
+      }
+
+      console.log("📥 Multiroom Prebook response:", {
+        total: response.data?.total_rooms,
+        successful: response.data?.successful_rooms,
+        failed: response.data?.failed_rooms,
+      });
+      return response;
+    }
+
+    // Single room prebook (existing logic)
     console.log("📤 Prebook request:", { ...params, userId });
 
-    // The backend has historically accepted different key names for the hash.
-    // We send both to be resilient.
     const requestInit: RequestInit = {
       method: "POST",
       body: JSON.stringify({
         userId,
         hash: params.book_hash,
-        book_hash: params.book_hash, // Can be match_hash (m-...) or book_hash (h-...)
+        book_hash: params.book_hash,
         residency: params.residency,
         currency: params.currency || "USD",
-        price_increase_percent: params.price_increase_percent ?? 20, // Default 20% tolerance
+        price_increase_percent: params.price_increase_percent ?? 20,
       }),
     };
 
@@ -103,7 +151,6 @@ class BookingApiService {
     try {
       response = await this.fetchWithError<PrebookResponse>(url, requestInit);
     } catch (error) {
-      // Render/ETG can be flaky; retry once to reduce transient 500s.
       console.warn("Prebook failed, retrying once...", error);
       await new Promise((r) => setTimeout(r, 1200));
       response = await this.fetchWithError<PrebookResponse>(url, requestInit);
@@ -202,15 +249,142 @@ class BookingApiService {
   }
 
   /**
+   * Step 3b: Get Multiroom Order Form - Retrieve order forms for multiple rooms
+   * @param prebookedRooms - Array of booking_hash from multiroom prebook response
+   * @param partnerOrderId - Required unique partner order ID (same for all rooms)
+   */
+  async getMultiroomOrderForm(
+    prebookedRooms: Array<{ booking_hash: string }>,
+    partnerOrderId: string,
+    language: string = "en"
+  ): Promise<MultiroomOrderFormResponse> {
+    const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.ORDER_FORM}`;
+    const userId = this.getCurrentUserId();
+    const userIp = await this.getUserIp();
+
+    if (!prebookedRooms.length || !partnerOrderId) {
+      throw new Error("Missing required fields: prebooked_rooms or partner_order_id");
+    }
+
+    const requestBody = {
+      userId,
+      prebooked_rooms: prebookedRooms,
+      partner_order_id: partnerOrderId,
+      language,
+      user_ip: userIp,
+    };
+
+    console.log("📤 Multiroom Order form request:", { 
+      rooms: prebookedRooms.length, 
+      partnerOrderId 
+    });
+
+    const MAX_RETRIES = 10;
+    let attempt = 0;
+    let lastError: Error | null = null;
+
+    while (attempt < MAX_RETRIES) {
+      attempt++;
+      
+      try {
+        const response = await this.fetchWithError<MultiroomOrderFormResponse>(url, {
+          method: "POST",
+          body: JSON.stringify(requestBody),
+        });
+
+        // Check for retryable errors
+        if (response.error?.code) {
+          const errorCode = response.error.code.toLowerCase();
+          
+          if (["contract_mismatch", "double_booking_form", "duplicate_reservation", 
+               "hotel_not_found", "insufficient_b2b_balance", "reservation_is_not_allowed",
+               "rate_not_found", "sandbox_restriction"].includes(errorCode)) {
+            console.error(`❌ Multiroom order form non-retryable error: ${errorCode}`);
+            throw new Error(response.error.message || `Booking failed: ${errorCode}`);
+          }
+          
+          if (["timeout", "unknown"].includes(errorCode) && attempt < MAX_RETRIES) {
+            console.warn(`⚠️ Multiroom order form attempt ${attempt}/${MAX_RETRIES} got ${errorCode}, retrying...`);
+            const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+            await new Promise((r) => setTimeout(r, backoffMs));
+            continue;
+          }
+        }
+
+        console.log("📥 Multiroom Order form response:", {
+          total: response.data?.total_rooms,
+          successful: response.data?.successful_rooms,
+          failed: response.data?.failed_rooms,
+        });
+        return response;
+        
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        const errorMsg = lastError.message.toLowerCase();
+        
+        const is5xxError = errorMsg.includes("5") && errorMsg.includes("http");
+        const isNetworkError = errorMsg.includes("network") || errorMsg.includes("fetch");
+        
+        if ((is5xxError || isNetworkError) && attempt < MAX_RETRIES) {
+          console.warn(`⚠️ Multiroom order form attempt ${attempt}/${MAX_RETRIES} failed, retrying...`, error);
+          const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+          await new Promise((r) => setTimeout(r, backoffMs));
+          continue;
+        }
+        
+        throw lastError;
+      }
+    }
+
+    console.error(`❌ Multiroom order form failed after ${MAX_RETRIES} attempts`);
+    throw lastError || new Error("Multiroom order form request failed after maximum retries");
+  }
+
+  /**
    * Step 4: Order Booking Finish - Complete the booking
-   * For certification: supports deposit and hotel payment types
+   * Supports both single-room and multiroom formats
    * @param params - Must include order_id and item_id from form response
    */
-  async finishBooking(params: OrderFinishParams): Promise<OrderFinishResponse> {
+  async finishBooking(params: OrderFinishParams): Promise<OrderFinishResponse>;
+  async finishBooking(params: MultiroomOrderFinishParams): Promise<MultiroomOrderFinishResponse>;
+  async finishBooking(params: OrderFinishParams | MultiroomOrderFinishParams): Promise<OrderFinishResponse | MultiroomOrderFinishResponse> {
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.ORDER_FINISH}`;
     const userId = this.getCurrentUserId();
 
-    // Validate required fields from ETG API spec
+    // Detect if multiroom request
+    if (isMultiroomOrderFinishParams(params)) {
+      console.log("📤 Multiroom Order finish request:", { 
+        rooms: params.rooms.length,
+        partner_order_id: params.partner_order_id,
+        payment_type: params.payment_type,
+      });
+
+      const response = await this.fetchWithError<MultiroomOrderFinishResponse>(url, {
+        method: "POST",
+        body: JSON.stringify({
+          userId,
+          rooms: params.rooms.map(room => ({
+            order_id: room.order_id,
+            item_id: room.item_id,
+            guests: room.guests,
+          })),
+          payment_type: params.payment_type,
+          partner_order_id: params.partner_order_id,
+          language: params.language || "en",
+          upsell_data: params.upsell_data,
+        }),
+      });
+
+      console.log("📥 Multiroom Order finish response:", {
+        total: response.data?.total_rooms,
+        successful: response.data?.successful_rooms,
+        failed: response.data?.failed_rooms,
+        order_ids: response.data?.order_ids,
+      });
+      return response;
+    }
+
+    // Single room finish (existing logic)
     if (!params.order_id || !params.item_id || !params.partner_order_id) {
       throw new Error("Missing required booking fields: order_id, item_id, or partner_order_id");
     }
@@ -431,6 +605,89 @@ class BookingApiService {
 
     console.log("📊 Booking status response:", response);
     return response;
+  }
+
+  /**
+   * Helper: Poll multiple room order statuses in parallel
+   * For multiroom bookings - polls all order IDs simultaneously
+   */
+  async pollMultiroomOrderStatuses(
+    orderIds: string[],
+    options: {
+      maxAttempts?: number;
+      intervalMs?: number;
+      onStatusUpdate?: (statuses: Map<string, string>, attempt: number) => void;
+    } = {}
+  ): Promise<Map<string, OrderStatusResponse>> {
+    const { maxAttempts = 20, intervalMs = 3000, onStatusUpdate } = options;
+    const results = new Map<string, OrderStatusResponse>();
+    const statuses = new Map<string, string>();
+    let attempts = 0;
+    let pendingOrderIds = [...orderIds];
+
+    console.log(`📊 Starting multiroom status polling for ${orderIds.length} orders`);
+
+    while (attempts < maxAttempts && pendingOrderIds.length > 0) {
+      attempts++;
+      
+      try {
+        // Poll all pending orders in parallel
+        const pollPromises = pendingOrderIds.map(async (orderId) => {
+          try {
+            const response = await this.getOrderStatus(orderId);
+            return { orderId, response, error: null };
+          } catch (error) {
+            return { orderId, response: null, error };
+          }
+        });
+
+        const pollResults = await Promise.all(pollPromises);
+
+        // Process results
+        const stillPending: string[] = [];
+        for (const { orderId, response, error } of pollResults) {
+          if (error) {
+            console.warn(`Status poll for order ${orderId} failed:`, error);
+            stillPending.push(orderId);
+            continue;
+          }
+
+          if (response) {
+            const status = response.data?.status;
+            statuses.set(orderId, status);
+
+            if (status === "confirmed" || status === "failed" || status === "cancelled") {
+              results.set(orderId, response);
+            } else {
+              stillPending.push(orderId);
+            }
+          }
+        }
+
+        pendingOrderIds = stillPending;
+        onStatusUpdate?.(statuses, attempts);
+
+        if (pendingOrderIds.length === 0) {
+          console.log(`✅ All ${orderIds.length} orders reached final status`);
+          break;
+        }
+
+        // Wait before next poll
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      } catch (error) {
+        console.error(`Multiroom status poll attempt ${attempts} failed:`, error);
+        if (attempts < maxAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        }
+      }
+    }
+
+    // For any orders still pending, add them with whatever status we have
+    if (pendingOrderIds.length > 0) {
+      console.warn(`⚠️ ${pendingOrderIds.length} orders still processing after ${maxAttempts} attempts`);
+    }
+
+    return results;
   }
 }
 

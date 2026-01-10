@@ -11,7 +11,13 @@ import type {
   UpsellsState,
 } from "@/types/booking";
 import { DEFAULT_FILTERS, DEFAULT_UPSELLS_STATE } from "@/types/booking";
-import type { OrderStatus, PaymentType } from "@/types/etgBooking";
+import type { 
+  OrderStatus, 
+  PaymentType,
+  PrebookedRoom,
+  OrderFormData,
+  MultiroomBookingStatus,
+} from "@/types/etgBooking";
 
 // Upsell types
 export interface Upsell {
@@ -59,7 +65,7 @@ interface BookingStore {
   // Upsells Preferences (for API requests)
   upsellsPreferences: UpsellsState;
 
-  // ETG Booking State
+  // ETG Booking State (Single Room - Backward Compatible)
   bookingHash: string | null;      // book_hash from prebook
   partnerOrderId: string | null;   // Generated once per booking
   orderId: string | null;          // From order form response
@@ -68,6 +74,11 @@ interface BookingStore {
   orderStatus: OrderStatus;
   paymentType: PaymentType | null;
   residency: string;
+
+  // Multiroom Booking State
+  prebookedRooms: PrebookedRoom[];           // Results from multiroom prebook
+  orderForms: OrderFormData[];               // Order forms for each room
+  multiroomStatus: MultiroomBookingStatus | null;  // Tracking status of all rooms
 
   // Actions
   setSearchParams: (params: SearchParams) => void;
@@ -121,6 +132,16 @@ interface BookingStore {
   clearBookingState: () => void;
   generateAndSetPartnerOrderId: () => string;
 
+  // Multiroom Booking Actions
+  setPrebookedRooms: (rooms: PrebookedRoom[]) => void;
+  addPrebookedRoom: (room: PrebookedRoom) => void;
+  setOrderForms: (forms: OrderFormData[]) => void;
+  addOrderForm: (form: OrderFormData) => void;
+  setMultiroomStatus: (status: MultiroomBookingStatus | null) => void;
+  updateRoomBookingStatus: (roomIndex: number, status: "processing" | "confirmed" | "failed", confirmationNumber?: string) => void;
+  isMultiroomBooking: () => boolean;
+  clearMultiroomState: () => void;
+
   // Computed
   getTotalPrice: () => number;
   getTotalRooms: () => number;
@@ -148,7 +169,7 @@ const initialState = {
   filters: DEFAULT_FILTERS,
   sortBy: "popularity" as SortOption,
   upsellsPreferences: DEFAULT_UPSELLS_STATE,
-  // ETG Booking State
+  // ETG Booking State (Single Room)
   bookingHash: null as string | null,
   partnerOrderId: null as string | null,
   orderId: null as string | null,
@@ -157,6 +178,10 @@ const initialState = {
   orderStatus: "idle" as OrderStatus,
   paymentType: null as PaymentType | null,
   residency: "US",
+  // Multiroom Booking State
+  prebookedRooms: [] as PrebookedRoom[],
+  orderForms: [] as OrderFormData[],
+  multiroomStatus: null as MultiroomBookingStatus | null,
 };
 
 export const useBookingStore = create<BookingStore>()(
@@ -382,6 +407,10 @@ export const useBookingStore = create<BookingStore>()(
         orderGroupId: null,
         orderStatus: "idle",
         paymentType: null,
+        // Also clear multiroom state
+        prebookedRooms: [],
+        orderForms: [],
+        multiroomStatus: null,
       }),
       
       generateAndSetPartnerOrderId: () => {
@@ -391,6 +420,56 @@ export const useBookingStore = create<BookingStore>()(
         set({ partnerOrderId: id });
         return id;
       },
+
+      // Multiroom Booking Actions
+      setPrebookedRooms: (rooms) => set({ prebookedRooms: rooms }),
+      
+      addPrebookedRoom: (room) => set((state) => ({
+        prebookedRooms: [...state.prebookedRooms, room],
+      })),
+      
+      setOrderForms: (forms) => set({ orderForms: forms }),
+      
+      addOrderForm: (form) => set((state) => ({
+        orderForms: [...state.orderForms, form],
+      })),
+      
+      setMultiroomStatus: (status) => set({ multiroomStatus: status }),
+      
+      updateRoomBookingStatus: (roomIndex, status, confirmationNumber) => set((state) => {
+        if (!state.multiroomStatus) return state;
+        
+        const updatedRooms = state.multiroomStatus.rooms.map((room) =>
+          room.roomIndex === roomIndex
+            ? { ...room, status, confirmation_number: confirmationNumber || room.confirmation_number }
+            : room
+        );
+        
+        const successful = updatedRooms.filter(r => r.status === "confirmed").length;
+        const failed = updatedRooms.filter(r => r.status === "failed").length;
+        
+        return {
+          multiroomStatus: {
+            ...state.multiroomStatus,
+            rooms: updatedRooms,
+            successful_rooms: successful,
+            failed_rooms: failed,
+          },
+        };
+      }),
+      
+      isMultiroomBooking: () => {
+        const state = get();
+        // Multiroom if we have multiple rooms selected OR any room has quantity > 1
+        const totalRooms = state.selectedRooms.reduce((sum, room) => sum + room.quantity, 0);
+        return totalRooms > 1 || state.selectedRooms.length > 1;
+      },
+      
+      clearMultiroomState: () => set({
+        prebookedRooms: [],
+        orderForms: [],
+        multiroomStatus: null,
+      }),
 
       getTotalPrice: () => {
         const state = get();
