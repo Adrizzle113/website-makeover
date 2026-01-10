@@ -1176,37 +1176,6 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  {/* Data Retention */}
-                  <div className="rounded-lg border border-border bg-card p-6 space-y-4">
-                    <div>
-                      <h3 className="text-lg font-medium">Data Retention</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Information about how long we keep your data.
-                      </p>
-                    </div>
-
-                    <Separator />
-
-                    <div className="space-y-3 text-sm">
-                      <div className="flex items-center justify-between py-2">
-                        <span className="text-muted-foreground">Booking Records</span>
-                        <span className="font-medium">7 years (legal requirement)</span>
-                      </div>
-                      <div className="flex items-center justify-between py-2">
-                        <span className="text-muted-foreground">Financial Documents</span>
-                        <span className="font-medium">7 years (legal requirement)</span>
-                      </div>
-                      <div className="flex items-center justify-between py-2">
-                        <span className="text-muted-foreground">Activity Logs</span>
-                        <span className="font-medium">90 days</span>
-                      </div>
-                      <div className="flex items-center justify-between py-2">
-                        <span className="text-muted-foreground">Session Data</span>
-                        <span className="font-medium">30 days after logout</span>
-                      </div>
-                    </div>
-                  </div>
-
                   {/* Danger Zone */}
                   <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-6 space-y-6">
                     <div className="flex items-center gap-2">
