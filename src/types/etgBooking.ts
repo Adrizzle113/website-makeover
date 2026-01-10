@@ -23,16 +23,29 @@ export interface PrebookParams {
   book_hash: string;
   residency: string;
   currency?: string;
+  price_increase_percent?: number; // Default 20, allows finding alternative rates within tolerance
 }
+
+// Prebook error codes from WorldOTA API
+export type PrebookErrorCode = 
+  | "NO_AVAILABLE_RATES"    // Rate no longer available
+  | "RATE_NOT_FOUND"        // Hash expired or invalid
+  | "INVALID_PARAMS"        // Bad request params
+  | "PREBOOK_ERROR"         // Generic prebook error
+  | "PREBOOK_DISABLED"      // No permission for prebook
+  | "CONTRACT_MISMATCH"     // Contract differs from rate
+  | "UNKNOWN";              // Internal timeout
 
 // Prebook response from API
 export interface PrebookResponse {
+  success?: boolean;
   data: {
-    booking_hash: string;
+    booking_hash: string;        // New p-... hash for booking (use this for order form!)
     price_changed: boolean;
     new_price?: number;
     original_price?: number;
     currency?: string;
+    price_increase_percent?: number; // The value used in the request
     final_price?: {
       amount: string;
       currency_code: string;
@@ -49,7 +62,7 @@ export interface PrebookResponse {
   status: string;
   error?: {
     message: string;
-    code: string;
+    code: PrebookErrorCode;
   };
 }
 

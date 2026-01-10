@@ -77,6 +77,7 @@ class BookingApiService {
   /**
    * Step 2: Prebook - Validate availability and lock rate
    * MUST be called before Order Booking Finish
+   * @param params.price_increase_percent - Allow finding alternative rates within this % tolerance (default 20)
    */
   async prebook(params: PrebookParams): Promise<PrebookResponse> {
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.PREBOOK}`;
@@ -94,6 +95,7 @@ class BookingApiService {
         book_hash: params.book_hash, // Can be match_hash (m-...) or book_hash (h-...)
         residency: params.residency,
         currency: params.currency || "USD",
+        price_increase_percent: params.price_increase_percent ?? 20, // Default 20% tolerance
       }),
     };
 
