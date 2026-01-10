@@ -9,6 +9,7 @@ import { RoomUpsells } from "./RoomUpsells";
 import { PaymentTypeBadge, normalizePaymentType, getPaymentTypeLabel } from "./PaymentTypeBadge";
 import { RateOptionsList, type RateOption } from "./RateOptionsList";
 import { differenceInDays } from "date-fns";
+import { formatDateTimeWithPreference } from "@/hooks/useTimezone";
 
 // Room category types for sorting and badges
 type RoomCategory = "standard" | "deluxe" | "suite" | "premium" | "family" | "apartment";
@@ -127,7 +128,13 @@ const getMealLabel = (meal: string): string => {
 };
 
 // Helper to get cancellation display info
-const getCancellationDisplay = (cancellation: string, deadline?: string, fee?: string) => {
+const getCancellationDisplay = (
+  cancellation: string, 
+  deadline?: string, 
+  time?: string,
+  timezone?: string,
+  fee?: string
+) => {
   // If cancellation says "free" but no deadline exists, treat as non-refundable
   // (deadline has likely passed or was never available)
   const hasValidDeadline = !!deadline;
@@ -137,13 +144,16 @@ const getCancellationDisplay = (cancellation: string, deadline?: string, fee?: s
     cancellation?.toLowerCase().includes("refundable")
   );
   
+  // Build time display with timezone
+  const timeDisplay = time && timezone ? ` at ${time} (${timezone})` : "";
+  
   let label: string;
   if (isFreeCancellation && deadline) {
-    label = `Free cancellation until ${deadline}`;
+    label = `Free cancellation until ${deadline}${timeDisplay}`;
   } else if (deadline && fee && fee !== "0") {
-    label = `$${fee} fee until ${deadline}`;
+    label = `$${fee} fee until ${deadline}${timeDisplay}`;
   } else if (deadline) {
-    label = `Free until ${deadline}`;
+    label = `Free until ${deadline}${timeDisplay}`;
   } else {
     // No deadline = non-refundable (too close to check-in or no policy available)
     label = "Non-refundable";
@@ -226,13 +236,23 @@ const extractPriceFromRate = (rate: RateHawkRate): { price: number; currency: st
   return { price, currency, paymentType };
 };
 
-// Format cancellation date from ISO string to readable format
-const formatCancellationDate = (isoDate: string): string | undefined => {
+// Format cancellation date from ISO string with timezone and clock format preferences
+const formatCancellationDateWithTz = (isoDate: string): { 
+  deadline: string; 
+  time: string; 
+  timezone: string;
+  rawDate: string;
+} | undefined => {
   if (!isoDate) return undefined;
   try {
-    const date = new Date(isoDate);
-    if (isNaN(date.getTime())) return undefined;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const formatted = formatDateTimeWithPreference(isoDate);
+    if (!formatted) return undefined;
+    return {
+      deadline: formatted.date,
+      time: formatted.time,
+      timezone: formatted.tzLabel,
+      rawDate: isoDate
+    };
   } catch {
     return undefined;
   }
@@ -241,7 +261,10 @@ const formatCancellationDate = (isoDate: string): string | undefined => {
 // Extract cancellation info from all possible locations in a rate
 const extractCancellation = (rate: RateHawkRate): { 
   cancellation: string; 
-  cancellationDeadline?: string; 
+  cancellationDeadline?: string;
+  cancellationTime?: string;
+  cancellationTimezone?: string;
+  cancellationRawDate?: string;
   cancellationFee?: string 
 } => {
   // Search all payment_types for cancellation data (not just index 0)
@@ -249,17 +272,29 @@ const extractCancellation = (rate: RateHawkRate): {
   for (const pt of paymentTypes) {
     const cp = pt.cancellation_penalties;
     if (cp?.free_cancellation_before) {
-      const deadline = formatCancellationDate(cp.free_cancellation_before);
-      return { cancellation: "free_cancellation", cancellationDeadline: deadline, cancellationFee: "0" };
+      const formatted = formatCancellationDateWithTz(cp.free_cancellation_before);
+      if (formatted) {
+        return { 
+          cancellation: "free_cancellation", 
+          cancellationDeadline: formatted.deadline,
+          cancellationTime: formatted.time,
+          cancellationTimezone: formatted.timezone,
+          cancellationRawDate: formatted.rawDate,
+          cancellationFee: "0" 
+        };
+      }
     }
     if (cp?.policies?.length) {
       const policy = cp.policies[0];
-      const deadline = formatCancellationDate(policy.end_at || policy.start_at || "");
+      const formatted = formatCancellationDateWithTz(policy.end_at || policy.start_at || "");
       const fee = policy.amount_show?.replace(/[^0-9.]/g, '') || undefined;
-      if (deadline) {
+      if (formatted) {
         return { 
           cancellation: fee && parseFloat(fee) > 0 ? "partial_refund" : "free_cancellation", 
-          cancellationDeadline: deadline, 
+          cancellationDeadline: formatted.deadline,
+          cancellationTime: formatted.time,
+          cancellationTimezone: formatted.timezone,
+          cancellationRawDate: formatted.rawDate,
           cancellationFee: fee 
         };
       }
@@ -268,23 +303,44 @@ const extractCancellation = (rate: RateHawkRate): {
   
   // Check alternate locations: rate.cancellation_info
   if (rate.cancellation_info?.free_cancellation_before) {
-    const deadline = formatCancellationDate(rate.cancellation_info.free_cancellation_before);
-    return { cancellation: "free_cancellation", cancellationDeadline: deadline, cancellationFee: "0" };
+    const formatted = formatCancellationDateWithTz(rate.cancellation_info.free_cancellation_before);
+    if (formatted) {
+      return { 
+        cancellation: "free_cancellation", 
+        cancellationDeadline: formatted.deadline,
+        cancellationTime: formatted.time,
+        cancellationTimezone: formatted.timezone,
+        cancellationRawDate: formatted.rawDate,
+        cancellationFee: "0" 
+      };
+    }
   }
   
   // Check alternate locations: rate.cancellation_penalties (root level)
   if (rate.cancellation_penalties?.free_cancellation_before) {
-    const deadline = formatCancellationDate(rate.cancellation_penalties.free_cancellation_before);
-    return { cancellation: "free_cancellation", cancellationDeadline: deadline, cancellationFee: "0" };
+    const formatted = formatCancellationDateWithTz(rate.cancellation_penalties.free_cancellation_before);
+    if (formatted) {
+      return { 
+        cancellation: "free_cancellation", 
+        cancellationDeadline: formatted.deadline,
+        cancellationTime: formatted.time,
+        cancellationTimezone: formatted.timezone,
+        cancellationRawDate: formatted.rawDate,
+        cancellationFee: "0" 
+      };
+    }
   }
   if (rate.cancellation_penalties?.policies?.length) {
     const policy = rate.cancellation_penalties.policies[0];
-    const deadline = formatCancellationDate(policy.end_at || policy.start_at || "");
+    const formatted = formatCancellationDateWithTz(policy.end_at || policy.start_at || "");
     const fee = policy.amount_show?.replace(/[^0-9.]/g, '') || undefined;
-    if (deadline) {
+    if (formatted) {
       return { 
         cancellation: fee && parseFloat(fee) > 0 ? "partial_refund" : "free_cancellation", 
-        cancellationDeadline: deadline, 
+        cancellationDeadline: formatted.deadline,
+        cancellationTime: formatted.time,
+        cancellationTimezone: formatted.timezone,
+        cancellationRawDate: formatted.rawDate,
         cancellationFee: fee 
       };
     }
@@ -307,8 +363,15 @@ const rateToRateOption = (rate: RateHawkRate, index: number): RateOption | null 
 
   const meal = rate.meal || "nomeal";
   
-  // Extract cancellation from all possible API locations
-  const { cancellation, cancellationDeadline, cancellationFee } = extractCancellation(rate);
+  // Extract cancellation from all possible API locations (now includes time/timezone)
+  const { 
+    cancellation, 
+    cancellationDeadline, 
+    cancellationTime,
+    cancellationTimezone,
+    cancellationRawDate,
+    cancellationFee 
+  } = extractCancellation(rate);
   
   // Extract rate-specific amenities
   const roomAmenities = [
@@ -340,6 +403,9 @@ const rateToRateOption = (rate: RateHawkRate, index: number): RateOption | null 
     paymentLabel: getPaymentTypeLabel(paymentType),
     cancellation,
     cancellationDeadline,
+    cancellationTime,
+    cancellationTimezone,
+    cancellationRawDate,
     roomAmenities: roomAmenities.length > 0 ? roomAmenities : undefined,
     allotment: rate.allotment,
     bookHash: rate.book_hash,

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useClockFormat } from "@/hooks/useClockFormat";
+import { useTimezone } from "@/hooks/useTimezone";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { Button } from "@/components/ui/button";
@@ -184,14 +185,20 @@ export default function SettingsPage() {
   };
 
   const { clockFormat: storedClockFormat, setClockFormat: saveClockFormat } = useClockFormat();
+  const { timezone: storedTimezone, setTimezone: saveTimezone } = useTimezone();
 
-  // Sync clockFormat preference with hook on mount
+  // Sync preferences with hooks on mount
   useEffect(() => {
-    setPreferences(prev => ({ ...prev, clockFormat: storedClockFormat }));
-  }, [storedClockFormat]);
+    setPreferences(prev => ({ 
+      ...prev, 
+      clockFormat: storedClockFormat,
+      timezone: storedTimezone 
+    }));
+  }, [storedClockFormat, storedTimezone]);
 
   const handleSavePreferences = () => {
     saveClockFormat(preferences.clockFormat);
+    saveTimezone(preferences.timezone);
     toast.success("Preferences saved");
   };
 
