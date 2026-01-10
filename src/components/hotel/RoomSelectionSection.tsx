@@ -761,6 +761,8 @@ export function RoomSelectionSection({
           totalPrice: newRate.price * currentQty,
           match_hash: newRate.matchHash,
           book_hash: newRate.bookHash,
+          earlyCheckin: newRate.earlyCheckin,
+          lateCheckout: newRate.lateCheckout,
         });
       }
     }
@@ -778,6 +780,8 @@ export function RoomSelectionSection({
         totalPrice: activeRate.price,
         match_hash: activeRate.matchHash,
         book_hash: activeRate.bookHash,
+        earlyCheckin: activeRate.earlyCheckin,
+        lateCheckout: activeRate.lateCheckout,
       });
     } else {
       updateRoomQuantity(room.id, currentQty + 1);
