@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Loader2, ArrowLeft, AlertCircle, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import {
   BookingBreadcrumbs,
   SessionTimeout,
   RoomAddonsSection,
+  MultiroomPriceChangeModal,
   getBookingErrorType,
   type Guest,
   type PricingSnapshot,
@@ -28,23 +29,34 @@ import {
 import { bookingApi } from "@/services/bookingApi";
 import { toast } from "@/hooks/use-toast";
 import { differenceInDays } from "date-fns";
-import type { PendingBookingData } from "@/types/etgBooking";
+import type { 
+  PendingBookingData, 
+  MultiroomPrebookResponse,
+  MultiroomPrebookParams,
+  PrebookedRoom,
+  MultiroomPendingBookingData,
+} from "@/types/etgBooking";
 
 const BookingPage = () => {
   const navigate = useNavigate();
   const { hotelId } = useParams<{ hotelId: string }>();
-const { 
-  selectedHotel, 
-  selectedRooms, 
-  searchParams, 
-  getTotalPrice, 
-  setBookingHash,
-  bookingHash,
-  partnerOrderId,
-  generateAndSetPartnerOrderId,
-  residency, 
-  selectedUpsells 
-} = useBookingStore();
+  const { 
+    selectedHotel, 
+    selectedRooms, 
+    searchParams, 
+    getTotalPrice, 
+    setBookingHash,
+    bookingHash,
+    partnerOrderId,
+    generateAndSetPartnerOrderId,
+    residency, 
+    selectedUpsells,
+    // Multiroom actions
+    isMultiroomBooking,
+    setPrebookedRooms,
+    prebookedRooms,
+  } = useBookingStore();
+  
   const [isLoading, setIsLoading] = useState(true);
   const [isPrebooking, setIsPrebooking] = useState(false);
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -55,11 +67,15 @@ const {
     specialRequests: "",
   });
 
-  // Price change modal state
+  // Price change modal state (single room)
   const [showPriceChange, setShowPriceChange] = useState(false);
   const [originalPrice, setOriginalPrice] = useState(0);
   const [newPrice, setNewPrice] = useState(0);
   const [priceChangeType, setPriceChangeType] = useState<"increase" | "decrease" | "unavailable">("increase");
+
+  // Multiroom price change modal state
+  const [showMultiroomPriceChange, setShowMultiroomPriceChange] = useState(false);
+  const [multiroomPrebookResponse, setMultiroomPrebookResponse] = useState<MultiroomPrebookResponse | null>(null);
 
   // Agent pricing state
   const [isPricingLocked, setIsPricingLocked] = useState(false);
@@ -70,6 +86,22 @@ const {
   const [termsState, setTermsState] = useState<TermsState | null>(null);
   const [pricingSnapshot, setPricingSnapshot] = useState<PricingSnapshot | null>(null);
   const [bookingError, setBookingError] = useState<{ type: BookingErrorType; message?: string } | null>(null);
+
+  // Calculate if this is a multiroom booking
+  const isMultiroom = useMemo(() => isMultiroomBooking(), [selectedRooms]);
+
+  // Build room names map for multiroom modal
+  const roomNamesMap = useMemo(() => {
+    const map = new Map<number, string>();
+    let roomIndex = 0;
+    selectedRooms.forEach((room) => {
+      for (let i = 0; i < room.quantity; i++) {
+        map.set(roomIndex, room.roomName || `Room ${roomIndex + 1}`);
+        roomIndex++;
+      }
+    });
+    return map;
+  }, [selectedRooms]);
 
   useEffect(() => {
     // Short delay to allow store to hydrate from persistence
@@ -207,7 +239,8 @@ const {
     return true;
   };
 
-  const runPrebook = async (): Promise<{ 
+  // Single room prebook (backward compatible)
+  const runSingleRoomPrebook = async (): Promise<{ 
     success: boolean; 
     priceChanged: boolean; 
     newPrice?: number; 
@@ -215,7 +248,6 @@ const {
     bookingHash?: string;
     unavailable?: boolean;
   }> => {
-    // ✅ Get book_hash from selected room (NOT match_hash from search results)
     const firstRoom = selectedRooms[0];
     const bookHash = firstRoom?.book_hash;
 
@@ -223,21 +255,18 @@ const {
       throw new Error("No rate selected for prebook");
     }
 
-    // Validate we have a real book_hash (h-...), not match_hash (m-...)
     if (bookHash.startsWith('m-')) {
       console.error("Invalid hash format - received match_hash (m-...), need book_hash (h-...)");
-      throw new Error("Invalid room selection - please go back and select a room with available rates. The room data is missing book_hash.");
+      throw new Error("Invalid room selection - please go back and select a room with available rates.");
     }
 
-    // Validate it's a book_hash format (h-...) or prebooked hash (p-...)
     if (!bookHash.startsWith('h-') && !bookHash.startsWith('p-')) {
       console.error("Invalid hash format:", bookHash);
       throw new Error("Invalid room selection - please go back and select a room with available rates");
     }
 
-    console.log("📤 Prebook with book_hash:", bookHash);
+    console.log("📤 Single room prebook with book_hash:", bookHash);
 
-    // Call real Prebook API with 20% price increase tolerance
     const response = await bookingApi.prebook({
       book_hash: bookHash,
       residency: residency || "US",
@@ -245,7 +274,6 @@ const {
       price_increase_percent: 20,
     });
 
-    // Handle error responses - check for unavailable rates
     if (response.error) {
       if (response.error.code === "NO_AVAILABLE_RATES" || response.error.code === "RATE_NOT_FOUND") {
         console.warn("⚠️ Rate no longer available:", response.error);
@@ -255,8 +283,6 @@ const {
     }
 
     const { booking_hash, price_changed, new_price, original_price } = response.data;
-
-    // Store booking hash in store (this is the new p-... hash for order form!)
     setBookingHash(booking_hash);
 
     if (price_changed && new_price !== undefined) {
@@ -272,6 +298,92 @@ const {
     return { success: true, priceChanged: false, bookingHash: booking_hash };
   };
 
+  // Multiroom prebook - handles multiple rooms in parallel
+  const runMultiroomPrebook = async (): Promise<{
+    success: boolean;
+    partialSuccess: boolean;
+    response: MultiroomPrebookResponse | null;
+    prebookedRooms: PrebookedRoom[];
+  }> => {
+    // Build rooms array for multiroom prebook
+    const rooms: MultiroomPrebookParams["rooms"] = [];
+    let roomIndex = 0;
+
+    for (const room of selectedRooms) {
+      const bookHash = room.book_hash;
+      
+      if (!bookHash) {
+        throw new Error(`No rate selected for room: ${room.roomName}`);
+      }
+
+      // For each quantity, add a separate room entry
+      for (let i = 0; i < room.quantity; i++) {
+        // Build guests for this room from the guests array
+        // For simplicity, split guests evenly or use search params
+        const adultsCount = searchParams?.guests || 2;
+        const childrenAges = searchParams?.childrenAges || [];
+        
+        rooms.push({
+          book_hash: bookHash.startsWith('h-') || bookHash.startsWith('p-') ? bookHash : undefined,
+          match_hash: bookHash.startsWith('m-') ? bookHash : undefined,
+          guests: [{
+            adults: adultsCount,
+            children: childrenAges.map(age => ({ age })),
+          }],
+          residency: residency || "US",
+          price_increase_percent: 20,
+        });
+        roomIndex++;
+      }
+    }
+
+    console.log(`📤 Multiroom prebook with ${rooms.length} rooms`);
+
+    const response = await bookingApi.prebook({
+      rooms,
+      language: "en",
+      currency: selectedHotel?.currency || "USD",
+    }) as MultiroomPrebookResponse;
+
+    if (response.error) {
+      throw new Error(response.error.message);
+    }
+
+    const { data } = response;
+    const allFailed = data.failed_rooms === data.total_rooms;
+    const partialSuccess = data.failed_rooms > 0 && data.successful_rooms > 0;
+    const anyPriceChanged = data.rooms.some(r => r.price_changed);
+
+    // Convert to PrebookedRoom format and store
+    const prebookedRoomsData: PrebookedRoom[] = data.rooms.map((room, idx) => {
+      const originalRoom = selectedRooms[Math.floor(idx / (selectedRooms[0]?.quantity || 1))];
+      return {
+        roomIndex: room.roomIndex,
+        originalRoomId: originalRoom?.roomId || "",
+        booking_hash: room.booking_hash,
+        book_hash: room.book_hash,
+        price_changed: room.price_changed,
+        new_price: room.new_price,
+        original_price: room.original_price,
+        currency: room.currency,
+      };
+    });
+
+    setPrebookedRooms(prebookedRoomsData);
+
+    // If first room succeeded, set its booking hash for backward compat
+    if (data.rooms.length > 0) {
+      setBookingHash(data.rooms[0].booking_hash);
+    }
+
+    return {
+      success: !allFailed && !anyPriceChanged && !partialSuccess,
+      partialSuccess,
+      response,
+      prebookedRooms: prebookedRoomsData,
+    };
+  };
+
   const handleContinueToPayment = async () => {
     if (!validateForm()) return;
 
@@ -279,33 +391,63 @@ const {
     setBookingError(null);
 
     try {
-      const result = await runPrebook();
-      
-      // Handle unavailable rate - show modal to return to hotel
-      if (result.unavailable) {
-        setPriceChangeType("unavailable");
-        setShowPriceChange(true);
-        setIsPrebooking(false);
-        return;
+      if (isMultiroom) {
+        // Multiroom flow
+        const result = await runMultiroomPrebook();
+        
+        if (!result.response) {
+          throw new Error("Failed to prebook rooms");
+        }
+
+        const { response } = result;
+        const { data } = response;
+        const allFailed = data.failed_rooms === data.total_rooms;
+        const hasIssues = data.failed_rooms > 0 || data.rooms.some(r => r.price_changed);
+
+        if (allFailed) {
+          // All rooms unavailable - show multiroom modal
+          setMultiroomPrebookResponse(response);
+          setShowMultiroomPriceChange(true);
+          setIsPrebooking(false);
+          return;
+        }
+
+        if (hasIssues) {
+          // Some rooms failed or price changed - show multiroom modal
+          setMultiroomPrebookResponse(response);
+          setShowMultiroomPriceChange(true);
+          setIsPrebooking(false);
+          return;
+        }
+
+        // All rooms succeeded without issues - proceed to payment
+        setIsPricingLocked(true);
+        navigateToPayment(displayPrice, data.rooms[0]?.booking_hash, true, result.prebookedRooms);
+        
+      } else {
+        // Single room flow (existing logic)
+        const result = await runSingleRoomPrebook();
+        
+        if (result.unavailable) {
+          setPriceChangeType("unavailable");
+          setShowPriceChange(true);
+          setIsPrebooking(false);
+          return;
+        }
+
+        if (result.priceChanged && result.newPrice) {
+          const priceIncreased = result.newPrice > totalWithNights;
+          setPriceChangeType(priceIncreased ? "increase" : "decrease");
+          setOriginalPrice(result.originalPrice || totalWithNights);
+          setNewPrice(result.newPrice);
+          setShowPriceChange(true);
+          setIsPrebooking(false);
+          return;
+        }
+
+        setIsPricingLocked(true);
+        navigateToPayment(displayPrice, result.bookingHash);
       }
-
-      // Handle price change
-      if (result.priceChanged && result.newPrice) {
-        const priceIncreased = result.newPrice > totalWithNights;
-        setPriceChangeType(priceIncreased ? "increase" : "decrease");
-        setOriginalPrice(result.originalPrice || totalWithNights);
-        setNewPrice(result.newPrice);
-        setShowPriceChange(true);
-        setIsPrebooking(false);
-        return;
-      }
-
-      // Lock pricing after successful prebook
-      setIsPricingLocked(true);
-
-      // Success - navigate to payment page with booking hash from prebook
-      navigateToPayment(displayPrice, result.bookingHash);
-      
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unable to confirm room availability";
       const errorType = getBookingErrorType(error instanceof Error ? error : new Error(errorMessage));
@@ -334,7 +476,12 @@ const {
     navigate(`/hoteldetails/${selectedHotel.id}`);
   };
 
-  const navigateToPayment = (finalPrice: number, bookingHash?: string) => {
+  const navigateToPayment = (
+    finalPrice: number, 
+    bookingHashParam?: string,
+    isMultiroomBooking: boolean = false,
+    multiroomPrebookedRooms?: PrebookedRoom[]
+  ) => {
     // Use existing partner_order_id from store (generated on page load)
     const bookingId = partnerOrderId || generateAndSetPartnerOrderId();
     
@@ -342,10 +489,10 @@ const {
     const leadGuest = guests.find(g => g.isLead);
     const guestResidency = (leadGuest as Guest & { citizenship?: string })?.citizenship || residency || "US";
     
-    // Store booking data with booking hash for ETG certification
-    const pendingBooking: PendingBookingData = {
+    // Build base pending booking data
+    const basePendingBooking: PendingBookingData = {
       bookingId,
-      bookingHash: bookingHash || "",
+      bookingHash: bookingHashParam || "",
       hotel: {
         id: selectedHotel.id,
         name: selectedHotel.name,
@@ -389,7 +536,17 @@ const {
       })),
     };
 
-    sessionStorage.setItem("pending_booking", JSON.stringify(pendingBooking));
+    // Add multiroom data if applicable
+    if (isMultiroomBooking && multiroomPrebookedRooms) {
+      const multiroomBooking: MultiroomPendingBookingData = {
+        ...basePendingBooking,
+        isMultiroom: true,
+        prebookedRooms: multiroomPrebookedRooms,
+      };
+      sessionStorage.setItem("pending_booking", JSON.stringify(multiroomBooking));
+    } else {
+      sessionStorage.setItem("pending_booking", JSON.stringify(basePendingBooking));
+    }
 
     navigate(`/payment?booking_id=${bookingId}`);
   };
@@ -427,12 +584,59 @@ const {
     }
   };
 
+  // Multiroom modal handlers
+  const handleMultiroomAccept = () => {
+    setShowMultiroomPriceChange(false);
+    setIsPricingLocked(true);
+    
+    if (multiroomPrebookResponse && prebookedRooms.length > 0) {
+      // Calculate new total price from prebooked rooms
+      const newTotal = prebookedRooms.reduce((sum, room) => {
+        return sum + (room.new_price || room.original_price || 0);
+      }, 0);
+      
+      navigateToPayment(
+        pricingSnapshot?.clientPrice || newTotal,
+        prebookedRooms[0]?.booking_hash,
+        true,
+        prebookedRooms
+      );
+    }
+  };
+
+  const handleMultiroomDecline = () => {
+    setShowMultiroomPriceChange(false);
+    navigate(`/hoteldetails/${selectedHotel.id}`);
+  };
+
+  const handleMultiroomContinueWithAvailable = () => {
+    setShowMultiroomPriceChange(false);
+    setIsPricingLocked(true);
+    
+    // Filter to only successful rooms
+    const successfulRooms = prebookedRooms.filter(room => 
+      !multiroomPrebookResponse?.data.failed?.some(f => f.roomIndex === room.roomIndex)
+    );
+    
+    if (successfulRooms.length > 0) {
+      const newTotal = successfulRooms.reduce((sum, room) => {
+        return sum + (room.new_price || room.original_price || 0);
+      }, 0);
+      
+      navigateToPayment(
+        pricingSnapshot?.clientPrice || newTotal,
+        successfulRooms[0]?.booking_hash,
+        true,
+        successfulRooms
+      );
+    }
+  };
+
   const handlePricingChange = (pricing: PricingSnapshot) => {
     setPricingSnapshot(pricing);
   };
 
   const handleUnlockRequest = async () => {
-    // Unlock pricing and re-run prebook
     setIsPricingLocked(false);
     toast({
       title: "Pricing Unlocked",
@@ -441,7 +645,6 @@ const {
   };
 
   const handleSessionExpire = () => {
-    // Session expired - could clear data here
     console.log("Session expired");
   };
 
@@ -625,7 +828,7 @@ const {
 
       <Footer />
 
-      {/* Price Change / Unavailable Modal */}
+      {/* Price Change / Unavailable Modal (Single Room) */}
       <PriceConfirmationModal
         open={showPriceChange}
         onOpenChange={setShowPriceChange}
@@ -636,6 +839,20 @@ const {
         onAccept={handleAcceptPriceChange}
         onDecline={handleDeclinePriceChange}
       />
+
+      {/* Multiroom Price Change Modal */}
+      {multiroomPrebookResponse && (
+        <MultiroomPriceChangeModal
+          open={showMultiroomPriceChange}
+          onOpenChange={setShowMultiroomPriceChange}
+          prebookResponse={multiroomPrebookResponse}
+          roomNames={roomNamesMap}
+          currency={selectedHotel.currency}
+          onAccept={handleMultiroomAccept}
+          onDecline={handleMultiroomDecline}
+          onContinueWithAvailable={handleMultiroomContinueWithAvailable}
+        />
+      )}
     </div>
   );
 };
