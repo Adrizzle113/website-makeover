@@ -15,9 +15,41 @@ export function RoomAddonsSection({ rooms, hotel }: RoomAddonsSectionProps) {
     (room) => room.earlyCheckin?.available || room.lateCheckout?.available
   );
 
-  // Only show if we have rooms with available upsells
-  if (!rooms.length || !hasAnyUpsells) {
+  // Debug logging to track ECLC data flow
+  console.log('[RoomAddonsSection] Rooms ECLC data:', rooms.map(r => ({
+    roomId: r.roomId,
+    roomName: r.roomName,
+    earlyCheckin: r.earlyCheckin,
+    lateCheckout: r.lateCheckout,
+  })));
+  console.log('[RoomAddonsSection] hasAnyUpsells:', hasAnyUpsells);
+
+  // Don't show section if no rooms selected
+  if (!rooms.length) {
     return null;
+  }
+
+  // Show "no add-ons available" message if hotel doesn't offer ECLC
+  if (!hasAnyUpsells) {
+    return (
+      <Card className="border border-border/50 shadow-sm">
+        <CardContent className="p-6">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-muted/50">
+              <Info className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <h2 className="text-lg font-heading font-medium text-foreground">
+                No Add-ons Available
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                This hotel doesn't offer early check-in or late checkout options for your selected rate.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
