@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config/api";
 import { HotelDetails, POIData, UpsellsState, DEFAULT_UPSELLS_STATE, formatUpsellsForAPI } from "@/types/booking";
+import { getLanguage } from "@/hooks/useLanguage";
 
 // Categorize flat amenities into grouped structure for display
 const categorizeAmenities = (
@@ -458,7 +459,7 @@ const HotelDetailsPage = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
             hotelId: hotelId,
-            language: "en" 
+            language: getLanguage() 
           }),
         }
       );
@@ -622,6 +623,7 @@ const HotelDetailsPage = () => {
               },
               residency: "en-us",
               currency: "USD",
+              language: getLanguage(),
               timeout: 8, // 8-second timeout for faster responses
               upsells: formatUpsellsForAPI(upsells),
             }),
@@ -905,6 +907,7 @@ const HotelDetailsPage = () => {
           },
           residency: "en-us",
           currency: "USD",
+          language: getLanguage(),
           timeout: 8, // 8-second timeout for faster responses
           upsells: formatUpsellsForAPI(upsells),
         }),
