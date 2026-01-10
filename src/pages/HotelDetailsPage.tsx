@@ -623,7 +623,7 @@ const HotelDetailsPage = () => {
               residency: "en-us",
               currency: "USD",
               timeout: 8, // 8-second timeout for faster responses
-              ...(formatUpsellsForAPI(upsells) && { upsells: formatUpsellsForAPI(upsells) }),
+              upsells: formatUpsellsForAPI(upsells),
             }),
           })
         : Promise.resolve(null);
@@ -906,7 +906,7 @@ const HotelDetailsPage = () => {
           residency: "en-us",
           currency: "USD",
           timeout: 8, // 8-second timeout for faster responses
-          ...(formatUpsellsForAPI(upsells) && { upsells: formatUpsellsForAPI(upsells) }),
+          upsells: formatUpsellsForAPI(upsells),
         }),
       });
 

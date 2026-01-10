@@ -448,8 +448,12 @@ export const DEFAULT_UPSELLS_STATE: UpsellsState = {
 };
 
 // Helper to transform frontend state to API format
-export function formatUpsellsForAPI(state: UpsellsState): UpsellsRequest | undefined {
-  const result: UpsellsRequest = {};
+// Always returns a valid request object (never undefined) to ensure ECLC data is fetched
+export function formatUpsellsForAPI(state: UpsellsState): UpsellsRequest {
+  const result: UpsellsRequest = {
+    // Always request multiple ECLC options so we can show available add-ons
+    multiple_eclc: true,
+  };
 
   // Only include early_checkin if a time is actually specified
   // Sending empty object causes API 500: "early checkin must be in datetime format"
@@ -462,13 +466,9 @@ export function formatUpsellsForAPI(state: UpsellsState): UpsellsRequest | undef
     result.late_checkout = { time: state.lateCheckout.time };
   }
 
-  if (state.multipleEclc) {
-    result.multiple_eclc = true;
-  }
-
   if (state.onlyEclc) {
     result.only_eclc = true;
   }
 
-  return Object.keys(result).length > 0 ? result : undefined;
+  return result;
 }
