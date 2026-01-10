@@ -248,27 +248,6 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
             </div>
           )}
           
-          {/* Enrichment status badge */}
-          <div 
-            className={`absolute bottom-3 left-3 md:bottom-4 md:left-4 px-2 py-1 rounded-full text-[10px] md:text-xs flex items-center gap-1 ${
-              hasFullEnrichment(displayHotel) 
-                ? "bg-emerald-500/90 text-white" 
-                : "bg-amber-500/90 text-white"
-            }`}
-            title={hasFullEnrichment(displayHotel) ? "Full hotel data from database" : "Basic data (destination fallback)"}
-          >
-            {hasFullEnrichment(displayHotel) ? (
-              <>
-                <Database className="w-3 h-3" />
-                <span className="hidden md:inline">Verified</span>
-              </>
-            ) : (
-              <>
-                <MapPinned className="w-3 h-3" />
-                <span className="hidden md:inline">Basic</span>
-              </>
-            )}
-          </div>
         </div>
 
         {/* Content */}
