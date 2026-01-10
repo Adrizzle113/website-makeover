@@ -1012,14 +1012,16 @@ export function RoomSelectionSection({
                   />
                 )}
 
-                {/* Upsells - show when room is selected */}
-                {isSelected && (checkInTime || checkOutTime) && (
+                {/* Upsells - show when room is selected and API has ECLC data */}
+                {isSelected && (activeRate.earlyCheckin?.available || activeRate.lateCheckout?.available) && (
                   <RoomUpsells
                     roomId={room.id}
                     roomName={room.name}
                     currency={activeRate.currency}
                     checkInTime={checkInTime}
                     checkOutTime={checkOutTime}
+                    earlyCheckin={activeRate.earlyCheckin}
+                    lateCheckout={activeRate.lateCheckout}
                   />
                 )}
               </Card>

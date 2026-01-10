@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Clock, Info } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -9,7 +8,15 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { useBookingStore, type SelectedUpsell, type Upsell } from "@/stores/bookingStore";
+import { useBookingStore, type Upsell } from "@/stores/bookingStore";
+import { formatTimeWithPreference } from "@/hooks/useClockFormat";
+
+// ECLC data structure from API
+export interface EclcData {
+  available?: boolean;
+  time?: string;
+  price?: { amount: string; currency: string };
+}
 
 interface RoomUpsellsProps {
   roomId: string;
@@ -17,40 +24,59 @@ interface RoomUpsellsProps {
   currency: string;
   checkInTime?: string;
   checkOutTime?: string;
+  // API data for upsells
+  earlyCheckin?: EclcData;
+  lateCheckout?: EclcData;
 }
 
-// Simulated upsell data - in production, this would come from the API
-const getAvailableUpsells = (
+// Build upsells from API data
+const buildUpsellsFromApi = (
   roomId: string,
   currency: string,
   checkInTime?: string,
-  checkOutTime?: string
+  checkOutTime?: string,
+  earlyCheckin?: EclcData,
+  lateCheckout?: EclcData
 ): Upsell[] => {
   const upsells: Upsell[] = [];
 
-  // Early check-in upsell (if hotel has a check-in time)
-  if (checkInTime) {
+  // Early check-in from API data
+  if (earlyCheckin?.available && earlyCheckin.time) {
+    const price = earlyCheckin.price 
+      ? parseFloat(earlyCheckin.price.amount) 
+      : 0;
+    const upsellCurrency = earlyCheckin.price?.currency || currency;
+    
     upsells.push({
       id: `early_checkin_${roomId}`,
       type: "early_checkin",
       name: "Early Check-in",
-      description: "Check in earlier and start your stay sooner",
-      price: 35,
-      currency,
-      newTime: "10:00 AM",
+      description: checkInTime 
+        ? `Check in at ${formatTimeWithPreference(earlyCheckin.time)} instead of ${formatTimeWithPreference(checkInTime)}`
+        : `Check in at ${formatTimeWithPreference(earlyCheckin.time)}`,
+      price,
+      currency: upsellCurrency,
+      newTime: formatTimeWithPreference(earlyCheckin.time),
     });
   }
 
-  // Late checkout upsell (if hotel has a checkout time)
-  if (checkOutTime) {
+  // Late checkout from API data
+  if (lateCheckout?.available && lateCheckout.time) {
+    const price = lateCheckout.price 
+      ? parseFloat(lateCheckout.price.amount) 
+      : 0;
+    const upsellCurrency = lateCheckout.price?.currency || currency;
+    
     upsells.push({
       id: `late_checkout_${roomId}`,
       type: "late_checkout",
       name: "Late Checkout",
-      description: "Extend your stay and check out later",
-      price: 45,
-      currency,
-      newTime: "3:00 PM",
+      description: checkOutTime 
+        ? `Check out at ${formatTimeWithPreference(lateCheckout.time)} instead of ${formatTimeWithPreference(checkOutTime)}`
+        : `Check out at ${formatTimeWithPreference(lateCheckout.time)}`,
+      price,
+      currency: upsellCurrency,
+      newTime: formatTimeWithPreference(lateCheckout.time),
     });
   }
 
@@ -63,14 +89,18 @@ export function RoomUpsells({
   currency,
   checkInTime,
   checkOutTime,
+  earlyCheckin,
+  lateCheckout,
 }: RoomUpsellsProps) {
   const { selectedUpsells, addUpsell, removeUpsell } = useBookingStore();
 
-  const availableUpsells = getAvailableUpsells(
+  const availableUpsells = buildUpsellsFromApi(
     roomId,
     currency,
     checkInTime,
-    checkOutTime
+    checkOutTime,
+    earlyCheckin,
+    lateCheckout
   );
 
   if (availableUpsells.length === 0) {
@@ -91,8 +121,9 @@ export function RoomUpsells({
     }
   };
 
-  const formatCurrency = (price: number) => {
-    return currency === "USD" ? `$${price}` : `${currency} ${price}`;
+  const formatCurrency = (price: number, curr: string) => {
+    if (price === 0) return "Free";
+    return curr === "USD" ? `$${price.toFixed(2)}` : `${curr} ${price.toFixed(2)}`;
   };
 
   return (
@@ -144,7 +175,7 @@ export function RoomUpsells({
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-foreground">
-                  +{formatCurrency(upsell.price)}
+                  {upsell.price > 0 ? `+${formatCurrency(upsell.price, upsell.currency)}` : "Included"}
                 </span>
                 <TooltipProvider>
                   <Tooltip>
@@ -153,9 +184,7 @@ export function RoomUpsells({
                     </TooltipTrigger>
                     <TooltipContent>
                       <p className="max-w-[200px] text-xs">
-                        {upsell.description}. {upsell.type === "early_checkin" 
-                          ? `Standard check-in: ${checkInTime}` 
-                          : `Standard checkout: ${checkOutTime}`}
+                        {upsell.description}
                       </p>
                     </TooltipContent>
                   </Tooltip>
