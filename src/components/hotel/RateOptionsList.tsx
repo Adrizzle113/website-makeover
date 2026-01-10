@@ -17,6 +17,9 @@ export interface RateOption {
   paymentLabel: string;
   cancellation: string;
   cancellationDeadline?: string;
+  cancellationTime?: string;
+  cancellationTimezone?: string;
+  cancellationRawDate?: string;
   roomAmenities?: string[];
   allotment?: number;
   bookHash?: string;
@@ -62,20 +65,29 @@ const getMealIcon = (meal: string) => {
   return <Coffee className="w-3 h-3" />;
 };
 
-const getCancellationDisplay = (cancellation: string, deadline?: string, fee?: string) => {
+const getCancellationDisplay = (
+  cancellation: string, 
+  deadline?: string, 
+  time?: string,
+  timezone?: string,
+  fee?: string
+) => {
   // Check for explicit free cancellation indicator
   const isFreeCancellation = cancellation === "free_cancellation" || 
     cancellation?.toLowerCase().includes("free") || 
     cancellation?.toLowerCase().includes("refundable");
   
+  // Build time display with timezone
+  const timeDisplay = time && timezone ? ` at ${time} (${timezone})` : "";
+  
   // Build label based on cancellation type and deadline
   let label: string;
   if (isFreeCancellation && deadline) {
-    label = `Free cancellation until ${deadline}`;
+    label = `Free cancellation until ${deadline}${timeDisplay}`;
   } else if (deadline && fee && fee !== "0") {
-    label = `$${fee} fee until ${deadline}`;
+    label = `$${fee} fee until ${deadline}${timeDisplay}`;
   } else if (deadline) {
-    label = `Free until ${deadline}`;
+    label = `Free until ${deadline}${timeDisplay}`;
   } else if (isFreeCancellation) {
     label = "Free cancellation";
   } else {
@@ -131,7 +143,7 @@ export function RateOptionsList({
             {rates.map((rate) => {
               const mealLabel = getMealLabel(rate.meal);
               const mealIcon = getMealIcon(rate.meal);
-              const cancellationInfo = getCancellationDisplay(rate.cancellation, rate.cancellationDeadline, rate.cancellationFee);
+              const cancellationInfo = getCancellationDisplay(rate.cancellation, rate.cancellationDeadline, rate.cancellationTime, rate.cancellationTimezone, rate.cancellationFee);
               const pricePerNight = Math.round(rate.price / nights);
               const isSelected = rate.id === selectedRateId;
 
