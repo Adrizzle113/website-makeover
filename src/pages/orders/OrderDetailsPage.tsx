@@ -333,26 +333,38 @@ export default function OrderDetailsPage() {
   const daysUntilCancellation = getDaysUntilCancellation();
 
   const handleDownloadDocument = async (docType: "voucher" | "invoice" | "single_act", docName: string) => {
+    if (!order) return;
     setIsDownloading(docType);
     try {
-      let response;
+      let downloadUrl: string | undefined;
+      let fileName: string;
+      
       switch (docType) {
-        case "voucher":
-          response = await bookingApi.downloadVoucher(order.id);
+        case "voucher": {
+          const response = await bookingApi.downloadVoucher(order.id);
+          downloadUrl = response.voucher_url || response.data?.url;
+          fileName = `voucher-${response.partner_order_id || order.id}.pdf`;
           break;
-        case "invoice":
-          response = await bookingApi.downloadInvoice(order.id);
+        }
+        case "invoice": {
+          const response = await bookingApi.downloadInvoice(order.id);
+          downloadUrl = response.invoice_url || response.data?.url;
+          fileName = response.invoice_number ? `invoice-${response.invoice_number}.pdf` : `invoice-${order.id}.pdf`;
           break;
-        case "single_act":
-          response = await bookingApi.downloadSingleAct(order.id);
+        }
+        case "single_act": {
+          const response = await bookingApi.downloadSingleAct(order.id);
+          downloadUrl = response.act_url || response.data?.url;
+          fileName = response.act_number ? `act-${response.act_number}.pdf` : `act-${order.id}.pdf`;
           break;
+        }
       }
       
-      if (response.status === "ok" && response.data.url) {
-        bookingApi.triggerDownload(response.data.url, response.data.file_name);
+      if (downloadUrl) {
+        bookingApi.triggerDownload(downloadUrl, fileName);
         toast.success(`${docName} downloaded successfully`);
       } else {
-        toast.error(response.error?.message || "Failed to download document");
+        toast.error("Failed to download document - no URL returned");
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to download document");

@@ -338,11 +338,12 @@ export default function MyBookingsPage() {
     
     try {
       const response = await bookingApi.downloadVoucher(booking.orderId);
-      if (response.status === "ok" && response.data.url) {
-        bookingApi.triggerDownload(
-          response.data.url, 
-          response.data.file_name || `voucher-${booking.orderId}.pdf`
-        );
+      // Handle new response format from backend mock
+      const voucherUrl = response.voucher_url || response.data?.url;
+      const fileName = `voucher-${response.partner_order_id || booking.orderId}.pdf`;
+      
+      if (voucherUrl) {
+        bookingApi.triggerDownload(voucherUrl, fileName);
         toast.success("Voucher downloaded", {
           description: `Voucher for ${booking.hotelName} has been downloaded.`,
         });
