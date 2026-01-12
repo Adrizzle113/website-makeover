@@ -24,6 +24,8 @@ import {
   Sunset,
   BadgeCheck,
   Building2,
+  Receipt,
+  FileCheck,
 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -43,7 +45,7 @@ import { bookingApi } from "@/services/bookingApi";
 import { createBookingCalendarEvent, downloadICSFile } from "@/lib/calendarUtils";
 import { BookingTimeline } from "@/components/booking";
 import { TaxSummary } from "@/components/booking/TaxSummary";
-import type { PendingBookingData } from "@/types/etgBooking";
+import type { PendingBookingData, ContractData } from "@/types/etgBooking";
 import type { TaxItem } from "@/types/booking";
 
 interface ConfirmedBooking {
@@ -110,12 +112,36 @@ export default function BookingConfirmationPage() {
   const [booking, setBooking] = useState<ConfirmedBooking | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [voucherLoading, setVoucherLoading] = useState(false);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [emailSending, setEmailSending] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [contractData, setContractData] = useState<ContractData | null>(null);
+  const [contractLoading, setContractLoading] = useState(false);
 
   useEffect(() => {
     loadBookingData();
   }, [orderId]);
+
+  useEffect(() => {
+    if (orderId && booking) {
+      loadContractData();
+    }
+  }, [orderId, booking]);
+
+  const loadContractData = async () => {
+    if (!orderId) return;
+    setContractLoading(true);
+    try {
+      const response = await bookingApi.getContractData(orderId);
+      if (response.status === "ok" && response.data) {
+        setContractData(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to load contract data:", error);
+    } finally {
+      setContractLoading(false);
+    }
+  };
 
   const loadBookingData = async () => {
     setIsLoading(true);
@@ -323,6 +349,43 @@ export default function BookingConfirmationPage() {
     }
     
     setVoucherLoading(false);
+  };
+
+  const handleDownloadInvoice = async () => {
+    setInvoiceLoading(true);
+    
+    try {
+      if (orderId) {
+        const response = await bookingApi.downloadInvoice(orderId);
+        if (response.status === "ok" && response.data.url) {
+          bookingApi.triggerDownload(
+            response.data.url,
+            response.data.file_name || `invoice-${orderId}.pdf`
+          );
+          toast({
+            title: "Invoice Downloaded",
+            description: "Your booking invoice has been downloaded.",
+          });
+        } else {
+          throw new Error(response.error?.message || "Failed to download invoice");
+        }
+      } else {
+        toast({
+          title: "Invoice Unavailable",
+          description: "Invoice generation requires a confirmed booking.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to download invoice:", error);
+      toast({
+        title: "Download Failed",
+        description: error instanceof Error ? error.message : "Please try again later.",
+        variant: "destructive",
+      });
+    }
+    
+    setInvoiceLoading(false);
   };
 
   const generateVoucherHTML = (): string => {
@@ -848,7 +911,7 @@ export default function BookingConfirmationPage() {
             </Card>
 
             {/* Actions Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
               <Button
                 variant="outline"
                 className="h-auto py-4 flex-col gap-2"
@@ -861,6 +924,20 @@ export default function BookingConfirmationPage() {
                   <Download className="h-5 w-5" />
                 )}
                 <span className="text-xs">Download Voucher</span>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-auto py-4 flex-col gap-2"
+                onClick={handleDownloadInvoice}
+                disabled={invoiceLoading}
+              >
+                {invoiceLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Receipt className="h-5 w-5" />
+                )}
+                <span className="text-xs">Download Invoice</span>
               </Button>
               
               <Button
@@ -895,6 +972,71 @@ export default function BookingConfirmationPage() {
                 <span className="text-xs">Share Booking</span>
               </Button>
             </div>
+
+            {/* Contract Data Section */}
+            {(contractData || contractLoading) && (
+              <Card className="mb-6">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-heading flex items-center gap-2">
+                    <FileCheck className="h-5 w-5 text-primary" />
+                    Contract Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {contractLoading ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm">Loading contract details...</span>
+                    </div>
+                  ) : contractData ? (
+                    <div className="space-y-4 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-muted-foreground mb-1">Contract ID</p>
+                          <p className="font-medium text-foreground font-mono">{contractData.contract_id}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground mb-1">Rate Type</p>
+                          <Badge variant="secondary" className="capitalize">{contractData.rate_type}</Badge>
+                        </div>
+                        {contractData.supplier_name && (
+                          <div>
+                            <p className="text-muted-foreground mb-1">Supplier</p>
+                            <p className="font-medium text-foreground">{contractData.supplier_name}</p>
+                          </div>
+                        )}
+                        {contractData.payment_terms && (
+                          <div>
+                            <p className="text-muted-foreground mb-1">Payment Terms</p>
+                            <p className="font-medium text-foreground">{contractData.payment_terms}</p>
+                          </div>
+                        )}
+                      </div>
+                      {contractData.terms && contractData.terms.length > 0 && (
+                        <div className="pt-2 border-t border-border">
+                          <p className="text-muted-foreground mb-2">Terms & Conditions</p>
+                          <ul className="list-disc list-inside space-y-1 text-foreground">
+                            {contractData.terms.slice(0, 5).map((term, idx) => (
+                              <li key={idx}>{term}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {contractData.special_conditions && contractData.special_conditions.length > 0 && (
+                        <div className="pt-2 border-t border-border">
+                          <p className="text-muted-foreground mb-2">Special Conditions</p>
+                          <ul className="list-disc list-inside space-y-1 text-foreground">
+                            {contractData.special_conditions.map((condition, idx) => (
+                              <li key={idx}>{condition}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Important Information Accordion */}
             <Accordion type="single" collapsible className="mb-6">
