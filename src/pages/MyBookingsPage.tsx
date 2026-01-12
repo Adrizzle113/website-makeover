@@ -365,7 +365,12 @@ export default function MyBookingsPage() {
     message?: string; 
   }) => {
     if (result.success && bookingToCancel) {
-      // In a real app, you would refetch bookings from the API
+      // Update the booking status to cancelled
+      setBookings(prev => prev.map(booking => 
+        booking.orderId === bookingToCancel.orderId 
+          ? { ...booking, status: "cancelled" as const, canCancel: false }
+          : booking
+      ));
       toast.success("Booking cancelled", {
         description: `Your booking at ${bookingToCancel.hotelName} has been cancelled.`,
       });
