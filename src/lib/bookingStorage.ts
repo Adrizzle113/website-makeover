@@ -10,6 +10,7 @@ import type {
 } from "@/types/userBooking";
 import { transformBookingRow } from "@/types/userBooking";
 import type { OrderInfoResponse, PendingBookingData } from "@/types/etgBooking";
+import { isDemoOrder, getMockPendingBookingData } from "@/lib/mockBookingData";
 
 // Table name constant
 const TABLE_NAME = "user_bookings";
@@ -36,6 +37,13 @@ export async function saveBookingToDatabase(
     if (!userId) {
       console.warn("No authenticated user, cannot save booking to database");
       return { success: false, error: "User not authenticated" };
+    }
+
+    // For demo orders, use mock data if no pending data provided
+    const isDemo = isDemoOrder(orderId);
+    if (isDemo && !pendingData) {
+      pendingData = getMockPendingBookingData(orderId);
+      console.log("📦 Using mock pending data for demo order:", orderId);
     }
 
     // Check if booking already exists using raw query

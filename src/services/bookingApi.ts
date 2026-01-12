@@ -1,6 +1,7 @@
 // ETG / RateHawk Booking API Service
 import { API_BASE_URL } from "@/config/api";
 import { getOrCreateUserId } from "@/lib/getOrCreateUserId";
+import { isDemoOrder, MOCK_API_RESPONSES } from "@/lib/mockBookingData";
 import type {
   PrebookParams,
   PrebookResponse,
@@ -439,6 +440,12 @@ class BookingApiService {
    * MUST call repeatedly until confirmed or failed
    */
   async getOrderStatus(orderId: string): Promise<OrderStatusResponse> {
+    // Return mock response for demo orders
+    if (isDemoOrder(orderId)) {
+      console.log("📤 Get demo order status (mock):", { orderId });
+      return MOCK_API_RESPONSES.orderStatus(orderId) as OrderStatusResponse;
+    }
+
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.ORDER_STATUS}`;
     const userId = this.getCurrentUserId();
 
@@ -460,6 +467,12 @@ class BookingApiService {
    * Step 6a: Get Order Information - Retrieve full order details
    */
   async getOrderInfo(orderId: string): Promise<OrderInfoResponse> {
+    // Return mock response for demo orders
+    if (isDemoOrder(orderId)) {
+      console.log("📤 Get demo order info (mock):", { orderId });
+      return MOCK_API_RESPONSES.orderInfo(orderId) as OrderInfoResponse;
+    }
+
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.ORDER_INFO}`;
     const userId = this.getCurrentUserId();
 
@@ -724,6 +737,12 @@ class BookingApiService {
    * @param language - Language code (default: "en")
    */
   async cancelBooking(orderId: string, reason?: string, language: string = "en"): Promise<CancellationResponse> {
+    // Return mock response for demo orders
+    if (isDemoOrder(orderId)) {
+      console.log("🚫 Cancel demo booking (mock):", { orderId });
+      return MOCK_API_RESPONSES.cancellation(orderId);
+    }
+
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.CANCEL_BOOKING}`;
     const userId = this.getCurrentUserId();
 
@@ -836,6 +855,12 @@ class BookingApiService {
    * @param language - Language code (default: "en")
    */
   async downloadVoucher(partnerOrderId: string, language: string = "en"): Promise<VoucherDownloadResponse> {
+    // Return mock response for demo orders
+    if (isDemoOrder(partnerOrderId)) {
+      console.log("🎫 Download demo voucher (mock):", { partnerOrderId });
+      return MOCK_API_RESPONSES.voucher(partnerOrderId, partnerOrderId);
+    }
+
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.VOUCHER_DOWNLOAD}`;
     const userId = this.getCurrentUserId();
 
@@ -860,6 +885,12 @@ class BookingApiService {
    * @param orderId - The order ID
    */
   async downloadInvoice(orderId: string): Promise<InvoiceDownloadResponse> {
+    // Return mock response for demo orders
+    if (isDemoOrder(orderId)) {
+      console.log("🧾 Download demo invoice (mock):", { orderId });
+      return MOCK_API_RESPONSES.invoice(orderId);
+    }
+
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.INVOICE_DOWNLOAD}`;
     const userId = this.getCurrentUserId();
 
