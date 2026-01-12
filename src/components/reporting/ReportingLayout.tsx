@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { cn } from "@/lib/utils";
 import {
@@ -41,10 +41,15 @@ export function ReportingLayout({ children, title, description }: ReportingLayou
           <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
             {/* Header */}
             <div className="mb-6">
-              <h1 className="text-2xl font-heading font-semibold text-foreground">{title}</h1>
-              {description && (
-                <p className="text-muted-foreground mt-1">{description}</p>
-              )}
+              <div className="flex items-center gap-4">
+                <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+                <div>
+                  <h1 className="text-2xl font-heading font-semibold text-foreground">{title}</h1>
+                  {description && (
+                    <p className="text-muted-foreground mt-1">{description}</p>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Tab Navigation */}
