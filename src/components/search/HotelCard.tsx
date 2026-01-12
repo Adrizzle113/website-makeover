@@ -15,12 +15,36 @@ interface HotelCardProps {
   onHover?: (hotelId: string | null) => void;
   onFocus?: (hotelId: string) => void;
 }
-
 // Check if hotel has full enrichment data (from database) vs fallback (destination only)
 const hasFullEnrichment = (hotel: Hotel): boolean => {
   const staticData = (hotel as any).ratehawk_data?.static_data;
   if (!staticData) return false;
   return !!(staticData.address || staticData.amenities?.length > 0 || staticData.description);
+};
+
+// Generate fallback amenities based on star rating when real data is unavailable
+const getFallbackAmenities = (starRating: number) => {
+  const amenities = [
+    { id: 'wifi', name: 'Free Wi-Fi' },
+  ];
+  
+  if (starRating >= 2) {
+    amenities.push({ id: 'parking', name: 'Parking' });
+  }
+  
+  if (starRating >= 3) {
+    amenities.push({ id: 'ac', name: 'Air Conditioning' });
+  }
+  
+  if (starRating >= 4) {
+    amenities.push({ id: 'pool', name: 'Pool' });
+  }
+  
+  if (starRating >= 5) {
+    amenities.push({ id: 'spa', name: 'Spa' });
+  }
+  
+  return amenities.slice(0, 3);
 };
 
 // Normalize image URLs - handle backend placeholder and {size} placeholders
@@ -304,7 +328,19 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
                 <div className="h-6 w-16 rounded-full skeleton-shimmer" />
                 <div className="h-6 w-24 rounded-full skeleton-shimmer" />
               </div>
-            ) : null}
+            ) : (
+              // Fallback amenities when enriched but no amenities data
+              <div className="flex flex-wrap gap-1.5 md:gap-2 mb-4 md:mb-5">
+                {getFallbackAmenities(displayStars || 3).map((amenity) => (
+                  <span
+                    key={amenity.id}
+                    className="badge-pill text-[10px] md:text-xs bg-muted/50 text-muted-foreground border-muted px-2 md:px-3 py-0.5 md:py-1"
+                  >
+                    {amenity.name}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Price & CTA */}
