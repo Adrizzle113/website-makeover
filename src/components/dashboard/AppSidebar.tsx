@@ -9,6 +9,8 @@ import {
   GlobeIcon,
   HelpCircleIcon,
   FolderOpenIcon,
+  PanelLeftIcon,
+  PanelRightIcon,
 } from "lucide-react";
 import {
   Sidebar,
@@ -25,6 +27,8 @@ import {
 } from "@/components/ui/sidebar";
 import { NavLink } from "@/components/NavLink";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboardIcon },
@@ -43,7 +47,7 @@ const secondaryNavItems = [
 
 export function AppSidebar() {
   const location = useLocation();
-  const { state } = useSidebar();
+  const { state, toggleSidebar } = useSidebar();
   const collapsed = state === "collapsed";
 
   const isActive = (url: string) => location.pathname === url;
@@ -181,11 +185,42 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 pt-2">
+      <SidebarFooter className="p-3 pt-2">
         {/* Subtle divider */}
         {!collapsed && (
-          <div className="mb-4 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+          <div className="mb-3 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         )}
+        
+        {/* Collapse toggle button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleSidebar}
+              className={`
+                w-full flex items-center gap-2 px-3 py-2 rounded-lg
+                text-muted-foreground hover:text-foreground hover:bg-muted
+                transition-all duration-200
+                ${collapsed ? 'justify-center' : 'justify-start'}
+              `}
+            >
+              {collapsed ? (
+                <PanelRightIcon className="w-4 h-4" />
+              ) : (
+                <>
+                  <PanelLeftIcon className="w-4 h-4" />
+                  <span className="text-sm">Collapse</span>
+                </>
+              )}
+            </Button>
+          </TooltipTrigger>
+          {collapsed && (
+            <TooltipContent side="right">
+              <p>Expand sidebar</p>
+            </TooltipContent>
+          )}
+        </Tooltip>
       </SidebarFooter>
     </Sidebar>
   );
