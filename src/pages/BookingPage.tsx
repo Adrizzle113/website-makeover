@@ -163,7 +163,7 @@ const BookingPage = () => {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => navigate("/")}
+                  onClick={() => navigate("/dashboard/search")}
                 >
                   Search Hotels
                 </Button>
