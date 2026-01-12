@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import heroImage from "@/assets/hero-luxury-bedroom.jpg";
 
 export function HeroSection() {
   const scrollToResults = () => {
@@ -13,8 +14,7 @@ export function HeroSection() {
       <div
         className="absolute inset-4 md:inset-8 rounded-3xl md:rounded-[2.5rem] overflow-hidden bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage:
-            "url('https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&w=2000&q=80')",
+          backgroundImage: `url('${heroImage}')`,
         }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/50" />
