@@ -50,6 +50,27 @@ import { saveBookingToDatabase, isUserAuthenticated } from "@/lib/bookingStorage
 import type { PendingBookingData, ContractData } from "@/types/etgBooking";
 import type { TaxItem } from "@/types/booking";
 
+// localStorage key for storing order IDs (same as MyBookingsPage)
+const SAVED_ORDERS_KEY = "my_booking_order_ids";
+
+function getSavedOrderIds(): string[] {
+  try {
+    const saved = localStorage.getItem(SAVED_ORDERS_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
+function addOrderIdToStorage(orderId: string): void {
+  const orderIds = getSavedOrderIds();
+  if (!orderIds.includes(orderId)) {
+    orderIds.push(orderId);
+    localStorage.setItem(SAVED_ORDERS_KEY, JSON.stringify(orderIds));
+    console.log("Order ID saved to localStorage:", orderId);
+  }
+}
+
 interface ConfirmedBooking {
   id: string;
   confirmationNumber: string;
@@ -130,6 +151,9 @@ export default function BookingConfirmationPage() {
     if (!booking || !orderId || bookingSaved) return;
 
     const isDemo = isDemoOrder(orderId);
+
+    // Always save order ID to localStorage for My Bookings access (works without auth)
+    addOrderIdToStorage(orderId);
 
     const saveToDatabase = async () => {
       // Wait 3 seconds for real orders (RateHawk best practices), skip for demo
