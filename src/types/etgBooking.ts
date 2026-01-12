@@ -588,3 +588,188 @@ export interface MultiroomPendingBookingData extends PendingBookingData {
   orderForms?: OrderFormData[];
   multiroomStatus?: MultiroomBookingStatus;
 }
+
+// ============================================
+// POST-BOOKING TYPES (Cancel, Contract, Financial, Documents)
+// ============================================
+
+// Cancellation Request
+export interface CancellationRequest {
+  order_id: string;
+  reason?: string;
+}
+
+// Cancellation penalty term
+export interface CancellationPenalty {
+  from_date: string;
+  to_date?: string;
+  amount: number;
+  currency_code: string;
+  percent?: number;
+}
+
+// Cancellation Response
+export interface CancellationResponse {
+  status: "ok" | "error";
+  data: {
+    order_id: string;
+    status: "cancelled" | "pending_cancellation" | "cancellation_failed";
+    refund_amount?: number;
+    refund_currency?: string;
+    cancellation_fee?: number;
+    expected_refund_date?: string;
+    cancellation_id?: string;
+    message?: string;
+  };
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+// Contract Data
+export interface ContractData {
+  order_id: string;
+  contract_id: string;
+  rate_type: "net" | "sell" | "gross";
+  supplier_name?: string;
+  commission_percent?: number;
+  markup_percent?: number;
+  terms: string[];
+  cancellation_terms: CancellationPenalty[];
+  payment_terms?: string;
+  special_conditions?: string[];
+}
+
+export interface ContractDataResponse {
+  status: "ok" | "error";
+  data: ContractData;
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+// Tax and fee items for financial info
+export interface TaxItem {
+  name: string;
+  amount: number;
+  currency_code: string;
+  included_in_price: boolean;
+}
+
+export interface FeeItem {
+  name: string;
+  amount: number;
+  currency_code: string;
+  type: "service" | "booking" | "processing" | "other";
+}
+
+// Transaction record
+export interface Transaction {
+  id: string;
+  type: "charge" | "refund" | "adjustment";
+  amount: number;
+  currency_code: string;
+  status: "pending" | "completed" | "failed";
+  timestamp: string;
+  description?: string;
+  payment_method?: string;
+}
+
+// Financial Info
+export interface FinancialInfo {
+  order_id: string;
+  amounts: {
+    net_rate: number;
+    sell_rate: number;
+    commission: number;
+    taxes: TaxItem[];
+    fees: FeeItem[];
+    total: number;
+    currency_code: string;
+  };
+  payment_status: "pending" | "paid" | "partial" | "refunded";
+  transactions: Transaction[];
+  billing_info?: {
+    invoice_number?: string;
+    invoice_date?: string;
+    due_date?: string;
+  };
+}
+
+export interface FinancialInfoResponse {
+  status: "ok" | "error";
+  data: FinancialInfo;
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+// Closing document types
+export type ClosingDocumentType = 
+  | "voucher" 
+  | "invoice" 
+  | "confirmation" 
+  | "single_act" 
+  | "receipt" 
+  | "contract";
+
+// Closing document info
+export interface ClosingDocumentInfo {
+  id: string;
+  type: ClosingDocumentType;
+  name: string;
+  generated_at: string;
+  available: boolean;
+  file_size?: number;
+  format?: "pdf" | "html";
+}
+
+export interface ClosingDocumentsInfoResponse {
+  status: "ok" | "error";
+  data: {
+    order_id: string;
+    documents: ClosingDocumentInfo[];
+  };
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+// Document download response
+export interface DocumentDownloadResponse {
+  status: "ok" | "error";
+  data: {
+    url: string;
+    expires_at: string;
+    file_name: string;
+    content_type: string;
+    file_size?: number;
+  };
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+// Order group invoice (for trips)
+export interface OrderGroupInvoiceResponse {
+  status: "ok" | "error";
+  data: {
+    order_group_id: string;
+    url: string;
+    expires_at: string;
+    file_name: string;
+    content_type: string;
+    total_amount: number;
+    currency_code: string;
+    order_count: number;
+  };
+  error?: {
+    code: string;
+    message: string;
+  };
+}

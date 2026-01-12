@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { 
   ArrowLeftIcon,
   CalendarIcon, 
@@ -28,7 +28,9 @@ import {
   PrinterIcon,
   InfoIcon,
   SparklesIcon,
-  ShieldCheckIcon
+  ShieldCheckIcon,
+  Loader2Icon,
+  ReceiptIcon,
 } from "lucide-react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
@@ -40,6 +42,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Order, OrderStatus, OrderTimelineEvent, OrderEventType, OrderEventSource } from "@/types/trips";
 import { toast } from "sonner";
+import { bookingApi } from "@/services/bookingApi";
+import { CancellationModal } from "@/components/booking/CancellationModal";
 
 // Mock data
 const mockOrder: Order & {
@@ -228,10 +232,13 @@ const sourceLabels: Record<OrderEventSource, string> = {
 
 export default function OrderDetailsPage() {
   const { orderId } = useParams();
-  const [order] = useState(mockOrder);
+  const navigate = useNavigate();
+  const [order, setOrder] = useState(mockOrder);
   const [timeline, setTimeline] = useState<OrderTimelineEvent[]>(mockTimeline);
   const [newNote, setNewNote] = useState("");
   const [isAddingNote, setIsAddingNote] = useState(false);
+  const [showCancellationModal, setShowCancellationModal] = useState(false);
+  const [isDownloading, setIsDownloading] = useState<string | null>(null);
 
   const handleAddNote = () => {
     if (!newNote.trim()) return;
@@ -298,6 +305,55 @@ export default function OrderDetailsPage() {
   };
 
   const daysUntilCancellation = getDaysUntilCancellation();
+
+  const handleDownloadDocument = async (docType: "voucher" | "invoice" | "single_act", docName: string) => {
+    setIsDownloading(docType);
+    try {
+      let response;
+      switch (docType) {
+        case "voucher":
+          response = await bookingApi.downloadVoucher(order.id);
+          break;
+        case "invoice":
+          response = await bookingApi.downloadInvoice(order.id);
+          break;
+        case "single_act":
+          response = await bookingApi.downloadSingleAct(order.id);
+          break;
+      }
+      
+      if (response.status === "ok" && response.data.url) {
+        bookingApi.triggerDownload(response.data.url, response.data.file_name);
+        toast.success(`${docName} downloaded successfully`);
+      } else {
+        toast.error(response.error?.message || "Failed to download document");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to download document");
+    } finally {
+      setIsDownloading(null);
+    }
+  };
+
+  const handleCancellationComplete = (result: { success: boolean; refundAmount?: number; message?: string }) => {
+    if (result.success) {
+      // Update order status locally
+      setOrder(prev => ({ ...prev, status: "cancelled" as OrderStatus }));
+      // Add cancellation event to timeline
+      const cancelEvent: OrderTimelineEvent = {
+        id: `evt_${Date.now()}`,
+        orderId: order.id,
+        type: "cancelled",
+        source: "AGENT",
+        actorName: "Current Agent",
+        message: result.refundAmount 
+          ? `Booking cancelled. Refund: ${order.currency} ${result.refundAmount.toLocaleString()}`
+          : "Booking cancelled",
+        timestamp: new Date().toISOString()
+      };
+      setTimeline([cancelEvent, ...timeline]);
+    }
+  };
 
   const renderStars = (count: number) => {
     return Array.from({ length: count }, (_, i) => (
@@ -770,18 +826,46 @@ export default function OrderDetailsPage() {
                   <CardTitle className="text-lg">Quick Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <Button variant="outline" className="w-full justify-start gap-2">
-                    <DownloadIcon className="w-4 h-4" />
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start gap-2"
+                    onClick={() => handleDownloadDocument("voucher", "Voucher")}
+                    disabled={isDownloading === "voucher"}
+                  >
+                    {isDownloading === "voucher" ? (
+                      <Loader2Icon className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <DownloadIcon className="w-4 h-4" />
+                    )}
                     Download Voucher
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start gap-2"
+                    onClick={() => handleDownloadDocument("invoice", "Invoice")}
+                    disabled={isDownloading === "invoice"}
+                  >
+                    {isDownloading === "invoice" ? (
+                      <Loader2Icon className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <ReceiptIcon className="w-4 h-4" />
+                    )}
+                    Download Invoice
                   </Button>
                   <Button variant="outline" className="w-full justify-start gap-2">
                     <MailIcon className="w-4 h-4" />
                     Email to Guest
                   </Button>
-                  <Button variant="outline" className="w-full justify-start gap-2 text-destructive hover:text-destructive">
-                    <AlertCircleIcon className="w-4 h-4" />
-                    Request Cancellation
-                  </Button>
+                  {order.status !== "cancelled" && (
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start gap-2 text-destructive hover:text-destructive"
+                      onClick={() => setShowCancellationModal(true)}
+                    >
+                      <AlertCircleIcon className="w-4 h-4" />
+                      Request Cancellation
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
 
@@ -805,6 +889,21 @@ export default function OrderDetailsPage() {
           </div>
         </main>
       </div>
+
+      {/* Cancellation Modal */}
+      <CancellationModal
+        open={showCancellationModal}
+        onOpenChange={setShowCancellationModal}
+        orderId={order.id}
+        hotelName={order.hotelName}
+        checkIn={order.checkIn}
+        checkOut={order.checkOut}
+        totalAmount={order.totalAmount}
+        currency={order.currency}
+        cancellationPolicy={order.cancellationPolicy}
+        cancellationDeadline={order.cancellationDeadline}
+        onCancellationComplete={handleCancellationComplete}
+      />
     </SidebarProvider>
   );
 }

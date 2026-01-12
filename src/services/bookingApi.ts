@@ -19,6 +19,13 @@ import type {
   MultiroomOrderFormResponse,
   MultiroomOrderFinishParams,
   MultiroomOrderFinishResponse,
+  // Post-booking types
+  CancellationResponse,
+  ContractDataResponse,
+  FinancialInfoResponse,
+  ClosingDocumentsInfoResponse,
+  DocumentDownloadResponse,
+  OrderGroupInvoiceResponse,
 } from "@/types/etgBooking";
 import {
   isMultiroomPrebookParams,
@@ -36,6 +43,16 @@ const BOOKING_ENDPOINTS = {
   CREATE_CARD_TOKEN: "/api/booking/create-credit-card-token",
   BOOKING_START: "/api/booking/start",
   BOOKING_STATUS: "/api/booking/status",
+  // Post-booking endpoints
+  CANCEL_BOOKING: "/api/ratehawk/order/cancel",
+  CONTRACT_DATA: "/api/ratehawk/order/contract",
+  FINANCIAL_INFO: "/api/ratehawk/order/financial",
+  CLOSING_DOCS_INFO: "/api/ratehawk/order/documents/info",
+  CLOSING_DOCS_DOWNLOAD: "/api/ratehawk/order/documents/download",
+  VOUCHER_DOWNLOAD: "/api/ratehawk/order/voucher",
+  INVOICE_DOWNLOAD: "/api/ratehawk/order/invoice",
+  ORDER_GROUP_INVOICE: "/api/ratehawk/order-group/invoice",
+  SINGLE_ACT_DOWNLOAD: "/api/ratehawk/order/single-act",
 } as const;
 
 class BookingApiService {
@@ -691,6 +708,227 @@ class BookingApiService {
     }
 
     return results;
+  }
+
+  // ============================================
+  // POST-BOOKING OPERATIONS
+  // ============================================
+
+  /**
+   * Cancel a booking
+   * @param orderId - The order ID to cancel
+   * @param reason - Optional cancellation reason
+   */
+  async cancelBooking(orderId: string, reason?: string): Promise<CancellationResponse> {
+    const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.CANCEL_BOOKING}`;
+    const userId = this.getCurrentUserId();
+
+    console.log("🚫 Cancel booking request:", { orderId, reason, userId });
+
+    const response = await this.fetchWithError<CancellationResponse>(url, {
+      method: "POST",
+      body: JSON.stringify({
+        userId,
+        order_id: orderId,
+        reason,
+      }),
+    });
+
+    console.log("🚫 Cancel booking response:", response);
+    return response;
+  }
+
+  /**
+   * Get contract data for an order
+   * @param orderId - The order ID
+   */
+  async getContractData(orderId: string): Promise<ContractDataResponse> {
+    const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.CONTRACT_DATA}`;
+    const userId = this.getCurrentUserId();
+
+    console.log("📋 Get contract data request:", { orderId, userId });
+
+    const response = await this.fetchWithError<ContractDataResponse>(url, {
+      method: "POST",
+      body: JSON.stringify({
+        userId,
+        order_id: orderId,
+      }),
+    });
+
+    console.log("📋 Get contract data response:", response);
+    return response;
+  }
+
+  /**
+   * Get financial information for an order
+   * @param orderId - The order ID
+   */
+  async getFinancialInfo(orderId: string): Promise<FinancialInfoResponse> {
+    const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.FINANCIAL_INFO}`;
+    const userId = this.getCurrentUserId();
+
+    console.log("💰 Get financial info request:", { orderId, userId });
+
+    const response = await this.fetchWithError<FinancialInfoResponse>(url, {
+      method: "POST",
+      body: JSON.stringify({
+        userId,
+        order_id: orderId,
+      }),
+    });
+
+    console.log("💰 Get financial info response:", response);
+    return response;
+  }
+
+  /**
+   * Get closing documents info for an order
+   * @param orderId - The order ID
+   */
+  async getClosingDocumentsInfo(orderId: string): Promise<ClosingDocumentsInfoResponse> {
+    const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.CLOSING_DOCS_INFO}`;
+    const userId = this.getCurrentUserId();
+
+    console.log("📄 Get closing documents info request:", { orderId, userId });
+
+    const response = await this.fetchWithError<ClosingDocumentsInfoResponse>(url, {
+      method: "POST",
+      body: JSON.stringify({
+        userId,
+        order_id: orderId,
+      }),
+    });
+
+    console.log("📄 Get closing documents info response:", response);
+    return response;
+  }
+
+  /**
+   * Download a closing document
+   * @param orderId - The order ID
+   * @param documentType - Type of document to download
+   */
+  async downloadClosingDocument(orderId: string, documentType: string): Promise<DocumentDownloadResponse> {
+    const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.CLOSING_DOCS_DOWNLOAD}`;
+    const userId = this.getCurrentUserId();
+
+    console.log("⬇️ Download closing document request:", { orderId, documentType, userId });
+
+    const response = await this.fetchWithError<DocumentDownloadResponse>(url, {
+      method: "POST",
+      body: JSON.stringify({
+        userId,
+        order_id: orderId,
+        document_type: documentType,
+      }),
+    });
+
+    console.log("⬇️ Download closing document response:", response);
+    return response;
+  }
+
+  /**
+   * Download voucher for an order
+   * @param orderId - The order ID
+   */
+  async downloadVoucher(orderId: string): Promise<DocumentDownloadResponse> {
+    const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.VOUCHER_DOWNLOAD}`;
+    const userId = this.getCurrentUserId();
+
+    console.log("🎫 Download voucher request:", { orderId, userId });
+
+    const response = await this.fetchWithError<DocumentDownloadResponse>(url, {
+      method: "POST",
+      body: JSON.stringify({
+        userId,
+        order_id: orderId,
+      }),
+    });
+
+    console.log("🎫 Download voucher response:", response);
+    return response;
+  }
+
+  /**
+   * Download invoice for an order
+   * @param orderId - The order ID
+   */
+  async downloadInvoice(orderId: string): Promise<DocumentDownloadResponse> {
+    const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.INVOICE_DOWNLOAD}`;
+    const userId = this.getCurrentUserId();
+
+    console.log("🧾 Download invoice request:", { orderId, userId });
+
+    const response = await this.fetchWithError<DocumentDownloadResponse>(url, {
+      method: "POST",
+      body: JSON.stringify({
+        userId,
+        order_id: orderId,
+      }),
+    });
+
+    console.log("🧾 Download invoice response:", response);
+    return response;
+  }
+
+  /**
+   * Download order group invoice (for trips with multiple orders)
+   * @param orderGroupId - The order group ID
+   */
+  async downloadOrderGroupInvoice(orderGroupId: string): Promise<OrderGroupInvoiceResponse> {
+    const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.ORDER_GROUP_INVOICE}`;
+    const userId = this.getCurrentUserId();
+
+    console.log("📑 Download order group invoice request:", { orderGroupId, userId });
+
+    const response = await this.fetchWithError<OrderGroupInvoiceResponse>(url, {
+      method: "POST",
+      body: JSON.stringify({
+        userId,
+        order_group_id: orderGroupId,
+      }),
+    });
+
+    console.log("📑 Download order group invoice response:", response);
+    return response;
+  }
+
+  /**
+   * Download single act document
+   * @param orderId - The order ID
+   */
+  async downloadSingleAct(orderId: string): Promise<DocumentDownloadResponse> {
+    const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.SINGLE_ACT_DOWNLOAD}`;
+    const userId = this.getCurrentUserId();
+
+    console.log("📃 Download single act request:", { orderId, userId });
+
+    const response = await this.fetchWithError<DocumentDownloadResponse>(url, {
+      method: "POST",
+      body: JSON.stringify({
+        userId,
+        order_id: orderId,
+      }),
+    });
+
+    console.log("📃 Download single act response:", response);
+    return response;
+  }
+
+  /**
+   * Helper: Trigger file download from a URL
+   * @param downloadUrl - The URL to download from
+   * @param fileName - The file name for the download
+   */
+  triggerDownload(downloadUrl: string, fileName: string): void {
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = fileName;
+    link.target = "_blank";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 }
 
