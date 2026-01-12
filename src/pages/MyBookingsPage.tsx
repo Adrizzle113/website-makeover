@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, isPast, isFuture, isToday, isWithinInterval, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { format, isPast, isFuture, isToday, isWithinInterval } from "date-fns";
 import {
   CalendarIcon,
   SearchIcon,
@@ -17,6 +17,8 @@ import {
   ChevronRight,
   FileDown,
   Loader2Icon,
+  RefreshCwIcon,
+  PlusIcon,
 } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
@@ -42,6 +44,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type BookingStatus = "confirmed" | "pending" | "cancelled" | "completed";
 
@@ -75,131 +78,39 @@ interface UserBooking {
   voucherUrl?: string;
 }
 
-// Mock data for demonstration
-const mockBookings: UserBooking[] = [
-  {
-    id: "bk-001",
-    orderId: "ETG-789456123",
-    hotelName: "The Beverly Hills Hotel",
-    hotelImage: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400",
-    hotelStars: 5,
-    city: "Los Angeles",
-    country: "USA",
-    address: "9641 Sunset Blvd, Beverly Hills, CA 90210",
-    checkIn: "2025-02-15",
-    checkOut: "2025-02-18",
-    nights: 3,
-    roomType: "Deluxe King Suite",
-    roomCount: 1,
-    guests: { adults: 2, children: 0 },
-    status: "confirmed",
-    totalAmount: 2850,
-    currency: "USD",
-    paymentType: "prepaid",
-    cancellationPolicy: "Free cancellation until Feb 13, 2025",
-    cancellationDeadline: "2025-02-13T18:00:00Z",
-    canCancel: true,
-    confirmedAt: "2025-01-10T14:35:00Z",
-    createdAt: "2025-01-10T14:30:00Z",
-    voucherUrl: "/documents/voucher-001",
-  },
-  {
-    id: "bk-002",
-    orderId: "ETG-456789123",
-    hotelName: "The Ritz Paris",
-    hotelImage: "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=400",
-    hotelStars: 5,
-    city: "Paris",
-    country: "France",
-    address: "15 Place Vendôme, 75001 Paris",
-    checkIn: "2025-03-01",
-    checkOut: "2025-03-05",
-    nights: 4,
-    roomType: "Superior Suite",
-    roomCount: 1,
-    guests: { adults: 2, children: 1 },
-    status: "pending",
-    totalAmount: 4200,
-    currency: "EUR",
-    paymentType: "prepaid",
-    cancellationPolicy: "Non-refundable",
-    canCancel: false,
-    createdAt: "2025-01-12T09:15:00Z",
-  },
-  {
-    id: "bk-003",
-    orderId: "ETG-321654987",
-    hotelName: "Marina Bay Sands",
-    hotelImage: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=400",
-    hotelStars: 5,
-    city: "Singapore",
-    country: "Singapore",
-    address: "10 Bayfront Avenue, Singapore 018956",
-    checkIn: "2024-12-20",
-    checkOut: "2024-12-23",
-    nights: 3,
-    roomType: "Premier Room",
-    roomCount: 1,
-    guests: { adults: 2, children: 0 },
-    status: "completed",
-    totalAmount: 1890,
-    currency: "SGD",
-    paymentType: "prepaid",
-    cancellationPolicy: "Free cancellation until Dec 18, 2024",
-    canCancel: false,
-    confirmedAt: "2024-11-15T10:20:00Z",
-    createdAt: "2024-11-15T10:15:00Z",
-    voucherUrl: "/documents/voucher-003",
-  },
-  {
-    id: "bk-004",
-    orderId: "ETG-654987321",
-    hotelName: "Four Seasons Resort Bali",
-    hotelImage: "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=400",
-    hotelStars: 5,
-    city: "Bali",
-    country: "Indonesia",
-    address: "Jimbaran Bay, Bali 80361",
-    checkIn: "2025-04-10",
-    checkOut: "2025-04-15",
-    nights: 5,
-    roomType: "Ocean View Villa",
-    roomCount: 1,
-    guests: { adults: 2, children: 2 },
-    status: "confirmed",
-    totalAmount: 5500,
-    currency: "USD",
-    paymentType: "pay_at_hotel",
-    cancellationPolicy: "Free cancellation until Apr 8, 2025",
-    cancellationDeadline: "2025-04-08T18:00:00Z",
-    canCancel: true,
-    confirmedAt: "2025-01-05T16:45:00Z",
-    createdAt: "2025-01-05T16:40:00Z",
-  },
-  {
-    id: "bk-005",
-    orderId: "ETG-987321654",
-    hotelName: "Burj Al Arab",
-    hotelImage: "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=400",
-    hotelStars: 5,
-    city: "Dubai",
-    country: "UAE",
-    address: "Jumeirah Beach Road, Dubai",
-    checkIn: "2025-01-20",
-    checkOut: "2025-01-24",
-    nights: 4,
-    roomType: "Deluxe Suite",
-    roomCount: 1,
-    guests: { adults: 2, children: 0 },
-    status: "cancelled",
-    totalAmount: 8500,
-    currency: "AED",
-    paymentType: "prepaid",
-    cancellationPolicy: "Free cancellation until Jan 18, 2025",
-    canCancel: false,
-    createdAt: "2024-12-28T08:00:00Z",
-  },
-];
+const SAVED_ORDERS_KEY = "my_booking_order_ids";
+
+// Get saved order IDs from localStorage
+function getSavedOrderIds(): string[] {
+  try {
+    const saved = localStorage.getItem(SAVED_ORDERS_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
+// Save order IDs to localStorage
+function saveOrderIds(ids: string[]) {
+  localStorage.setItem(SAVED_ORDERS_KEY, JSON.stringify(ids));
+}
+
+// Map API status to our BookingStatus type
+function mapApiStatus(apiStatus: string, checkOutDate: Date): BookingStatus {
+  switch (apiStatus) {
+    case "confirmed":
+      return isPast(checkOutDate) ? "completed" : "confirmed";
+    case "cancelled":
+    case "failed":
+      return "cancelled";
+    case "processing":
+    case "prebooked":
+    case "idle":
+      return "pending";
+    default:
+      return "pending";
+  }
+}
 
 const statusConfig: Record<BookingStatus, { label: string; className: string; icon: React.ElementType }> = {
   confirmed: {
@@ -228,6 +139,9 @@ type TabFilter = "all" | "upcoming" | "past" | "cancelled";
 
 export default function MyBookingsPage() {
   const navigate = useNavigate();
+  const [bookings, setBookings] = useState<UserBooking[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
   const [sortBy, setSortBy] = useState<string>("check_in_asc");
@@ -236,62 +150,187 @@ export default function MyBookingsPage() {
   const [downloadingVoucher, setDownloadingVoucher] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [currentPage, setCurrentPage] = useState(1);
+  const [orderIdInput, setOrderIdInput] = useState("");
+  const [isAddingOrder, setIsAddingOrder] = useState(false);
   const itemsPerPage = 5;
 
-  // Filter bookings based on tab, search, and date range
-  const filteredBookings = mockBookings.filter((booking) => {
-    // Search filter
-    if (searchQuery) {
-      const search = searchQuery.toLowerCase();
-      const matchesSearch =
-        booking.hotelName.toLowerCase().includes(search) ||
-        booking.city.toLowerCase().includes(search) ||
-        booking.country.toLowerCase().includes(search) ||
-        booking.orderId.toLowerCase().includes(search);
-      if (!matchesSearch) return false;
-    }
+  // Fetch a single booking from API
+  const fetchBookingFromApi = useCallback(async (orderId: string): Promise<UserBooking | null> => {
+    try {
+      const [orderInfoResponse, orderStatusResponse] = await Promise.all([
+        bookingApi.getOrderInfo(orderId),
+        bookingApi.getOrderStatus(orderId)
+      ]);
 
-    // Tab filter
-    const checkInDate = new Date(booking.checkIn);
-    const checkOutDate = new Date(booking.checkOut);
-
-    // Date range filter
-    if (dateRange.from && dateRange.to) {
-      if (!isWithinInterval(checkInDate, { start: dateRange.from, end: dateRange.to })) {
-        return false;
+      if (orderInfoResponse.status !== "ok" || !orderInfoResponse.data) {
+        console.warn(`Failed to fetch order ${orderId}:`, orderInfoResponse.error);
+        return null;
       }
+
+      const apiData = orderInfoResponse.data;
+      const statusData = orderStatusResponse.data;
+
+      // Calculate nights
+      const checkInDate = new Date(apiData.dates.check_in);
+      const checkOutDate = new Date(apiData.dates.check_out);
+      const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      const booking: UserBooking = {
+        id: `bk-${apiData.order_id}`,
+        orderId: apiData.order_id,
+        hotelName: apiData.hotel.name,
+        hotelImage: `https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400`, // Placeholder image
+        hotelStars: apiData.hotel.star_rating || 4,
+        city: apiData.hotel.city,
+        country: apiData.hotel.country,
+        address: apiData.hotel.address,
+        checkIn: apiData.dates.check_in,
+        checkOut: apiData.dates.check_out,
+        nights: nights,
+        roomType: apiData.room.name,
+        roomCount: 1,
+        guests: {
+          adults: apiData.room.guests?.filter(g => !g.is_child).length || 2,
+          children: apiData.room.guests?.filter(g => g.is_child).length || 0
+        },
+        status: mapApiStatus(apiData.status, checkOutDate),
+        totalAmount: parseFloat(apiData.price.amount),
+        currency: apiData.price.currency_code,
+        paymentType: apiData.payment.type === "hotel" ? "pay_at_hotel" : "prepaid",
+        cancellationPolicy: apiData.cancellation_policy || "Check with hotel for cancellation policy",
+        cancellationDeadline: statusData?.cancellation_info?.free_cancellation_before,
+        canCancel: apiData.status === "confirmed" && 
+          !!statusData?.cancellation_info?.free_cancellation_before &&
+          isFuture(new Date(statusData.cancellation_info.free_cancellation_before)),
+        confirmedAt: apiData.status === "confirmed" ? apiData.updated_at : undefined,
+        createdAt: apiData.created_at,
+        voucherUrl: apiData.status === "confirmed" ? `/documents/voucher-${apiData.order_id}` : undefined
+      };
+
+      return booking;
+    } catch (error) {
+      console.error(`Error fetching order ${orderId}:`, error);
+      return null;
+    }
+  }, []);
+
+  // Fetch all bookings
+  const fetchAllBookings = useCallback(async (orderIds: string[]) => {
+    if (orderIds.length === 0) {
+      setBookings([]);
+      setIsLoading(false);
+      setIsRefreshing(false);
+      return;
     }
 
-    switch (activeTab) {
-      case "upcoming":
-        return (
-          booking.status !== "cancelled" &&
-          (isFuture(checkInDate) || isToday(checkInDate) || (isPast(checkInDate) && isFuture(checkOutDate)))
-        );
-      case "past":
-        return booking.status === "completed" || (booking.status !== "cancelled" && isPast(checkOutDate));
-      case "cancelled":
-        return booking.status === "cancelled";
-      default:
-        return true;
+    const bookingPromises = orderIds.map(id => fetchBookingFromApi(id));
+    const results = await Promise.all(bookingPromises);
+    const validBookings = results.filter((b): b is UserBooking => b !== null);
+    
+    setBookings(validBookings);
+    setIsLoading(false);
+    setIsRefreshing(false);
+  }, [fetchBookingFromApi]);
+
+  // Initial load
+  useEffect(() => {
+    const savedOrderIds = getSavedOrderIds();
+    fetchAllBookings(savedOrderIds);
+  }, [fetchAllBookings]);
+
+  // Refresh handler
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    const savedOrderIds = getSavedOrderIds();
+    await fetchAllBookings(savedOrderIds);
+    toast.success("Bookings refreshed");
+  };
+
+  // Add new order ID
+  const handleAddOrderId = async () => {
+    const trimmedId = orderIdInput.trim();
+    if (!trimmedId) return;
+
+    const savedOrderIds = getSavedOrderIds();
+    if (savedOrderIds.includes(trimmedId)) {
+      toast.error("Order already added");
+      return;
     }
-  });
+
+    setIsAddingOrder(true);
+    const booking = await fetchBookingFromApi(trimmedId);
+    
+    if (booking) {
+      const newOrderIds = [...savedOrderIds, trimmedId];
+      saveOrderIds(newOrderIds);
+      setBookings(prev => [...prev, booking]);
+      setOrderIdInput("");
+      toast.success("Booking added successfully");
+    } else {
+      toast.error("Could not find booking with that order ID");
+    }
+    
+    setIsAddingOrder(false);
+  };
+
+  // Filter bookings based on tab, search, and date range
+  const filteredBookings = useMemo(() => {
+    return bookings.filter((booking) => {
+      // Search filter
+      if (searchQuery) {
+        const search = searchQuery.toLowerCase();
+        const matchesSearch =
+          booking.hotelName.toLowerCase().includes(search) ||
+          booking.city.toLowerCase().includes(search) ||
+          booking.country.toLowerCase().includes(search) ||
+          booking.orderId.toLowerCase().includes(search);
+        if (!matchesSearch) return false;
+      }
+
+      // Tab filter
+      const checkInDate = new Date(booking.checkIn);
+      const checkOutDate = new Date(booking.checkOut);
+
+      // Date range filter
+      if (dateRange.from && dateRange.to) {
+        if (!isWithinInterval(checkInDate, { start: dateRange.from, end: dateRange.to })) {
+          return false;
+        }
+      }
+
+      switch (activeTab) {
+        case "upcoming":
+          return (
+            booking.status !== "cancelled" &&
+            (isFuture(checkInDate) || isToday(checkInDate) || (isPast(checkInDate) && isFuture(checkOutDate)))
+          );
+        case "past":
+          return booking.status === "completed" || (booking.status !== "cancelled" && isPast(checkOutDate));
+        case "cancelled":
+          return booking.status === "cancelled";
+        default:
+          return true;
+      }
+    });
+  }, [bookings, searchQuery, activeTab, dateRange]);
 
   // Sort bookings
-  const sortedBookings = [...filteredBookings].sort((a, b) => {
-    switch (sortBy) {
-      case "check_in_asc":
-        return new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime();
-      case "check_in_desc":
-        return new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime();
-      case "created_desc":
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      case "amount_desc":
-        return b.totalAmount - a.totalAmount;
-      default:
-        return 0;
-    }
-  });
+  const sortedBookings = useMemo(() => {
+    return [...filteredBookings].sort((a, b) => {
+      switch (sortBy) {
+        case "check_in_asc":
+          return new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime();
+        case "check_in_desc":
+          return new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime();
+        case "created_desc":
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case "amount_desc":
+          return b.totalAmount - a.totalAmount;
+        default:
+          return 0;
+      }
+    });
+  }, [filteredBookings, sortBy]);
 
   // Pagination
   const totalPages = Math.ceil(sortedBookings.length / itemsPerPage);
@@ -395,19 +434,19 @@ export default function MyBookingsPage() {
     return { label: format(checkIn, "MMM d, yyyy"), type: "future" as const };
   };
 
-  const tabCounts = {
-    all: mockBookings.length,
-    upcoming: mockBookings.filter((b) => {
+  const tabCounts = useMemo(() => ({
+    all: bookings.length,
+    upcoming: bookings.filter((b) => {
       const checkIn = new Date(b.checkIn);
       const checkOut = new Date(b.checkOut);
       return b.status !== "cancelled" && (isFuture(checkIn) || isToday(checkIn) || (isPast(checkIn) && isFuture(checkOut)));
     }).length,
-    past: mockBookings.filter((b) => {
+    past: bookings.filter((b) => {
       const checkOut = new Date(b.checkOut);
       return b.status === "completed" || (b.status !== "cancelled" && isPast(checkOut));
     }).length,
-    cancelled: mockBookings.filter((b) => b.status === "cancelled").length,
-  };
+    cancelled: bookings.filter((b) => b.status === "cancelled").length,
+  }), [bookings]);
 
   return (
     <SidebarProvider>
@@ -416,12 +455,23 @@ export default function MyBookingsPage() {
         
         <main className="flex-1 overflow-auto">
           <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-border">
-            <div className="px-6 py-4 flex items-center gap-4">
-              <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-              <div>
-                <h1 className="text-lg font-heading text-foreground">My Bookings</h1>
-                <p className="text-xs text-muted-foreground">View and manage your reservations</p>
+            <div className="px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+                <div>
+                  <h1 className="text-lg font-heading text-foreground">My Bookings</h1>
+                  <p className="text-xs text-muted-foreground">View and manage your reservations</p>
+                </div>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+              >
+                <RefreshCwIcon className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
             </div>
           </header>
 
@@ -520,13 +570,47 @@ export default function MyBookingsPage() {
           </Button>
         </div>
 
+        {/* Add Order ID Section */}
+        <div className="flex gap-2 mb-6 p-4 bg-muted/50 rounded-lg">
+          <Input
+            placeholder="Enter Order ID to add booking..."
+            value={orderIdInput}
+            onChange={(e) => setOrderIdInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleAddOrderId()}
+            className="flex-1"
+          />
+          <Button onClick={handleAddOrderId} disabled={isAddingOrder || !orderIdInput.trim()}>
+            {isAddingOrder ? <Loader2Icon className="w-4 h-4 animate-spin mr-2" /> : <PlusIcon className="w-4 h-4 mr-2" />}
+            Add
+          </Button>
+        </div>
+
         {/* Results count */}
         <p className="text-sm text-muted-foreground mb-4">
           {sortedBookings.length} booking{sortedBookings.length !== 1 ? "s" : ""} found
           {totalPages > 1 && ` • Page ${currentPage} of ${totalPages}`}
         </p>
 
-        {/* Bookings List */}
+        {/* Loading State */}
+        {isLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardContent className="p-0">
+                  <div className="flex flex-col md:flex-row">
+                    <Skeleton className="w-full md:w-48 h-48" />
+                    <div className="flex-1 p-5 space-y-3">
+                      <Skeleton className="h-6 w-3/4" />
+                      <Skeleton className="h-4 w-1/2" />
+                      <Skeleton className="h-4 w-1/3" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+        /* Bookings List */
         <div className="space-y-4">
           {paginatedBookings.map((booking) => {
             const statusInfo = statusConfig[booking.status];
@@ -703,6 +787,7 @@ export default function MyBookingsPage() {
             </div>
             )}
           </div>
+        )}
 
           {/* Pagination */}
           {totalPages > 1 && (

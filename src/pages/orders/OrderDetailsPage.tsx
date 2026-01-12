@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { 
   ArrowLeftIcon,
@@ -44,9 +44,10 @@ import { Order, OrderStatus, OrderTimelineEvent, OrderEventType, OrderEventSourc
 import { toast } from "sonner";
 import { bookingApi } from "@/services/bookingApi";
 import { CancellationModal } from "@/components/booking/CancellationModal";
+import { Skeleton } from "@/components/ui/skeleton";
 
-// Mock data
-const mockOrder: Order & {
+// Extended Order type with additional details
+interface ExtendedOrder extends Order {
   confirmationNumber?: string;
   supplierReference?: string;
   mealPlan?: string;
@@ -63,139 +64,7 @@ const mockOrder: Order & {
     fees: number;
     discount?: number;
   };
-} = {
-  id: "ord_001",
-  tripId: "og_12345",
-  hotelName: "Soneva Fushi Resort",
-  hotelAddress: "Kunfunadhoo Island, Baa Atoll, Maldives",
-  hotelStars: 5,
-  city: "Baa Atoll",
-  country: "Maldives",
-  checkIn: "2025-01-15",
-  checkOut: "2025-01-19",
-  nights: 4,
-  roomType: "Beach Villa with Pool",
-  roomCount: 1,
-  occupancy: { adults: 2, children: 0 },
-  leadGuest: {
-    firstName: "John",
-    lastName: "Smith",
-    email: "john.smith@email.com",
-    phone: "+1 555-0123"
-  },
-  paymentType: "now",
-  status: "confirmed",
-  cancellationPolicy: "Free cancellation until January 10, 2025 at 23:59 UTC. After this date, cancellation will incur a fee of 100% of the booking total.",
-  cancellationDeadline: "2025-01-10T23:59:00Z",
-  totalAmount: 2800,
-  currency: "USD",
-  createdAt: "2024-12-10T10:30:00Z",
-  confirmedAt: "2024-12-10T10:32:00Z",
-  confirmationNumber: "SNV-2025-78432",
-  supplierReference: "ETG-ORD-98234",
-  mealPlan: "Breakfast Included",
-  specialRequests: [
-    "Late check-out requested (2 PM)",
-    "Honeymoon celebration - anniversary cake",
-    "Non-smoking room preferred"
-  ],
-  roomDetails: {
-    bedType: "King Size Bed",
-    view: "Ocean View",
-    size: "120 sqm",
-    amenities: ["Private Pool", "Outdoor Shower", "Mini Bar", "Espresso Machine", "Butler Service"]
-  },
-  priceBreakdown: {
-    roomRate: 2400,
-    taxes: 288,
-    fees: 112,
-    discount: 0
-  },
-  documents: [
-    {
-      id: "doc_001",
-      orderId: "ord_001",
-      tripId: "og_12345",
-      type: "voucher",
-      name: "Booking Voucher",
-      url: "/documents/doc_001",
-      generatedAt: "2024-12-10T10:32:00Z",
-      fileSize: 245000
-    },
-    {
-      id: "doc_002",
-      orderId: "ord_001",
-      tripId: "og_12345",
-      type: "confirmation",
-      name: "Booking Confirmation",
-      url: "/documents/doc_002",
-      generatedAt: "2024-12-10T10:32:00Z",
-      fileSize: 189000
-    },
-    {
-      id: "doc_003",
-      orderId: "ord_001",
-      tripId: "og_12345",
-      type: "invoice",
-      name: "Invoice",
-      url: "/documents/doc_003",
-      generatedAt: "2024-12-10T10:32:00Z",
-      fileSize: 156000
-    }
-  ]
-};
-
-const mockTimeline: OrderTimelineEvent[] = [
-  {
-    id: "evt_006",
-    orderId: "ord_001",
-    type: "documents_resent",
-    source: "AGENT",
-    actorName: "John Doe",
-    message: "Agent resent confirmation to guest",
-    timestamp: "2025-01-06T09:12:00Z"
-  },
-  {
-    id: "evt_005",
-    orderId: "ord_001",
-    type: "synced",
-    source: "SYSTEM",
-    message: "Order synced with supplier",
-    timestamp: "2025-01-05T16:00:00Z"
-  },
-  {
-    id: "evt_004",
-    orderId: "ord_001",
-    type: "documents_issued",
-    source: "SYSTEM",
-    message: "Booking voucher generated",
-    timestamp: "2025-01-05T14:35:00Z"
-  },
-  {
-    id: "evt_003",
-    orderId: "ord_001",
-    type: "confirmed",
-    source: "SUPPLIER",
-    message: "Supplier confirmed the booking",
-    timestamp: "2025-01-05T14:32:00Z"
-  },
-  {
-    id: "evt_002",
-    orderId: "ord_001",
-    type: "paid",
-    source: "SYSTEM",
-    message: "USD 2,800 charged successfully",
-    timestamp: "2025-01-05T14:31:00Z"
-  },
-  {
-    id: "evt_001",
-    orderId: "ord_001",
-    type: "booked",
-    source: "SYSTEM",
-    message: "Booking created by agent",
-    timestamp: "2025-01-05T14:30:00Z"
-  }
-];
+}
 
 const statusColors: Record<OrderStatus, string> = {
   confirmed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
@@ -206,7 +75,10 @@ const statusColors: Record<OrderStatus, string> = {
 
 const paymentTypeLabels: Record<string, string> = {
   now: "Paid in Full",
+  now_net: "Paid in Full (Net)",
+  now_gross: "Paid in Full (Gross)",
   deposit: "Deposit Paid",
+  hotel: "Pay at Hotel",
   pay_at_hotel: "Pay at Hotel"
 };
 
@@ -230,18 +102,172 @@ const sourceLabels: Record<OrderEventSource, string> = {
   AGENT: "Agent"
 };
 
+// Map API order status to our OrderStatus type
+function mapApiStatus(apiStatus: string): OrderStatus {
+  switch (apiStatus) {
+    case "confirmed":
+      return "confirmed";
+    case "cancelled":
+      return "cancelled";
+    case "failed":
+      return "cancelled";
+    case "processing":
+    case "prebooked":
+    case "idle":
+      return "pending";
+    default:
+      return "pending";
+  }
+}
+
 export default function OrderDetailsPage() {
   const { orderId } = useParams();
   const navigate = useNavigate();
-  const [order, setOrder] = useState(mockOrder);
-  const [timeline, setTimeline] = useState<OrderTimelineEvent[]>(mockTimeline);
+  const [order, setOrder] = useState<ExtendedOrder | null>(null);
+  const [timeline, setTimeline] = useState<OrderTimelineEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [newNote, setNewNote] = useState("");
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [showCancellationModal, setShowCancellationModal] = useState(false);
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Fetch order data from API
+  const fetchOrderData = useCallback(async () => {
+    if (!orderId) {
+      setError("No order ID provided");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // Fetch order info and status in parallel
+      const [orderInfoResponse, orderStatusResponse] = await Promise.all([
+        bookingApi.getOrderInfo(orderId),
+        bookingApi.getOrderStatus(orderId)
+      ]);
+
+      if (orderInfoResponse.status !== "ok" || !orderInfoResponse.data) {
+        throw new Error(orderInfoResponse.error?.message || "Failed to fetch order details");
+      }
+
+      const apiData = orderInfoResponse.data;
+      const statusData = orderStatusResponse.data;
+
+      // Calculate nights
+      const checkInDate = new Date(apiData.dates.check_in);
+      const checkOutDate = new Date(apiData.dates.check_out);
+      const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Build order object from API response
+      const orderData: ExtendedOrder = {
+        id: apiData.order_id,
+        tripId: apiData.order_group_id || apiData.order_id,
+        hotelName: apiData.hotel.name,
+        hotelAddress: apiData.hotel.address,
+        hotelStars: apiData.hotel.star_rating || 4,
+        city: apiData.hotel.city,
+        country: apiData.hotel.country,
+        checkIn: apiData.dates.check_in,
+        checkOut: apiData.dates.check_out,
+        nights: nights,
+        roomType: apiData.room.name,
+        roomCount: 1,
+        occupancy: { 
+          adults: apiData.room.guests?.filter(g => !g.is_child).length || 2, 
+          children: apiData.room.guests?.filter(g => g.is_child).length || 0 
+        },
+        leadGuest: {
+          firstName: apiData.lead_guest.first_name,
+          lastName: apiData.lead_guest.last_name,
+          email: apiData.lead_guest.email || "",
+          phone: apiData.lead_guest.phone
+        },
+        paymentType: apiData.payment.type === "hotel" ? "pay_at_hotel" : 
+          (apiData.payment.type === "now_net" || apiData.payment.type === "now_gross") ? "now" : 
+          apiData.payment.type as "now" | "deposit" | "pay_at_hotel",
+        status: mapApiStatus(apiData.status),
+        cancellationPolicy: apiData.cancellation_policy || "Please check with the hotel for cancellation terms.",
+        cancellationDeadline: statusData?.cancellation_info?.free_cancellation_before,
+        totalAmount: parseFloat(apiData.price.amount),
+        currency: apiData.price.currency_code,
+        createdAt: apiData.created_at,
+        confirmedAt: apiData.status === "confirmed" ? apiData.updated_at : undefined,
+        confirmationNumber: statusData?.confirmation_number || apiData.confirmation_number,
+        supplierReference: statusData?.supplier_confirmation,
+        mealPlan: apiData.room.meal_plan,
+        documents: []
+      };
+
+      setOrder(orderData);
+
+      // Build timeline from order data
+      const timelineEvents: OrderTimelineEvent[] = [];
+
+      // Add booking created event
+      timelineEvents.push({
+        id: `evt_created_${orderData.id}`,
+        orderId: orderData.id,
+        type: "booked",
+        source: "SYSTEM",
+        message: "Booking created",
+        timestamp: orderData.createdAt
+      });
+
+      // Add confirmed event if confirmed
+      if (orderData.status === "confirmed" && orderData.confirmedAt) {
+        timelineEvents.push({
+          id: `evt_confirmed_${orderData.id}`,
+          orderId: orderData.id,
+          type: "confirmed",
+          source: "SUPPLIER",
+          message: `Booking confirmed. Confirmation #: ${orderData.confirmationNumber || "N/A"}`,
+          timestamp: orderData.confirmedAt
+        });
+      }
+
+      // Add cancelled event if cancelled
+      if (orderData.status === "cancelled") {
+        timelineEvents.push({
+          id: `evt_cancelled_${orderData.id}`,
+          orderId: orderData.id,
+          type: "cancelled",
+          source: "SYSTEM",
+          message: "Booking cancelled",
+          timestamp: apiData.updated_at
+        });
+      }
+
+      // Sort timeline by timestamp descending (newest first)
+      timelineEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      setTimeline(timelineEvents);
+      setError(null);
+
+    } catch (err) {
+      console.error("Failed to fetch order:", err);
+      setError(err instanceof Error ? err.message : "Failed to load order details");
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [orderId]);
+
+  // Initial load
+  useEffect(() => {
+    fetchOrderData();
+  }, [fetchOrderData]);
+
+  // Refresh handler
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchOrderData();
+    toast.success("Order data refreshed");
+  };
 
   const handleAddNote = () => {
-    if (!newNote.trim()) return;
+    if (!newNote.trim() || !order) return;
     
     const newEvent: OrderTimelineEvent = {
       id: `evt_${Date.now()}`,
@@ -336,9 +362,9 @@ export default function OrderDetailsPage() {
   };
 
   const handleCancellationComplete = (result: { success: boolean; refundAmount?: number; message?: string }) => {
-    if (result.success) {
+    if (result.success && order) {
       // Update order status locally
-      setOrder(prev => ({ ...prev, status: "cancelled" as OrderStatus }));
+      setOrder(prev => prev ? { ...prev, status: "cancelled" as OrderStatus } : prev);
       // Add cancellation event to timeline
       const cancelEvent: OrderTimelineEvent = {
         id: `evt_${Date.now()}`,
@@ -374,20 +400,118 @@ export default function OrderDetailsPage() {
     }
   };
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-background">
+          <AppSidebar />
+          <main className="flex-1 p-6 lg:p-8">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
+              <ArrowLeftIcon className="w-4 h-4" />
+              Back to Trip
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 space-y-6">
+                <Card>
+                  <CardContent className="p-6 space-y-4">
+                    <Skeleton className="h-6 w-24" />
+                    <Skeleton className="h-8 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                    <div className="grid grid-cols-4 gap-4 mt-4">
+                      {[1, 2, 3, 4].map(i => (
+                        <div key={i}>
+                          <Skeleton className="h-4 w-16 mb-2" />
+                          <Skeleton className="h-5 w-24" />
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <Skeleton className="h-5 w-24" />
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </main>
+        </div>
+      </SidebarProvider>
+    );
+  }
+
+  // Error state
+  if (error || !order) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-background">
+          <AppSidebar />
+          <main className="flex-1 p-6 lg:p-8">
+            <Link 
+              to="/my-bookings"
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
+            >
+              <ArrowLeftIcon className="w-4 h-4" />
+              Back to Bookings
+            </Link>
+            <Card className="max-w-lg mx-auto">
+              <CardContent className="p-8 text-center">
+                <AlertCircleIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h2 className="font-heading text-lg text-foreground mb-2">
+                  {error || "Order not found"}
+                </h2>
+                <p className="text-sm text-muted-foreground mb-6">
+                  We couldn't load the order details. The order may not exist or there was a connection issue.
+                </p>
+                <div className="flex gap-3 justify-center">
+                  <Button variant="outline" onClick={() => navigate("/my-bookings")}>
+                    View All Bookings
+                  </Button>
+                  <Button onClick={handleRefresh}>
+                    <RefreshCwIcon className="w-4 h-4 mr-2" />
+                    Try Again
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </main>
+        </div>
+      </SidebarProvider>
+    );
+  }
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
         
         <main className="flex-1 p-6 lg:p-8">
-          {/* Back Link */}
-          <Link 
-            to={`/trips/${order.tripId}`}
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
-          >
-            <ArrowLeftIcon className="w-4 h-4" />
-            Back to Trip
-          </Link>
+          {/* Back Link & Refresh */}
+          <div className="flex items-center justify-between mb-6">
+            <Link 
+              to={order.tripId ? `/trips/${order.tripId}` : "/my-bookings"}
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeftIcon className="w-4 h-4" />
+              {order.tripId ? "Back to Trip" : "Back to Bookings"}
+            </Link>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              <RefreshCwIcon className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Main Content */}
