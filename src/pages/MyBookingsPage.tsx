@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileDown,
+  Loader2Icon,
 } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
@@ -31,16 +32,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { CancellationModal } from "@/components/booking/CancellationModal";
+import { bookingApi } from "@/services/bookingApi";
 import {
   Popover,
   PopoverContent,
@@ -240,7 +233,7 @@ export default function MyBookingsPage() {
   const [sortBy, setSortBy] = useState<string>("check_in_asc");
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [bookingToCancel, setBookingToCancel] = useState<UserBooking | null>(null);
-  const [cancelling, setCancelling] = useState(false);
+  const [downloadingVoucher, setDownloadingVoucher] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -329,27 +322,44 @@ export default function MyBookingsPage() {
     setCancelDialogOpen(true);
   };
 
-  const handleConfirmCancel = async () => {
-    if (!bookingToCancel) return;
+  const handleDownloadVoucher = async (booking: UserBooking, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDownloadingVoucher(booking.orderId);
     
-    setCancelling(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setCancelling(false);
-    setCancelDialogOpen(false);
-    
-    toast.success("Booking cancelled successfully", {
-      description: `Your booking at ${bookingToCancel.hotelName} has been cancelled.`,
-    });
-    
-    setBookingToCancel(null);
+    try {
+      const response = await bookingApi.downloadVoucher(booking.orderId);
+      if (response.status === "ok" && response.data.url) {
+        bookingApi.triggerDownload(
+          response.data.url, 
+          response.data.file_name || `voucher-${booking.orderId}.pdf`
+        );
+        toast.success("Voucher downloaded", {
+          description: `Voucher for ${booking.hotelName} has been downloaded.`,
+        });
+      } else {
+        throw new Error(response.error?.message || "Failed to download voucher");
+      }
+    } catch (error) {
+      toast.error("Download failed", {
+        description: error instanceof Error ? error.message : "Please try again",
+      });
+    } finally {
+      setDownloadingVoucher(null);
+    }
   };
 
-  const handleDownloadVoucher = (booking: UserBooking, e: React.MouseEvent) => {
-    e.stopPropagation();
-    toast.success("Downloading voucher...", {
-      description: `Voucher for ${booking.hotelName} is being prepared.`,
-    });
+  const handleCancellationComplete = (result: { 
+    success: boolean; 
+    refundAmount?: number; 
+    message?: string; 
+  }) => {
+    if (result.success && bookingToCancel) {
+      // In a real app, you would refetch bookings from the API
+      toast.success("Booking cancelled", {
+        description: `Your booking at ${bookingToCancel.hotelName} has been cancelled.`,
+      });
+    }
+    setBookingToCancel(null);
   };
 
   const handleViewDetails = (booking: UserBooking) => {
@@ -621,8 +631,13 @@ export default function MyBookingsPage() {
                                 size="sm"
                                 className="gap-1.5"
                                 onClick={(e) => handleDownloadVoucher(booking, e)}
+                                disabled={downloadingVoucher === booking.orderId}
                               >
-                                <DownloadIcon className="w-4 h-4" />
+                                {downloadingVoucher === booking.orderId ? (
+                                  <Loader2Icon className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <DownloadIcon className="w-4 h-4" />
+                                )}
                                 <span className="hidden sm:inline">Voucher</span>
                               </Button>
                             )}
@@ -724,44 +739,20 @@ export default function MyBookingsPage() {
         </div>
       </main>
 
-      {/* Cancel Confirmation Dialog */}
-      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Booking?</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <p>
-                Are you sure you want to cancel your booking at{" "}
-                <span className="font-medium text-foreground">{bookingToCancel?.hotelName}</span>?
-              </p>
-              {bookingToCancel && (
-                <div className="bg-muted/50 rounded-lg p-3 text-sm">
-                  <p className="text-muted-foreground">
-                    {format(new Date(bookingToCancel.checkIn), "MMM d")} -{" "}
-                    {format(new Date(bookingToCancel.checkOut), "MMM d, yyyy")}
-                  </p>
-                  <p className="font-medium text-foreground mt-1">
-                    {bookingToCancel.currency} {bookingToCancel.totalAmount.toLocaleString()}
-                  </p>
-                </div>
-              )}
-              <p className="text-sm">
-                {bookingToCancel?.cancellationPolicy}
-              </p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={cancelling}>Keep Booking</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmCancel}
-              disabled={cancelling}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {cancelling ? "Cancelling..." : "Yes, Cancel Booking"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Cancellation Modal */}
+      <CancellationModal
+        open={cancelDialogOpen}
+        onOpenChange={setCancelDialogOpen}
+        orderId={bookingToCancel?.orderId || ""}
+        hotelName={bookingToCancel?.hotelName || ""}
+        checkIn={bookingToCancel?.checkIn || ""}
+        checkOut={bookingToCancel?.checkOut || ""}
+        totalAmount={bookingToCancel?.totalAmount || 0}
+        currency={bookingToCancel?.currency || "USD"}
+        cancellationPolicy={bookingToCancel?.cancellationPolicy}
+        cancellationDeadline={bookingToCancel?.cancellationDeadline}
+        onCancellationComplete={handleCancellationComplete}
+      />
     </div>
   </SidebarProvider>
   );
