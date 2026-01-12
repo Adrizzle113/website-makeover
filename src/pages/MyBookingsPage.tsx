@@ -745,7 +745,7 @@ export default function MyBookingsPage() {
                   ? "You don't have any cancelled bookings"
                   : "Start exploring hotels to make your first booking"}
               </p>
-              <Button onClick={() => navigate("/")}>Search Hotels</Button>
+              <Button onClick={() => navigate("/dashboard/search")}>Search Hotels</Button>
             </div>
             )}
           </div>
