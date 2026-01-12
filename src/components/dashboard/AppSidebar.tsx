@@ -8,7 +8,6 @@ import {
   SettingsIcon,
   GlobeIcon,
   HelpCircleIcon,
-  Sparkles,
   FolderOpenIcon,
 } from "lucide-react";
 import {
@@ -50,36 +49,35 @@ export function AppSidebar() {
   const isActive = (url: string) => location.pathname === url;
 
   return (
-    <Sidebar collapsible="icon" className="border-r-0 bg-primary">
-      {/* Header with gradient and gold accent */}
+    <Sidebar collapsible="icon" className="border-r border-border bg-background">
+      {/* Header with clean design */}
       <SidebarHeader className="p-4 pb-6">
         <div className="relative">
           <div className="flex items-center gap-3">
-            <div className="relative w-11 h-11 rounded-xl bg-gradient-to-br from-sidebar-gold to-sidebar-gold-dark flex items-center justify-center shrink-0 shadow-lg shadow-sidebar-gold/20 group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:h-9">
-              <GlobeIcon className="w-5 h-5 text-primary group-data-[collapsible=icon]:w-4 group-data-[collapsible=icon]:h-4" />
-              <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-sidebar-gold animate-pulse" />
+            <div className="relative w-11 h-11 rounded-xl bg-primary flex items-center justify-center shrink-0 shadow-md group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:h-9">
+              <GlobeIcon className="w-5 h-5 text-primary-foreground group-data-[collapsible=icon]:w-4 group-data-[collapsible=icon]:h-4" />
             </div>
             {!collapsed && (
               <div className="flex flex-col">
-                <span className="font-heading text-xl text-primary-foreground tracking-wide">
+                <span className="font-heading text-xl text-foreground tracking-wide">
                   TravelHub
                 </span>
-                <span className="text-[10px] uppercase tracking-[0.2em] text-primary-foreground/60">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                   Agent Portal
                 </span>
               </div>
             )}
           </div>
-          {/* Decorative accent line */}
+          {/* Subtle accent line */}
           {!collapsed && (
-            <div className="mt-4 h-px bg-gradient-to-r from-sidebar-gold/60 via-sidebar-gold/30 to-transparent" />
+            <div className="mt-4 h-px bg-gradient-to-r from-border via-border/60 to-transparent" />
           )}
         </div>
       </SidebarHeader>
 
       <SidebarContent className="px-2">
         <SidebarGroup>
-          <SidebarGroupLabel className="px-3 mb-2 text-[10px] uppercase tracking-[0.2em] text-black font-semibold">
+          <SidebarGroupLabel className="px-3 mb-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
             Main Menu
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -99,31 +97,26 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       className={`
-                        relative flex items-center gap-3 px-3 py-3 rounded-lg
+                        relative flex items-center gap-3 px-3 py-3 rounded-xl
                         transition-all duration-300 ease-out
-                        hover:text-primary-foreground
-                        hover:bg-primary-foreground/10 hover:scale-[1.02]
+                        hover:bg-muted hover:scale-[1.02]
                         ${isActive(item.url) 
-                          ? 'bg-primary-foreground/15 text-primary-foreground font-semibold shadow-lg' 
-                          : 'text-gray-400'
+                          ? 'bg-primary text-primary-foreground font-medium shadow-md' 
+                          : 'text-foreground/70 hover:text-foreground'
                         }
                       `}
                       activeClassName=""
                     >
-                      {/* Gold accent bar for active state */}
-                      {isActive(item.url) && (
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-gradient-to-b from-sidebar-gold to-sidebar-gold-dark rounded-r-full shadow-glow-gold" />
-                      )}
                       <item.icon className={`
                         w-5 h-5 shrink-0 transition-all duration-300
                         group-hover/item:scale-110
-                        ${isActive(item.url) ? 'text-sidebar-gold' : ''}
+                        ${isActive(item.url) ? 'text-primary-foreground' : ''}
                       `} />
                       {!collapsed && (
                         <>
                           <span className="flex-1">{item.title}</span>
                           {item.badge && (
-                            <Badge className="bg-sidebar-gold text-primary text-[10px] font-bold px-1.5 py-0 h-5 min-w-5 flex items-center justify-center rounded-full shadow-glow-gold">
+                            <Badge className="bg-foreground text-background text-[10px] font-bold px-1.5 py-0 h-5 min-w-5 flex items-center justify-center rounded-full">
                               {item.badge}
                             </Badge>
                           )}
@@ -137,13 +130,13 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Decorative divider */}
+        {/* Subtle divider */}
         {!collapsed && (
-          <div className="my-4 mx-3 h-px bg-gradient-to-r from-transparent via-primary-foreground/20 to-transparent" />
+          <div className="my-4 mx-3 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         )}
 
         <SidebarGroup>
-          <SidebarGroupLabel className="px-3 mb-2 text-[10px] uppercase tracking-[0.2em] text-black font-semibold">
+          <SidebarGroupLabel className="px-3 mb-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
             Support
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -163,24 +156,20 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       className={`
-                        relative flex items-center gap-3 px-3 py-3 rounded-lg
+                        relative flex items-center gap-3 px-3 py-3 rounded-xl
                         transition-all duration-300 ease-out
-                        hover:text-primary-foreground
-                        hover:bg-primary-foreground/10 hover:scale-[1.02]
+                        hover:bg-muted hover:scale-[1.02]
                         ${isActive(item.url) 
-                          ? 'bg-primary-foreground/15 text-primary-foreground font-semibold shadow-lg' 
-                          : 'text-gray-400'
+                          ? 'bg-primary text-primary-foreground font-medium shadow-md' 
+                          : 'text-foreground/70 hover:text-foreground'
                         }
                       `}
                       activeClassName=""
                     >
-                      {isActive(item.url) && (
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-gradient-to-b from-sidebar-gold to-sidebar-gold-dark rounded-r-full shadow-glow-gold" />
-                      )}
                       <item.icon className={`
                         w-5 h-5 shrink-0 transition-all duration-300
                         group-hover/item:scale-110
-                        ${isActive(item.url) ? 'text-sidebar-gold' : ''}
+                        ${isActive(item.url) ? 'text-primary-foreground' : ''}
                       `} />
                       {!collapsed && <span>{item.title}</span>}
                     </NavLink>
@@ -193,9 +182,9 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4 pt-2">
-        {/* Decorative divider */}
+        {/* Subtle divider */}
         {!collapsed && (
-          <div className="mb-4 h-px bg-gradient-to-r from-transparent via-primary-foreground/20 to-transparent" />
+          <div className="mb-4 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         )}
       </SidebarFooter>
     </Sidebar>
