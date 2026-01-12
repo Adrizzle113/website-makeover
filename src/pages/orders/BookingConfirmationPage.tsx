@@ -182,9 +182,10 @@ export default function BookingConfirmationPage() {
     if (!orderId) return;
     setContractLoading(true);
     try {
-      const response = await bookingApi.getContractData(orderId);
-      if (response.status === "ok" && response.data) {
-        setContractData(response.data);
+      // Contract data is now account-level, no orderId needed
+      const response = await bookingApi.getContractData();
+      if (response.contract_id) {
+        setContractData(response as unknown as ContractData);
       }
     } catch (error) {
       console.error("Failed to load contract data:", error);

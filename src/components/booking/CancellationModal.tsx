@@ -112,28 +112,36 @@ export function CancellationModal({
     try {
       const response = await bookingApi.cancelBooking(orderId, reason || undefined);
 
-      if (response.status === "ok" && response.data.status !== "cancellation_failed") {
+      // Handle new response format from backend mock
+      const isSuccess = response.status === "ok" || 
+        (response.data?.status && response.data.status !== "cancellation_failed");
+      
+      if (isSuccess) {
         setState("success");
+        // Use new flat response format or legacy data wrapper
+        const refundAmount = response.refund_amount ?? response.data?.refund_amount;
+        const cancellationFee = response.cancellation_fee ?? response.data?.cancellation_fee;
+        const message = response.message ?? response.data?.message;
+        
         setResult({
-          refundAmount: response.data.refund_amount,
-          cancellationFee: response.data.cancellation_fee,
-          message: response.data.message,
+          refundAmount,
+          cancellationFee,
+          message,
         });
         toast.success("Booking cancelled successfully");
         onCancellationComplete?.({
           success: true,
-          refundAmount: response.data.refund_amount,
-          message: response.data.message,
+          refundAmount,
+          message,
         });
       } else {
         setState("error");
-        setResult({
-          message: response.error?.message || response.data.message || "Cancellation failed",
-        });
-        toast.error(response.error?.message || "Failed to cancel booking");
+        const errorMessage = response.error?.message || response.data?.message || "Cancellation failed";
+        setResult({ message: errorMessage });
+        toast.error(errorMessage);
         onCancellationComplete?.({
           success: false,
-          message: response.error?.message,
+          message: errorMessage,
         });
       }
     } catch (error) {

@@ -24,8 +24,11 @@ import type {
   ContractDataResponse,
   FinancialInfoResponse,
   ClosingDocumentsInfoResponse,
-  DocumentDownloadResponse,
+  ClosingDocumentDownloadResponse,
+  VoucherDownloadResponse,
+  InvoiceDownloadResponse,
   OrderGroupInvoiceResponse,
+  ActDownloadResponse,
 } from "@/types/etgBooking";
 import {
   isMultiroomPrebookParams,
@@ -43,16 +46,16 @@ const BOOKING_ENDPOINTS = {
   CREATE_CARD_TOKEN: "/api/booking/create-credit-card-token",
   BOOKING_START: "/api/booking/start",
   BOOKING_STATUS: "/api/booking/status",
-  // Post-booking endpoints
+  // Post-booking endpoints - aligned with backend mock API
   CANCEL_BOOKING: "/api/ratehawk/order/cancel",
-  CONTRACT_DATA: "/api/ratehawk/order/contract",
-  FINANCIAL_INFO: "/api/ratehawk/order/financial",
-  CLOSING_DOCS_INFO: "/api/ratehawk/order/documents/info",
-  CLOSING_DOCS_DOWNLOAD: "/api/ratehawk/order/documents/download",
-  VOUCHER_DOWNLOAD: "/api/ratehawk/order/voucher",
-  INVOICE_DOWNLOAD: "/api/ratehawk/order/invoice",
-  ORDER_GROUP_INVOICE: "/api/ratehawk/order-group/invoice",
-  SINGLE_ACT_DOWNLOAD: "/api/ratehawk/order/single-act",
+  CONTRACT_DATA: "/api/ratehawk/contract/data",
+  FINANCIAL_INFO: "/api/ratehawk/financial/info",
+  CLOSING_DOCS_INFO: "/api/ratehawk/document/closing/info",
+  CLOSING_DOCS_DOWNLOAD: "/api/ratehawk/document/closing/download",
+  VOUCHER_DOWNLOAD: "/api/ratehawk/order/voucher/download",
+  INVOICE_DOWNLOAD: "/api/ratehawk/order/invoice/info/download",
+  ORDER_GROUP_INVOICE: "/api/ratehawk/ordergroup/invoice/download",
+  SINGLE_ACT_DOWNLOAD: "/api/ratehawk/order/act/download",
 } as const;
 
 class BookingApiService {
@@ -718,18 +721,20 @@ class BookingApiService {
    * Cancel a booking
    * @param orderId - The order ID to cancel
    * @param reason - Optional cancellation reason
+   * @param language - Language code (default: "en")
    */
-  async cancelBooking(orderId: string, reason?: string): Promise<CancellationResponse> {
+  async cancelBooking(orderId: string, reason?: string, language: string = "en"): Promise<CancellationResponse> {
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.CANCEL_BOOKING}`;
     const userId = this.getCurrentUserId();
 
-    console.log("🚫 Cancel booking request:", { orderId, reason, userId });
+    console.log("🚫 Cancel booking request:", { orderId, reason, language, userId });
 
     const response = await this.fetchWithError<CancellationResponse>(url, {
       method: "POST",
       body: JSON.stringify({
         userId,
         order_id: orderId,
+        language,
         reason,
       }),
     });
@@ -739,21 +744,20 @@ class BookingApiService {
   }
 
   /**
-   * Get contract data for an order
-   * @param orderId - The order ID
+   * Get contract data (account level)
+   * Backend mock: GET /api/ratehawk/contract/data
    */
-  async getContractData(orderId: string): Promise<ContractDataResponse> {
+  async getContractData(): Promise<ContractDataResponse> {
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.CONTRACT_DATA}`;
     const userId = this.getCurrentUserId();
 
-    console.log("📋 Get contract data request:", { orderId, userId });
+    console.log("📋 Get contract data request:", { userId });
 
     const response = await this.fetchWithError<ContractDataResponse>(url, {
-      method: "POST",
-      body: JSON.stringify({
-        userId,
-        order_id: orderId,
-      }),
+      method: "GET",
+      headers: {
+        "X-User-Id": userId,
+      },
     });
 
     console.log("📋 Get contract data response:", response);
@@ -761,21 +765,20 @@ class BookingApiService {
   }
 
   /**
-   * Get financial information for an order
-   * @param orderId - The order ID
+   * Get financial information (account level)
+   * Backend mock: GET /api/ratehawk/financial/info
    */
-  async getFinancialInfo(orderId: string): Promise<FinancialInfoResponse> {
+  async getFinancialInfo(): Promise<FinancialInfoResponse> {
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.FINANCIAL_INFO}`;
     const userId = this.getCurrentUserId();
 
-    console.log("💰 Get financial info request:", { orderId, userId });
+    console.log("💰 Get financial info request:", { userId });
 
     const response = await this.fetchWithError<FinancialInfoResponse>(url, {
-      method: "POST",
-      body: JSON.stringify({
-        userId,
-        order_id: orderId,
-      }),
+      method: "GET",
+      headers: {
+        "X-User-Id": userId,
+      },
     });
 
     console.log("💰 Get financial info response:", response);
@@ -783,21 +786,20 @@ class BookingApiService {
   }
 
   /**
-   * Get closing documents info for an order
-   * @param orderId - The order ID
+   * Get closing documents info (account level)
+   * Backend mock: GET /api/ratehawk/document/closing/info
    */
-  async getClosingDocumentsInfo(orderId: string): Promise<ClosingDocumentsInfoResponse> {
+  async getClosingDocumentsInfo(): Promise<ClosingDocumentsInfoResponse> {
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.CLOSING_DOCS_INFO}`;
     const userId = this.getCurrentUserId();
 
-    console.log("📄 Get closing documents info request:", { orderId, userId });
+    console.log("📄 Get closing documents info request:", { userId });
 
     const response = await this.fetchWithError<ClosingDocumentsInfoResponse>(url, {
-      method: "POST",
-      body: JSON.stringify({
-        userId,
-        order_id: orderId,
-      }),
+      method: "GET",
+      headers: {
+        "X-User-Id": userId,
+      },
     });
 
     console.log("📄 Get closing documents info response:", response);
@@ -806,21 +808,20 @@ class BookingApiService {
 
   /**
    * Download a closing document
-   * @param orderId - The order ID
-   * @param documentType - Type of document to download
+   * Backend mock: POST /api/ratehawk/document/closing/download
+   * @param documentId - The document ID to download
    */
-  async downloadClosingDocument(orderId: string, documentType: string): Promise<DocumentDownloadResponse> {
+  async downloadClosingDocument(documentId: string): Promise<ClosingDocumentDownloadResponse> {
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.CLOSING_DOCS_DOWNLOAD}`;
     const userId = this.getCurrentUserId();
 
-    console.log("⬇️ Download closing document request:", { orderId, documentType, userId });
+    console.log("⬇️ Download closing document request:", { documentId, userId });
 
-    const response = await this.fetchWithError<DocumentDownloadResponse>(url, {
+    const response = await this.fetchWithError<ClosingDocumentDownloadResponse>(url, {
       method: "POST",
       body: JSON.stringify({
         userId,
-        order_id: orderId,
-        document_type: documentType,
+        document_id: documentId,
       }),
     });
 
@@ -830,19 +831,22 @@ class BookingApiService {
 
   /**
    * Download voucher for an order
-   * @param orderId - The order ID
+   * Backend mock: POST /api/ratehawk/order/voucher/download
+   * @param partnerOrderId - The partner order ID (booking ID)
+   * @param language - Language code (default: "en")
    */
-  async downloadVoucher(orderId: string): Promise<DocumentDownloadResponse> {
+  async downloadVoucher(partnerOrderId: string, language: string = "en"): Promise<VoucherDownloadResponse> {
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.VOUCHER_DOWNLOAD}`;
     const userId = this.getCurrentUserId();
 
-    console.log("🎫 Download voucher request:", { orderId, userId });
+    console.log("🎫 Download voucher request:", { partnerOrderId, language, userId });
 
-    const response = await this.fetchWithError<DocumentDownloadResponse>(url, {
+    const response = await this.fetchWithError<VoucherDownloadResponse>(url, {
       method: "POST",
       body: JSON.stringify({
         userId,
-        order_id: orderId,
+        partner_order_id: partnerOrderId,
+        language,
       }),
     });
 
@@ -852,15 +856,16 @@ class BookingApiService {
 
   /**
    * Download invoice for an order
+   * Backend mock: POST /api/ratehawk/order/invoice/info/download
    * @param orderId - The order ID
    */
-  async downloadInvoice(orderId: string): Promise<DocumentDownloadResponse> {
+  async downloadInvoice(orderId: string): Promise<InvoiceDownloadResponse> {
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.INVOICE_DOWNLOAD}`;
     const userId = this.getCurrentUserId();
 
     console.log("🧾 Download invoice request:", { orderId, userId });
 
-    const response = await this.fetchWithError<DocumentDownloadResponse>(url, {
+    const response = await this.fetchWithError<InvoiceDownloadResponse>(url, {
       method: "POST",
       body: JSON.stringify({
         userId,
@@ -874,19 +879,20 @@ class BookingApiService {
 
   /**
    * Download order group invoice (for trips with multiple orders)
-   * @param orderGroupId - The order group ID
+   * Backend mock: POST /api/ratehawk/ordergroup/invoice/download
+   * @param invoiceId - The invoice ID
    */
-  async downloadOrderGroupInvoice(orderGroupId: string): Promise<OrderGroupInvoiceResponse> {
+  async downloadOrderGroupInvoice(invoiceId: string): Promise<OrderGroupInvoiceResponse> {
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.ORDER_GROUP_INVOICE}`;
     const userId = this.getCurrentUserId();
 
-    console.log("📑 Download order group invoice request:", { orderGroupId, userId });
+    console.log("📑 Download order group invoice request:", { invoiceId, userId });
 
     const response = await this.fetchWithError<OrderGroupInvoiceResponse>(url, {
       method: "POST",
       body: JSON.stringify({
         userId,
-        order_group_id: orderGroupId,
+        invoice_id: invoiceId,
       }),
     });
 
@@ -896,15 +902,16 @@ class BookingApiService {
 
   /**
    * Download single act document
+   * Backend mock: POST /api/ratehawk/order/act/download
    * @param orderId - The order ID
    */
-  async downloadSingleAct(orderId: string): Promise<DocumentDownloadResponse> {
+  async downloadSingleAct(orderId: string): Promise<ActDownloadResponse> {
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.SINGLE_ACT_DOWNLOAD}`;
     const userId = this.getCurrentUserId();
 
     console.log("📃 Download single act request:", { orderId, userId });
 
-    const response = await this.fetchWithError<DocumentDownloadResponse>(url, {
+    const response = await this.fetchWithError<ActDownloadResponse>(url, {
       method: "POST",
       body: JSON.stringify({
         userId,

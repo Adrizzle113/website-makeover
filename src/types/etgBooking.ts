@@ -234,27 +234,7 @@ export interface OrderInfoResponse {
   };
 }
 
-// Documents response
-export interface DocumentInfo {
-  document_id: string;
-  type: "voucher" | "invoice" | "confirmation";
-  name: string;
-  format: "pdf" | "html";
-  url?: string;
-  created_at: string;
-}
-
-export interface DocumentsResponse {
-  data: {
-    order_id: string;
-    documents: DocumentInfo[];
-  };
-  status: string;
-  error?: {
-    message: string;
-    code: string;
-  };
-}
+// Note: DocumentInfo and DocumentsResponse are defined in the POST-BOOKING TYPES section
 
 // RateHawk API Error Codes (Best Practices Section 5.3)
 // Final failure errors - stop polling immediately
@@ -591,11 +571,13 @@ export interface MultiroomPendingBookingData extends PendingBookingData {
 
 // ============================================
 // POST-BOOKING TYPES (Cancel, Contract, Financial, Documents)
+// Aligned with backend mock API responses
 // ============================================
 
 // Cancellation Request
 export interface CancellationRequest {
   order_id: string;
+  language?: string;
   reason?: string;
 }
 
@@ -608,10 +590,17 @@ export interface CancellationPenalty {
   percent?: number;
 }
 
-// Cancellation Response
+// Cancellation Response (matches backend mock)
 export interface CancellationResponse {
   status: "ok" | "error";
-  data: {
+  order_id: string;
+  cancelled_at: string;
+  cancellation_fee: number;
+  refund_amount: number;
+  currency: string;
+  message?: string;
+  // Legacy data wrapper for backward compatibility
+  data?: {
     order_id: string;
     status: "cancelled" | "pending_cancellation" | "cancellation_failed";
     refund_amount?: number;
@@ -627,30 +616,49 @@ export interface CancellationResponse {
   };
 }
 
-// Contract Data
-export interface ContractData {
-  order_id: string;
+// Contract Data Response (matches backend mock - account level)
+export interface ContractDataResponse {
   contract_id: string;
-  rate_type: "net" | "sell" | "gross";
+  partner_id: string;
+  contract_type: string;
+  start_date: string;
+  end_date: string;
+  commission_rate: number;
+  currency: string;
+  status: string;
+}
+
+// Contract Data (for order-specific use, keep for backward compat)
+export interface ContractData {
+  order_id?: string;
+  contract_id: string;
+  rate_type?: "net" | "sell" | "gross";
   supplier_name?: string;
   commission_percent?: number;
   markup_percent?: number;
-  terms: string[];
-  cancellation_terms: CancellationPenalty[];
+  terms?: string[];
+  cancellation_terms?: CancellationPenalty[];
   payment_terms?: string;
   special_conditions?: string[];
 }
 
-export interface ContractDataResponse {
-  status: "ok" | "error";
-  data: ContractData;
-  error?: {
-    code: string;
-    message: string;
-  };
+// Financial Info Response (matches backend mock - account level)
+export interface FinancialInfoResponse {
+  contract_id: string;
+  balance: number;
+  currency: string;
+  pending_payments: number;
+  last_payment_date: string;
+  next_payment_date: string;
+  transactions: Array<{
+    date: string;
+    amount: number;
+    type: string;
+    description: string;
+  }>;
 }
 
-// Tax and fee items for financial info
+// Tax and fee items (keep for compatibility)
 export interface TaxItem {
   name: string;
   amount: number;
@@ -665,7 +673,7 @@ export interface FeeItem {
   type: "service" | "booking" | "processing" | "other";
 }
 
-// Transaction record
+// Transaction record (keep for compatibility)
 export interface Transaction {
   id: string;
   type: "charge" | "refund" | "adjustment";
@@ -677,7 +685,7 @@ export interface Transaction {
   payment_method?: string;
 }
 
-// Financial Info
+// Financial Info (order-specific, keep for backward compat)
 export interface FinancialInfo {
   order_id: string;
   amounts: {
@@ -698,15 +706,6 @@ export interface FinancialInfo {
   };
 }
 
-export interface FinancialInfoResponse {
-  status: "ok" | "error";
-  data: FinancialInfo;
-  error?: {
-    code: string;
-    message: string;
-  };
-}
-
 // Closing document types
 export type ClosingDocumentType = 
   | "voucher" 
@@ -714,22 +713,35 @@ export type ClosingDocumentType =
   | "confirmation" 
   | "single_act" 
   | "receipt" 
-  | "contract";
+  | "contract"
+  | "closing_statement";
 
-// Closing document info
+// Closing document info (matches backend mock)
 export interface ClosingDocumentInfo {
-  id: string;
-  type: ClosingDocumentType;
-  name: string;
-  generated_at: string;
-  available: boolean;
+  document_id: string;
+  document_type: string;
+  period: string;
+  date: string;
+  amount: number;
+  currency: string;
+  download_url: string;
+  // Legacy fields for backward compat
+  id?: string;
+  type?: ClosingDocumentType;
+  name?: string;
+  generated_at?: string;
+  available?: boolean;
   file_size?: number;
   format?: "pdf" | "html";
 }
 
+// Closing Documents Info Response (matches backend mock)
 export interface ClosingDocumentsInfoResponse {
-  status: "ok" | "error";
-  data: {
+  documents: ClosingDocumentInfo[];
+  total_documents: number;
+  // Legacy wrapper
+  status?: "ok" | "error";
+  data?: {
     order_id: string;
     documents: ClosingDocumentInfo[];
   };
@@ -739,7 +751,102 @@ export interface ClosingDocumentsInfoResponse {
   };
 }
 
-// Document download response
+// Closing Document Download Response (matches backend mock)
+export interface ClosingDocumentDownloadResponse {
+  document_id: string;
+  document_url: string;
+  document_data?: string; // base64
+  downloaded_at: string;
+}
+
+// Voucher Download Response (matches backend mock)
+export interface VoucherDownloadResponse {
+  order_id: string;
+  partner_order_id: string;
+  voucher_url: string;
+  voucher_data?: string; // base64
+  language: string;
+  generated_at: string;
+  // Backward compat - alias fields
+  status?: "ok" | "error";
+  data?: {
+    url: string;
+    file_name: string;
+  };
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+// Invoice Download Response (matches backend mock)
+export interface InvoiceDownloadResponse {
+  order_id: string;
+  invoice_number: string;
+  invoice_url: string;
+  invoice_data?: string; // base64
+  amount: number;
+  currency: string;
+  issue_date: string;
+  // Backward compat
+  status?: "ok" | "error";
+  data?: {
+    url: string;
+    file_name: string;
+  };
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+// Order group invoice (matches backend mock)
+export interface OrderGroupInvoiceResponse {
+  invoice_id: string;
+  invoice_url: string;
+  invoice_data?: string; // base64
+  total_amount: number;
+  currency: string;
+  orders_count: number;
+  issue_date: string;
+  // Backward compat
+  status?: "ok" | "error";
+  data?: {
+    order_group_id: string;
+    url: string;
+    expires_at: string;
+    file_name: string;
+    content_type: string;
+    total_amount: number;
+    currency_code: string;
+    order_count: number;
+  };
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+// Single Act Download Response (matches backend mock)
+export interface ActDownloadResponse {
+  order_id: string;
+  act_url: string;
+  act_data?: string; // base64
+  act_number: string;
+  issue_date: string;
+  // Backward compat
+  status?: "ok" | "error";
+  data?: {
+    url: string;
+    file_name: string;
+  };
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+// Legacy DocumentDownloadResponse (keep for backward compat)
 export interface DocumentDownloadResponse {
   status: "ok" | "error";
   data: {
@@ -755,21 +862,24 @@ export interface DocumentDownloadResponse {
   };
 }
 
-// Order group invoice (for trips)
-export interface OrderGroupInvoiceResponse {
-  status: "ok" | "error";
+// Legacy DocumentInfo for order documents
+export interface DocumentInfo {
+  document_id: string;
+  type: "voucher" | "invoice" | "confirmation";
+  name: string;
+  format: "pdf" | "html";
+  url?: string;
+  created_at: string;
+}
+
+export interface DocumentsResponse {
   data: {
-    order_group_id: string;
-    url: string;
-    expires_at: string;
-    file_name: string;
-    content_type: string;
-    total_amount: number;
-    currency_code: string;
-    order_count: number;
+    order_id: string;
+    documents: DocumentInfo[];
   };
+  status: string;
   error?: {
-    code: string;
     message: string;
+    code: string;
   };
 }
