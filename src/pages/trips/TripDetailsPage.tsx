@@ -13,8 +13,12 @@ import {
   StarIcon,
   LayoutGrid,
   ListIcon,
-  GitBranch
+  GitBranch,
+  Loader2Icon,
+  ReceiptIcon
 } from "lucide-react";
+import { toast } from "sonner";
+import { bookingApi } from "@/services/bookingApi";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { Button } from "@/components/ui/button";
@@ -139,6 +143,96 @@ export default function TripDetailsPage() {
   const [trip] = useState(mockTrip);
   const [orders] = useState(mockOrders);
   const [viewMode, setViewMode] = useState<"cards" | "timeline">("cards");
+  const [downloadingVoucher, setDownloadingVoucher] = useState<string | null>(null);
+  const [downloadingAllVouchers, setDownloadingAllVouchers] = useState(false);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+
+  const handleDownloadVoucher = async (orderId: string, hotelName: string) => {
+    setDownloadingVoucher(orderId);
+    try {
+      const response = await bookingApi.downloadVoucher(orderId);
+      if (response.status === "ok" && response.data.url) {
+        bookingApi.triggerDownload(
+          response.data.url,
+          response.data.file_name || `voucher-${orderId}.pdf`
+        );
+        toast.success("Voucher downloaded", {
+          description: `Voucher for ${hotelName} has been downloaded.`,
+        });
+      } else {
+        throw new Error(response.error?.message || "Failed to download voucher");
+      }
+    } catch (error) {
+      toast.error("Download failed", {
+        description: error instanceof Error ? error.message : "Please try again",
+      });
+    } finally {
+      setDownloadingVoucher(null);
+    }
+  };
+
+  const handleDownloadAllVouchers = async () => {
+    setDownloadingAllVouchers(true);
+    try {
+      let successCount = 0;
+      for (const order of orders) {
+        try {
+          const response = await bookingApi.downloadVoucher(order.id);
+          if (response.status === "ok" && response.data.url) {
+            bookingApi.triggerDownload(
+              response.data.url,
+              response.data.file_name || `voucher-${order.id}.pdf`
+            );
+            successCount++;
+          }
+        } catch {
+          // Continue with other vouchers even if one fails
+        }
+      }
+      if (successCount === orders.length) {
+        toast.success("All vouchers downloaded", {
+          description: `${successCount} vouchers have been downloaded.`,
+        });
+      } else if (successCount > 0) {
+        toast.warning("Partial download", {
+          description: `${successCount} of ${orders.length} vouchers downloaded.`,
+        });
+      } else {
+        throw new Error("Failed to download any vouchers");
+      }
+    } catch (error) {
+      toast.error("Download failed", {
+        description: error instanceof Error ? error.message : "Please try again",
+      });
+    } finally {
+      setDownloadingAllVouchers(false);
+    }
+  };
+
+  const handleDownloadGroupInvoice = async () => {
+    if (!orderGroupId) return;
+    setDownloadingInvoice(true);
+    try {
+      const response = await bookingApi.downloadOrderGroupInvoice(orderGroupId);
+      if (response.status === "ok" && response.data.url) {
+        bookingApi.triggerDownload(
+          response.data.url,
+          response.data.file_name || `invoice-${orderGroupId}.pdf`
+        );
+        toast.success("Invoice downloaded", {
+          description: `Group invoice for ${trip.name} has been downloaded.`,
+        });
+      } else {
+        throw new Error(response.error?.message || "Failed to download invoice");
+      }
+    } catch (error) {
+      toast.error("Download failed", {
+        description: error instanceof Error ? error.message : "Please try again",
+      });
+    } finally {
+      setDownloadingInvoice(false);
+    }
+  };
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("en-US", {
@@ -195,9 +289,33 @@ export default function TripDetailsPage() {
                   <EditIcon className="w-4 h-4" />
                   Edit Trip Name
                 </Button>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <DownloadIcon className="w-4 h-4" />
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2"
+                  onClick={handleDownloadAllVouchers}
+                  disabled={downloadingAllVouchers}
+                >
+                  {downloadingAllVouchers ? (
+                    <Loader2Icon className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <DownloadIcon className="w-4 h-4" />
+                  )}
                   Download All Vouchers
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2"
+                  onClick={handleDownloadGroupInvoice}
+                  disabled={downloadingInvoice}
+                >
+                  {downloadingInvoice ? (
+                    <Loader2Icon className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ReceiptIcon className="w-4 h-4" />
+                  )}
+                  Group Invoice
                 </Button>
               </div>
             </div>
@@ -247,11 +365,17 @@ export default function TripDetailsPage() {
                     variant="detailed"
                     showActions={true}
                     onClick={() => navigate(`/orders/${order.id}`)}
+                    onDownloadVoucher={() => handleDownloadVoucher(order.id, order.hotelName)}
+                    isDownloadingVoucher={downloadingVoucher === order.id}
                   />
                 ))}
               </div>
             ) : (
-              <TripTimeline orders={orders} />
+              <TripTimeline 
+                orders={orders} 
+                onDownloadVoucher={handleDownloadVoucher}
+                downloadingVoucher={downloadingVoucher}
+              />
             )}
           </div>
         </main>

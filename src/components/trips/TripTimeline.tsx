@@ -1,13 +1,16 @@
-import { MapPin, Calendar, Clock, Plane, Hotel, CheckCircle2 } from "lucide-react";
+import { MapPin, Calendar, Clock, Plane, Hotel, CheckCircle2, DownloadIcon, Loader2Icon } from "lucide-react";
 import { Order } from "@/types/trips";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
-interface TripTimelineProps {
+export interface TripTimelineProps {
   orders: Order[];
   className?: string;
+  onDownloadVoucher?: (orderId: string, hotelName: string) => void;
+  downloadingVoucher?: string | null;
 }
 
-export function TripTimeline({ orders, className }: TripTimelineProps) {
+export function TripTimeline({ orders, className, onDownloadVoucher, downloadingVoucher }: TripTimelineProps) {
   // Sort orders by check-in date
   const sortedOrders = [...orders].sort(
     (a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime()
@@ -136,17 +139,34 @@ export function TripTimeline({ orders, className }: TripTimelineProps) {
                     </div>
 
                     {/* Room info */}
-                    <div className="mt-3 flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>{order.roomType}</span>
-                      <span>•</span>
-                      <span>
-                        {order.occupancy.adults} adult
-                        {order.occupancy.adults !== 1 ? "s" : ""}
-                        {order.occupancy.children > 0 &&
-                          `, ${order.occupancy.children} child${
-                            order.occupancy.children !== 1 ? "ren" : ""
-                          }`}
-                      </span>
+                    <div className="mt-3 flex items-center justify-between">
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span>{order.roomType}</span>
+                        <span>•</span>
+                        <span>
+                          {order.occupancy.adults} adult
+                          {order.occupancy.adults !== 1 ? "s" : ""}
+                          {order.occupancy.children > 0 &&
+                            `, ${order.occupancy.children} child${
+                              order.occupancy.children !== 1 ? "ren" : ""
+                            }`}
+                        </span>
+                      </div>
+                      {onDownloadVoucher && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onDownloadVoucher(order.id, order.hotelName)}
+                          disabled={downloadingVoucher === order.id}
+                        >
+                          {downloadingVoucher === order.id ? (
+                            <Loader2Icon className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <DownloadIcon className="w-4 h-4" />
+                          )}
+                          <span className="ml-1.5">Voucher</span>
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
