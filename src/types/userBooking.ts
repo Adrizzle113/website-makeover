@@ -135,6 +135,9 @@ export interface UserBooking {
   confirmedAt?: string;
   createdAt: string;
   voucherUrl?: string;
+  // Optional fields for richer display
+  leadGuestName?: string;
+  leadGuestEmail?: string;
 }
 
 // Helper to transform database row to frontend type

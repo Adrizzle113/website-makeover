@@ -179,7 +179,7 @@ export const MOCK_API_RESPONSES = {
   voucher: (orderId: string, partnerOrderId: string) => ({
     order_id: orderId,
     partner_order_id: partnerOrderId,
-    voucher_url: "#demo-voucher",
+    voucher_url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
     language: "en",
     generated_at: new Date().toISOString(),
   }),
@@ -187,7 +187,7 @@ export const MOCK_API_RESPONSES = {
   invoice: (orderId: string) => ({
     order_id: orderId,
     invoice_number: `INV-${orderId}`,
-    invoice_url: "#demo-invoice",
+    invoice_url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
     amount: MOCK_BOOKING_DATA.pricing.totalPaid,
     currency: MOCK_BOOKING_DATA.pricing.currency,
     issue_date: new Date().toISOString(),
