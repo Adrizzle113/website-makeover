@@ -197,6 +197,7 @@ export const MOCK_API_RESPONSES = {
     status: "ok" as const,
     data: {
       order_id: orderId,
+      order_group_id: `grp-${orderId}`,
       status: "confirmed",
       confirmation_number: `ETG-${orderId.slice(-8)}`,
       hotel: {
@@ -207,6 +208,7 @@ export const MOCK_API_RESPONSES = {
         country: MOCK_BOOKING_DATA.hotel.country,
         star_rating: MOCK_BOOKING_DATA.hotel.starRating,
         phone: MOCK_BOOKING_DATA.hotel.phone,
+        image: MOCK_BOOKING_DATA.hotel.mainImage,
       },
       dates: {
         check_in: MOCK_BOOKING_DATA.dates.checkIn,
@@ -235,6 +237,9 @@ export const MOCK_API_RESPONSES = {
         type: MOCK_BOOKING_DATA.payment.method,
         status: MOCK_BOOKING_DATA.payment.status,
       },
+      cancellation_policy: MOCK_BOOKING_DATA.cancellation.isCancellable ? "Free cancellation available" : "Non-refundable",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     },
   }),
   

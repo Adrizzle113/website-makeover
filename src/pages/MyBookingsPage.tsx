@@ -150,7 +150,7 @@ export default function MyBookingsPage() {
         id: `bk-${apiData.order_id}`,
         orderId: apiData.order_id,
         hotelName: apiData.hotel.name,
-        hotelImage: `https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400`, // Placeholder image
+        hotelImage: (apiData.hotel as any).image || `https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400`,
         hotelStars: apiData.hotel.star_rating || 4,
         city: apiData.hotel.city,
         country: apiData.hotel.country,
