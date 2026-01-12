@@ -111,11 +111,7 @@ export function AppSidebar() {
                       `}
                       activeClassName=""
                     >
-                      <item.icon className={`
-                        w-5 h-5 shrink-0 transition-all duration-300
-                        group-hover/item:scale-110
-                        ${isActive(item.url) ? 'text-primary-foreground' : ''}
-                      `} />
+                      <item.icon className="w-5 h-5 shrink-0 transition-all duration-300 group-hover/item:scale-110" />
                       {!collapsed && (
                         <>
                           <span className="flex-1">{item.title}</span>
@@ -170,11 +166,7 @@ export function AppSidebar() {
                       `}
                       activeClassName=""
                     >
-                      <item.icon className={`
-                        w-5 h-5 shrink-0 transition-all duration-300
-                        group-hover/item:scale-110
-                        ${isActive(item.url) ? 'text-primary-foreground' : ''}
-                      `} />
+                      <item.icon className="w-5 h-5 shrink-0 transition-all duration-300 group-hover/item:scale-110" />
                       {!collapsed && <span>{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
