@@ -16,6 +16,7 @@ import {
   validateExpiryDate,
   validateCVV,
 } from "@/lib/cardValidation";
+import { getMockPendingBookingData } from "@/lib/mockBookingData";
 import type { 
   PendingBookingData, 
   PaymentType,
@@ -786,7 +787,6 @@ const PaymentPage = () => {
               onClick={() => {
                 // Generate unique demo order ID and store mock booking data
                 const demoOrderId = `DEMO-${Date.now()}`;
-                const { getMockPendingBookingData } = require("@/lib/mockBookingData");
                 const mockData = getMockPendingBookingData(demoOrderId);
                 sessionStorage.setItem("pending_booking", JSON.stringify(mockData));
                 navigate(`/orders/${demoOrderId}/confirmation`);
