@@ -470,7 +470,7 @@ class BookingApiService {
     // Return mock response for demo orders
     if (isDemoOrder(orderId)) {
       console.log("📤 Get demo order info (mock):", { orderId });
-      return MOCK_API_RESPONSES.orderInfo(orderId) as OrderInfoResponse;
+      return MOCK_API_RESPONSES.orderInfo(orderId) as unknown as OrderInfoResponse;
     }
 
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.ORDER_INFO}`;
