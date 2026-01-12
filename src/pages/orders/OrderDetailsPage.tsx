@@ -323,14 +323,14 @@ export default function OrderDetailsPage() {
   };
 
   const getDaysUntilCancellation = () => {
-    if (!order.cancellationDeadline) return null;
+    if (!order?.cancellationDeadline) return null;
     const now = new Date();
     const deadline = new Date(order.cancellationDeadline);
     const diff = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     return diff;
   };
 
-  const daysUntilCancellation = getDaysUntilCancellation();
+  const daysUntilCancellation = order ? getDaysUntilCancellation() : null;
 
   const handleDownloadDocument = async (docType: "voucher" | "invoice" | "single_act", docName: string) => {
     if (!order) return;
