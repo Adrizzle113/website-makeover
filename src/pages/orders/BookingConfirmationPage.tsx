@@ -45,6 +45,7 @@ import { bookingApi } from "@/services/bookingApi";
 import { createBookingCalendarEvent, downloadICSFile } from "@/lib/calendarUtils";
 import { BookingTimeline } from "@/components/booking";
 import { TaxSummary } from "@/components/booking/TaxSummary";
+import { saveBookingToDatabase, isUserAuthenticated } from "@/lib/bookingStorage";
 import type { PendingBookingData, ContractData } from "@/types/etgBooking";
 import type { TaxItem } from "@/types/booking";
 
@@ -117,10 +118,59 @@ export default function BookingConfirmationPage() {
   const [copied, setCopied] = useState(false);
   const [contractData, setContractData] = useState<ContractData | null>(null);
   const [contractLoading, setContractLoading] = useState(false);
+  const [bookingSaved, setBookingSaved] = useState(false);
 
   useEffect(() => {
     loadBookingData();
   }, [orderId]);
+
+  // Auto-save booking to Supabase after confirmation
+  useEffect(() => {
+    if (!booking || !orderId || orderId === "demo-order" || bookingSaved) return;
+
+    const saveToDatabase = async () => {
+      // Wait 3 seconds as per RateHawk best practices for API sync
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // Check if user is authenticated
+      const isAuth = await isUserAuthenticated();
+      if (!isAuth) {
+        console.log("User not authenticated, skipping database save");
+        return;
+      }
+
+      try {
+        // Get pending booking data from sessionStorage
+        const pendingBookingStr = sessionStorage.getItem("pending_booking");
+        const pendingBooking = pendingBookingStr ? JSON.parse(pendingBookingStr) : undefined;
+
+        // Try to fetch complete order data from API
+        let apiResponse;
+        try {
+          apiResponse = await bookingApi.getOrderInfo(orderId);
+        } catch (e) {
+          console.warn("Could not fetch order info for save:", e);
+        }
+
+        // Save to Supabase
+        const result = await saveBookingToDatabase(orderId, pendingBooking, apiResponse);
+
+        if (result.success) {
+          setBookingSaved(true);
+          toast({
+            title: "Booking Saved",
+            description: "Your reservation has been added to My Bookings",
+          });
+        } else if (result.error && !result.error.includes("not ready")) {
+          console.warn("Failed to save booking:", result.error);
+        }
+      } catch (error) {
+        console.error("Error saving booking to database:", error);
+      }
+    };
+
+    saveToDatabase();
+  }, [booking, orderId, bookingSaved]);
 
   useEffect(() => {
     if (orderId && booking) {

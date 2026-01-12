@@ -18,7 +18,7 @@ import {
   FileDown,
   Loader2Icon,
   RefreshCwIcon,
-  PlusIcon,
+  RefreshCcwIcon,
 } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
@@ -45,38 +45,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getUserBookings, syncBookingFromApi, isUserAuthenticated } from "@/lib/bookingStorage";
+import type { UserBooking, BookingStatus } from "@/types/userBooking";
 
-type BookingStatus = "confirmed" | "pending" | "cancelled" | "completed";
-
-interface UserBooking {
-  id: string;
-  orderId: string;
-  hotelName: string;
-  hotelImage: string;
-  hotelStars: number;
-  city: string;
-  country: string;
-  address: string;
-  checkIn: string;
-  checkOut: string;
-  nights: number;
-  roomType: string;
-  roomCount: number;
-  guests: {
-    adults: number;
-    children: number;
-  };
-  status: BookingStatus;
-  totalAmount: number;
-  currency: string;
-  paymentType: "prepaid" | "pay_at_hotel";
-  cancellationPolicy: string;
-  cancellationDeadline?: string;
-  canCancel: boolean;
-  confirmedAt?: string;
-  createdAt: string;
-  voucherUrl?: string;
-}
 
 const SAVED_ORDERS_KEY = "my_booking_order_ids";
 
@@ -570,19 +541,10 @@ export default function MyBookingsPage() {
           </Button>
         </div>
 
-        {/* Add Order ID Section */}
-        <div className="flex gap-2 mb-6 p-4 bg-muted/50 rounded-lg">
-          <Input
-            placeholder="Enter Order ID to add booking..."
-            value={orderIdInput}
-            onChange={(e) => setOrderIdInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAddOrderId()}
-            className="flex-1"
-          />
-          <Button onClick={handleAddOrderId} disabled={isAddingOrder || !orderIdInput.trim()}>
-            {isAddingOrder ? <Loader2Icon className="w-4 h-4 animate-spin mr-2" /> : <PlusIcon className="w-4 h-4 mr-2" />}
-            Add
-          </Button>
+        {/* Info: Bookings auto-save from confirmation page */}
+        <div className="flex items-center gap-2 mb-6 p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
+          <CheckCircleIcon className="w-4 h-4 text-primary" />
+          <span>Bookings are automatically saved when you complete a reservation.</span>
         </div>
 
         {/* Results count */}
