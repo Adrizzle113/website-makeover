@@ -53,17 +53,17 @@ export function AppSidebar() {
   const isActive = (url: string) => location.pathname === url;
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border bg-background">
+    <Sidebar collapsible="icon" className="border-r border-border bg-background overflow-hidden">
       {/* Header with clean design */}
-      <SidebarHeader className="p-4 pb-6">
-        <div className="relative">
-          <div className="flex items-center gap-3">
-            <div className="relative w-11 h-11 rounded-xl bg-primary flex items-center justify-center shrink-0 shadow-md group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:h-9">
-              <GlobeIcon className="w-5 h-5 text-primary-foreground group-data-[collapsible=icon]:w-4 group-data-[collapsible=icon]:h-4" />
+      <SidebarHeader className={collapsed ? "p-2 pb-4" : "p-4 pb-6"}>
+        <div className="relative flex flex-col items-center">
+          <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
+            <div className={`relative rounded-xl bg-primary flex items-center justify-center shrink-0 shadow-md ${collapsed ? 'w-9 h-9' : 'w-11 h-11'}`}>
+              <GlobeIcon className={`text-primary-foreground ${collapsed ? 'w-4 h-4' : 'w-5 h-5'}`} />
             </div>
             {!collapsed && (
-              <div className="flex flex-col">
-                <span className="font-heading text-xl text-foreground tracking-wide">
+              <div className="flex flex-col min-w-0">
+                <span className="font-heading text-xl text-foreground tracking-wide truncate">
                   TravelHub
                 </span>
                 <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
@@ -74,7 +74,7 @@ export function AppSidebar() {
           </div>
           {/* Subtle accent line */}
           {!collapsed && (
-            <div className="mt-4 h-px bg-gradient-to-r from-border via-border/60 to-transparent" />
+            <div className="mt-4 w-full h-px bg-gradient-to-r from-border via-border/60 to-transparent" />
           )}
         </div>
       </SidebarHeader>
