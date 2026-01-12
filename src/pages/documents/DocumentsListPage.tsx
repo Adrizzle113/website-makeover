@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -455,11 +455,14 @@ export default function DocumentsListPage() {
         <div className="flex-1 p-6 space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-foreground">Documents</h1>
-              <p className="text-muted-foreground">
-                Manage vouchers, invoices, and booking documents
-              </p>
+            <div className="flex items-center gap-4">
+              <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+              <div>
+                <h1 className="text-2xl font-semibold text-foreground">Documents</h1>
+                <p className="text-muted-foreground">
+                  Manage vouchers, invoices, and booking documents
+                </p>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Button

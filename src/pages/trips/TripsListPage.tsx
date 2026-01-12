@@ -12,7 +12,7 @@ import {
   FileSpreadsheetIcon,
   CheckIcon
 } from "lucide-react";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -197,8 +197,11 @@ export default function TripsListPage() {
         <main className="flex-1 p-6 lg:p-8">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="font-heading text-heading-lg text-foreground mb-2">Trips</h1>
-            <p className="text-muted-foreground">
+            <div className="flex items-center gap-4 mb-2">
+              <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+              <h1 className="font-heading text-heading-lg text-foreground">Trips</h1>
+            </div>
+            <p className="text-muted-foreground ml-10">
               Manage all your client trips and itineraries
             </p>
           </div>
