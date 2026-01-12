@@ -9,6 +9,8 @@ import {
   Star,
   AlertCircle,
   Clock,
+  DownloadIcon,
+  Loader2Icon,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,11 +18,13 @@ import { Button } from "@/components/ui/button";
 import { Order, OrderStatus } from "@/types/trips";
 import { cn } from "@/lib/utils";
 
-interface BookingCardProps {
+export interface BookingCardProps {
   order: Order;
   variant?: "compact" | "detailed";
   showActions?: boolean;
   onClick?: () => void;
+  onDownloadVoucher?: () => void;
+  isDownloadingVoucher?: boolean;
 }
 
 const statusConfig: Record<
@@ -54,6 +58,8 @@ export function BookingCard({
   variant = "detailed",
   showActions = true,
   onClick,
+  onDownloadVoucher,
+  isDownloadingVoucher = false,
 }: BookingCardProps) {
   const status = statusConfig[order.status];
 
@@ -243,6 +249,24 @@ export function BookingCard({
 
                 {showActions && (
                   <div className="flex items-center gap-2">
+                    {onDownloadVoucher && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDownloadVoucher();
+                        }}
+                        disabled={isDownloadingVoucher}
+                      >
+                        {isDownloadingVoucher ? (
+                          <Loader2Icon className="w-4 h-4 animate-spin mr-1.5" />
+                        ) : (
+                          <DownloadIcon className="w-4 h-4 mr-1.5" />
+                        )}
+                        Voucher
+                      </Button>
+                    )}
                     <Button variant="outline" size="sm" asChild>
                       <Link to={`/orders/${order.id}`}>View Details</Link>
                     </Button>
