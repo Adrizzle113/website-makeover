@@ -883,3 +883,191 @@ export interface DocumentsResponse {
     code: string;
   };
 }
+
+// ============================================
+// RATEHAWK ORDER INFO BATCH API TYPES
+// Matches /api/b2b/v3/hotel/order/info/ endpoint
+// ============================================
+
+// Request structure for batch order retrieval
+export interface OrderInfoBatchRequest {
+  ordering: {
+    ordering_type: "asc" | "desc";
+    ordering_by: "created_at" | "checkin_at" | "checkout_at";
+  };
+  pagination: {
+    page_size: string;  // "1" to "100"
+    page_number: string;
+  };
+  search?: {
+    created_at?: {
+      from_date?: string;  // ISO format "YYYY-MM-DDTHH:mm"
+      to_date?: string;
+    };
+    order_id?: number[];
+    partner_order_id?: string[];
+    status?: Array<"confirmed" | "cancelled" | "processing" | "failed">;
+  };
+  language?: string;
+}
+
+// Guest data in RateHawk order response
+export interface RateHawkGuestData {
+  first_name: string;
+  first_name_original: string;
+  last_name: string;
+  last_name_original: string;
+  is_child: boolean;
+  age: number | null;
+}
+
+// Room data in RateHawk order response
+export interface RateHawkRoomData {
+  room_idx: number;
+  room_name: string;
+  meal_name: string;
+  bedding_name: string[];
+  has_breakfast: boolean;
+  no_child_meal: boolean;
+  guest_data: {
+    adults_number: number;
+    children_number: number;
+    guests: RateHawkGuestData[];
+  };
+}
+
+// Tax in RateHawk order response
+export interface RateHawkTax {
+  name: string;
+  amount_tax: {
+    amount: string;
+    currency_code: string;
+  };
+  is_included: boolean;
+}
+
+// Cancellation policy in RateHawk order response
+export interface RateHawkCancellationPolicy {
+  start_at: string | null;
+  end_at: string | null;
+  penalty: {
+    amount: string;
+    currency_code: string;
+    amount_info?: {
+      amount_commission: string;
+      amount_gross: string;
+      amount_net: string;
+    };
+  };
+}
+
+// Full order data from RateHawk batch response
+export interface RateHawkOrderData {
+  order_id: number;
+  order_type: "hotel";
+  status: "confirmed" | "cancelled" | "processing" | "failed";
+  source: string;
+  
+  // Timestamps
+  created_at: string;
+  modified_at: string;
+  cancelled_at: string | null;
+  
+  // Booking dates
+  checkin_at: string;
+  checkout_at: string;
+  nights: number;
+  roomnights: number;
+  
+  // Cancellation
+  is_cancellable: boolean;
+  cancellation_info: {
+    free_cancellation_before: string;
+    policies: RateHawkCancellationPolicy[];
+  };
+  
+  // Pricing
+  amount_sell: { amount: string; currency_code: string };
+  amount_payable: { amount: string; currency_code: string };
+  amount_payable_vat: { amount: string; currency_code: string };
+  amount_refunded: { amount: string; currency_code: string };
+  amount_sell_b2b2c: { amount: string; currency_code: string };
+  amount_payable_with_upsells: { amount: string; currency_code: string };
+  total_vat: { amount: string; currency_code: string; included: boolean };
+  
+  // Hotel
+  hotel_data: {
+    id: string;
+    hid: number;
+    order_id: number | null;
+  };
+  
+  // Rooms with guest data
+  rooms_data: RateHawkRoomData[];
+  
+  // Taxes
+  taxes: RateHawkTax[];
+  
+  // Payment
+  payment_data: {
+    payment_type: PaymentType;
+    invoice_id: string | null;
+    invoice_id_v2: string | null;
+    paid_at: string | null;
+    payment_by: string | null;
+    payment_due: string;
+    payment_pending: string;
+  };
+  
+  // Partner data (our order reference)
+  partner_data: {
+    order_id: string;
+    order_comment: string | null;
+  };
+  
+  // User data
+  user_data: {
+    email: string;
+    user_comment: string | null;
+    arrival_datetime: string | null;
+  };
+  
+  // Supplier
+  supplier_data: {
+    confirmation_id: string;
+    name: string;
+    order_id: string;
+  };
+  
+  // Metadata
+  agreement_number: string | null;
+  api_auth_key_id: number;
+  contract_slug: string;
+  invoice_id: string | null;
+  is_checked: boolean;
+  is_package: boolean;
+  has_tickets: boolean;
+  meta_data: {
+    voucher_order_comment: string | null;
+  };
+  upsells: unknown[];
+  amount_sell_b2b2c_commission: string | null;
+}
+
+// Batch response from RateHawk /api/b2b/v3/hotel/order/info/
+export interface RateHawkOrderInfoBatchResponse {
+  status: "ok" | "error";
+  error: string | null;
+  data: {
+    current_page_number: number;
+    total_orders: number;
+    total_pages: number;
+    found_orders: number;
+    found_pages: number;
+    orders: RateHawkOrderData[];
+  };
+  debug?: {
+    request_id: string;
+    utcnow: string;
+  };
+}

@@ -47,6 +47,8 @@ import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getUserBookings, syncBookingFromApi, isUserAuthenticated } from "@/lib/bookingStorage";
 import type { UserBooking, BookingStatus } from "@/types/userBooking";
+import type { RateHawkOrderData } from "@/types/etgBooking";
+import { isDemoOrder } from "@/lib/mockBookingData";
 
 
 const SAVED_ORDERS_KEY = "my_booking_order_ids";
@@ -81,6 +83,52 @@ function mapApiStatus(apiStatus: string, checkOutDate: Date): BookingStatus {
     default:
       return "pending";
   }
+}
+
+// Map RateHawk batch order data to UserBooking format
+function mapRateHawkOrderToUserBooking(order: RateHawkOrderData): UserBooking {
+  const checkOutDate = new Date(order.checkout_at);
+  const totalGuests = order.rooms_data.reduce(
+    (sum, r) => sum + r.guest_data.adults_number + r.guest_data.children_number,
+    0
+  );
+  const leadGuest = order.rooms_data[0]?.guest_data?.guests?.[0];
+  
+  return {
+    id: `bk-${order.order_id}`,
+    orderId: String(order.order_id),
+    hotelName: order.hotel_data.id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+    hotelImage: `https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400`,
+    hotelStars: 4, // Not in batch response - would need separate hotel details call
+    city: "", // Not in batch response
+    country: "", // Not in batch response
+    address: "", // Not in batch response
+    checkIn: order.checkin_at,
+    checkOut: order.checkout_at,
+    nights: order.nights,
+    roomType: order.rooms_data[0]?.room_name || "Standard Room",
+    roomCount: order.rooms_data.length,
+    guests: {
+      adults: order.rooms_data.reduce((sum, r) => sum + r.guest_data.adults_number, 0),
+      children: order.rooms_data.reduce((sum, r) => sum + r.guest_data.children_number, 0),
+    },
+    status: mapApiStatus(order.status, checkOutDate),
+    totalAmount: parseFloat(order.amount_sell.amount),
+    currency: order.amount_sell.currency_code,
+    paymentType: order.payment_data.payment_type === "hotel" ? "pay_at_hotel" : "prepaid",
+    cancellationPolicy: order.cancellation_info?.free_cancellation_before 
+      ? `Free cancellation before ${format(new Date(order.cancellation_info.free_cancellation_before), "MMM d, yyyy")}`
+      : "Non-refundable",
+    cancellationDeadline: order.cancellation_info?.free_cancellation_before,
+    canCancel: order.is_cancellable && 
+      !!order.cancellation_info?.free_cancellation_before &&
+      isFuture(new Date(order.cancellation_info.free_cancellation_before)),
+    confirmedAt: order.status === "confirmed" ? order.modified_at : undefined,
+    createdAt: order.created_at,
+    voucherUrl: order.status === "confirmed" ? `/documents/voucher-${order.order_id}` : undefined,
+    leadGuestName: leadGuest ? `${leadGuest.first_name} ${leadGuest.last_name}` : undefined,
+    leadGuestEmail: order.user_data?.email,
+  };
 }
 
 const statusConfig: Record<BookingStatus, { label: string; className: string; icon: React.ElementType }> = {
@@ -185,7 +233,7 @@ export default function MyBookingsPage() {
     }
   }, []);
 
-  // Fetch all bookings
+  // Fetch all bookings - uses batch API for real orders, individual fetch for demo orders
   const fetchAllBookings = useCallback(async (orderIds: string[]) => {
     if (orderIds.length === 0) {
       setBookings([]);
@@ -194,11 +242,56 @@ export default function MyBookingsPage() {
       return;
     }
 
-    const bookingPromises = orderIds.map(id => fetchBookingFromApi(id));
-    const results = await Promise.all(bookingPromises);
-    const validBookings = results.filter((b): b is UserBooking => b !== null);
+    // Separate demo and real order IDs
+    const demoOrderIds = orderIds.filter(id => isDemoOrder(id));
+    const realOrderIds = orderIds.filter(id => !isDemoOrder(id));
+
+    const allBookings: UserBooking[] = [];
+
+    // Fetch demo orders individually (using mock data)
+    if (demoOrderIds.length > 0) {
+      const demoPromises = demoOrderIds.map(id => fetchBookingFromApi(id));
+      const demoResults = await Promise.all(demoPromises);
+      allBookings.push(...demoResults.filter((b): b is UserBooking => b !== null));
+    }
+
+    // Batch fetch real orders using the RateHawk batch API
+    if (realOrderIds.length > 0) {
+      try {
+        // Convert string order IDs to numbers for the batch API
+        const numericOrderIds = realOrderIds
+          .map(id => parseInt(id, 10))
+          .filter(id => !isNaN(id));
+        
+        if (numericOrderIds.length > 0) {
+          const response = await bookingApi.getOrdersBatch({
+            orderIds: numericOrderIds,
+            pageSize: 50,
+          });
+          
+          if (response.status === "ok" && response.data?.orders) {
+            const mappedBookings = response.data.orders.map(mapRateHawkOrderToUserBooking);
+            allBookings.push(...mappedBookings);
+          }
+        }
+
+        // Fall back to individual fetch for non-numeric order IDs (e.g., partner_order_id format)
+        const nonNumericIds = realOrderIds.filter(id => isNaN(parseInt(id, 10)));
+        if (nonNumericIds.length > 0) {
+          const fallbackPromises = nonNumericIds.map(id => fetchBookingFromApi(id));
+          const fallbackResults = await Promise.all(fallbackPromises);
+          allBookings.push(...fallbackResults.filter((b): b is UserBooking => b !== null));
+        }
+      } catch (error) {
+        console.warn("Batch fetch failed, falling back to individual fetches:", error);
+        // Fallback to individual fetches
+        const fallbackPromises = realOrderIds.map(id => fetchBookingFromApi(id));
+        const fallbackResults = await Promise.all(fallbackPromises);
+        allBookings.push(...fallbackResults.filter((b): b is UserBooking => b !== null));
+      }
+    }
     
-    setBookings(validBookings);
+    setBookings(allBookings);
     setIsLoading(false);
     setIsRefreshing(false);
   }, [fetchBookingFromApi]);

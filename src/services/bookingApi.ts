@@ -30,6 +30,9 @@ import type {
   InvoiceDownloadResponse,
   OrderGroupInvoiceResponse,
   ActDownloadResponse,
+  // Batch order info types
+  OrderInfoBatchRequest,
+  RateHawkOrderInfoBatchResponse,
 } from "@/types/etgBooking";
 import {
   isMultiroomPrebookParams,
@@ -42,6 +45,7 @@ const BOOKING_ENDPOINTS = {
   ORDER_FINISH: "/api/ratehawk/order/finish",
   ORDER_STATUS: "/api/ratehawk/order/status",
   ORDER_INFO: "/api/ratehawk/order/info",
+  ORDER_INFO_BATCH: "/api/ratehawk/order/info/batch",  // Batch retrieval
   ORDER_DOCUMENTS: "/api/ratehawk/order/documents",
   // New booking flow endpoints
   CREATE_CARD_TOKEN: "/api/booking/create-credit-card-token",
@@ -508,6 +512,82 @@ class BookingApiService {
     });
 
     console.log("📥 Order documents response:", response);
+    return response;
+  }
+
+  /**
+   * Batch retrieve orders with filtering and pagination
+   * Uses the RateHawk /api/b2b/v3/hotel/order/info/ endpoint
+   * More efficient than individual fetches for My Bookings page
+   */
+  async getOrdersBatch(params: {
+    orderIds?: number[];
+    partnerOrderIds?: string[];
+    page?: number;
+    pageSize?: number;
+    fromDate?: string;
+    toDate?: string;
+    status?: Array<"confirmed" | "cancelled" | "processing" | "failed">;
+    orderingBy?: "created_at" | "checkin_at" | "checkout_at";
+    orderingType?: "asc" | "desc";
+  } = {}): Promise<RateHawkOrderInfoBatchResponse> {
+    const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.ORDER_INFO_BATCH}`;
+    const userId = this.getCurrentUserId();
+
+    const requestBody: OrderInfoBatchRequest = {
+      ordering: {
+        ordering_type: params.orderingType || "desc",
+        ordering_by: params.orderingBy || "created_at",
+      },
+      pagination: {
+        page_size: String(params.pageSize || 20),
+        page_number: String(params.page || 1),
+      },
+      search: {
+        order_id: params.orderIds,
+        partner_order_id: params.partnerOrderIds,
+        status: params.status,
+        created_at: params.fromDate ? {
+          from_date: params.fromDate,
+          to_date: params.toDate,
+        } : undefined,
+      },
+      language: "en",
+    };
+
+    // Clean up undefined search fields
+    if (requestBody.search) {
+      Object.keys(requestBody.search).forEach(key => {
+        if ((requestBody.search as Record<string, unknown>)[key] === undefined) {
+          delete (requestBody.search as Record<string, unknown>)[key];
+        }
+      });
+      if (Object.keys(requestBody.search).length === 0) {
+        delete requestBody.search;
+      }
+    }
+
+    console.log("📤 Batch order info request:", {
+      orderIds: params.orderIds?.length,
+      partnerOrderIds: params.partnerOrderIds?.length,
+      page: params.page,
+      pageSize: params.pageSize,
+    });
+
+    const response = await this.fetchWithError<RateHawkOrderInfoBatchResponse>(url, {
+      method: "POST",
+      body: JSON.stringify({
+        userId,
+        ...requestBody,
+      }),
+    });
+
+    console.log("📥 Batch order info response:", {
+      total: response.data?.total_orders,
+      found: response.data?.found_orders,
+      page: response.data?.current_page_number,
+    });
+
     return response;
   }
 
