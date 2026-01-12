@@ -79,11 +79,13 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-2">
+      <SidebarContent className={collapsed ? "px-1" : "px-2"}>
         <SidebarGroup>
-          <SidebarGroupLabel className="px-3 mb-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
-            Main Menu
-          </SidebarGroupLabel>
+          {!collapsed && (
+            <SidebarGroupLabel className="px-3 mb-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
+              Main Menu
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
               {mainNavItems.map((item, index) => (
@@ -101,9 +103,10 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       className={`
-                        relative flex items-center gap-3 px-3 py-3 rounded-xl
+                        relative flex items-center gap-3 rounded-xl
                         transition-all duration-300 ease-out
                         hover:bg-muted hover:scale-[1.02]
+                        ${collapsed ? 'justify-center px-2 py-3' : 'px-3 py-3'}
                         ${isActive(item.url) 
                           ? 'bg-primary text-primary-foreground font-medium shadow-md' 
                           : 'text-foreground/70 hover:text-foreground'
@@ -114,7 +117,7 @@ export function AppSidebar() {
                       <item.icon className="w-5 h-5 shrink-0 transition-all duration-300 group-hover/item:scale-110" />
                       {!collapsed && (
                         <>
-                          <span className="flex-1">{item.title}</span>
+                          <span className="flex-1 truncate">{item.title}</span>
                           {item.badge && (
                             <Badge className="bg-foreground text-background text-[10px] font-bold px-1.5 py-0 h-5 min-w-5 flex items-center justify-center rounded-full">
                               {item.badge}
@@ -136,9 +139,11 @@ export function AppSidebar() {
         )}
 
         <SidebarGroup>
-          <SidebarGroupLabel className="px-3 mb-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
-            Support
-          </SidebarGroupLabel>
+          {!collapsed && (
+            <SidebarGroupLabel className="px-3 mb-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
+              Support
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
               {secondaryNavItems.map((item, index) => (
@@ -156,9 +161,10 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       className={`
-                        relative flex items-center gap-3 px-3 py-3 rounded-xl
+                        relative flex items-center gap-3 rounded-xl
                         transition-all duration-300 ease-out
                         hover:bg-muted hover:scale-[1.02]
+                        ${collapsed ? 'justify-center px-2 py-3' : 'px-3 py-3'}
                         ${isActive(item.url) 
                           ? 'bg-primary text-primary-foreground font-medium shadow-md' 
                           : 'text-foreground/70 hover:text-foreground'
@@ -167,7 +173,7 @@ export function AppSidebar() {
                       activeClassName=""
                     >
                       <item.icon className="w-5 h-5 shrink-0 transition-all duration-300 group-hover/item:scale-110" />
-                      {!collapsed && <span>{item.title}</span>}
+                      {!collapsed && <span className="truncate">{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
