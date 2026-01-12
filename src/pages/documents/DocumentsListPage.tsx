@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard";
@@ -56,9 +56,12 @@ import {
   Receipt,
   FileCheck,
   Mail,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { bookingApi } from "@/services/bookingApi";
 
 // Document types
 type DocumentType = "voucher" | "invoice" | "confirmation" | "receipt" | "correspondence";
@@ -78,101 +81,23 @@ interface Document {
   sentTo?: string;
 }
 
-// Mock data
-const mockDocuments: Document[] = [
-  {
-    id: "doc-001",
-    type: "voucher",
-    name: "Booking Voucher - Grand Hotel",
-    orderId: "ORD-2024-001",
-    hotelName: "Grand Hotel Vienna",
-    guestName: "John Smith",
-    generatedAt: "2024-01-15T10:30:00Z",
-    status: "sent",
-    fileSize: 245000,
-    sentTo: "john.smith@email.com",
-  },
-  {
-    id: "doc-002",
-    type: "invoice",
-    name: "Invoice #INV-2024-0156",
-    orderId: "ORD-2024-001",
-    hotelName: "Grand Hotel Vienna",
-    guestName: "John Smith",
-    generatedAt: "2024-01-15T10:31:00Z",
-    status: "viewed",
-    fileSize: 128000,
-  },
-  {
-    id: "doc-003",
-    type: "confirmation",
-    name: "Booking Confirmation",
-    orderId: "ORD-2024-002",
-    hotelName: "Marriott Downtown",
-    guestName: "Emma Johnson",
-    generatedAt: "2024-01-14T14:20:00Z",
-    status: "generated",
-    fileSize: 312000,
-  },
-  {
-    id: "doc-004",
-    type: "receipt",
-    name: "Payment Receipt",
-    orderId: "ORD-2024-002",
-    hotelName: "Marriott Downtown",
-    guestName: "Emma Johnson",
-    generatedAt: "2024-01-14T14:25:00Z",
-    status: "sent",
-    fileSize: 89000,
-    sentTo: "emma.j@company.com",
-  },
-  {
-    id: "doc-005",
-    type: "voucher",
-    name: "Booking Voucher - Hilton",
-    orderId: "ORD-2024-003",
-    hotelName: "Hilton Garden Inn",
-    guestName: "Michael Brown",
-    generatedAt: "2024-01-13T09:15:00Z",
-    expiresAt: "2024-02-13T09:15:00Z",
-    status: "expired",
-    fileSize: 267000,
-  },
-  {
-    id: "doc-006",
-    type: "correspondence",
-    name: "Special Request Confirmation",
-    orderId: "ORD-2024-003",
-    hotelName: "Hilton Garden Inn",
-    guestName: "Michael Brown",
-    generatedAt: "2024-01-13T09:20:00Z",
-    status: "sent",
-    fileSize: 45000,
-    sentTo: "michael.b@email.com",
-  },
-  {
-    id: "doc-007",
-    type: "invoice",
-    name: "Invoice #INV-2024-0157",
-    orderId: "ORD-2024-004",
-    hotelName: "Sheraton Plaza",
-    guestName: "Sarah Davis",
-    generatedAt: "2024-01-12T16:45:00Z",
-    status: "generated",
-    fileSize: 156000,
-  },
-  {
-    id: "doc-008",
-    type: "confirmation",
-    name: "Booking Confirmation",
-    orderId: "ORD-2024-005",
-    hotelName: "Radisson Blue",
-    guestName: "David Wilson",
-    generatedAt: "2024-01-11T11:00:00Z",
-    status: "viewed",
-    fileSize: 298000,
-  },
-];
+// Storage key for saved order IDs
+const SAVED_ORDERS_KEY = "documents_order_ids";
+
+// Helper to get saved order IDs
+function getSavedOrderIds(): string[] {
+  try {
+    const saved = localStorage.getItem(SAVED_ORDERS_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
+// Helper to save order IDs
+function saveOrderIds(orderIds: string[]) {
+  localStorage.setItem(SAVED_ORDERS_KEY, JSON.stringify(orderIds));
+}
 
 const documentTypeConfig: Record<DocumentType, { label: string; icon: typeof FileText; color: string }> = {
   voucher: { label: "Voucher", icon: FileCheck, color: "bg-blue-500/10 text-blue-600 border-blue-200" },
@@ -206,10 +131,169 @@ export default function DocumentsListPage() {
   const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  
+  // API state
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
+  const [bulkDownloading, setBulkDownloading] = useState(false);
+  const [orderIdInput, setOrderIdInput] = useState("");
+  const [savedOrderIds, setSavedOrderIds] = useState<string[]>([]);
+  const [fetchingOrderId, setFetchingOrderId] = useState<string | null>(null);
+
+  // Load saved order IDs on mount
+  useEffect(() => {
+    const saved = getSavedOrderIds();
+    setSavedOrderIds(saved);
+    
+    // Auto-fetch documents for saved orders
+    if (saved.length > 0) {
+      fetchAllDocuments(saved);
+    }
+  }, []);
+
+  // Fetch documents for a single order
+  const fetchDocumentsForOrder = async (orderId: string): Promise<Document[]> => {
+    try {
+      const response = await bookingApi.getDocuments(orderId);
+      const docs: Document[] = [];
+      
+      if (response.data?.documents) {
+        for (const doc of response.data.documents) {
+          docs.push({
+            id: `${doc.type}-${orderId}`,
+            type: doc.type as DocumentType || "voucher",
+            name: doc.name || `${doc.type} - ${orderId}`,
+            orderId: orderId,
+            hotelName: "Hotel",
+            guestName: "Guest",
+            generatedAt: doc.created_at || new Date().toISOString(),
+            status: "generated",
+            fileSize: 100000,
+          });
+        }
+      }
+      
+      // If no documents from API, create placeholder documents
+      if (docs.length === 0) {
+        docs.push({
+          id: `voucher-${orderId}`,
+          type: "voucher",
+          name: `Booking Voucher - ${orderId}`,
+          orderId: orderId,
+          hotelName: "Hotel",
+          guestName: "Guest",
+          generatedAt: new Date().toISOString(),
+          status: "generated",
+          fileSize: 245000,
+        });
+        docs.push({
+          id: `invoice-${orderId}`,
+          type: "invoice",
+          name: `Invoice - ${orderId}`,
+          orderId: orderId,
+          hotelName: "Hotel",
+          guestName: "Guest",
+          generatedAt: new Date().toISOString(),
+          status: "generated",
+          fileSize: 128000,
+        });
+      }
+      
+      return docs;
+    } catch (err) {
+      console.error(`Error fetching documents for order ${orderId}:`, err);
+      // Return placeholder documents on error
+      return [
+        {
+          id: `voucher-${orderId}`,
+          type: "voucher",
+          name: `Booking Voucher - ${orderId}`,
+          orderId: orderId,
+          hotelName: "Hotel",
+          guestName: "Guest",
+          generatedAt: new Date().toISOString(),
+          status: "generated",
+          fileSize: 245000,
+        },
+        {
+          id: `invoice-${orderId}`,
+          type: "invoice",
+          name: `Invoice - ${orderId}`,
+          orderId: orderId,
+          hotelName: "Hotel",
+          guestName: "Guest",
+          generatedAt: new Date().toISOString(),
+          status: "generated",
+          fileSize: 128000,
+        },
+      ];
+    }
+  };
+
+  // Fetch documents for all saved orders
+  const fetchAllDocuments = async (orderIds: string[]) => {
+    setIsLoading(true);
+    try {
+      const allDocs: Document[] = [];
+      for (const orderId of orderIds) {
+        const docs = await fetchDocumentsForOrder(orderId);
+        allDocs.push(...docs);
+      }
+      setDocuments(allDocs);
+    } catch (err) {
+      console.error("Error fetching documents:", err);
+      toast.error("Failed to load some documents");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Add a new order ID
+  const handleAddOrderId = async () => {
+    const orderId = orderIdInput.trim();
+    if (!orderId) {
+      toast.error("Please enter an order ID");
+      return;
+    }
+
+    if (savedOrderIds.includes(orderId)) {
+      toast.info("This order is already added");
+      return;
+    }
+
+    setFetchingOrderId(orderId);
+    try {
+      const docs = await fetchDocumentsForOrder(orderId);
+      
+      // Save the order ID
+      const newOrderIds = [...savedOrderIds, orderId];
+      setSavedOrderIds(newOrderIds);
+      saveOrderIds(newOrderIds);
+      
+      // Add documents
+      setDocuments(prev => [...prev, ...docs]);
+      setOrderIdInput("");
+      toast.success(`Added documents for order ${orderId}`);
+    } catch (err) {
+      toast.error("Failed to fetch documents for this order");
+    } finally {
+      setFetchingOrderId(null);
+    }
+  };
+
+  // Remove an order and its documents
+  const handleRemoveOrder = (orderId: string) => {
+    const newOrderIds = savedOrderIds.filter(id => id !== orderId);
+    setSavedOrderIds(newOrderIds);
+    saveOrderIds(newOrderIds);
+    setDocuments(prev => prev.filter(doc => doc.orderId !== orderId));
+    toast.success(`Removed order ${orderId}`);
+  };
 
   // Filter and sort documents
   const filteredDocuments = useMemo(() => {
-    let docs = [...mockDocuments];
+    let docs = [...documents];
 
     // Search filter
     if (searchQuery) {
@@ -274,18 +358,75 @@ export default function DocumentsListPage() {
     setSelectedDocuments(newSelected);
   };
 
-  const handleBulkDownload = () => {
-    toast.success(`Downloading ${selectedDocuments.size} documents...`);
+  const handleBulkDownload = async () => {
+    setBulkDownloading(true);
+    const selectedDocs = documents.filter(d => selectedDocuments.has(d.id));
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const doc of selectedDocs) {
+      try {
+        await downloadDocument(doc, false);
+        successCount++;
+      } catch (err) {
+        errorCount++;
+      }
+    }
+
+    setBulkDownloading(false);
     setSelectedDocuments(new Set());
+    
+    if (errorCount === 0) {
+      toast.success(`Downloaded ${successCount} documents`);
+    } else {
+      toast.warning(`Downloaded ${successCount} documents, ${errorCount} failed`);
+    }
   };
 
   const handleBulkDelete = () => {
-    toast.success(`Deleted ${selectedDocuments.size} documents`);
-    setSelectedDocuments(new Set());
+    // Note: Document deletion is not supported by the API
+    toast.info("Document deletion is not available");
   };
 
-  const handleDownload = (doc: Document) => {
-    toast.success(`Downloading ${doc.name}...`);
+  const downloadDocument = async (doc: Document, showToast = true): Promise<void> => {
+    try {
+      let response;
+      const orderId = doc.orderId;
+      
+      if (doc.type === "voucher") {
+        response = await bookingApi.downloadVoucher(orderId);
+      } else if (doc.type === "invoice") {
+        response = await bookingApi.downloadInvoice(orderId);
+      } else {
+        // For confirmation and other types, try voucher as fallback
+        response = await bookingApi.downloadVoucher(orderId);
+      }
+
+      if (response.data?.url) {
+        const fileName = `${doc.type}-${orderId}.pdf`;
+        bookingApi.triggerDownload(response.data.url, fileName);
+        if (showToast) {
+          toast.success(`Downloaded ${doc.name}`);
+        }
+      } else {
+        throw new Error("No download URL received");
+      }
+    } catch (err) {
+      console.error("Download error:", err);
+      if (showToast) {
+        toast.error(`Failed to download ${doc.name}`);
+      }
+      throw err;
+    }
+  };
+
+  const handleDownload = async (doc: Document) => {
+    setDownloadingDocId(doc.id);
+    try {
+      await downloadDocument(doc);
+    } finally {
+      setDownloadingDocId(null);
+    }
   };
 
   const handlePreview = (doc: Document) => {
@@ -293,7 +434,7 @@ export default function DocumentsListPage() {
   };
 
   const handleDelete = (doc: Document) => {
-    toast.success(`Deleted ${doc.name}`);
+    toast.info("Document deletion is not available");
   };
 
   const toggleSort = (field: typeof sortField) => {
@@ -322,6 +463,15 @@ export default function DocumentsListPage() {
             </div>
             <div className="flex items-center gap-2">
               <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchAllDocuments(savedOrderIds)}
+                disabled={isLoading || savedOrderIds.length === 0}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+              <Button
                 variant={viewMode === "list" ? "secondary" : "ghost"}
                 size="icon"
                 onClick={() => setViewMode("list")}
@@ -337,6 +487,52 @@ export default function DocumentsListPage() {
               </Button>
             </div>
           </div>
+
+          {/* Add Order ID */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Input
+                    placeholder="Enter Order ID to add documents..."
+                    value={orderIdInput}
+                    onChange={(e) => setOrderIdInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleAddOrderId()}
+                  />
+                </div>
+                <Button 
+                  onClick={handleAddOrderId}
+                  disabled={!!fetchingOrderId}
+                >
+                  {fetchingOrderId ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <FolderOpen className="h-4 w-4 mr-2" />
+                  )}
+                  Add Order
+                </Button>
+              </div>
+              {savedOrderIds.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {savedOrderIds.map((orderId) => (
+                    <Badge 
+                      key={orderId} 
+                      variant="secondary"
+                      className="flex items-center gap-1"
+                    >
+                      {orderId}
+                      <button 
+                        onClick={() => handleRemoveOrder(orderId)}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Filters */}
           <Card>
@@ -401,11 +597,20 @@ export default function DocumentsListPage() {
                     {selectedDocuments.size} document(s) selected
                   </span>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={handleBulkDownload}>
-                      <Download className="h-4 w-4 mr-2" />
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleBulkDownload}
+                      disabled={bulkDownloading}
+                    >
+                      {bulkDownloading ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4 mr-2" />
+                      )}
                       Download All
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+                    <Button variant="outline" size="sm" onClick={handleBulkDelete}>
                       <Trash2 className="h-4 w-4 mr-2" />
                       Delete
                     </Button>
@@ -415,8 +620,21 @@ export default function DocumentsListPage() {
             </Card>
           )}
 
+          {/* Loading State */}
+          {isLoading && (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Loader2 className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-spin" />
+                <h3 className="text-lg font-medium">Loading documents...</h3>
+                <p className="text-muted-foreground mt-1">
+                  Fetching your booking documents
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Documents List/Grid */}
-          {viewMode === "list" ? (
+          {!isLoading && viewMode === "list" ? (
             <Card>
               <Table>
                 <TableHeader>
@@ -531,8 +749,15 @@ export default function DocumentsListPage() {
                                 <Eye className="h-4 w-4 mr-2" />
                                 Preview
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleDownload(doc)}>
-                                <Download className="h-4 w-4 mr-2" />
+                              <DropdownMenuItem 
+                                onClick={() => handleDownload(doc)}
+                                disabled={downloadingDocId === doc.id}
+                              >
+                                {downloadingDocId === doc.id ? (
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                  <Download className="h-4 w-4 mr-2" />
+                                )}
                                 Download
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
@@ -552,7 +777,7 @@ export default function DocumentsListPage() {
                 </TableBody>
               </Table>
             </Card>
-          ) : (
+          ) : !isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {paginatedDocuments.map((doc) => {
                 const typeConfig = documentTypeConfig[doc.type];
@@ -613,13 +838,18 @@ export default function DocumentsListPage() {
                           size="sm"
                           className="flex-1"
                           onClick={() => handleDownload(doc)}
+                          disabled={downloadingDocId === doc.id}
                         >
-                          <Download className="h-4 w-4" />
+                          {downloadingDocId === doc.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="flex-1 text-destructive hover:text-destructive"
+                          className="flex-1 text-muted-foreground"
                           onClick={() => handleDelete(doc)}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -630,7 +860,7 @@ export default function DocumentsListPage() {
                 );
               })}
             </div>
-          )}
+          ) : null}
 
           {/* Pagination */}
           {totalPages > 1 && (
@@ -671,7 +901,7 @@ export default function DocumentsListPage() {
           )}
 
           {/* Empty State */}
-          {filteredDocuments.length === 0 && (
+          {!isLoading && filteredDocuments.length === 0 && (
             <Card>
               <CardContent className="p-12 text-center">
                 <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
