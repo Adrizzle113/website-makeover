@@ -175,16 +175,16 @@ export const Dashboard = (): JSX.Element => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
+      <div className="min-h-screen flex w-full bg-gradient-to-br from-background via-background to-secondary/30">
         <AppSidebar />
         
         <div className="flex-1 flex flex-col">
           {/* Header */}
-          <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-border">
+          <header className="sticky top-0 z-50 bg-background/60 backdrop-blur-xl border-b border-border/50">
             <div className="px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+                  <SidebarTrigger className="text-muted-foreground hover:text-foreground transition-colors" />
                   <div>
                     <p className="text-sm font-medium text-foreground">{getGreeting()}</p>
                     <p className="text-xs text-muted-foreground">
@@ -197,8 +197,8 @@ export const Dashboard = (): JSX.Element => {
                     <p className="text-sm font-medium text-foreground">{userEmail || "Agent"}</p>
                     <p className="text-xs text-muted-foreground">Travel Agent</p>
                   </div>
-                  <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center">
-                    <span className="text-accent-foreground font-medium text-sm">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/20">
+                    <span className="text-white font-semibold text-sm">
                       {userEmail ? userEmail.charAt(0).toUpperCase() : "A"}
                     </span>
                   </div>
@@ -209,30 +209,31 @@ export const Dashboard = (): JSX.Element => {
 
           <main className="flex-1 px-6 py-8 overflow-auto">
             {/* Welcome Section with Date Range & Export */}
-            <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h1 className="text-3xl md:text-4xl font-heading text-foreground mb-2">
-                  Welcome back, {userEmail ? userEmail.split("@")[0] : "Agent"}
+            <div className="mb-10 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-primary uppercase tracking-wider">Dashboard Overview</p>
+                <h1 className="text-4xl md:text-5xl font-heading text-foreground">
+                  Welcome back, <span className="text-primary">{userEmail ? userEmail.split("@")[0] : "Agent"}</span>
                 </h1>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground text-lg">
                   Here's what's happening with your travel business today.
                 </p>
               </div>
               <div className="flex items-center gap-3">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="gap-2">
+                    <Button variant="outline" className="gap-2 bg-card/50 backdrop-blur-sm border-border/50 hover:bg-card">
                       <CalendarIcon className="h-4 w-4" />
                       {dateRangeLabels[dateRange]}
                       <ChevronDown className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent align="end" className="backdrop-blur-xl bg-card/95">
                     {Object.entries(dateRangeLabels).map(([key, label]) => (
                       <DropdownMenuItem 
                         key={key}
                         onClick={() => setDateRange(key as DateRange)}
-                        className={dateRange === key ? "bg-accent" : ""}
+                        className={dateRange === key ? "bg-primary/10 text-primary" : ""}
                       >
                         {label}
                       </DropdownMenuItem>
@@ -241,7 +242,7 @@ export const Dashboard = (): JSX.Element => {
                 </DropdownMenu>
                 <Button 
                   variant="outline" 
-                  className="gap-2"
+                  className="gap-2 bg-card/50 backdrop-blur-sm border-border/50 hover:bg-card"
                   onClick={handleExportDashboard}
                   disabled={isExporting}
                 >
@@ -252,28 +253,33 @@ export const Dashboard = (): JSX.Element => {
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
               {stats.map((stat, index) => (
-                <Card key={index} className="border-none shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-soft)] transition-shadow">
-                  <CardContent className="p-6">
+                <Card 
+                  key={index} 
+                  className="group relative overflow-hidden border-none bg-card/60 backdrop-blur-sm hover:bg-card transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <CardContent className="p-6 relative">
                     <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
-                        <h3 className="text-2xl font-heading text-foreground">{stat.value}</h3>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">{stat.label}</p>
+                        <h3 className="text-3xl font-heading text-foreground tracking-tight">{stat.value}</h3>
                       </div>
-                      <div className={`p-3 rounded-xl ${stat.color}`}>
+                      <div className={`p-3 rounded-2xl ${stat.color} transition-transform group-hover:scale-110`}>
                         <stat.icon className="w-5 h-5" />
                       </div>
                     </div>
-                    <div className={`mt-4 flex items-center text-sm ${
+                    <div className={`mt-4 flex items-center text-sm font-medium ${
                       stat.trend === "up" ? "text-emerald-600" : "text-red-500"
                     }`}>
                       {stat.trend === "up" ? (
-                        <TrendingUpIcon className="w-4 h-4 mr-1" />
+                        <TrendingUpIcon className="w-4 h-4 mr-1.5" />
                       ) : (
-                        <TrendingDownIcon className="w-4 h-4 mr-1" />
+                        <TrendingDownIcon className="w-4 h-4 mr-1.5" />
                       )}
-                      <span>{stat.change} from last month</span>
+                      <span>{stat.change}</span>
+                      <span className="text-muted-foreground font-normal ml-1">from last month</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -281,7 +287,7 @@ export const Dashboard = (): JSX.Element => {
             </div>
 
             {/* Charts & Alerts Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
               <div className="lg:col-span-2">
                 <RevenueChart />
               </div>
@@ -291,113 +297,113 @@ export const Dashboard = (): JSX.Element => {
             </div>
 
             {/* Bookings Pipeline */}
-            <div className="mb-8">
+            <div className="mb-10">
               <BookingsPipeline />
             </div>
 
             {/* Quick Actions & Recent Bookings */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
               {/* Quick Actions */}
-              <Card className="border-none shadow-[var(--shadow-card)]">
+              <Card className="border-none bg-card/60 backdrop-blur-sm">
                 <CardContent className="p-6">
-                  <h3 className="font-heading text-lg text-foreground mb-6">Quick Actions</h3>
-                  <div className="grid grid-cols-2 gap-3">
+                  <h3 className="font-heading text-xl text-foreground mb-6">Quick Actions</h3>
+                  <div className="grid grid-cols-2 gap-4">
                     <Button
                       variant="outline"
-                      className="h-auto py-4 flex flex-col items-center gap-2 border-border hover:bg-secondary hover:border-primary transition-all"
+                      className="h-auto py-5 flex flex-col items-center gap-3 border-border/50 bg-background/50 hover:bg-primary/5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 group"
                       onClick={() => navigate("/")}
                     >
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <SearchIcon className="w-4 h-4 text-primary" />
+                      <div className="p-3 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                        <SearchIcon className="w-5 h-5 text-primary" />
                       </div>
-                      <span className="text-xs font-medium">Search Hotels</span>
+                      <span className="text-sm font-medium">Search Hotels</span>
                     </Button>
                     <Button
                       variant="outline"
-                      className="h-auto py-4 flex flex-col items-center gap-2 border-border hover:bg-secondary hover:border-primary transition-all"
+                      className="h-auto py-5 flex flex-col items-center gap-3 border-border/50 bg-background/50 hover:bg-accent/5 hover:border-accent/30 hover:shadow-lg hover:shadow-accent/10 transition-all duration-300 group"
                       onClick={() => navigate("/dashboard/my-bookings")}
                     >
-                      <div className="p-2 rounded-lg bg-accent/20">
-                        <CalendarIcon className="w-4 h-4 text-accent" />
+                      <div className="p-3 rounded-xl bg-accent/20 group-hover:bg-accent/30 transition-colors">
+                        <CalendarIcon className="w-5 h-5 text-accent" />
                       </div>
-                      <span className="text-xs font-medium">My Bookings</span>
+                      <span className="text-sm font-medium">My Bookings</span>
                     </Button>
                     <Button
                       variant="outline"
-                      className="h-auto py-4 flex flex-col items-center gap-2 border-border hover:bg-secondary hover:border-primary transition-all"
+                      className="h-auto py-5 flex flex-col items-center gap-3 border-border/50 bg-background/50 hover:bg-[hsl(43,74%,66%)]/5 hover:border-[hsl(43,74%,66%)]/30 hover:shadow-lg hover:shadow-[hsl(43,74%,66%)]/10 transition-all duration-300 group"
                       onClick={() => navigate("/reporting/bookings")}
                     >
-                      <div className="p-2 rounded-lg bg-[hsl(43,74%,66%)]/20">
-                        <FileTextIcon className="w-4 h-4 text-[hsl(43,74%,66%)]" />
+                      <div className="p-3 rounded-xl bg-[hsl(43,74%,66%)]/20 group-hover:bg-[hsl(43,74%,66%)]/30 transition-colors">
+                        <FileTextIcon className="w-5 h-5 text-[hsl(43,74%,66%)]" />
                       </div>
-                      <span className="text-xs font-medium">View Reports</span>
+                      <span className="text-sm font-medium">View Reports</span>
                     </Button>
                     <Button
                       variant="outline"
-                      className="h-auto py-4 flex flex-col items-center gap-2 border-border hover:bg-secondary hover:border-primary transition-all"
+                      className="h-auto py-5 flex flex-col items-center gap-3 border-border/50 bg-background/50 hover:bg-emerald-500/5 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-300 group"
                       onClick={() => navigate("/clients")}
                     >
-                      <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-                        <UsersIcon className="w-4 h-4 text-emerald-600" />
+                      <div className="p-3 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 group-hover:bg-emerald-200 dark:group-hover:bg-emerald-900/50 transition-colors">
+                        <UsersIcon className="w-5 h-5 text-emerald-600" />
                       </div>
-                      <span className="text-xs font-medium">Manage Clients</span>
+                      <span className="text-sm font-medium">Manage Clients</span>
                     </Button>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Recent Bookings */}
-              <Card className="lg:col-span-2 border-none shadow-[var(--shadow-card)]">
+              <Card className="lg:col-span-2 border-none bg-card/60 backdrop-blur-sm">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="font-heading text-lg text-foreground">Recent Bookings</h3>
+                    <h3 className="font-heading text-xl text-foreground">Recent Bookings</h3>
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="text-accent hover:text-accent/80"
+                      className="text-primary hover:text-primary/80 hover:bg-primary/10"
                       onClick={() => navigate("/reporting/bookings")}
                     >
                       View All
                     </Button>
                   </div>
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {recentBookings.map((booking) => (
                       <div
                         key={booking.id}
-                        className="flex items-center gap-4 p-4 rounded-xl bg-secondary/50 hover:bg-secondary transition-colors cursor-pointer"
+                        className="group flex items-center gap-4 p-4 rounded-2xl bg-background/50 hover:bg-background border border-transparent hover:border-border/50 transition-all duration-300 cursor-pointer hover:shadow-md"
                         onClick={() => navigate(`/orders/${booking.id}`)}
                       >
-                        <div className="p-2 rounded-lg bg-primary/10">
+                        <div className="p-2.5 rounded-xl bg-primary/10 group-hover:bg-primary/15 transition-colors">
                           <BedDoubleIcon className="w-5 h-5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium text-foreground truncate">
+                            <p className="text-sm font-semibold text-foreground truncate">
                               {booking.hotel}
                             </p>
                             <span
-                              className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                 booking.status === "confirmed"
-                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                                  : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
+                                  : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
                               }`}
                             >
                               {booking.status}
                             </span>
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1.5">
                             <span className="flex items-center gap-1">
                               <MapPinIcon className="w-3 h-3" />
                               {booking.destination}
                             </span>
-                            <span>•</span>
+                            <span className="w-1 h-1 rounded-full bg-muted-foreground/50" />
                             <span>{booking.guest}</span>
-                            <span>•</span>
+                            <span className="w-1 h-1 rounded-full bg-muted-foreground/50" />
                             <span>{booking.dates}</span>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-medium text-foreground">{booking.amount}</p>
+                          <p className="text-sm font-semibold text-foreground">{booking.amount}</p>
                           <p className="text-xs text-muted-foreground">{booking.id}</p>
                         </div>
                       </div>
@@ -408,7 +414,9 @@ export const Dashboard = (): JSX.Element => {
             </div>
 
             {/* Top Performers */}
-            <TopPerformers />
+            <div className="pb-4">
+              <TopPerformers />
+            </div>
           </main>
         </div>
       </div>
