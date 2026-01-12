@@ -27,6 +27,7 @@ import {
   Receipt,
   FileCheck,
 } from "lucide-react";
+import { isDemoOrder, getMockPendingBookingData, MOCK_BOOKING_DATA } from "@/lib/mockBookingData";
 import { format, differenceInDays } from "date-fns";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
@@ -124,13 +125,17 @@ export default function BookingConfirmationPage() {
     loadBookingData();
   }, [orderId]);
 
-  // Auto-save booking to Supabase after confirmation
+  // Auto-save booking to Supabase after confirmation (including demo orders)
   useEffect(() => {
-    if (!booking || !orderId || orderId === "demo-order" || bookingSaved) return;
+    if (!booking || !orderId || bookingSaved) return;
+
+    const isDemo = isDemoOrder(orderId);
 
     const saveToDatabase = async () => {
-      // Wait 3 seconds as per RateHawk best practices for API sync
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Wait 3 seconds for real orders (RateHawk best practices), skip for demo
+      if (!isDemo) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
 
       // Check if user is authenticated
       const isAuth = await isUserAuthenticated();
@@ -293,53 +298,55 @@ export default function BookingConfirmationPage() {
       }
     }
 
-    // Fallback to mock data for demo
+    // Fallback to rich mock data for demo orders
     setBooking({
       id: orderId || "demo-order",
-      confirmationNumber: `ETG-${Date.now().toString().slice(-8)}`,
+      confirmationNumber: `ETG-${orderId?.slice(-8) || Date.now().toString().slice(-8)}`,
       status: "confirmed",
       hotel: {
-        id: "demo-hotel",
-        name: "The Beverly Hills Hotel",
-        starRating: 5,
-        address: "9641 Sunset Boulevard",
-        city: "Beverly Hills",
-        country: "United States",
-        phone: "+1 310-276-2251",
-        email: "reservations@beverlyhillshotel.com",
-        checkInTime: "15:00",
-        checkOutTime: "12:00",
-        currency: "USD",
+        id: MOCK_BOOKING_DATA.hotel.id,
+        name: MOCK_BOOKING_DATA.hotel.name,
+        starRating: MOCK_BOOKING_DATA.hotel.starRating,
+        address: MOCK_BOOKING_DATA.hotel.address,
+        city: MOCK_BOOKING_DATA.hotel.city,
+        country: MOCK_BOOKING_DATA.hotel.country,
+        phone: MOCK_BOOKING_DATA.hotel.phone,
+        email: MOCK_BOOKING_DATA.hotel.email,
+        checkInTime: MOCK_BOOKING_DATA.hotel.checkInTime,
+        checkOutTime: MOCK_BOOKING_DATA.hotel.checkOutTime,
+        image: MOCK_BOOKING_DATA.hotel.mainImage,
+        currency: MOCK_BOOKING_DATA.hotel.currency,
       },
-      rooms: [{
-        roomId: "deluxe-king",
-        roomName: "Deluxe King Room",
-        mealPlan: "Breakfast Included",
-        quantity: 1,
-      }],
-      guests: [{
-        firstName: "John",
-        lastName: "Smith",
-        email: "john.smith@example.com",
-        type: "adult",
-        isLead: true,
-      }],
+      rooms: MOCK_BOOKING_DATA.rooms.map(r => ({
+        roomId: r.roomId,
+        roomName: r.roomName,
+        mealPlan: r.mealPlan,
+        quantity: r.quantity,
+      })),
+      guests: MOCK_BOOKING_DATA.guests.map(g => ({
+        firstName: g.firstName,
+        lastName: g.lastName,
+        email: g.email,
+        type: g.type,
+        isLead: g.isLead,
+      })),
       dates: {
-        checkIn: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-        checkOut: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+        checkIn: MOCK_BOOKING_DATA.dates.checkIn,
+        checkOut: MOCK_BOOKING_DATA.dates.checkOut,
       },
       pricing: {
-        roomTotal: 1200,
-        upsellsTotal: 0,
-        taxesIncluded: 180,
-        taxesAtHotel: 50,
-        totalPaid: 1200,
-        totalAtHotel: 50,
-        currency: "USD",
+        roomTotal: MOCK_BOOKING_DATA.pricing.roomTotal,
+        upsellsTotal: MOCK_BOOKING_DATA.pricing.upsellsTotal,
+        taxesIncluded: MOCK_BOOKING_DATA.pricing.taxesIncluded,
+        taxesAtHotel: MOCK_BOOKING_DATA.pricing.taxesAtHotel,
+        totalPaid: MOCK_BOOKING_DATA.pricing.totalPaid,
+        totalAtHotel: MOCK_BOOKING_DATA.pricing.totalAtHotel,
+        currency: MOCK_BOOKING_DATA.pricing.currency,
       },
+      taxes: MOCK_BOOKING_DATA.displayTaxes as any,
       payment: {
-        method: "deposit",
-        status: "paid",
+        method: MOCK_BOOKING_DATA.payment.method,
+        status: MOCK_BOOKING_DATA.payment.status,
       },
       bookingDate: new Date().toISOString(),
     });

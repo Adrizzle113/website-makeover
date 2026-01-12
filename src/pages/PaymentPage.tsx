@@ -783,7 +783,14 @@ const PaymentPage = () => {
             {/* DEV: Skip to confirmation */}
             <Button
               variant="ghost"
-              onClick={() => navigate(`/orders/demo-order/confirmation`)}
+              onClick={() => {
+                // Generate unique demo order ID and store mock booking data
+                const demoOrderId = `DEMO-${Date.now()}`;
+                const { getMockPendingBookingData } = require("@/lib/mockBookingData");
+                const mockData = getMockPendingBookingData(demoOrderId);
+                sessionStorage.setItem("pending_booking", JSON.stringify(mockData));
+                navigate(`/orders/${demoOrderId}/confirmation`);
+              }}
               className="flex items-center gap-2 bg-amber-500/80 backdrop-blur-sm text-white hover:bg-amber-500 rounded-full px-4 opacity-0 animate-fade-in"
               style={{ animationDelay: "0.1s" }}
             >
