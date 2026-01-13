@@ -3,8 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import logoWhite from "@/assets/logo-white.png";
-
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const scrollToSection = (sectionId: string) => {
@@ -19,7 +17,9 @@ export function Header() {
         <div className="flex items-center justify-between h-24">
           {/* Logo */}
           <Link to="/" className="flex items-center">
-            <img src={logoWhite} alt="Booking Já" className="h-10" />
+            <span className="font-heading text-heading-lg text-white">
+              Booking Já 
+            </span>
           </Link>
 
           {/* Desktop Navigation */}
