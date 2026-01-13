@@ -33,8 +33,7 @@ export function HeroSection() {
         <p className="text-body-lg text-white/80 max-w-2xl mx-auto mb-10 opacity-0 animate-fade-in" style={{
         animationDelay: "0.4s"
       }}>
-          Discover breathtaking destinations and create unforgettable memories 
-          with our expertly curated tour packages.
+          Access rates 20–30% lower than TAAP, Booking.com, and HotelBeds — and keep the profit you deserve.
         </p>
 
         <div className="opacity-0 animate-fade-in" style={{
