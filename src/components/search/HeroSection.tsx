@@ -37,7 +37,9 @@ export function HeroSection() {
           className="font-heading text-display-lg md:text-display-xl text-white mb-8 opacity-0 animate-slide-up"
           style={{ animationDelay: "0.2s" }}
         >
-          Turn the world into your playground!
+          BETTER RATES<br />
+          HIGHER COMMISSIONS<br />
+          MADE FOR BRAZILIAN AGENTS
         </h1>
         <p 
           className="text-body-lg text-white/80 max-w-2xl mx-auto mb-10 opacity-0 animate-fade-in"
