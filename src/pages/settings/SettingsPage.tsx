@@ -202,7 +202,7 @@ export default function SettingsPage() {
   }, [storedLanguage, storedClockFormat, storedTimezone]);
 
   const handleSavePreferences = () => {
-    saveLanguage(preferences.language);
+    saveLanguage(preferences.language as "en" | "pt-BR");
     saveClockFormat(preferences.clockFormat);
     saveTimezone(preferences.timezone);
     toast.success("Preferences saved");

@@ -3,8 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { LanguageToggle } from "@/components/ui/LanguageToggle";
+import { useLanguage } from "@/hooks/useLanguage";
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { t } = useLanguage();
+  
   const scrollToSection = (sectionId: string) => {
     const section = document.getElementById(sectionId);
     section?.scrollIntoView({
@@ -26,45 +30,49 @@ export function Header() {
           <nav className="hidden lg:flex items-center gap-8">
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center gap-1 text-white/90 hover:text-white transition-colors text-body-md font-medium">
-                Explore
+                {t("nav.explore")}
                 <ChevronDown className="h-4 w-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent className="bg-white/95 backdrop-blur-sm">
                 <DropdownMenuItem onClick={() => scrollToSection("destinations")} className="cursor-pointer">
-                  Destinations
+                  {t("nav.destinations")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => scrollToSection("tour-packages")} className="cursor-pointer">
-                  Tour Packages
+                  {t("nav.tourPackages")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => scrollToSection("services")} className="cursor-pointer">
-                  Services
+                  {t("nav.services")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <button onClick={() => scrollToSection("about")} className="text-white/90 hover:text-white transition-colors text-body-md font-medium">
-              About
+              {t("nav.about")}
             </button>
             <button onClick={() => scrollToSection("blog")} className="text-white/90 hover:text-white transition-colors text-body-md font-medium">
-              Blog
+              {t("nav.blog")}
             </button>
             <button onClick={() => scrollToSection("contact")} className="text-white/90 hover:text-white transition-colors text-body-md font-medium">
-              Contact
+              {t("nav.contact")}
             </button>
           </nav>
 
-          {/* CTA Button */}
-          <div className="hidden lg:flex items-center gap-3">
+          {/* CTA Button & Language Toggle */}
+          <div className="hidden lg:flex items-center gap-4">
+            <LanguageToggle />
             <Link to="/dashboard">
               <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-6">
-                Dashboard
+                {t("nav.dashboard")}
               </Button>
             </Link>
           </div>
 
           {/* Mobile Menu Button */}
-          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="lg:hidden text-white p-2">
-            {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
+          <div className="lg:hidden flex items-center gap-3">
+            <LanguageToggle />
+            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-white p-2">
+              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile Menu */}
