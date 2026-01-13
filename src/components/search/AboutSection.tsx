@@ -1,4 +1,62 @@
 import { CheckCircle, Headphones, Shield, MapPin } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+
+function StepsGrid({ steps }: { steps: { step: string; title: string; description: string }[] }) {
+  const [visibleItems, setVisibleItems] = useState<number[]>([]);
+  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  useEffect(() => {
+    const observers = itemRefs.current.map((ref, index) => {
+      if (!ref) return null;
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            setTimeout(() => {
+              setVisibleItems((prev) => [...prev, index]);
+            }, index * 150);
+            observer.disconnect();
+          }
+        },
+        { threshold: 0.2 }
+      );
+      observer.observe(ref);
+      return observer;
+    });
+
+    return () => {
+      observers.forEach((observer) => observer?.disconnect());
+    };
+  }, []);
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {steps.map((item, index) => (
+        <div
+          key={index}
+          ref={(el) => (itemRefs.current[index] = el)}
+          className={`flex gap-4 transition-all duration-500 ${
+            visibleItems.includes(index)
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-4"
+          }`}
+        >
+          <div className="flex-shrink-0 w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+            <span className="text-primary-foreground font-heading font-bold">{item.step}</span>
+          </div>
+          <div>
+            <h4 className="font-heading text-heading-sm text-foreground mb-1">
+              {item.title}
+            </h4>
+            <p className="text-body-sm text-muted-foreground">
+              {item.description}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function AboutSection() {
   const features = [{
     icon: Shield,
@@ -46,23 +104,7 @@ export function AboutSection() {
             </div>
 
             {/* Steps Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {steps.map((item, index) => (
-                <div key={index} className="flex gap-4">
-                  <div className="flex-shrink-0 w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-                    <span className="text-primary-foreground font-heading font-bold">{item.step}</span>
-                  </div>
-                  <div>
-                    <h4 className="font-heading text-heading-sm text-foreground mb-1">
-                      {item.title}
-                    </h4>
-                    <p className="text-body-sm text-muted-foreground">
-                      {item.description}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <StepsGrid steps={steps} />
           </div>
 
           {/* Image */}
