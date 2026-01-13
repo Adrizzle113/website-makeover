@@ -20,5 +20,5 @@ const tours = [{
   price: "$3,199"
 }];
 export function TourPackagesSection() {
-  return;
+  return null;
 }

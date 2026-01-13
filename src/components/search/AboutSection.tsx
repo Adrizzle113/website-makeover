@@ -121,7 +121,7 @@ export function AboutSection() {
                 <span className="font-heading text-heading-sm">Expert Guides</span>
               </div>
               <p className="text-body-sm text-muted-foreground">
-                Local experts who know every hidden gem
+                The same hotel pricing trusted by US travel agents.
               </p>
             </div>
           </div>
