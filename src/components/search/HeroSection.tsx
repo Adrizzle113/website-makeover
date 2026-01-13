@@ -23,7 +23,7 @@ export function HeroSection() {
         <p className="heading-spaced text-white/80 mb-6 opacity-0 animate-fade-in" style={{
         animationDelay: "0.1s"
       }}>
-          Premium Travel Experiences
+          Stop losing money with expensive suppliers.
         </p>
         <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl text-white mb-8 opacity-0 animate-slide-up font-bold tracking-tight leading-tight" style={{
         animationDelay: "0.2s"
