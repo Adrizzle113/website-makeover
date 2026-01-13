@@ -11,13 +11,17 @@ export function HeroSection() {
 
   return (
     <section className="relative min-h-screen flex items-center justify-center px-4 py-8">
-      {/* Rounded Container with Background Image */}
-      <div
-        className="absolute inset-4 md:inset-8 rounded-3xl md:rounded-[2.5rem] overflow-hidden bg-cover bg-center bg-no-repeat"
-        style={{
-          backgroundImage: `url('${heroImage}')`,
-        }}
-      >
+      {/* Rounded Container with Background Video */}
+      <div className="absolute inset-4 md:inset-8 rounded-3xl md:rounded-[2.5rem] overflow-hidden">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src="/videos/hero-video.mp4" type="video/mp4" />
+        </video>
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/50" />
       </div>
 
