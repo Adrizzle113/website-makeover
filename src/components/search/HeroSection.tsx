@@ -2,24 +2,17 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import heroImage from "@/assets/hero-luxury-bedroom.jpg";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-
 export function HeroSection() {
   const scrollToResults = () => {
     const resultsSection = document.getElementById("search-results");
-    resultsSection?.scrollIntoView({ behavior: "smooth" });
+    resultsSection?.scrollIntoView({
+      behavior: "smooth"
+    });
   };
-
-  return (
-    <section className="relative min-h-screen flex items-center justify-center px-4 py-8">
+  return <section className="relative min-h-screen flex items-center justify-center px-4 py-8">
       {/* Rounded Container with Background Video */}
       <div className="absolute inset-4 md:inset-8 rounded-3xl md:rounded-[2.5rem] overflow-hidden">
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover"
-        >
+        <video autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover">
           <source src="/videos/hero-video.mp4" type="video/mp4" />
         </video>
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/50" />
@@ -27,37 +20,27 @@ export function HeroSection() {
 
       {/* Content */}
       <div className="relative z-10 container text-left max-w-5xl pt-20 md:pr-80">
-        <p 
-          className="heading-spaced text-white/80 mb-6 opacity-0 animate-fade-in"
-          style={{ animationDelay: "0.1s" }}
-        >
+        <p className="heading-spaced text-white/80 mb-6 opacity-0 animate-fade-in" style={{
+        animationDelay: "0.1s"
+      }}>
           Premium Travel Experiences
         </p>
-        <h1 
-          className="font-heading text-display-lg md:text-display-xl text-white mb-8 opacity-0 animate-slide-up"
-          style={{ animationDelay: "0.2s" }}
-        >
-          BETTER RATES<br />
-          HIGHER COMMISSIONS<br />
-          MADE FOR BRAZILIAN AGENTS
+        <h1 className="font-heading text-display-lg text-white mb-8 opacity-0 animate-slide-up md:text-display-lg font-extralight" style={{
+        animationDelay: "0.2s"
+      }}>
+          Turn the world into your playground!
         </h1>
-        <p 
-          className="text-body-lg text-white/80 max-w-2xl mx-auto mb-10 opacity-0 animate-fade-in"
-          style={{ animationDelay: "0.4s" }}
-        >
+        <p className="text-body-lg text-white/80 max-w-2xl mx-auto mb-10 opacity-0 animate-fade-in" style={{
+        animationDelay: "0.4s"
+      }}>
           Discover breathtaking destinations and create unforgettable memories 
           with our expertly curated tour packages.
         </p>
 
-        <div 
-          className="opacity-0 animate-fade-in"
-          style={{ animationDelay: "0.6s" }}
-        >
-          <Button 
-            size="lg" 
-            onClick={scrollToResults}
-            className="bg-cream text-primary hover:bg-cream/90 rounded-full px-8 py-6 text-body-md font-semibold group"
-          >
+        <div className="opacity-0 animate-fade-in" style={{
+        animationDelay: "0.6s"
+      }}>
+          <Button size="lg" onClick={scrollToResults} className="bg-cream text-primary hover:bg-cream/90 rounded-full px-8 py-6 text-body-md font-semibold group">
             Book a Tour
             <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
           </Button>
@@ -72,18 +55,14 @@ export function HeroSection() {
       </div>
 
       {/* Floating Destination Card */}
-      <div 
-        className="hidden md:block absolute bottom-20 right-8 lg:right-16 z-20 opacity-0 animate-fade-in"
-        style={{ animationDelay: "0.8s", animationFillMode: "forwards" }}
-      >
+      <div className="hidden md:block absolute bottom-20 right-8 lg:right-16 z-20 opacity-0 animate-fade-in" style={{
+      animationDelay: "0.8s",
+      animationFillMode: "forwards"
+    }}>
         <div className="bg-white rounded-3xl p-3 shadow-2xl w-64 group hover:shadow-3xl transition-all duration-300 hover:-translate-y-1">
           {/* Card Image */}
           <div className="relative overflow-hidden rounded-2xl">
-            <img 
-              src={heroImage} 
-              alt="Luxury Suite" 
-              className="w-full h-36 object-cover transition-transform duration-500 group-hover:scale-105"
-            />
+            <img src={heroImage} alt="Luxury Suite" className="w-full h-36 object-cover transition-transform duration-500 group-hover:scale-105" />
             <button className="absolute top-3 right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-cream transition-colors">
               <ArrowUpRight className="w-4 h-4 text-primary" />
             </button>
@@ -97,10 +76,10 @@ export function HeroSection() {
         </div>
 
         {/* Social Proof */}
-        <div 
-          className="flex items-center gap-3 mt-4 opacity-0 animate-fade-in"
-          style={{ animationDelay: "1s", animationFillMode: "forwards" }}
-        >
+        <div className="flex items-center gap-3 mt-4 opacity-0 animate-fade-in" style={{
+        animationDelay: "1s",
+        animationFillMode: "forwards"
+      }}>
           <div className="flex -space-x-2">
             <Avatar className="w-8 h-8 border-2 border-white">
               <AvatarImage src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100" />
@@ -124,6 +103,5 @@ export function HeroSection() {
           </div>
         </div>
       </div>
-    </section>
-  );
+    </section>;
 }
