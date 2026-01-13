@@ -7,18 +7,22 @@ export function AboutSection() {
     icon: Headphones,
     label: "24/7 Helpline"
   }];
-  const stats = [{
-    value: "100%",
-    label: "Verified"
+  const steps = [{
+    step: "1",
+    title: "Create Your Free Account",
+    description: "Sign up in seconds and unlock exclusive hotel rates instantly."
   }, {
-    value: "239+",
-    label: "Tours"
+    step: "2",
+    title: "Search & Compare",
+    description: "Browse thousands of properties with 20–30% lower pricing than major platforms."
   }, {
-    value: "110",
-    label: "Destinations"
+    step: "3",
+    title: "Book & Earn More",
+    description: "Keep the profit margin you deserve on every reservation."
   }, {
-    value: "15K+",
-    label: "Happy Travelers"
+    step: "4",
+    title: "Get WhatsApp Support",
+    description: "Talk to our team anytime in Portuguese—fast, friendly, expert help."
   }];
   return <section id="about" className="py-24 bg-background">
       <div className="container">
@@ -41,16 +45,23 @@ export function AboutSection() {
                 </div>)}
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {stats.map((stat, index) => <div key={index} className="text-center">
-                  <div className="text-heading-xl font-heading text-primary mb-1">
-                    {stat.value}
+            {/* Steps Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {steps.map((item, index) => (
+                <div key={index} className="flex gap-4">
+                  <div className="flex-shrink-0 w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                    <span className="text-primary-foreground font-heading font-bold">{item.step}</span>
                   </div>
-                  <div className="text-body-sm text-muted-foreground">
-                    {stat.label}
+                  <div>
+                    <h4 className="font-heading text-heading-sm text-foreground mb-1">
+                      {item.title}
+                    </h4>
+                    <p className="text-body-sm text-muted-foreground">
+                      {item.description}
+                    </p>
                   </div>
-                </div>)}
+                </div>
+              ))}
             </div>
           </div>
 
