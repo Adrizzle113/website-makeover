@@ -20,19 +20,20 @@ export function HeroSection() {
 
       {/* Content */}
       <div className="relative z-10 container text-left max-w-5xl pt-20 md:pr-80">
-        <p className="heading-spaced text-white/80 mb-6 opacity-0 animate-fade-in" style={{
+        <p className="heading-spaced text-white/80 mb-6 opacity-0 animate-fade-in drop-shadow-md" style={{
         animationDelay: "0.1s"
       }}>
           Stop losing money with expensive suppliers.
         </p>
-        <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl text-white mb-8 opacity-0 animate-slide-up font-bold tracking-tight leading-tight" style={{
-        animationDelay: "0.2s"
+        <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl text-white mb-8 opacity-0 animate-slide-up font-bold tracking-tight leading-tight drop-shadow-lg" style={{
+        animationDelay: "0.2s",
+        textShadow: "0 4px 12px rgba(0,0,0,0.4)"
       }}>
           <span className="block">BETTER RATES</span>
           <span className="block">HIGHER COMMISSIONS</span>
           <span className="block text-cream">MADE FOR BRAZILIAN AGENTS</span>
         </h1>
-        <p className="text-body-lg text-white/80 max-w-2xl mx-auto mb-10 opacity-0 animate-fade-in" style={{
+        <p className="text-body-lg text-white/80 max-w-2xl mx-auto mb-10 opacity-0 animate-fade-in drop-shadow-md" style={{
         animationDelay: "0.4s"
       }}>
           Access rates 20–30% lower than TAAP, Booking.com, and HotelBeds — and keep the profit you deserve.
