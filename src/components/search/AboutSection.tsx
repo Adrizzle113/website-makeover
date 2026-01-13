@@ -118,7 +118,7 @@ export function AboutSection() {
                 <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                   <MapPin className="h-5 w-5 text-primary" />
                 </div>
-                <span className="font-heading text-heading-sm">Expert Guides</span>
+                <span className="font-heading text-heading-sm">International Rates</span>
               </div>
               <p className="text-body-sm text-muted-foreground">
                 The same hotel pricing trusted by US travel agents.
