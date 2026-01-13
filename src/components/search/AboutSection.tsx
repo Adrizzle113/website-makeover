@@ -1,5 +1,6 @@
 import { CheckCircle, Headphones, Shield, MapPin } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import santoriniHouse from "@/assets/santorini-house.png";
 
 function StepsGrid({ steps }: { steps: { step: string; title: string; description: string }[] }) {
   const [visibleItems, setVisibleItems] = useState<number[]>([]);
@@ -110,7 +111,7 @@ export function AboutSection() {
           {/* Image */}
           <div className="relative">
             <div className="aspect-[4/5] rounded-3xl overflow-hidden">
-              <img src="https://images.unsplash.com/photo-1533104816931-20fa691ff6ca?auto=format&fit=crop&w=800&q=80" alt="Travelers exploring nature" className="w-full h-full object-cover" />
+              <img src={santoriniHouse} alt="Beautiful Santorini architecture with pink flowers" className="w-full h-full object-cover" />
             </div>
             {/* Floating Card */}
             <div className="absolute -bottom-6 -left-6 bg-card p-6 rounded-2xl shadow-card max-w-xs">
