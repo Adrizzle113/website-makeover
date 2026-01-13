@@ -22,7 +22,7 @@ export function HeroSection() {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 container text-center max-w-5xl pt-20">
+      <div className="relative z-10 container text-left max-w-5xl pt-20 md:pr-80">
         <p 
           className="heading-spaced text-white/80 mb-6 opacity-0 animate-fade-in"
           style={{ animationDelay: "0.1s" }}
