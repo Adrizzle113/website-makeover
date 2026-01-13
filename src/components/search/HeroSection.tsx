@@ -25,10 +25,12 @@ export function HeroSection() {
       }}>
           Premium Travel Experiences
         </p>
-        <h1 className="font-heading text-display-lg text-white mb-8 opacity-0 animate-slide-up md:text-display-lg font-extralight" style={{
+        <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl text-white mb-8 opacity-0 animate-slide-up font-bold tracking-tight leading-tight" style={{
         animationDelay: "0.2s"
       }}>
-          Turn the world into your playground!
+          <span className="block">BETTER RATES</span>
+          <span className="block">HIGHER COMMISSIONS</span>
+          <span className="block text-cream">MADE FOR BRAZILIAN AGENTS</span>
         </h1>
         <p className="text-body-lg text-white/80 max-w-2xl mx-auto mb-10 opacity-0 animate-fade-in" style={{
         animationDelay: "0.4s"
