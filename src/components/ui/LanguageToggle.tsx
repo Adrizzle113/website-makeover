@@ -33,7 +33,7 @@ export function LanguageToggle() {
   return (
     <button
       onClick={toggleLanguage}
-      className="w-8 h-8 rounded-full overflow-hidden border-2 border-white/30 hover:border-white/60 transition-all hover:scale-110 shadow-md"
+      className="w-8 h-8 rounded-full overflow-hidden border-2 border-white/30 hover:border-white/60 transition-all hover:scale-110 shadow-md bg-[#009739]"
       aria-label={language === "en" ? "Switch to Portuguese" : "Switch to English"}
       title={language === "en" ? "Mudar para Português" : "Switch to English"}
     >
