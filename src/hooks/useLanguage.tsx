@@ -19,6 +19,7 @@ const translations: Record<Language, Record<string, string>> = {
     "nav.blog": "Blog",
     "nav.contact": "Contact",
     "nav.dashboard": "Dashboard",
+    "hero.cta": "Create Free Account",
   },
   "pt-BR": {
     // Header
@@ -30,6 +31,7 @@ const translations: Record<Language, Record<string, string>> = {
     "nav.blog": "Blog",
     "nav.contact": "Contato",
     "nav.dashboard": "Painel",
+    "hero.cta": "Criar Conta Grátis",
   },
 };
 

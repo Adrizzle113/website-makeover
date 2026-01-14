@@ -2,7 +2,10 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import heroImage from "@/assets/hero-luxury-bedroom.jpg";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useLanguage } from "@/hooks/useLanguage";
+
 export function HeroSection() {
+  const { t } = useLanguage();
   const scrollToResults = () => {
     const resultsSection = document.getElementById("search-results");
     resultsSection?.scrollIntoView({
@@ -43,7 +46,7 @@ export function HeroSection() {
         animationDelay: "0.6s"
       }}>
           <Button size="lg" onClick={scrollToResults} className="bg-cream text-primary hover:bg-cream/90 rounded-full px-8 py-6 text-body-md font-semibold group">
-            Book a Tour
+            {t('hero.cta')}
             <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
           </Button>
         </div>
