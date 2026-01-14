@@ -5,30 +5,31 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { ArrowRight, TrendingUp, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowRight, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
+
+const TOTAL_MARGIN_PCT = 35; // Total available margin pool
 
 function calcBookingJa({
   retailPrice,
   hotelDiscountPct,
   roomsPerMonth,
   currentCommissionPct,
-  agentMarginPct,
-  clientDiscountPct = 0
+  agentCommissionPct, // 0-35%, client savings = 35 - this
 }: {
   retailPrice: number;
   hotelDiscountPct: number;
   roomsPerMonth: number;
   currentCommissionPct: number;
-  agentMarginPct: number;
-  clientDiscountPct?: number;
+  agentCommissionPct: number;
 }) {
   const R = Number(retailPrice);
   const d = Number(hotelDiscountPct) / 100;
-  const m = Number(agentMarginPct) / 100;
-  const c = Number(currentCommissionPct) / 100;
-  const x = Number(clientDiscountPct) / 100;
   const rooms = Number(roomsPerMonth);
+  const c = Number(currentCommissionPct) / 100;
+  
+  // Inverse relationship: as agent commission goes up, client savings go down
+  const clientSavingsPct = TOTAL_MARGIN_PCT - agentCommissionPct;
 
   if (!R || R <= 0) return null;
 
@@ -39,22 +40,12 @@ function calcBookingJa({
   const base = R * (1 - d);
   const cost = base * (1 + platformFee);
 
-  // Agent sets margin on cost
-  const sellBeforeDiscount = cost * (1 + m);
-
-  // Optional: apply client discount off retail
-  const clientPrice = R * (1 - x);
-
-  // Actual sell price
-  const sellPrice = x > 0 ? clientPrice : sellBeforeDiscount;
+  // Client pays retail minus their savings
+  const sellPrice = R * (1 - clientSavingsPct / 100);
 
   const profitPerRoom = Math.max(0, sellPrice - cost);
-  const effectiveMarginPct = cost > 0 ? (profitPerRoom / cost) * 100 : 0;
 
   const todayProfitPerRoom = R * c;
-
-  // Max client discount (where profit = 0)
-  const maxClientDiscountPct = Math.max(0, (1 - cost / R) * 100);
 
   return {
     today: {
@@ -66,15 +57,11 @@ function calcBookingJa({
     bookingJa: {
       retail: R,
       cost,
-      agentMarginPct: m * 100,
-      sellBeforeDiscount,
-      clientDiscountPct: x * 100,
+      agentCommissionPct,
       sellPrice,
       profitPerRoom,
-      effectiveMarginPct,
-      clientSavingsPct: Math.max(0, (1 - sellPrice / R) * 100),
+      clientSavingsPct,
       monthlyProfit: profitPerRoom * rooms,
-      maxClientDiscountPct
     },
     difference: {
       perRoom: profitPerRoom - todayProfitPerRoom,
@@ -87,13 +74,14 @@ export default function CalculatorPage() {
   const [retailPrice, setRetailPrice] = useState<string>("500");
   const [roomsPerMonth, setRoomsPerMonth] = useState<string>("10");
   const [currentCommission, setCurrentCommission] = useState<string>("12");
-  const [agentMargin, setAgentMargin] = useState<number>(20);
-  const [clientDiscount, setClientDiscount] = useState<number>(0);
-  const [showClientDiscount, setShowClientDiscount] = useState(false);
+  const [agentCommission, setAgentCommission] = useState<number>(20);
 
   const retailNum = parseFloat(retailPrice) || 0;
   const roomsNum = parseInt(roomsPerMonth) || 0;
   const commissionNum = parseFloat(currentCommission) || 12;
+  
+  // Inverse: client savings = 35 - agent commission
+  const clientSavings = TOTAL_MARGIN_PCT - agentCommission;
 
   // Fixed 30% hotel discount (hidden from user)
   const result = calcBookingJa({
@@ -101,8 +89,7 @@ export default function CalculatorPage() {
     hotelDiscountPct: 30,
     roomsPerMonth: roomsNum,
     currentCommissionPct: commissionNum,
-    agentMarginPct: agentMargin,
-    clientDiscountPct: clientDiscount
+    agentCommissionPct: agentCommission,
   });
 
   const formatCurrency = (value: number) => {
@@ -200,126 +187,102 @@ export default function CalculatorPage() {
                   
                 </div>
 
-                {/* Margin Slider */}
+                {/* Commission/Savings Slider */}
                 <div className="mt-5">
                   <div className="flex items-center justify-between mb-3">
-                    <Label className="text-body-sm font-medium text-foreground">
-                      Your margin
-                    </Label>
-                    <span className="text-heading-sm font-heading text-accent">{agentMargin}%</span>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-body-sm font-medium text-foreground">
+                        Your Commission
+                      </Label>
+                      <span className="text-heading-sm font-heading text-accent">{agentCommission}%</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-body-sm text-muted-foreground">
+                      <span>Client Saves:</span>
+                      <span className="font-heading text-foreground">{clientSavings}%</span>
+                    </div>
                   </div>
                   <Slider
-                    value={[agentMargin]}
-                    onValueChange={(v) => setAgentMargin(v[0])}
-                    min={10}
+                    value={[agentCommission]}
+                    onValueChange={(v) => setAgentCommission(v[0])}
+                    min={0}
                     max={35}
                     step={1}
                     className="w-full"
                   />
                   <div className="flex justify-between text-xs text-muted-foreground mt-1.5">
-                    <span>10%</span>
-                    <span>35%</span>
+                    <span>0% (Client saves 35%)</span>
+                    <span>35% (Client saves 0%)</span>
                   </div>
                 </div>
-
-                {/* Optional Client Discount */}
-                <button
-                  onClick={() => setShowClientDiscount(!showClientDiscount)}
-                  className="mt-4 flex items-center gap-1.5 text-body-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {showClientDiscount ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  Give client a discount
-                </button>
-
-                {showClientDiscount && result && (
-                  <div className="mt-3 p-4 bg-muted/50 rounded-xl">
-                    <div className="flex items-center justify-between mb-3">
-                      <Label className="text-body-sm font-medium text-foreground">
-                        Client discount (off retail)
-                      </Label>
-                      <span className="text-heading-sm font-heading text-foreground">{clientDiscount}%</span>
-                    </div>
-                    <Slider
-                      value={[clientDiscount]}
-                      onValueChange={(v) => setClientDiscount(v[0])}
-                      min={0}
-                      max={Math.floor(result.bookingJa.maxClientDiscountPct)}
-                      step={1}
-                      className="w-full"
-                    />
-                    <div className="flex justify-between text-xs text-muted-foreground mt-1.5">
-                      <span>0%</span>
-                      <span>Max {Math.floor(result.bookingJa.maxClientDiscountPct)}%</span>
-                    </div>
-                  </div>
-                )}
               </div>
               
               {/* Results Section */}
               <div className="bg-secondary/50 p-6">
                 {result && retailNum > 0 ? (
                   <div className="space-y-5">
-                    {/* Comparison Grid */}
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* Today Column */}
-                      <div className="bg-background rounded-xl p-4">
-                        <p className="text-muted-foreground text-xs uppercase tracking-wide mb-3">Today</p>
-                        <p className="font-heading text-heading-lg text-foreground mb-1">
-                          {formatCurrency(result.today.profitPerRoom)}
+                    {/* Monthly Earnings Hero */}
+                    <div className="bg-primary rounded-2xl p-6 text-center">
+                      <p className="text-primary-foreground/70 text-xs uppercase tracking-wider mb-2">
+                        Your Monthly Earnings
+                      </p>
+                      <p className="font-heading text-display-md text-primary-foreground mb-1">
+                        {formatCurrency(result.bookingJa.monthlyProfit)}
+                      </p>
+                      <p className="text-primary-foreground/60 text-body-sm">
+                        with Booking Já
+                      </p>
+                      
+                      {/* Comparison */}
+                      <div className="mt-4 pt-4 border-t border-primary-foreground/20">
+                        <p className="text-primary-foreground/60 text-body-sm">
+                          vs <span className="font-medium text-primary-foreground">{formatCurrency(result.today.monthlyProfit)}</span>/month today
                         </p>
-                        <p className="text-muted-foreground text-body-sm">per night</p>
-                        {roomsNum > 0 && (
-                          <p className="text-muted-foreground text-xs mt-2">
-                            {formatCurrency(result.today.monthlyProfit)}/month
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Booking Já Column */}
-                      <div className="bg-primary rounded-xl p-4">
-                        <p className="text-primary-foreground/70 text-xs uppercase tracking-wide mb-3">With Booking Já</p>
-                        <p className="font-heading text-heading-lg text-primary-foreground mb-1">
-                          {formatCurrency(result.bookingJa.profitPerRoom)}
-                        </p>
-                        <p className="text-primary-foreground/70 text-body-sm">per night</p>
-                        {roomsNum > 0 && (
-                          <p className="text-primary-foreground/60 text-xs mt-2">
-                            {formatCurrency(result.bookingJa.monthlyProfit)}/month
-                          </p>
-                        )}
                       </div>
                     </div>
 
-                    {/* Difference Highlight */}
-                    {result.difference.perRoom > 0 && (
-                      <div className="bg-accent/15 border border-accent/30 rounded-xl p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                    {/* Extra Earnings Highlight */}
+                    {result.difference.perMonth > 0 && (
+                      <div className="bg-accent/15 border border-accent/30 rounded-xl p-4 text-center">
+                        <div className="flex items-center justify-center gap-2 mb-1">
                           <TrendingUp className="w-5 h-5 text-accent" />
-                          <span className="text-foreground text-body-sm font-medium">
-                            Extra earnings
+                          <span className="font-heading text-heading-lg text-accent">
+                            +{formatCurrency(result.difference.perMonth)}
                           </span>
                         </div>
-                        <div className="text-right">
-                          <p className="font-heading text-heading-md text-accent">
-                            +{formatCurrency(result.difference.perRoom)}/night
-                          </p>
-                          {roomsNum > 0 && (
-                            <p className="text-accent/80 text-xs">
-                              +{formatCurrency(result.difference.perMonth)}/month
-                            </p>
-                          )}
-                        </div>
+                        <p className="text-foreground/70 text-body-sm">
+                          more per month
+                        </p>
                       </div>
                     )}
 
-                    {/* Details Row */}
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground pt-2 border-t border-border/50">
-                      <span>Your cost: <span className="font-medium text-foreground">{formatCurrency(result.bookingJa.cost)}</span></span>
-                      <span>Sell price: <span className="font-medium text-foreground">{formatCurrency(result.bookingJa.sellPrice)}</span></span>
-                      {clientDiscount > 0 && (
-                        <span>Client saves: <span className="font-medium text-foreground">{result.bookingJa.clientSavingsPct.toFixed(0)}%</span></span>
-                      )}
+                    {/* Details Grid */}
+                    <div className="grid grid-cols-3 gap-3 pt-2">
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground mb-1">Per night</p>
+                        <p className="font-heading text-heading-sm text-foreground">
+                          {formatCurrency(result.bookingJa.profitPerRoom)}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground mb-1">Your cost</p>
+                        <p className="font-heading text-heading-sm text-foreground">
+                          {formatCurrency(result.bookingJa.cost)}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground mb-1">Sell price</p>
+                        <p className="font-heading text-heading-sm text-foreground">
+                          {formatCurrency(result.bookingJa.sellPrice)}
+                        </p>
+                      </div>
                     </div>
+
+                    {/* Client savings note */}
+                    {clientSavings > 0 && (
+                      <p className="text-center text-body-sm text-muted-foreground">
+                        Your client saves <span className="font-medium text-foreground">{clientSavings}%</span> off the public price
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-8">
