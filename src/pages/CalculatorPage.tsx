@@ -155,7 +155,7 @@ export default function CalculatorPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="retailPrice" className="text-body-sm font-medium mb-2 block text-foreground">
-                      Public price (R$/night)
+                      Average Room Price (R$/night)
                     </Label>
                     <Input
                       id="retailPrice"
