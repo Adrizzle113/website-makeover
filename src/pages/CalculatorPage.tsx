@@ -85,7 +85,6 @@ function calcBookingJa({
 
 export default function CalculatorPage() {
   const [retailPrice, setRetailPrice] = useState<string>("500");
-  const [hotelDiscount, setHotelDiscount] = useState<string>("30");
   const [roomsPerMonth, setRoomsPerMonth] = useState<string>("10");
   const [currentCommission, setCurrentCommission] = useState<string>("12");
   const [agentMargin, setAgentMargin] = useState<number>(20);
@@ -93,13 +92,13 @@ export default function CalculatorPage() {
   const [showClientDiscount, setShowClientDiscount] = useState(false);
 
   const retailNum = parseFloat(retailPrice) || 0;
-  const discountNum = parseFloat(hotelDiscount) || 30;
   const roomsNum = parseInt(roomsPerMonth) || 0;
   const commissionNum = parseFloat(currentCommission) || 12;
 
+  // Fixed 30% hotel discount (hidden from user)
   const result = calcBookingJa({
     retailPrice: retailNum,
-    hotelDiscountPct: discountNum,
+    hotelDiscountPct: 30,
     roomsPerMonth: roomsNum,
     currentCommissionPct: commissionNum,
     agentMarginPct: agentMargin,
@@ -169,22 +168,6 @@ export default function CalculatorPage() {
                   </div>
                   
                   <div>
-                    <Label htmlFor="hotelDiscount" className="text-body-sm font-medium mb-2 block text-foreground">
-                      Savings vs public (%)
-                    </Label>
-                    <Input
-                      id="hotelDiscount"
-                      type="number"
-                      placeholder="30"
-                      min="0"
-                      max="50"
-                      value={hotelDiscount}
-                      onChange={(e) => setHotelDiscount(e.target.value)}
-                      className="h-11 text-base bg-background border-border"
-                    />
-                  </div>
-                  
-                  <div>
                     <Label htmlFor="currentCommission" className="text-body-sm font-medium mb-2 block text-foreground">
                       Your current commission (%)
                     </Label>
@@ -214,6 +197,7 @@ export default function CalculatorPage() {
                       className="h-11 text-base bg-background border-border"
                     />
                   </div>
+                  
                 </div>
 
                 {/* Margin Slider */}
