@@ -1,46 +1,68 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, TrendingUp, Percent, DollarSign } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export function ServicesSection() {
   return (
-    <section id="services" className="py-24 bg-primary text-primary-foreground">
+    <section id="services" className="py-24 bg-primary">
       <div className="container">
-        <div className="max-w-4xl mx-auto text-center">
-          {/* Stats/Icons row */}
-          <div className="flex justify-center gap-8 mb-10">
-            <div className="w-16 h-16 rounded-full bg-cream/10 flex items-center justify-center">
-              <TrendingUp className="w-8 h-8 text-cream" />
-            </div>
-            <div className="w-16 h-16 rounded-full bg-cream/10 flex items-center justify-center">
-              <Percent className="w-8 h-8 text-cream" />
-            </div>
-            <div className="w-16 h-16 rounded-full bg-cream/10 flex items-center justify-center">
-              <DollarSign className="w-8 h-8 text-cream" />
-            </div>
+        <div className="grid lg:grid-cols-2 gap-16 items-center">
+          {/* Left Content */}
+          <div>
+            <span className="badge-pill bg-primary-foreground/10 text-primary-foreground mb-6">
+              Commission Comparison
+            </span>
+            <h2 className="font-heading text-display-md text-primary-foreground mb-6">
+              See how much more you could earn
+            </h2>
+            <p className="text-body-lg text-primary-foreground/80 mb-10">
+              Compare your current commissions with Booking Já's rates. Create a free account to access real pricing and start earning more on every booking.
+            </p>
+
+            <Button
+              asChild
+              size="lg"
+              className="h-14 rounded-full px-8 bg-cream text-primary hover:bg-cream/90 font-semibold group"
+            >
+              <Link to="/signup">
+                Create free account
+                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </Button>
           </div>
 
-          {/* Headline */}
-          <h2 className="font-heading text-display-lg text-primary-foreground mb-6">
-            See how much more you could earn
-          </h2>
+          {/* Right Content - Stats */}
+          <div className="space-y-6">
+            <div className="bg-primary-foreground/5 border border-primary-foreground/10 rounded-2xl p-8">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 bg-cream/10 rounded-full flex items-center justify-center">
+                  <span className="text-cream font-heading text-xl font-bold">%</span>
+                </div>
+                <div>
+                  <p className="text-primary-foreground/60 text-body-sm">Average savings</p>
+                  <p className="text-primary-foreground font-heading text-heading-lg">20-30% lower</p>
+                </div>
+              </div>
+              <p className="text-primary-foreground/70 text-body-sm">
+                Than major OTAs like Booking.com and Expedia
+              </p>
+            </div>
 
-          {/* Subtext */}
-          <p className="text-body-xl text-primary-foreground/80 mb-10 max-w-2xl mx-auto">
-            Compare your current commissions with Booking Já's rates.
-          </p>
-
-          {/* CTA Button */}
-          <Button
-            asChild
-            size="lg"
-            className="h-14 rounded-full px-10 bg-cream text-primary hover:bg-cream/90 font-semibold text-lg group"
-          >
-            <Link to="/signup">
-              Create free account to access real rates
-              <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </Button>
+            <div className="bg-primary-foreground/5 border border-primary-foreground/10 rounded-2xl p-8">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 bg-cream/10 rounded-full flex items-center justify-center">
+                  <span className="text-cream font-heading text-xl font-bold">$</span>
+                </div>
+                <div>
+                  <p className="text-primary-foreground/60 text-body-sm">Your profit margin</p>
+                  <p className="text-primary-foreground font-heading text-heading-lg">You keep it all</p>
+                </div>
+              </div>
+              <p className="text-primary-foreground/70 text-body-sm">
+                No hidden fees or commission splits on your bookings
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </section>
