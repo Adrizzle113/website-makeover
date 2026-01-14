@@ -97,209 +97,186 @@ export default function CalculatorPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-primary">
       <Header variant="dark" />
       
-      <main className="pt-24 pb-16">
+      <main className="pt-24 pb-20">
         <div className="container">
-          {/* Hero Section */}
-          <div className="max-w-3xl mx-auto text-center mb-12">
-            <span className="badge-pill bg-secondary text-secondary-foreground mb-6 inline-block">
-              <Calculator className="w-4 h-4 mr-2 inline" />
-              Margin Calculator
-            </span>
-            <h1 className="font-heading text-display-lg text-foreground mb-4">
-              See how much you can earn
-            </h1>
-            <p className="text-body-lg text-muted-foreground max-w-2xl mx-auto">
-              Compare public hotel prices with Booking Já rates and choose how much you keep or pass on to your client.
-            </p>
-          </div>
-
-          {/* Calculator Card */}
-          <div className="max-w-5xl mx-auto">
-            <div className="grid lg:grid-cols-5 gap-8">
-              {/* Inputs - 2 columns */}
-              <div className="lg:col-span-2 bg-card rounded-3xl p-8 shadow-card">
-                <h2 className="font-heading text-heading-lg text-foreground mb-6">
-                  Enter details
-                </h2>
+          {/* Two Column Hero Layout */}
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-start max-w-6xl mx-auto">
+            
+            {/* Left Column - Marketing Copy */}
+            <div className="text-primary-foreground pt-8 lg:pt-16">
+              <h1 className="font-heading text-display-lg lg:text-display-xl mb-6 uppercase tracking-tight leading-[0.95]">
+                See How Much<br />You Can Earn
+              </h1>
+              <p className="text-primary-foreground/80 text-body-lg mb-8 max-w-md">
+                Compare public hotel prices with Booking Já rates and choose how much you keep or pass on to your client.
+              </p>
+              
+              <Button
+                asChild
+                size="lg"
+                className="h-14 px-8 rounded-full bg-accent text-accent-foreground hover:bg-accent/90 font-semibold group"
+              >
+                <Link to="/auth/register">
+                  Create free account
+                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </Link>
+              </Button>
+              
+              <p className="text-primary-foreground/50 text-sm mt-10">
+                * Examples only. Actual margins vary by property and dates.
+              </p>
+            </div>
+            
+            {/* Right Column - Calculator Card */}
+            <div className="bg-card rounded-3xl p-8 shadow-card">
+              {/* Input Fields */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="col-span-2 sm:col-span-1">
+                  <Label htmlFor="publicPrice" className="text-body-sm font-medium mb-2 block text-foreground">
+                    Public hotel price (R$)
+                  </Label>
+                  <Input
+                    id="publicPrice"
+                    type="number"
+                    placeholder="1,000.00"
+                    value={publicPrice}
+                    onChange={(e) => setPublicPrice(e.target.value)}
+                    className="h-12 text-base bg-background border-border"
+                  />
+                </div>
                 
-                <div className="space-y-5">
-                  <div>
-                    <Label htmlFor="publicPrice" className="text-body-sm font-medium mb-2 block">
-                      Public hotel price (R$)
-                    </Label>
-                    <div className="relative">
-                      <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                      <Input
-                        id="publicPrice"
-                        type="number"
-                        placeholder="Ex: 500"
-                        value={publicPrice}
-                        onChange={(e) => setPublicPrice(e.target.value)}
-                        className="h-14 text-lg pl-12"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="discount" className="text-body-sm font-medium mb-2 block">
-                      Estimated discount vs public rates (%)
-                    </Label>
-                    <div className="relative">
-                      <Percent className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                      <Input
-                        id="discount"
-                        type="number"
-                        placeholder="25"
-                        min="0"
-                        max="50"
-                        value={discount}
-                        onChange={(e) => setDiscount(e.target.value)}
-                        className="h-14 text-lg pl-12"
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1.5">
-                      Average net rate discount from public prices
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="nights" className="text-body-sm font-medium mb-2 block">
-                      Number of nights
-                    </Label>
-                    <Input
-                      id="nights"
-                      type="number"
-                      placeholder="1"
-                      min="1"
-                      value={nights}
-                      onChange={(e) => setNights(e.target.value)}
-                      className="h-14 text-lg"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="bookingsPerMonth" className="text-body-sm font-medium mb-2 block">
-                      Bookings per month <span className="text-muted-foreground">(optional)</span>
-                    </Label>
-                    <Input
-                      id="bookingsPerMonth"
-                      type="number"
-                      placeholder="Ex: 10"
-                      min="0"
-                      value={bookingsPerMonth}
-                      onChange={(e) => setBookingsPerMonth(e.target.value)}
-                      className="h-14 text-lg"
-                    />
-                  </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <Label htmlFor="discount" className="text-body-sm font-medium mb-2 block text-foreground">
+                    Discount vs public (%)
+                  </Label>
+                  <Input
+                    id="discount"
+                    type="number"
+                    placeholder="25"
+                    min="0"
+                    max="50"
+                    value={discount}
+                    onChange={(e) => setDiscount(e.target.value)}
+                    className="h-12 text-base bg-background border-border"
+                  />
+                </div>
+                
+                <div className="col-span-2 sm:col-span-1">
+                  <Label htmlFor="nights" className="text-body-sm font-medium mb-2 block text-foreground">
+                    Number of nights
+                  </Label>
+                  <Input
+                    id="nights"
+                    type="number"
+                    placeholder="1"
+                    min="1"
+                    value={nights}
+                    onChange={(e) => setNights(e.target.value)}
+                    className="h-12 text-base bg-background border-border"
+                  />
+                </div>
+                
+                <div className="col-span-2 sm:col-span-1">
+                  <Label htmlFor="bookingsPerMonth" className="text-body-sm font-medium mb-2 block text-foreground">
+                    Bookings/month <span className="text-muted-foreground">(optional)</span>
+                  </Label>
+                  <Input
+                    id="bookingsPerMonth"
+                    type="number"
+                    placeholder="10"
+                    min="0"
+                    value={bookingsPerMonth}
+                    onChange={(e) => setBookingsPerMonth(e.target.value)}
+                    className="h-12 text-base bg-background border-border"
+                  />
                 </div>
               </div>
-
-              {/* Results - 3 columns */}
-              <div className="lg:col-span-3 bg-primary rounded-3xl p-8 text-primary-foreground">
-                <h2 className="font-heading text-heading-lg mb-6">
-                  Your earnings
-                </h2>
-
+              
+              {/* Results Section */}
+              <div className="bg-secondary/50 rounded-2xl p-6">
                 {result && publicPriceNum > 0 ? (
-                  <div className="space-y-6">
-                    {/* Your Cost */}
-                    <div className="bg-primary-foreground/10 rounded-2xl p-6">
-                      <p className="text-primary-foreground/70 text-body-sm mb-1">
-                        Your net booking cost
-                      </p>
-                      <p className="font-heading text-display-md">
-                        {formatCurrency(result.agentCost)}
-                      </p>
-                      <p className="text-primary-foreground/60 text-xs mt-1">
-                        For {nightsNum} night{nightsNum > 1 ? 's' : ''} • Everything included
-                      </p>
-                    </div>
-
-                    {/* Margin Options */}
-                    <div>
-                      <p className="text-primary-foreground/70 text-body-sm mb-3 flex items-center gap-2">
-                        <TrendingUp className="w-4 h-4" />
-                        What you can do with the margin
-                      </p>
-                      
-                      <div className="bg-primary-foreground/10 rounded-2xl p-5 mb-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-primary-foreground/80 text-body-sm">
-                            Maximum discount you can offer
-                          </span>
-                          <span className="font-heading text-heading-md text-cream">
-                            {result.maxDiscountPct.toFixed(0)}%
-                          </span>
-                        </div>
+                  <div className="space-y-4">
+                    {/* Primary Results Row */}
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <p className="text-muted-foreground text-body-sm mb-1">
+                          Your net cost
+                        </p>
+                        <p className="font-heading text-heading-xl text-foreground">
+                          {formatCurrency(result.agentCost)}
+                        </p>
                       </div>
-
-                      <div className="space-y-2">
-                        {result.scenarios.map((scenario, index) => (
-                          <div 
-                            key={index}
-                            className={`rounded-xl p-4 flex items-center justify-between ${
-                              index === 0 
-                                ? 'bg-green-500/20 border border-green-400/30' 
-                                : 'bg-primary-foreground/5'
-                            }`}
-                          >
-                            <span className={`text-body-sm ${index === 0 ? 'text-green-300 font-medium' : 'text-primary-foreground/70'}`}>
-                              {scenario.label}
-                            </span>
-                            <span className={`font-heading text-heading-sm ${index === 0 ? 'text-green-300' : 'text-primary-foreground'}`}>
-                              {formatCurrency(scenario.profit)}
-                            </span>
-                          </div>
-                        ))}
+                      <div>
+                        <p className="text-muted-foreground text-body-sm mb-1">
+                          Max profit (full price)
+                        </p>
+                        <p className="font-heading text-heading-xl text-accent">
+                          {result.scenarios[0] ? formatCurrency(result.scenarios[0].profit) : '—'}
+                        </p>
                       </div>
                     </div>
-
+                    
+                    {/* Divider */}
+                    <div className="border-t border-border/50" />
+                    
+                    {/* Secondary Info */}
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-body-sm">
+                      <span className="text-muted-foreground">
+                        Max discount: <span className="font-semibold text-foreground">{result.maxDiscountPct.toFixed(0)}%</span>
+                      </span>
+                      {result.scenarios[1] && (
+                        <span className="text-muted-foreground">
+                          At 10% off: <span className="font-semibold text-foreground">{formatCurrency(result.scenarios[1].profit)}</span>
+                        </span>
+                      )}
+                    </div>
+                    
                     {/* Monthly Upside */}
                     {result.monthly.length > 0 && (
-                      <div className="bg-green-500/20 border border-green-400/30 rounded-2xl p-6">
-                        <p className="text-green-300 text-body-sm font-medium mb-3">
-                          Monthly potential
-                        </p>
-                        <p className="font-heading text-heading-xl text-green-300 mb-1">
-                          {formatCurrency(result.monthly[0].monthlyProfit)}
-                        </p>
-                        <p className="text-green-300/80 text-body-sm">
-                          At this rate, you earn approximately {formatCurrency(result.monthly[0].monthlyProfit)} per month.
-                        </p>
-                      </div>
+                      <>
+                        <div className="border-t border-border/50" />
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground text-body-sm">Monthly potential</span>
+                          <span className="font-heading text-heading-md text-accent">
+                            {formatCurrency(result.monthly[0].monthlyProfit)}/mo
+                          </span>
+                        </div>
+                      </>
                     )}
-
-                    <Button
-                      asChild
-                      size="lg"
-                      className="w-full h-14 rounded-full bg-cream text-primary hover:bg-cream/90 font-semibold group"
-                    >
-                      <Link to="/auth/register">
-                        Create free account
-                        <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                      </Link>
-                    </Button>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-80 text-center">
-                    <div className="w-16 h-16 bg-primary-foreground/10 rounded-full flex items-center justify-center mb-4">
-                      <Calculator className="w-8 h-8 text-primary-foreground/50" />
-                    </div>
-                    <p className="text-primary-foreground/60 text-body-lg">
+                  <div className="text-center py-6">
+                    <Calculator className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+                    <p className="text-muted-foreground text-body-sm">
                       Enter the public hotel price to see your potential earnings
                     </p>
                   </div>
                 )}
               </div>
             </div>
-
-            {/* Disclaimer */}
-            <p className="text-center text-muted-foreground text-sm mt-8">
-              Examples only. Actual margins vary by property and dates.
-            </p>
+          </div>
+          
+          {/* Stats Row */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-10 max-w-5xl mx-auto mt-20 pt-12 border-t border-primary-foreground/10">
+            <div>
+              <p className="font-heading text-heading-xl lg:text-display-md text-accent mb-1">25%</p>
+              <p className="text-primary-foreground/60 text-body-sm">average discount</p>
+            </div>
+            <div>
+              <p className="font-heading text-heading-xl lg:text-display-md text-accent mb-1">100%</p>
+              <p className="text-primary-foreground/60 text-body-sm">margin control</p>
+            </div>
+            <div>
+              <p className="font-heading text-heading-xl lg:text-display-md text-accent mb-1">0</p>
+              <p className="text-primary-foreground/60 text-body-sm">monthly fees</p>
+            </div>
+            <div>
+              <p className="font-heading text-heading-xl lg:text-display-md text-accent mb-1">24h</p>
+              <p className="text-primary-foreground/60 text-body-sm">to get started</p>
+            </div>
           </div>
         </div>
       </main>
