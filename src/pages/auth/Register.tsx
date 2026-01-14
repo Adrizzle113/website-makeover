@@ -416,7 +416,7 @@ export const Register = (): JSX.Element => {
           </form>
 
           {/* Footer */}
-          <div className="mt-8 text-center">
+          <div className="mt-8 text-center space-y-2">
             <p className="text-sm text-muted-foreground">
               Already have an account?{' '}
               <Link 
@@ -424,6 +424,14 @@ export const Register = (): JSX.Element => {
                 className="text-primary hover:text-primary/80 font-medium transition-colors"
               >
                 Sign In
+              </Link>
+            </p>
+            <p className="text-sm text-muted-foreground">
+              <Link 
+                to="/" 
+                className="text-primary hover:text-primary/80 font-medium transition-colors"
+              >
+                ← Back to Home
               </Link>
             </p>
           </div>
