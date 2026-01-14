@@ -66,12 +66,15 @@ function calcBookingJa({
 
 export default function CalculatorPage() {
   const [retailPrice, setRetailPrice] = useState<string>("500");
-  const [roomsPerMonth, setRoomsPerMonth] = useState<string>("10");
+  const [nightsPerStay, setNightsPerStay] = useState<string>("3");
+  const [bookingsPerMonth, setBookingsPerMonth] = useState<string>("5");
   const [currentCommission, setCurrentCommission] = useState<string>("12");
   const [agentCommission, setAgentCommission] = useState<number>(20);
 
   const retailNum = parseFloat(retailPrice) || 0;
-  const roomsNum = parseInt(roomsPerMonth) || 0;
+  const nightsNum = parseInt(nightsPerStay) || 0;
+  const bookingsNum = parseInt(bookingsPerMonth) || 0;
+  const totalRoomNights = nightsNum * bookingsNum;
   const commissionNum = parseFloat(currentCommission) || 12;
   
   // Inverse: client savings = 25 - agent commission
@@ -79,7 +82,7 @@ export default function CalculatorPage() {
 
   const result = calcBookingJa({
     retailPrice: retailNum,
-    roomsPerMonth: roomsNum,
+    roomsPerMonth: totalRoomNights,
     currentCommissionPct: commissionNum,
     agentCommissionPct: agentCommission,
   });
@@ -163,16 +166,31 @@ export default function CalculatorPage() {
                   </div>
                   
                   <div>
-                    <Label htmlFor="roomsPerMonth" className="text-body-sm font-medium mb-2 block text-foreground">
-                      Rooms per month
+                    <Label htmlFor="nightsPerStay" className="text-body-sm font-medium mb-2 block text-foreground">
+                      Nights per stay
                     </Label>
                     <Input
-                      id="roomsPerMonth"
+                      id="nightsPerStay"
                       type="number"
-                      placeholder="10"
+                      placeholder="3"
+                      min="1"
+                      value={nightsPerStay}
+                      onChange={(e) => setNightsPerStay(e.target.value)}
+                      className="h-11 text-base bg-background border-border"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="bookingsPerMonth" className="text-body-sm font-medium mb-2 block text-foreground">
+                      Bookings per month
+                    </Label>
+                    <Input
+                      id="bookingsPerMonth"
+                      type="number"
+                      placeholder="5"
                       min="0"
-                      value={roomsPerMonth}
-                      onChange={(e) => setRoomsPerMonth(e.target.value)}
+                      value={bookingsPerMonth}
+                      onChange={(e) => setBookingsPerMonth(e.target.value)}
                       className="h-11 text-base bg-background border-border"
                     />
                   </div>
