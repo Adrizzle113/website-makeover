@@ -21,7 +21,7 @@ export function Header() {
         <div className="flex items-center justify-between h-24">
           {/* Logo */}
           <Link to="/" className="flex items-center">
-            <span className="font-heading text-heading-lg text-white">
+            <span className="font-heading text-heading-lg text-foreground">
               Booking Já 
             </span>
           </Link>
@@ -29,7 +29,7 @@ export function Header() {
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-8">
             <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-1 text-white/90 hover:text-white transition-colors text-body-md font-medium">
+              <DropdownMenuTrigger className="flex items-center gap-1 text-foreground/80 hover:text-foreground transition-colors text-body-md font-medium">
                 {t("nav.explore")}
                 <ChevronDown className="h-4 w-4" />
               </DropdownMenuTrigger>
@@ -45,15 +45,15 @@ export function Header() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <button onClick={() => scrollToSection("about")} className="text-white/90 hover:text-white transition-colors text-body-md font-medium">
+            <button onClick={() => scrollToSection("about")} className="text-foreground/80 hover:text-foreground transition-colors text-body-md font-medium">
               {t("nav.about")}
             </button>
-            <button onClick={() => scrollToSection("blog")} className="text-white/90 hover:text-white transition-colors text-body-md font-medium">
+            <button onClick={() => scrollToSection("blog")} className="text-foreground/80 hover:text-foreground transition-colors text-body-md font-medium">
               {t("nav.blog")}
             </button>
-            <button onClick={() => scrollToSection("contact")} className="text-white/90 hover:text-white transition-colors text-body-md font-medium">
+            <Link to="/contact" className="text-foreground/80 hover:text-foreground transition-colors text-body-md font-medium">
               {t("nav.contact")}
-            </button>
+            </Link>
           </nav>
 
           {/* CTA Button & Language Toggle */}
@@ -69,7 +69,7 @@ export function Header() {
           {/* Mobile Menu Button */}
           <div className="lg:hidden flex items-center gap-3">
             <LanguageToggle />
-            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-white p-2">
+            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-foreground p-2">
               {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
           </div>
