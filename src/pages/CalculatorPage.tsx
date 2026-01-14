@@ -277,28 +277,6 @@ export default function CalculatorPage() {
                       </div>
                     )}
 
-                    {/* Details Grid */}
-                    <div className="grid grid-cols-3 gap-3 pt-2">
-                      <div className="text-center">
-                        <p className="text-xs text-muted-foreground mb-1">Per night</p>
-                        <p className="font-heading text-heading-sm text-foreground">
-                          {formatCurrency(result.bookingJa.profitPerRoom)}
-                        </p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-xs text-muted-foreground mb-1">Your cost</p>
-                        <p className="font-heading text-heading-sm text-foreground">
-                          {formatCurrency(result.bookingJa.cost)}
-                        </p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-xs text-muted-foreground mb-1">Sell price</p>
-                        <p className="font-heading text-heading-sm text-foreground">
-                          {formatCurrency(result.bookingJa.sellPrice)}
-                        </p>
-                      </div>
-                    </div>
-
                     {/* Client savings note */}
                     {clientSavings > 0 && (
                       <p className="text-center text-body-sm text-muted-foreground">
