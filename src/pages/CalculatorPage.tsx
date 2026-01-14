@@ -232,7 +232,7 @@ export default function CalculatorPage() {
                       </div>
                     </div>
 
-                    {/* Extra Earnings Highlight */}
+                    {/* Extra Earnings Highlight - show when earning more */}
                     {result.difference.perMonth > 0 && (
                       <div className="bg-accent/15 border border-accent/30 rounded-xl p-4 text-center">
                         <div className="flex items-center justify-center gap-2 mb-1">
@@ -243,6 +243,18 @@ export default function CalculatorPage() {
                         </div>
                         <p className="text-foreground/70 text-body-sm">
                           more per month
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Client Savings Emphasis - show when earning same or less */}
+                    {result.difference.perMonth <= 0 && clientSavings > 0 && (
+                      <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 text-center">
+                        <p className="font-heading text-heading-lg text-primary mb-1">
+                          Your clients save {clientSavings}%
+                        </p>
+                        <p className="text-foreground/70 text-body-sm">
+                          Lower prices = more bookings with you
                         </p>
                       </div>
                     )}
