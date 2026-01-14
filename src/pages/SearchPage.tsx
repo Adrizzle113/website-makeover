@@ -6,7 +6,6 @@ import {
   InstagramSection,
   TestimonialSection,
   FAQSection,
-  ContactSection,
   CallToActionSection,
 } from "@/components/search";
 import { Header } from "@/components/layout/Header";
@@ -24,7 +23,6 @@ const SearchPage = () => {
         <InstagramSection />
         <TestimonialSection />
         <FAQSection />
-        <ContactSection />
         <CallToActionSection />
       </main>
       <Footer />
