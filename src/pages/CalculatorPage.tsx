@@ -8,23 +8,20 @@ import { Slider } from "@/components/ui/slider";
 import { ArrowRight, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const TOTAL_MARGIN_PCT = 35; // Total available margin pool
+const TOTAL_MARGIN_PCT = 25; // Total available margin pool (25% of retail)
 
 function calcBookingJa({
   retailPrice,
-  hotelDiscountPct,
   roomsPerMonth,
   currentCommissionPct,
-  agentCommissionPct, // 0-35%, client savings = 35 - this
+  agentCommissionPct, // 0-25%, client savings = 25 - this
 }: {
   retailPrice: number;
-  hotelDiscountPct: number;
   roomsPerMonth: number;
   currentCommissionPct: number;
   agentCommissionPct: number;
 }) {
   const R = Number(retailPrice);
-  const d = Number(hotelDiscountPct) / 100;
   const rooms = Number(roomsPerMonth);
   const c = Number(currentCommissionPct) / 100;
   
@@ -33,17 +30,14 @@ function calcBookingJa({
 
   if (!R || R <= 0) return null;
 
-  // Hidden platform fee (NOT shown)
-  const platformFee = 0.10;
-
-  // Cost: (retail - hotelDiscount) + platformFee
-  const base = R * (1 - d);
-  const cost = base * (1 + platformFee);
+  // Cost is fixed at 75% of retail (25% margin pool)
+  const cost = R * 0.75;
 
   // Client pays retail minus their savings
   const sellPrice = R * (1 - clientSavingsPct / 100);
 
-  const profitPerRoom = Math.max(0, sellPrice - cost);
+  // Agent profit = what client pays - our cost
+  const profitPerRoom = sellPrice - cost;
 
   const todayProfitPerRoom = R * c;
 
@@ -80,13 +74,11 @@ export default function CalculatorPage() {
   const roomsNum = parseInt(roomsPerMonth) || 0;
   const commissionNum = parseFloat(currentCommission) || 12;
   
-  // Inverse: client savings = 35 - agent commission
+  // Inverse: client savings = 25 - agent commission
   const clientSavings = TOTAL_MARGIN_PCT - agentCommission;
 
-  // Fixed 30% hotel discount (hidden from user)
   const result = calcBookingJa({
     retailPrice: retailNum,
-    hotelDiscountPct: 30,
     roomsPerMonth: roomsNum,
     currentCommissionPct: commissionNum,
     agentCommissionPct: agentCommission,
@@ -205,13 +197,13 @@ export default function CalculatorPage() {
                     value={[agentCommission]}
                     onValueChange={(v) => setAgentCommission(v[0])}
                     min={0}
-                    max={35}
+                    max={25}
                     step={1}
                     className="w-full"
                   />
                   <div className="flex justify-between text-xs text-muted-foreground mt-1.5">
-                    <span>0% (Client saves 35%)</span>
-                    <span>35% (Client saves 0%)</span>
+                    <span>0% (Client saves 25%)</span>
+                    <span>25% (Client saves 0%)</span>
                   </div>
                 </div>
               </div>
@@ -298,11 +290,11 @@ export default function CalculatorPage() {
           {/* Stats Row */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-10 max-w-5xl mx-auto mt-20 pt-12 border-t border-primary-foreground/10">
             <div>
-              <p className="font-heading text-heading-xl lg:text-display-md text-accent mb-1">30%</p>
-              <p className="text-primary-foreground/60 text-body-sm">average savings</p>
+              <p className="font-heading text-heading-xl lg:text-display-md text-accent mb-1">25%</p>
+              <p className="text-primary-foreground/60 text-body-sm">max savings</p>
             </div>
             <div>
-              <p className="font-heading text-heading-xl lg:text-display-md text-accent mb-1">35%</p>
+              <p className="font-heading text-heading-xl lg:text-display-md text-accent mb-1">25%</p>
               <p className="text-primary-foreground/60 text-body-sm">max margin</p>
             </div>
             <div>
