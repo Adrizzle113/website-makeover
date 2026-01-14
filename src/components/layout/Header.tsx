@@ -60,9 +60,6 @@ export function Header({ variant = "light" }: HeaderProps) {
             <button onClick={() => scrollToSection("about")} className={`${textColorMuted} ${hoverColor} transition-colors text-body-md font-medium`}>
               {t("nav.about")}
             </button>
-            <button onClick={() => scrollToSection("blog")} className={`${textColorMuted} ${hoverColor} transition-colors text-body-md font-medium`}>
-              {t("nav.blog")}
-            </button>
             <Link to="/contact" className={`${textColorMuted} ${hoverColor} transition-colors text-body-md font-medium`}>
               {t("nav.contact")}
             </Link>
@@ -102,9 +99,6 @@ export function Header({ variant = "light" }: HeaderProps) {
               </button>
               <button onClick={() => scrollToSection("services")} className="text-white hover:text-cream transition-colors py-2 text-body-md text-left">
                 Services
-              </button>
-              <button onClick={() => scrollToSection("blog")} className="text-white hover:text-cream transition-colors py-2 text-body-md text-left">
-                Blog
               </button>
               <Link to="/contact" onClick={() => setIsMenuOpen(false)} className="text-white hover:text-cream transition-colors py-2 text-body-md text-left">
                 Contact
