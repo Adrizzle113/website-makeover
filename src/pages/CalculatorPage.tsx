@@ -100,14 +100,14 @@ export default function CalculatorPage() {
     <div className="min-h-screen bg-primary">
       <Header variant="dark" />
       
-      <main className="pt-24 pb-20">
+      <main className="pt-32 md:pt-36 pb-20">
         <div className="container">
           {/* Two Column Hero Layout */}
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-start max-w-6xl mx-auto">
             
             {/* Left Column - Marketing Copy */}
-            <div className="text-primary-foreground pt-8 lg:pt-16">
-              <h1 className="font-heading text-display-lg lg:text-display-xl mb-6 uppercase tracking-tight leading-[0.95]">
+            <div className="text-primary-foreground lg:pt-16">
+              <h1 className="font-heading text-heading-xl sm:text-display-lg lg:text-display-xl mb-6 uppercase tracking-tight leading-[0.95]">
                 See How Much<br />More You Earn
               </h1>
               <p className="text-primary-foreground/80 text-body-lg mb-8 max-w-md">
@@ -134,7 +134,7 @@ export default function CalculatorPage() {
             <div className="bg-card rounded-3xl shadow-card overflow-hidden">
               {/* Input Section */}
               <div className="p-6 pb-5">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="retailPrice" className="text-body-sm font-medium mb-2 block text-foreground">
                       Average Room Price (R$/night)
@@ -296,7 +296,7 @@ export default function CalculatorPage() {
           </div>
           
           {/* Stats Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-10 max-w-5xl mx-auto mt-20 pt-12 border-t border-primary-foreground/10">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-10 max-w-5xl mx-auto mt-20 pt-12 border-t border-primary-foreground/10 text-center lg:text-left">
             <div>
               <p className="font-heading text-heading-xl lg:text-display-md text-accent mb-1">25%</p>
               <p className="text-primary-foreground/60 text-body-sm">max savings</p>
