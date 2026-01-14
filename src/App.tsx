@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { LanguageProvider } from "@/hooks/useLanguage";
 import SearchPage from "./pages/SearchPage";
 import ContactPage from "./pages/ContactPage";
+import CalculatorPage from "./pages/CalculatorPage";
 import HotelDetailsPage from "./pages/HotelDetailsPage";
 import BookingPage from "./pages/BookingPage";
 import MyBookingsPage from "./pages/MyBookingsPage";
@@ -51,6 +52,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<SearchPage />} />
             <Route path="/contact" element={<ContactPage />} />
+            <Route path="/calculator" element={<CalculatorPage />} />
             {/* Dashboard Routes */}
             <Route path="/dashboard" element={<Dashboard />} />
             <Route
