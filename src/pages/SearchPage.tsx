@@ -5,7 +5,6 @@ import {
   ServicesSection,
   InstagramSection,
   TestimonialSection,
-  BlogSection,
   FAQSection,
   ContactSection,
   CallToActionSection,
@@ -24,7 +23,6 @@ const SearchPage = () => {
         <ServicesSection />
         <InstagramSection />
         <TestimonialSection />
-        <BlogSection />
         <FAQSection />
         <ContactSection />
         <CallToActionSection />
