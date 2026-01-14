@@ -3,14 +3,14 @@ import { ArrowRight, ArrowUpRight } from "lucide-react";
 import heroImage from "@/assets/hero-luxury-bedroom.jpg";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useNavigate } from "react-router-dom";
 
 export function HeroSection() {
   const { t } = useLanguage();
-  const scrollToResults = () => {
-    const resultsSection = document.getElementById("search-results");
-    resultsSection?.scrollIntoView({
-      behavior: "smooth"
-    });
+  const navigate = useNavigate();
+  
+  const handleCreateAccount = () => {
+    navigate("/auth/register");
   };
   return <section className="relative min-h-screen flex items-center justify-center px-4 py-8">
       {/* Rounded Container with Background Video */}
@@ -45,7 +45,7 @@ export function HeroSection() {
         <div className="opacity-0 animate-fade-in" style={{
         animationDelay: "0.6s"
       }}>
-          <Button size="lg" onClick={scrollToResults} className="bg-cream text-primary hover:bg-cream/90 rounded-full px-8 py-6 text-body-md font-semibold group">
+          <Button size="lg" onClick={handleCreateAccount} className="bg-cream text-primary hover:bg-cream/90 rounded-full px-8 py-6 text-body-md font-semibold group">
             {t('hero.cta')}
             <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
           </Button>
