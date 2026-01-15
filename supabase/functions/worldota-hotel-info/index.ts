@@ -102,8 +102,11 @@ Deno.serve(async (req) => {
     }
 
     // Fetch from WorldOTA API
-    const keyId = Deno.env.get("WORLDOTA_KEY_ID");
-    const apiKey = Deno.env.get("WORLDOTA_API_KEY");
+    const rawKeyId = Deno.env.get("WORLDOTA_KEY_ID");
+    const rawApiKey = Deno.env.get("WORLDOTA_API_KEY");
+
+    const keyId = rawKeyId?.trim();
+    const apiKey = rawApiKey?.trim();
 
     if (!keyId || !apiKey) {
       console.error("❌ Missing WorldOTA credentials");
@@ -113,32 +116,47 @@ Deno.serve(async (req) => {
       );
     }
 
-    const authHeader = "Basic " + btoa(`${keyId}:${apiKey}`);
+    // Avoid logging secrets; log only safe diagnostics
+    const keyIdLooksNumeric = /^\d+$/.test(keyId);
+    if (!keyIdLooksNumeric) {
+      console.warn("⚠️ WORLDOTA_KEY_ID does not look numeric (check you didn't paste the API key into the ID field)");
+    }
+
+    const makeAuthHeader = (left: string, right: string) => "Basic " + btoa(`${left}:${right}`);
 
     console.log("🌐 Calling WorldOTA /hotel/info/ API...");
 
-    const worldotaResponse = await fetch(
-      "https://api.worldota.net/api/b2b/v3/hotel/info/",
-      {
+    const callWorldOta = async (authorization: string) => {
+      return fetch("https://api.worldota.net/api/b2b/v3/hotel/info/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: authHeader,
+          Authorization: authorization,
         },
         body: JSON.stringify({
           hid: numericHid,
           language: language,
         }),
-      }
-    );
+      });
+    };
+
+    // Primary auth format: keyId:apiKey
+    let worldotaResponse = await callWorldOta(makeAuthHeader(keyId, apiKey));
+
+    // If credentials were pasted swapped, retry once with apiKey:keyId
+    if (worldotaResponse.status === 401) {
+      console.warn("⚠️ WorldOTA returned 401. Retrying once with swapped credentials order (diagnostic only)...");
+      worldotaResponse = await callWorldOta(makeAuthHeader(apiKey, keyId));
+    }
 
     if (!worldotaResponse.ok) {
       const errorText = await worldotaResponse.text();
       console.error(`❌ WorldOTA API error: ${worldotaResponse.status} - ${errorText}`);
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: `WorldOTA API error: ${worldotaResponse.status}` 
+        JSON.stringify({
+          success: false,
+          error: `WorldOTA API error: ${worldotaResponse.status}`,
+          detail: errorText,
         }),
         { status: worldotaResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
