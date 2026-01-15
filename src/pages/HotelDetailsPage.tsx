@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { API_BASE_URL } from "../config/api";
+import { API_BASE_URL, WORLDOTA_ENABLED } from "../config/api";
 import { HotelDetails, POIData, UpsellsState, DEFAULT_UPSELLS_STATE, formatUpsellsForAPI } from "@/types/booking";
 import { getLanguage } from "@/hooks/useLanguage";
 
@@ -407,6 +407,12 @@ const HotelDetailsPage = () => {
   }
   
   const fetchWorldOtaData = async (hotelId: string): Promise<WorldOTAData> => {
+    // Skip WorldOTA if disabled in config (no valid credentials)
+    if (!WORLDOTA_ENABLED) {
+      console.log("⏭️ WorldOTA disabled via VITE_WORLDOTA_ENABLED - skipping fetch");
+      return { description: null, images: [] };
+    }
+
     try {
       console.log("🌐 Fetching data from WorldOTA...");
       
@@ -429,7 +435,7 @@ const HotelDetailsPage = () => {
       });
 
       if (!response.ok) {
-        console.warn(`⚠️ WorldOTA edge function returned ${response.status}`);
+        console.warn(`⚠️ WorldOTA edge function returned ${response.status} - skipping`);
         return { description: null, images: [] };
       }
 
@@ -442,7 +448,7 @@ const HotelDetailsPage = () => {
       
       return { description, images };
     } catch (error) {
-      console.error("💥 Error fetching WorldOTA data:", error);
+      console.warn("⚠️ WorldOTA error (non-blocking):", error);
       return { description: null, images: [] };
     }
   };
@@ -646,11 +652,30 @@ const HotelDetailsPage = () => {
         ratesHotelId,
       );
 
-      const [ratesResponse, staticInfo, worldotaData] = await Promise.all([
+      // Use Promise.allSettled to prevent one failed API from breaking the page
+      const [ratesResult, staticInfoResult, worldotaResult] = await Promise.allSettled([
         ratesPromise, 
         staticInfoPromise,
         worldotaDataPromise
       ]);
+
+      // Extract results with null fallbacks for rejected promises
+      const ratesResponse = ratesResult.status === 'fulfilled' ? ratesResult.value : null;
+      const staticInfo = staticInfoResult.status === 'fulfilled' ? staticInfoResult.value : null;
+      const worldotaData = worldotaResult.status === 'fulfilled' 
+        ? worldotaResult.value 
+        : { description: null, images: [] };
+
+      // Log any failures for debugging (non-blocking)
+      if (ratesResult.status === 'rejected') {
+        console.warn('⚠️ Rates fetch failed (non-blocking):', ratesResult.reason);
+      }
+      if (staticInfoResult.status === 'rejected') {
+        console.warn('⚠️ Static info fetch failed (non-blocking):', staticInfoResult.reason);
+      }
+      if (worldotaResult.status === 'rejected') {
+        console.warn('⚠️ WorldOTA fetch failed (non-blocking):', worldotaResult.reason);
+      }
 
       // Fetch POI using Mapbox (non-blocking) so it doesn't delay page load
       const lat = staticInfo?.coordinates?.latitude || data.hotel.latitude;
@@ -708,8 +733,9 @@ const HotelDetailsPage = () => {
       }
 
       // Use static info images (29+ from Render), fallback to WorldOTA, then existing
-      const staticImages = Array.isArray(staticInfo?.images) ? staticInfo.images : [];
-      const worldotaImages = worldotaData.images || [];
+      // Add null guards for staticInfo fields
+      const staticImages = staticInfo && Array.isArray(staticInfo.images) ? staticInfo.images : [];
+      const worldotaImages = worldotaData?.images || [];
       const existingImages = normalizeStaticImages((data.hotel as any)?.images);
 
       // Priority: staticInfo images (Render) > WorldOTA images > existing
@@ -749,22 +775,23 @@ const HotelDetailsPage = () => {
         ? String(pickedMainImageRaw).replace("{size}", "1024x768")
         : undefined;
 
-      const staticName = typeof (staticInfo as any)?.name === "string" ? (staticInfo as any).name.trim() : undefined;
+      // Add null guards for all staticInfo fields
+      const staticName = staticInfo && typeof staticInfo.name === "string" ? staticInfo.name.trim() : undefined;
       const currentName = typeof data.hotel.name === "string" ? data.hotel.name.trim() : "";
       const nameToUse =
         staticName && (!currentName || currentName === data.hotel.id || isLikelySlugName(currentName))
           ? staticName
           : currentName || staticName || humanizeSlug(data.hotel.id);
 
-      const staticCity = typeof (staticInfo as any)?.city === "string" ? (staticInfo as any).city : undefined;
-      const staticCountry = typeof (staticInfo as any)?.country === "string" ? (staticInfo as any).country : undefined;
-      const staticAddress = typeof (staticInfo as any)?.address === "string" ? (staticInfo as any).address : undefined;
-      const staticPhone = typeof (staticInfo as any)?.phone === "string" ? (staticInfo as any).phone : undefined;
-      const staticEmail = typeof (staticInfo as any)?.email === "string" ? (staticInfo as any).email : undefined;
+      const staticCity = staticInfo && typeof staticInfo.city === "string" ? staticInfo.city : undefined;
+      const staticCountry = staticInfo && typeof staticInfo.country === "string" ? staticInfo.country : undefined;
+      const staticAddress = staticInfo && typeof staticInfo.address === "string" ? staticInfo.address : undefined;
+      const staticPhone = staticInfo && typeof staticInfo.phone === "string" ? staticInfo.phone : undefined;
+      const staticEmail = staticInfo && typeof staticInfo.email === "string" ? staticInfo.email : undefined;
 
       // Parse structured description from static info (more complete than flat description)
       let structuredDescription = '';
-      if (staticInfo?.description_struct && Array.isArray(staticInfo.description_struct)) {
+      if (staticInfo && staticInfo.description_struct && Array.isArray(staticInfo.description_struct)) {
         structuredDescription = staticInfo.description_struct
           .map((section: { title?: string; paragraphs?: string[] }) => {
             const paragraphs = section.paragraphs?.join(' ') || '';
@@ -777,8 +804,8 @@ const HotelDetailsPage = () => {
       // Priority: structured description > WorldOTA > flat description > existing
       const bestDescription = 
         (structuredDescription && structuredDescription.length >= 100 ? structuredDescription : null) ||
-        (worldotaData.description && worldotaData.description.length >= 100 ? worldotaData.description : null) ||
-        (staticInfo?.description && staticInfo.description.length >= 100 ? staticInfo.description : null) ||
+        (worldotaData?.description && worldotaData.description.length >= 100 ? worldotaData.description : null) ||
+        (staticInfo && staticInfo.description && staticInfo.description.length >= 100 ? staticInfo.description : null) ||
         (data.hotel.description && data.hotel.description.length >= 100 ? data.hotel.description : null);
 
       // Merge all data together
