@@ -130,6 +130,7 @@ interface BookingStore {
   setPaymentType: (type: PaymentType | null) => void;
   setResidency: (residency: string) => void;
   clearBookingState: () => void;
+  clearBookingAttemptState: () => void;
   generateAndSetPartnerOrderId: () => string;
 
   // Multiroom Booking Actions
@@ -401,13 +402,26 @@ export const useBookingStore = create<BookingStore>()(
       
       clearBookingState: () => set({
         bookingHash: null,
-        partnerOrderId: null,
+        partnerOrderId: null,  // Force regeneration on next booking attempt
         orderId: null,
         itemId: null,
         orderGroupId: null,
         orderStatus: "idle",
         paymentType: null,
         // Also clear multiroom state
+        prebookedRooms: [],
+        orderForms: [],
+        multiroomStatus: null,
+      }),
+
+      // Clear only transient booking attempt data (for navigation between hotels)
+      // Keeps partnerOrderId as it will be regenerated when needed
+      clearBookingAttemptState: () => set({
+        bookingHash: null,
+        orderId: null,
+        itemId: null,
+        orderGroupId: null,
+        orderStatus: "idle",
         prebookedRooms: [],
         orderForms: [],
         multiroomStatus: null,

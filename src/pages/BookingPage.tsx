@@ -55,6 +55,9 @@ const BookingPage = () => {
     isMultiroomBooking,
     setPrebookedRooms,
     prebookedRooms,
+    // State cleanup actions
+    clearBookingState,
+    clearBookingAttemptState,
   } = useBookingStore();
   
   const [isLoading, setIsLoading] = useState(true);
@@ -103,21 +106,32 @@ const BookingPage = () => {
     return map;
   }, [selectedRooms]);
 
+  // Clear stale booking state on mount and generate fresh partner_order_id
   useEffect(() => {
+    // Always clear previous booking attempt data to prevent double_booking_form errors
+    clearBookingAttemptState();
+    
     // Short delay to allow store to hydrate from persistence
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, 300);
-    return () => clearTimeout(timer);
-  }, []);
+    
+    // Cleanup on unmount (navigating away from booking page)
+    return () => {
+      clearTimeout(timer);
+      // Clear transient booking data when leaving the page
+      clearBookingAttemptState();
+    };
+  }, [clearBookingAttemptState]);
 
-  // Generate partner_order_id early when user enters booking page
+  // Generate fresh partner_order_id for each booking attempt
   useEffect(() => {
-    if (!isLoading && selectedHotel && selectedRooms.length > 0 && !partnerOrderId) {
+    if (!isLoading && selectedHotel && selectedRooms.length > 0) {
+      // Always generate a new partner_order_id for each booking attempt
       const newId = generateAndSetPartnerOrderId();
-      console.log("Generated partner_order_id:", newId);
+      console.log("🆕 Fresh partner_order_id for new booking attempt:", newId);
     }
-  }, [isLoading, selectedHotel, selectedRooms, partnerOrderId, generateAndSetPartnerOrderId]);
+  }, [isLoading, selectedHotel, selectedRooms.length, generateAndSetPartnerOrderId]);
 
   // Validate URL hotel ID matches store - redirect if mismatch
   useEffect(() => {
