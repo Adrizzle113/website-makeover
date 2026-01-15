@@ -252,6 +252,12 @@ class BookingApiService {
         lastError = error instanceof Error ? error : new Error(String(error));
         const errorMsg = lastError.message.toLowerCase();
         
+        // Check for double_booking_form in error message - don't retry this
+        if (errorMsg.includes("double_booking_form") || errorMsg.includes("double booking form")) {
+          console.error("❌ double_booking_form detected - stopping retries");
+          throw new Error("Booking session expired. Please return to hotel details and start a new booking.");
+        }
+        
         // Check if it's a 5xx error or network error (retryable)
         const is5xxError = errorMsg.includes("5") && errorMsg.includes("http");
         const isNetworkError = errorMsg.includes("network") || errorMsg.includes("fetch");

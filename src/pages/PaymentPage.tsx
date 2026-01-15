@@ -212,6 +212,30 @@ const PaymentPage = () => {
 
     } catch (error) {
       console.error("Failed to load order form:", error);
+      
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isDoubleBookingError = errorMessage.toLowerCase().includes("double_booking_form") || 
+                                    errorMessage.toLowerCase().includes("booking session expired");
+      
+      // Check if this is a double_booking_form error - redirect to hotel page
+      if (isDoubleBookingError) {
+        toast({
+          title: "Booking Session Expired",
+          description: "Your booking session has expired. Please start a new booking.",
+          variant: "destructive",
+        });
+        
+        // Clear session storage and redirect
+        sessionStorage.removeItem("pending_booking");
+        
+        if (data?.hotel?.id) {
+          navigate(`/hoteldetails/${data.hotel.id}`);
+        } else {
+          navigate("/dashboard/search");
+        }
+        return;
+      }
+      
       setFormDataLoaded(true);
       
       toast({
@@ -330,6 +354,30 @@ const PaymentPage = () => {
 
     } catch (error) {
       console.error("Failed to load multiroom order form:", error);
+      
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isDoubleBookingError = errorMessage.toLowerCase().includes("double_booking_form") || 
+                                    errorMessage.toLowerCase().includes("booking session expired");
+      
+      // Check if this is a double_booking_form error - redirect to hotel page
+      if (isDoubleBookingError) {
+        toast({
+          title: "Booking Session Expired",
+          description: "Your booking session has expired. Please start a new booking.",
+          variant: "destructive",
+        });
+        
+        // Clear session storage and redirect
+        sessionStorage.removeItem("pending_booking");
+        
+        if (data?.hotel?.id) {
+          navigate(`/hoteldetails/${data.hotel.id}`);
+        } else {
+          navigate("/dashboard/search");
+        }
+        return;
+      }
+      
       setFormDataLoaded(true);
       
       toast({
