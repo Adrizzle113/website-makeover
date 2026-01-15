@@ -446,6 +446,8 @@ export interface MultiroomOrderFormRoom {
   item_id: number | string;
   booking_hash: string;
   payment_types: PaymentType[];
+  // Full payment types array with amounts (use this!)
+  payment_types_detail?: PaymentTypeDetail[];
   form_fields?: OrderFormField[];
   // Payota tokenization fields
   pay_uuid?: string;
@@ -484,6 +486,10 @@ export interface MultiroomOrderFinishRoom {
 export interface MultiroomOrderFinishParams {
   rooms: MultiroomOrderFinishRoom[];
   payment_type: "hotel" | "deposit" | "now"; // Same for all rooms
+  payment_amount: string;                     // Required - from payment_types array
+  payment_currency_code: string;              // Required - from payment_types array
+  email: string;                              // Required - user email
+  phone?: string;                             // Required - user phone
   partner_order_id: string;                   // Same for all rooms (links them)
   language?: string;
   upsell_data?: unknown[];                    // Same for all rooms

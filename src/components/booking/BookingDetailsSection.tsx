@@ -83,7 +83,7 @@ export function BookingDetailsSection({ onDetailsChange }: BookingDetailsSection
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-2">
             <label className="text-sm font-medium text-muted-foreground">
-              Phone Number
+              Phone Number <span className="text-destructive">*</span>
             </label>
             <TooltipProvider>
               <Tooltip>
