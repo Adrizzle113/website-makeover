@@ -20,6 +20,7 @@ import { getMockPendingBookingData } from "@/lib/mockBookingData";
 import type { 
   PendingBookingData, 
   PaymentType,
+  PaymentTypeDetail,
   MultiroomPendingBookingData,
   OrderFormData,
   MultiroomOrderFinishParams,
@@ -50,6 +51,8 @@ const PaymentPage = () => {
 
   // Dynamic payment methods from API
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState<PaymentType[]>(["deposit", "hotel", "now_net", "now_gross"]);
+  // Full payment types with amounts (for finish request)
+  const [paymentTypesData, setPaymentTypesData] = useState<PaymentTypeDetail[]>([]);
   
   // Payota tokenization data
   const [payUuid, setPayUuid] = useState<string | null>(null);
@@ -173,6 +176,11 @@ const PaymentPage = () => {
       setIsNeedCreditCardData(formResponse.data.is_need_credit_card_data || false);
       setIsNeedCvc(formResponse.data.is_need_cvc ?? true);
 
+      // Store full payment types data with amounts
+      if (formResponse.data.payment_types) {
+        setPaymentTypesData(formResponse.data.payment_types);
+      }
+
       // Determine available payment methods
       const apiPaymentTypes = formResponse.data.payment_types_available || ["deposit"];
       const paymentMethods: PaymentType[] = [];
@@ -191,6 +199,7 @@ const PaymentPage = () => {
       console.log("📋 Single room order form loaded:", {
         orderId: formResponse.data.order_id,
         paymentTypes: paymentMethods,
+        paymentTypesData: formResponse.data.payment_types,
       });
 
       const updatedData = { 
@@ -583,21 +592,41 @@ const PaymentPage = () => {
 
   // Single room finish (existing logic)
   const handleSingleRoomFinish = async (leadGuest: PendingBookingData["guests"][number] | undefined) => {
+    // Get the API payment type
+    const apiPaymentType = getApiPaymentType(paymentType);
+    
+    // Find the selected payment type details from order form
+    const selectedPayment = paymentTypesData.find(pt => pt.type === apiPaymentType);
+    
+    if (!selectedPayment) {
+      console.warn(`Payment type ${apiPaymentType} not found in paymentTypesData, using fallback`);
+    }
+
+    // Validate required contact info
+    const email = leadGuest?.email;
+    const phone = bookingData!.bookingDetails.phoneNumber 
+      ? `${bookingData!.bookingDetails.countryCode}${bookingData!.bookingDetails.phoneNumber}`
+      : undefined;
+
+    if (!email) {
+      throw new Error("Email is required to complete booking");
+    }
+
     const response = await bookingApi.finishBooking({
       order_id: orderId!,
       item_id: itemId!,
       partner_order_id: bookingData!.bookingId,
-      payment_type: getApiPaymentType(paymentType),
+      payment_type: apiPaymentType,
+      payment_amount: selectedPayment?.amount || "0.00",
+      payment_currency_code: selectedPayment?.currency_code || bookingData!.hotel.currency || "USD",
       guests: bookingData!.guests.map((g) => ({
         first_name: g.firstName,
         last_name: g.lastName,
         is_child: g.type === "child",
         age: g.age,
       })),
-      email: leadGuest?.email,
-      phone: bookingData!.bookingDetails.phoneNumber 
-        ? `${bookingData!.bookingDetails.countryCode}${bookingData!.bookingDetails.phoneNumber}`
-        : undefined,
+      email,
+      phone,
     });
 
     if (response.error) {

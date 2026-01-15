@@ -75,6 +75,13 @@ export interface OrderFormField {
   options?: string[];
 }
 
+// Payment type with amount details (from order form response)
+export interface PaymentTypeDetail {
+  type: PaymentType;
+  amount: string;         // e.g., "9.00"
+  currency_code: string;  // e.g., "USD"
+}
+
 export interface OrderFormResponse {
   data: {
     order_id: string;        // Required for finish step
@@ -87,6 +94,8 @@ export interface OrderFormResponse {
     }>;
     terms_and_conditions?: string;
     payment_types_available: PaymentType[];
+    // Full payment types array with amounts (use this!)
+    payment_types?: PaymentTypeDetail[];
     final_price: {
       amount: string;
       currency_code: string;
@@ -133,6 +142,8 @@ export interface OrderFinishParams {
   item_id: string;            // From order form response
   partner_order_id: string;   // Required - same as used in form
   payment_type: PaymentType;
+  payment_amount: string;     // Required - from payment_types[].amount
+  payment_currency_code: string; // Required - from payment_types[].currency_code
   guests: Array<{
     first_name: string;
     last_name: string;
@@ -141,8 +152,8 @@ export interface OrderFinishParams {
   }>;
   user_ip?: string;
   language?: string;
-  email?: string;
-  phone?: string;
+  email?: string;             // Required for booking
+  phone?: string;             // Required for booking
 }
 
 // Order Booking Finish response
