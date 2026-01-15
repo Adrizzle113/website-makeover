@@ -226,6 +226,16 @@ const BookingPage = () => {
       return false;
     }
 
+    // Check phone number
+    if (!bookingDetails.phoneNumber) {
+      toast({
+        title: "Phone Number Required",
+        description: "Please enter a contact phone number.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     // Check terms and conditions
     if (!termsValid) {
       toast({

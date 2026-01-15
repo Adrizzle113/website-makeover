@@ -287,6 +287,12 @@ const PaymentPage = () => {
         setInitUuid(firstRoom.init_uuid || null);
         setIsNeedCreditCardData(firstRoom.is_need_credit_card_data || false);
         setIsNeedCvc(firstRoom.is_need_cvc ?? true);
+        
+        // Extract payment types with amounts for multiroom (use first room's payment types)
+        const firstRoomFromResponse = formResponse.data.rooms[0];
+        if (firstRoomFromResponse?.payment_types_detail) {
+          setPaymentTypesData(firstRoomFromResponse.payment_types_detail);
+        }
       }
 
       // Get common payment types (intersection of all rooms)
@@ -663,11 +669,28 @@ const PaymentPage = () => {
       };
     });
 
+    // Get payment type details and contact info
+    const apiPaymentType = getApiPaymentType(paymentType);
+    const selectedPayment = paymentTypesData.find(pt => pt.type === apiPaymentType);
+    
+    const email = leadGuest?.email;
+    const phone = bookingData!.bookingDetails.phoneNumber 
+      ? `${bookingData!.bookingDetails.countryCode}${bookingData!.bookingDetails.phoneNumber}`
+      : undefined;
+
+    if (!email) {
+      throw new Error("Email is required to complete booking");
+    }
+
     console.log(`📤 Multiroom finish with ${rooms.length} rooms`);
 
     const response = await bookingApi.finishBooking({
       rooms,
-      payment_type: getApiPaymentType(paymentType),
+      payment_type: apiPaymentType,
+      payment_amount: selectedPayment?.amount || "0.00",
+      payment_currency_code: selectedPayment?.currency_code || "USD",
+      email,
+      phone,
       partner_order_id: bookingData!.bookingId,
       language: "en",
     });
