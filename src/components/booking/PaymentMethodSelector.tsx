@@ -9,6 +9,7 @@ interface PaymentMethodSelectorProps {
   onChange: (value: PaymentType) => void;
   availableMethods?: PaymentType[];
   disabled?: boolean;
+  recommendedType?: PaymentType;
 }
 
 const PAYMENT_METHODS: Array<{
@@ -54,6 +55,7 @@ export function PaymentMethodSelector({
   onChange,
   availableMethods = ["deposit", "hotel"],
   disabled = false,
+  recommendedType,
 }: PaymentMethodSelectorProps) {
   const filteredMethods = PAYMENT_METHODS.filter((method) =>
     availableMethods.includes(method.value)
@@ -112,6 +114,11 @@ export function PaymentMethodSelector({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-foreground">{method.label}</p>
+                    {method.value === recommendedType && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                        Recommended
+                      </span>
+                    )}
                     {method.badge && (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
                         {method.badge}
