@@ -28,6 +28,7 @@ interface PaymentFormPanelProps {
   paymentType: PaymentType;
   onPaymentTypeChange: (type: PaymentType) => void;
   availableMethods?: PaymentType[];
+  recommendedType?: PaymentType;
   isProcessing?: boolean;
   // Card state
   cardNumber: string;
@@ -132,6 +133,7 @@ export function PaymentFormPanel({
   billingAddress,
   onBillingAddressChange,
   billingErrors,
+  recommendedType,
 }: PaymentFormPanelProps) {
   const cardType = useMemo(() => detectCardType(cardNumber), [cardNumber]);
   
@@ -215,6 +217,11 @@ export function PaymentFormPanel({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-sm text-foreground">{method.label}</p>
+                      {method.value === recommendedType && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">
+                          Recommended
+                        </span>
+                      )}
                       {method.badge && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">
                           {method.badge}

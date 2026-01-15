@@ -96,6 +96,8 @@ export interface OrderFormResponse {
     payment_types_available: PaymentType[];
     // Full payment types array with amounts (use this!)
     payment_types?: PaymentTypeDetail[];
+    // Backend's recommended payment type (priority: hotel > now > deposit)
+    recommended_payment_type?: PaymentTypeDetail;
     final_price: {
       amount: string;
       currency_code: string;
@@ -448,6 +450,8 @@ export interface MultiroomOrderFormRoom {
   payment_types: PaymentType[];
   // Full payment types array with amounts (use this!)
   payment_types_detail?: PaymentTypeDetail[];
+  // Backend's recommended payment type (priority: hotel > now > deposit)
+  recommended_payment_type?: PaymentTypeDetail;
   form_fields?: OrderFormField[];
   // Payota tokenization fields
   pay_uuid?: string;

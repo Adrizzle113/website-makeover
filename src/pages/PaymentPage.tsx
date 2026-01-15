@@ -53,6 +53,8 @@ const PaymentPage = () => {
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState<PaymentType[]>(["deposit", "hotel", "now_net", "now_gross"]);
   // Full payment types with amounts (for finish request)
   const [paymentTypesData, setPaymentTypesData] = useState<PaymentTypeDetail[]>([]);
+  // Recommended payment type from backend (priority: hotel > now > deposit)
+  const [recommendedPaymentType, setRecommendedPaymentType] = useState<PaymentTypeDetail | null>(null);
   
   // Payota tokenization data
   const [payUuid, setPayUuid] = useState<string | null>(null);
@@ -181,6 +183,19 @@ const PaymentPage = () => {
         setPaymentTypesData(formResponse.data.payment_types);
       }
 
+      // Store and auto-select recommended payment type
+      if (formResponse.data.recommended_payment_type) {
+        const recommended = formResponse.data.recommended_payment_type;
+        setRecommendedPaymentType(recommended);
+        
+        // Auto-select the recommended payment type
+        // Map API type to UI type (e.g., "now" might need to map to "now_net")
+        const uiPaymentType: PaymentType = recommended.type === "now" ? "now_net" : recommended.type;
+        setPaymentType(uiPaymentType);
+        
+        console.log("💡 Auto-selected recommended payment type:", recommended.type);
+      }
+
       // Determine available payment methods
       const apiPaymentTypes = formResponse.data.payment_types_available || ["deposit"];
       const paymentMethods: PaymentType[] = [];
@@ -200,6 +215,7 @@ const PaymentPage = () => {
         orderId: formResponse.data.order_id,
         paymentTypes: paymentMethods,
         paymentTypesData: formResponse.data.payment_types,
+        recommendedPaymentType: formResponse.data.recommended_payment_type?.type,
       });
 
       const updatedData = { 
@@ -316,6 +332,18 @@ const PaymentPage = () => {
         const firstRoomFromResponse = formResponse.data.rooms[0];
         if (firstRoomFromResponse?.payment_types_detail) {
           setPaymentTypesData(firstRoomFromResponse.payment_types_detail);
+        }
+        
+        // Store and auto-select recommended payment type from first room
+        if (firstRoomFromResponse?.recommended_payment_type) {
+          const recommended = firstRoomFromResponse.recommended_payment_type;
+          setRecommendedPaymentType(recommended);
+          
+          // Auto-select the recommended payment type
+          const uiPaymentType: PaymentType = recommended.type === "now" ? "now_net" : recommended.type;
+          setPaymentType(uiPaymentType);
+          
+          console.log("💡 Multiroom: Auto-selected recommended payment type:", recommended.type);
         }
       }
 
@@ -631,6 +659,30 @@ const PaymentPage = () => {
       const errorMessage = error instanceof Error 
         ? error.message 
         : "Failed to complete booking. Please try again.";
+      
+      // Check for insufficient_b2b_balance error - suggest fallback to hotel payment
+      const isB2BBalanceError = errorMessage.toLowerCase().includes("insufficient_b2b_balance") ||
+                                 errorMessage.toLowerCase().includes("b2b") ||
+                                 errorMessage.toLowerCase().includes("insufficient balance");
+      
+      if (isB2BBalanceError && paymentType === "deposit") {
+        // Try to fall back to "hotel" payment type
+        const hotelPayment = paymentTypesData.find(pt => pt.type === "hotel");
+        
+        if (hotelPayment) {
+          console.log("💡 B2B balance error - suggesting hotel payment type");
+          
+          toast({
+            title: "Deposit Payment Unavailable",
+            description: "Deposit payment is unavailable. Please select 'Pay at Property' to continue.",
+          });
+          
+          // Update payment type to hotel
+          setPaymentType("hotel");
+          setPaymentError("Deposit payment unavailable. Please use Pay at Property option.");
+          return;
+        }
+      }
       
       toast({
         title: "Booking Failed",
@@ -960,6 +1012,7 @@ const PaymentPage = () => {
                   paymentType={paymentType}
                   onPaymentTypeChange={setPaymentType}
                   availableMethods={availablePaymentMethods}
+                  recommendedType={recommendedPaymentType?.type}
                   isProcessing={isProcessing || isVerifyingPrice}
                   cardNumber={cardNumber}
                   onCardNumberChange={setCardNumber}
