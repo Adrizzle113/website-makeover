@@ -417,7 +417,22 @@ class BookingApiService {
       throw new Error("Missing required booking fields: order_id, item_id, or partner_order_id");
     }
 
+    // Validate required contact info
+    if (!params.email) {
+      throw new Error("Email is required to complete booking");
+    }
+
     console.log("📤 Order finish request:", { ...params, userId });
+
+    // Transform guests to the correct format: [{ guests: [...] }]
+    const guestsPayload = [{
+      guests: params.guests.map(g => ({
+        first_name: g.first_name,
+        last_name: g.last_name,
+        is_child: g.is_child || false,
+        ...(g.is_child && g.age ? { age: g.age } : {}),
+      })),
+    }];
 
     const response = await this.fetchWithError<OrderFinishResponse>(url, {
       method: "POST",
@@ -427,11 +442,13 @@ class BookingApiService {
         item_id: params.item_id,
         partner_order_id: params.partner_order_id,
         payment_type: params.payment_type,
-        guests: params.guests,
+        payment_amount: params.payment_amount,
+        payment_currency_code: params.payment_currency_code,
+        guests: guestsPayload,
         email: params.email,
         phone: params.phone,
         user_ip: params.user_ip,
-        language: params.language,
+        language: params.language || "en",
       }),
     });
 
