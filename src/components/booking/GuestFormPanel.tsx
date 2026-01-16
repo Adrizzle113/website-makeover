@@ -19,6 +19,7 @@ import { Loader2, ChevronDown, Plus, X, Shield, Lock } from "lucide-react";
 import { useBookingStore } from "@/stores/bookingStore";
 import type { HotelDetails, RoomSelection } from "@/types/booking";
 import type { Guest } from "@/components/booking/GuestInformationSection";
+import { sanitizeGuestName } from "@/lib/guestValidation";
 
 const countries = [
   { code: "US", name: "United States", flag: "🇺🇸", dialCode: "+1" },
@@ -129,8 +130,10 @@ export function GuestFormPanel({
   };
 
   const updateAdditionalGuest = (index: number, field: "firstName" | "lastName", value: string) => {
+    // Sanitize guest names - RateHawk doesn't allow digits in names
+    const sanitizedValue = sanitizeGuestName(value);
     setAdditionalGuests(prev =>
-      prev.map((g, i) => (i === index ? { ...g, [field]: value } : g))
+      prev.map((g, i) => (i === index ? { ...g, [field]: sanitizedValue } : g))
     );
   };
 
@@ -173,7 +176,7 @@ export function GuestFormPanel({
             </label>
             <Input
               value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
+              onChange={(e) => setFirstName(sanitizeGuestName(e.target.value))}
               placeholder="John"
               className="h-12"
             />
@@ -184,7 +187,7 @@ export function GuestFormPanel({
             </label>
             <Input
               value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
+              onChange={(e) => setLastName(sanitizeGuestName(e.target.value))}
               placeholder="Doe"
               className="h-12"
             />

@@ -19,6 +19,7 @@ import {
 } from "@/lib/cardValidation";
 import { getMockPendingBookingData } from "@/lib/mockBookingData";
 import { BOOKING_CONFIG, isRateRefundable } from "@/config/booking";
+import { sanitizeGuestName } from "@/lib/guestValidation";
 import type { 
   PendingBookingData, 
   PaymentType,
@@ -917,12 +918,12 @@ const PaymentPage = () => {
           payment_type: apiPaymentType,
           payment_amount: selectedPayment?.amount || "0.00",
           payment_currency_code: selectedPayment?.currency_code || bookingData!.hotel.currency || "USD",
-          guests: bookingData!.guests.map((g) => ({
-            first_name: g.firstName,
-            last_name: g.lastName,
-            is_child: g.type === "child",
-            age: g.age,
-          })),
+        guests: bookingData!.guests.map((g) => ({
+          first_name: sanitizeGuestName(g.firstName),
+          last_name: sanitizeGuestName(g.lastName),
+          is_child: g.type === "child",
+          age: g.age,
+        })),
           email,
           phone,
           // Include the tokenization UUIDs for card payments
@@ -1102,8 +1103,8 @@ const PaymentPage = () => {
       payment_amount: selectedPayment?.amount || "0.00",
       payment_currency_code: selectedPayment?.currency_code || bookingData!.hotel.currency || "USD",
       guests: bookingData!.guests.map((g) => ({
-        first_name: g.firstName,
-        last_name: g.lastName,
+        first_name: sanitizeGuestName(g.firstName),
+        last_name: sanitizeGuestName(g.lastName),
         is_child: g.type === "child",
         age: g.age,
       })),
