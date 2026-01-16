@@ -665,7 +665,7 @@ const PaymentPage = () => {
         const [month, year] = expiryDate.split("/");
         
         const tokenRequest = {
-          object_id: orderId!,
+          object_id: itemId!,
           pay_uuid: generatedPayUuid,
           init_uuid: generatedInitUuid,
           user_first_name: leadGuest?.firstName || "",
