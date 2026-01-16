@@ -697,19 +697,44 @@ const PaymentPage = () => {
 
         console.log("✅ Card tokenized successfully");
 
-        // Step 2: Start booking with card payment using the generated UUIDs
-        const startResponse = await bookingApi.startBooking(orderId!, {
-          type: "now",
-          currency_code: bookingData!.hotel.currency || "USD",
+        // Step 2: Complete booking using finishBooking WITH the UUIDs
+        const apiPaymentType = getApiPaymentType(paymentType);
+        const selectedPayment = paymentTypesData.find(pt => pt.type === apiPaymentType);
+        
+        const email = leadGuest?.email;
+        const phone = bookingData!.bookingDetails.phoneNumber 
+          ? `${bookingData!.bookingDetails.countryCode}${bookingData!.bookingDetails.phoneNumber}`
+          : undefined;
+
+        if (!email) {
+          throw new Error("Email is required to complete booking");
+        }
+
+        const finishResponse = await bookingApi.finishBooking({
+          order_id: orderId!,
+          item_id: itemId!,
+          partner_order_id: bookingData!.bookingId,
+          payment_type: apiPaymentType,
+          payment_amount: selectedPayment?.amount || "0.00",
+          payment_currency_code: selectedPayment?.currency_code || bookingData!.hotel.currency || "USD",
+          guests: bookingData!.guests.map((g) => ({
+            first_name: g.firstName,
+            last_name: g.lastName,
+            is_child: g.type === "child",
+            age: g.age,
+          })),
+          email,
+          phone,
+          // Include the tokenization UUIDs for card payments
           pay_uuid: generatedPayUuid,
           init_uuid: generatedInitUuid,
         });
 
-        if (startResponse.error) {
-          throw new Error(startResponse.error.message);
+        if (finishResponse.error) {
+          throw new Error(finishResponse.error.message);
         }
 
-        const finalOrderId = startResponse.data?.order_id;
+        const finalOrderId = finishResponse.data?.order_id;
         if (!finalOrderId) {
           throw new Error("No order ID received from booking");
         }

@@ -161,6 +161,9 @@ export interface OrderFinishParams {
   language?: string;
   email?: string;             // Required for booking
   phone?: string;             // Required for booking
+  // For card payments after tokenization (UUIDs at root level for backend)
+  pay_uuid?: string;
+  init_uuid?: string;
 }
 
 // Order Booking Finish response
