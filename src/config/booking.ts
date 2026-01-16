@@ -26,6 +26,9 @@ export const BOOKING_CONFIG = {
     allowedPaymentTypes: ["hotel", "now"] as string[],
     // Block deposit payment type entirely in sandbox
     blockDeposit: true,
+    // EXCEPTION: Allow deposit for test hotel since it ONLY has deposit rates
+    // This may still fail with "insufficient_b2b_balance" if sandbox has no credit
+    allowDepositForTestHotel: true,
   },
   
   // Polling configuration

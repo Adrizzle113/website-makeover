@@ -752,19 +752,35 @@ export function RoomSelectionSection({
     return 1;
   }, [searchParams]);
 
+  // Check if current hotel is the test hotel (allows deposit exception)
+  const isTestHotelPage = useMemo(() => {
+    const hotelId = hotel.id;
+    const ratehawkHid = hotel.ratehawk_data?.hid?.toString();
+    return hotelId === BOOKING_CONFIG.testHotelId || 
+           hotelId === BOOKING_CONFIG.testHotelSlug ||
+           ratehawkHid === BOOKING_CONFIG.testHotelId;
+  }, [hotel.id, hotel.ratehawk_data?.hid]);
+
   // Process and sort rooms by category using room_groups + rg_hash matching
   // In sandbox mode, filter to only show refundable rates with allowed payment types
   const sortedRooms = useMemo(() => {
     let rooms = processRoomsWithRoomGroups(hotel);
     
     // In sandbox mode, filter out non-refundable rates AND deposit-only rates
+    // EXCEPTION: Test hotel can show deposit rates if allowDepositForTestHotel is true
     if (BOOKING_CONFIG.isSandboxMode && BOOKING_CONFIG.sandboxRestrictions.refundableOnly) {
-      const allowedPaymentTypes = BOOKING_CONFIG.sandboxRestrictions.allowedPaymentTypes || ["hotel", "now"];
+      const baseAllowedPaymentTypes = BOOKING_CONFIG.sandboxRestrictions.allowedPaymentTypes || ["hotel", "now"];
+      
+      // Allow deposit for test hotel if the flag is enabled
+      const effectiveAllowedPaymentTypes = (isTestHotelPage && 
+        BOOKING_CONFIG.sandboxRestrictions.allowDepositForTestHotel)
+          ? [...baseAllowedPaymentTypes, "deposit"]
+          : baseAllowedPaymentTypes;
       
       rooms = rooms.map(room => {
         // Filter rates based on sandbox requirements:
         // 1. Must be refundable with future deadline
-        // 2. Must have an allowed payment type (NOT deposit)
+        // 2. Must have an allowed payment type
         const validRates = room.allRates.filter(rate => {
           // Check refundability
           if (!rate.cancellationRawDate) return false;
@@ -773,8 +789,8 @@ export function RoomSelectionSection({
           const deadlineDate = new Date(rate.cancellationRawDate);
           const isFutureDeadline = deadlineDate > new Date();
           
-          // Check payment type - deposit is blocked in sandbox!
-          const hasAllowedPaymentType = allowedPaymentTypes.includes(rate.paymentType);
+          // Check payment type - use effective allowed types (may include deposit for test hotel)
+          const hasAllowedPaymentType = effectiveAllowedPaymentTypes.includes(rate.paymentType);
           
           // Debug log for first few rates
           if (room.allRates.indexOf(rate) < 3) {
@@ -787,6 +803,8 @@ export function RoomSelectionSection({
               isRefundable,
               isFutureDeadline,
               hasAllowedPaymentType,
+              isTestHotel: isTestHotelPage,
+              effectiveAllowedPaymentTypes,
               willInclude: isRefundable && isFutureDeadline && hasAllowedPaymentType,
             });
           }
@@ -811,12 +829,13 @@ export function RoomSelectionSection({
       console.log('[Sandbox Filter] Result:', {
         originalRooms: processRoomsWithRoomGroups(hotel).length,
         filteredRooms: rooms.length,
-        allowedPaymentTypes,
+        isTestHotel: isTestHotelPage,
+        effectiveAllowedPaymentTypes,
       });
     }
     
     return rooms.sort((a, b) => categorySortOrder[a.category] - categorySortOrder[b.category]);
-  }, [hotel]);
+  }, [hotel, isTestHotelPage]);
   
   const roomsToDisplay = sortedRooms.slice(0, displayedRooms);
   const hasMoreRooms = sortedRooms.length > displayedRooms;
@@ -985,6 +1004,25 @@ export function RoomSelectionSection({
             <AlertDescription className="text-amber-700">
               Only refundable rates with "Pay at Hotel" or card payment can be booked in sandbox mode. 
               Deposit rates and non-refundable rates have been filtered out (sandbox has no B2B balance).
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {/* Test Hotel Deposit Warning - Special exception for test hotel */}
+        {isTestHotelPage && BOOKING_CONFIG.isSandboxMode && BOOKING_CONFIG.sandboxRestrictions.allowDepositForTestHotel && (
+          <Alert className="mb-6 border-orange-300 bg-orange-50">
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
+            <AlertTitle className="text-orange-800">Test Hotel - Deposit Rates Only</AlertTitle>
+            <AlertDescription className="text-orange-700">
+              <p className="mb-2">
+                This test hotel only offers <strong>"deposit"</strong> payment rates. Booking may fail with 
+                <code className="mx-1 px-1 bg-orange-100 rounded text-orange-900">insufficient_b2b_balance</code> 
+                if your sandbox account has no credit.
+              </p>
+              <p className="text-sm">
+                <strong>This is expected behavior for testing.</strong> To complete bookings, contact RateHawk 
+                support to fund your sandbox account or use a production API key.
+              </p>
             </AlertDescription>
           </Alert>
         )}

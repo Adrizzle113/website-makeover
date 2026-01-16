@@ -23,7 +23,9 @@ function getStatusErrorMessage(status: BookingStatusValue, errorMessage?: string
   if (errorMessage?.toLowerCase().includes("insufficient_b2b_balance") || 
       errorMessage?.toLowerCase().includes("insufficient balance") ||
       errorMessage?.toLowerCase().includes("b2b_balance")) {
-    return "This rate cannot be booked in sandbox mode. Please select a refundable rate with free cancellation available.";
+    return "Deposit booking failed - sandbox account has no B2B balance. " +
+           "This is expected for the test hotel which only offers deposit rates. " +
+           "Contact RateHawk support to fund your sandbox account, or use a production API key.";
   }
   
   switch (status) {
