@@ -17,6 +17,7 @@ import {
   validateCVV,
 } from "@/lib/cardValidation";
 import { getMockPendingBookingData } from "@/lib/mockBookingData";
+import { BOOKING_CONFIG, isRateRefundable } from "@/config/booking";
 import type { 
   PendingBookingData, 
   PaymentType,
