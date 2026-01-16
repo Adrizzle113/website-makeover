@@ -919,6 +919,19 @@ export function RoomSelectionSection({
         isTestHotel: isTestHotelPage,
         effectiveAllowedPaymentTypes,
       });
+
+      // Warn about rates that pass filter but may have incomplete cancellation data
+      for (const room of rooms) {
+        for (const rate of room.allRates) {
+          if (rate.hasFreeCancellationBefore && !rate.cancellationRawDate) {
+            console.warn('[Sandbox Warning] Rate has hasFreeCancellationBefore but no cancellationRawDate:', {
+              roomId: room.id,
+              rateId: rate.id?.substring(0, 20),
+              cancellation: rate.cancellation,
+            });
+          }
+        }
+      }
     }
     
     return rooms.sort((a, b) => categorySortOrder[a.category] - categorySortOrder[b.category]);
@@ -947,6 +960,22 @@ export function RoomSelectionSection({
       const room = sortedRooms.find(r => r.id === roomId);
       const newRate = room?.allRates.find(r => r.id === rateId);
       if (room && newRate) {
+        // Determine cancellation type from the new rate
+        let cancellationType: "free_cancellation" | "partial_refund" | "non_refundable" = "non_refundable";
+        if (newRate.cancellation === "free_cancellation" || newRate.cancellation?.toLowerCase().includes("free")) {
+          cancellationType = "free_cancellation";
+        } else if (newRate.cancellation?.toLowerCase().includes("partial")) {
+          cancellationType = "partial_refund";
+        }
+
+        console.log('[Room Selection] Rate changed:', {
+          roomId: room.id,
+          rateId: newRate.id?.substring(0, 20),
+          cancellationType,
+          cancellationDeadline: newRate.cancellationRawDate,
+          hasFreeCancellationBefore: newRate.hasFreeCancellationBefore,
+        });
+
         // Remove old selection and add with new rate
         updateRoomQuantity(roomId, 0);
         addRoom({
@@ -961,6 +990,11 @@ export function RoomSelectionSection({
           earlyCheckin: newRate.earlyCheckin,
           lateCheckout: newRate.lateCheckout,
           taxes: newRate.taxes,
+          // ✅ Include all cancellation metadata when switching rates
+          cancellationType,
+          cancellationDeadline: newRate.cancellationRawDate,
+          cancellationPolicy: newRate.cancellation,
+          hasFreeCancellationBefore: newRate.hasFreeCancellationBefore || false,
         });
       }
     }
@@ -977,6 +1011,13 @@ export function RoomSelectionSection({
       } else if (activeRate.cancellation?.toLowerCase().includes("partial")) {
         cancellationType = "partial_refund";
       }
+
+      console.log('[Room Selection] Room added:', {
+        roomId: room.id,
+        cancellationType,
+        cancellationDeadline: activeRate.cancellationRawDate,
+        hasFreeCancellationBefore: activeRate.hasFreeCancellationBefore,
+      });
 
       addRoom({
         roomId: room.id,

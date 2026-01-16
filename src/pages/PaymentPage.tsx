@@ -1095,6 +1095,12 @@ const PaymentPage = () => {
     // Get free_cancellation_before from the selected room (use first room for single-room booking)
     const freeCancellationBefore = bookingData!.rooms[0]?.cancellationDeadline;
 
+    // ✅ Validate cancellation data for sandbox compliance
+    if (BOOKING_CONFIG.isSandboxMode && bookingData!.rooms[0]?.hasFreeCancellationBefore && !freeCancellationBefore) {
+      console.error('[Payment] Refundable rate missing cancellationDeadline:', bookingData!.rooms[0]);
+      throw new Error("Booking failed: Refundable rate missing cancellation deadline. Please select a different rate.");
+    }
+
     const response = await bookingApi.finishBooking({
       order_id: orderId!,
       item_id: itemId!,
@@ -1130,6 +1136,17 @@ const PaymentPage = () => {
 
   // Multiroom finish
   const handleMultiroomFinish = async (leadGuest: PendingBookingData["guests"][number] | undefined) => {
+    // ✅ Validate each room's cancellation data for sandbox compliance
+    if (BOOKING_CONFIG.isSandboxMode) {
+      for (let i = 0; i < bookingData!.rooms.length; i++) {
+        const room = bookingData!.rooms[i];
+        if (room.hasFreeCancellationBefore && !room.cancellationDeadline) {
+          console.error(`[Payment] Room ${i + 1} missing cancellationDeadline:`, room);
+          throw new Error(`Room ${i + 1} is marked refundable but missing cancellation deadline. Please select a different rate.`);
+        }
+      }
+    }
+
     // Build rooms array for multiroom finish
     const rooms: MultiroomOrderFinishParams["rooms"] = multiroomOrderForms.map((form, index) => {
       // Build guests for this room
