@@ -197,6 +197,15 @@ const PaymentPage = () => {
       setItemId(formResponse.data.item_id);
       setFormDataLoaded(true);
 
+      // Handle recovered orders (from double_booking_form recovery)
+      if ((formResponse.data as any)._recovered) {
+        console.log("🔄 Using recovered order from previous booking attempt");
+        toast({
+          title: "Booking Recovered",
+          description: "Your previous booking session was restored successfully.",
+        });
+      }
+
       // Store full payment types data with amounts
       const paymentTypesArray = formResponse.data.payment_types || [];
       if (paymentTypesArray.length > 0) {
