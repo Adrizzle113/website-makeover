@@ -27,9 +27,9 @@ const paymentConfig: Record<string, { label: string; icon: React.ReactNode; clas
     className: "bg-green-100 text-green-700 border-green-200 hover:bg-green-100",
   },
   deposit: {
-    label: "Pay Now",
+    label: "Deposit",
     icon: <CreditCard className="w-3 h-3" />,
-    className: "bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100",
+    className: "bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100",
   },
   hotel: {
     label: "Pay at Property",
