@@ -561,24 +561,25 @@ class BookingApiService {
   /**
    * Step 5: Order Finish Status - Poll until final status
    * MUST call repeatedly until confirmed or failed
+   * NOTE: RateHawk API requires partner_order_id (not order_id)
    */
-  async getOrderStatus(orderId: string): Promise<OrderStatusResponse> {
+  async getOrderStatus(partnerOrderId: string): Promise<OrderStatusResponse> {
     // Return mock response for demo orders
-    if (isDemoOrder(orderId)) {
-      console.log("📤 Get demo order status (mock):", { orderId });
-      return MOCK_API_RESPONSES.orderStatus(orderId) as OrderStatusResponse;
+    if (isDemoOrder(partnerOrderId)) {
+      console.log("📤 Get demo order status (mock):", { partnerOrderId });
+      return MOCK_API_RESPONSES.orderStatus(partnerOrderId) as OrderStatusResponse;
     }
 
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.ORDER_STATUS}`;
     const userId = this.getCurrentUserId();
 
-    console.log("📤 Order status request:", { orderId, userId });
+    console.log("📤 Order status request:", { partnerOrderId, userId });
 
     const response = await this.fetchWithError<OrderStatusResponse>(url, {
       method: "POST",
       body: JSON.stringify({
         userId,
-        order_id: orderId,
+        partner_order_id: partnerOrderId,  // RateHawk requires partner_order_id
       }),
     });
 

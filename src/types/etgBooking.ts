@@ -188,6 +188,7 @@ export interface OrderStatusResponse {
   data: {
     order_id: string;
     order_group_id?: string;
+    partner_order_id?: string;  // RateHawk returns this for status polling
     status: "processing" | "confirmed" | "failed" | "cancelled";
     confirmation_number?: string;
     supplier_confirmation?: string;
@@ -197,6 +198,12 @@ export interface OrderStatusResponse {
     };
     cancellation_info?: {
       free_cancellation_before?: string;
+    };
+    percent?: number;  // Progress percentage from RateHawk
+    data_3ds?: {       // 3DS redirect data for card payments
+      action_url: string;
+      method: "get" | "post";
+      data: Record<string, string>;
     };
   };
   status: string;

@@ -710,8 +710,9 @@ const PaymentPage = () => {
           throw new Error("Email is required to complete booking");
         }
 
-        // Build return path for 3DS redirect
-        const returnPath = `${window.location.origin}/processing/${orderId}`;
+        // Build return path for 3DS redirect (use partner_order_id)
+        const partnerOrderId = bookingData!.bookingId;
+        const returnPath = `${window.location.origin}/processing/${partnerOrderId}?order_id=${orderId}`;
         
         const finishResponse = await bookingApi.finishBooking({
           order_id: orderId!,
@@ -744,12 +745,13 @@ const PaymentPage = () => {
           throw new Error("No order ID received from booking");
         }
         
-        // For multiroom, pass all order IDs to processing page
+        // Navigate using partner_order_id (required for status polling)
+        // Pass order_id in query string for confirmation page
         if (isMultiroom) {
           const orderIds = multiroomOrderForms.map(f => f.order_id).join(",");
-          navigate(`/processing/${finalOrderId}?multiroom=true&order_ids=${orderIds}`);
+          navigate(`/processing/${partnerOrderId}?order_id=${finalOrderId}&multiroom=true&order_ids=${orderIds}`);
         } else {
-          navigate(`/processing/${finalOrderId}`);
+          navigate(`/processing/${partnerOrderId}?order_id=${finalOrderId}`);
         }
         return;
       }
@@ -884,7 +886,9 @@ const PaymentPage = () => {
       throw new Error("No order ID received from booking");
     }
     
-    navigate(`/processing/${finalOrderId}`);
+    // Navigate using partner_order_id (required for status polling)
+    const partnerOrderId = bookingData!.bookingId;
+    navigate(`/processing/${partnerOrderId}?order_id=${finalOrderId}`);
   };
 
   // Multiroom finish
@@ -955,10 +959,11 @@ const PaymentPage = () => {
       throw new Error("No order IDs received from multiroom booking");
     }
 
-    // Navigate to processing page with all order IDs
+    // Navigate to processing page using partner_order_id (required for status polling)
     const primaryOrderId = orderIds[0];
     const allOrderIds = orderIds.join(",");
-    navigate(`/processing/${primaryOrderId}?multiroom=true&order_ids=${allOrderIds}&total=${response.data.total_rooms}&success=${response.data.successful_rooms}`);
+    const partnerOrderId = bookingData!.bookingId;
+    navigate(`/processing/${partnerOrderId}?order_id=${primaryOrderId}&multiroom=true&order_ids=${allOrderIds}&total=${response.data.total_rooms}&success=${response.data.successful_rooms}`);
   };
 
   // Helper to get user-friendly Payota error messages
