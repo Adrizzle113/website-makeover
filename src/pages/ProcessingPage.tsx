@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, CheckCircle, XCircle, Clock, AlertTriangle, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,20 +8,50 @@ import { Footer } from "@/components/layout/Footer";
 import { bookingApi } from "@/services/bookingApi";
 import { useBookingStore } from "@/stores/bookingStore";
 import { toast } from "@/hooks/use-toast";
-import { 
-  isFinalFailureError, 
-  getBookingErrorMessage,
-} from "@/types/etgBooking";
+import type { BookingStatusValue } from "@/types/etgBooking";
 
-const MAX_POLL_ATTEMPTS = 20;
-const POLL_INTERVAL_MS = 3000;
+const MAX_POLL_ATTEMPTS = 60; // 5 minutes at 5s intervals
+const POLL_INTERVAL_MS = 5000; // 5 seconds per API recommendation
 
 type ProcessingStatus = "polling" | "3ds" | "confirmed" | "failed" | "timeout";
 
 /**
+ * Get user-friendly error message for each status code
+ */
+function getStatusErrorMessage(status: BookingStatusValue, errorMessage?: string): string {
+  switch (status) {
+    case "block":
+      return "Card payment could not be processed. Please try a different card.";
+    case "charge":
+      return "Card was declined. Please check your card details or try a different payment method.";
+    case "soldout":
+      return "This room is no longer available. Please search for alternative options.";
+    case "provider":
+      return "A temporary error occurred with the hotel. Please try again in a few minutes.";
+    case "book_limit":
+      return "Booking limit reached for this property. Please try again later.";
+    case "not_allowed":
+      return "This booking cannot be processed. Please contact support.";
+    case "booking_finish_did_not_succeed":
+      return "Booking could not be completed. Please try again.";
+    case "timeout":
+      return "The request timed out. We're still checking the status...";
+    case "error":
+    case "failed":
+      return errorMessage || "An unexpected error occurred. Please try again.";
+    default:
+      return errorMessage || "An unexpected error occurred. Please try again or contact support.";
+  }
+}
+
+/**
  * Handle 3DS redirect - submits form to bank ACS
  */
-function handle3DSRedirect(data3ds: { action_url: string; method: "get" | "post"; data: Record<string, string> }) {
+function handle3DSRedirect(data3ds: { 
+  action_url: string; 
+  method: "get" | "post"; 
+  data: Record<string, string>;
+}) {
   console.log("🔐 Initiating 3DS redirect to:", data3ds.action_url);
   
   if (data3ds.method === "get") {
@@ -53,21 +83,21 @@ function handle3DSRedirect(data3ds: { action_url: string; method: "get" | "post"
 export default function ProcessingPage() {
   // RateHawk requires partner_order_id for status polling
   const { partnerOrderId } = useParams<{ partnerOrderId: string }>();
+  const [urlSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { setOrderId, setOrderStatus } = useBookingStore();
 
   // Extract ETG order_id from query params (for confirmation page navigation)
-  const searchParams = new URLSearchParams(window.location.search);
-  const etgOrderId = searchParams.get("order_id");
+  const etgOrderId = urlSearchParams.get("order_id");
+  
+  // Check if returning from 3DS redirect (bank adds these params)
+  const is3DSReturn = urlSearchParams.has("MD") || urlSearchParams.has("PaRes");
 
   const [status, setStatus] = useState<ProcessingStatus>("polling");
   const [attempts, setAttempts] = useState(0);
-  const [progressPercent, setProgressPercent] = useState<number | null>(null);
+  const [progressPercent, setProgressPercent] = useState<number>(0);
   const [confirmationNumber, setConfirmationNumber] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Use progressPercent from API if available, otherwise calculate from attempts
-  const displayProgress = progressPercent ?? Math.min((attempts / MAX_POLL_ATTEMPTS) * 100, 100);
 
   const pollStatus = useCallback(async () => {
     if (!partnerOrderId) {
@@ -83,6 +113,12 @@ export default function ProcessingPage() {
       return;
     }
 
+    if (is3DSReturn) {
+      console.log("🔐 Returning from 3DS verification, resuming status polling...");
+    }
+
+    const startTime = Date.now();
+    const maxWaitTimeMs = MAX_POLL_ATTEMPTS * POLL_INTERVAL_MS;
     let currentAttempt = 0;
 
     while (currentAttempt < MAX_POLL_ATTEMPTS) {
@@ -90,36 +126,31 @@ export default function ProcessingPage() {
       setAttempts(currentAttempt);
 
       try {
-        // Use partner_order_id for status polling (required by RateHawk API)
         const response = await bookingApi.getOrderStatus(partnerOrderId);
+        const data = response.data;
         
-        // RateHawk can return status at top level or in data
-        const topLevelStatus = response.status;
-        const dataStatus = response.data?.status;
-        
-        // Update progress if available
-        if (response.data?.percent !== undefined) {
-          setProgressPercent(response.data.percent);
+        // Update progress from API response
+        if (data?.percent !== undefined) {
+          setProgressPercent(data.percent);
+        } else {
+          // Fallback: calculate from attempts
+          setProgressPercent(Math.min((currentAttempt / MAX_POLL_ATTEMPTS) * 100, 95));
         }
 
-        console.log(`📊 Status poll #${currentAttempt}:`, { topLevelStatus, dataStatus, response });
+        console.log(`📊 Status poll #${currentAttempt}:`, {
+          status: data?.status,
+          is_final: data?.is_final,
+          is_success: data?.is_success,
+          is_processing: data?.is_processing,
+          percent: data?.percent,
+        });
 
-        // Handle 3DS redirect - bank authentication required
-        if (dataStatus === "3ds" || topLevelStatus === "3ds") {
-          if (response.data?.data_3ds) {
-            setStatus("3ds");
-            // Small delay to show 3DS UI state before redirect
-            await new Promise(r => setTimeout(r, 500));
-            handle3DSRedirect(response.data.data_3ds);
-            return; // Stop polling - browser will redirect
-          }
-        }
-
-        // Handle confirmed status - booking complete
-        if (dataStatus === "confirmed" || topLevelStatus === "ok") {
+        // ✅ SUCCESS: Booking confirmed
+        if (data?.is_success || data?.status === "ok") {
           setStatus("confirmed");
-          const displayId = etgOrderId || response.data?.partner_order_id || partnerOrderId;
-          setConfirmationNumber(response.data?.confirmation_number || displayId);
+          setProgressPercent(100);
+          const displayId = etgOrderId || data?.partner_order_id || partnerOrderId;
+          setConfirmationNumber(data?.confirmation_number || displayId);
           setOrderId(etgOrderId || partnerOrderId);
           setOrderStatus("confirmed");
           
@@ -128,33 +159,60 @@ export default function ProcessingPage() {
           
           toast({
             title: "Booking Confirmed!",
-            description: `Confirmation: ${response.data?.confirmation_number || displayId}`,
+            description: `Confirmation: ${data?.confirmation_number || displayId}`,
           });
           
           return;
         }
 
-        // Handle failed/cancelled status
-        if (dataStatus === "failed" || dataStatus === "cancelled" || topLevelStatus === "error") {
-          const errorCode = response.error?.code || "";
-          const userMessage = getBookingErrorMessage(errorCode);
+        // 🔐 3D SECURE: Requires user action
+        if (data?.status === "3ds" && data?.data_3ds) {
+          setStatus("3ds");
+          // Small delay to show 3DS UI state before redirect
+          await new Promise(r => setTimeout(r, 500));
+          handle3DSRedirect(data.data_3ds);
+          return; // Stop polling - browser will redirect
+        }
+
+        // ❌ FINAL ERROR: Booking failed
+        if (data?.is_final && !data?.is_success) {
+          const statusCode = data?.status || "error";
+          const userMessage = getStatusErrorMessage(
+            statusCode as BookingStatusValue,
+            data?.error?.message || response.error?.message
+          );
           setStatus("failed");
           setErrorMessage(userMessage);
           setOrderStatus("failed");
+          console.log(`❌ Final failure: ${statusCode} - ${userMessage}`);
           return;
         }
 
-        // Check for specific error codes that indicate final failure
-        if (response.error?.code && isFinalFailureError(response.error.code)) {
-          const userMessage = getBookingErrorMessage(response.error.code);
-          setStatus("failed");
-          setErrorMessage(userMessage);
-          setOrderStatus("failed");
-          console.log(`❌ Final failure error: ${response.error.code}`);
+        // ⏳ STILL PROCESSING: Check timeout and continue polling
+        const elapsed = Date.now() - startTime;
+        const timeRemaining = maxWaitTimeMs - elapsed;
+
+        if (timeRemaining <= POLL_INTERVAL_MS && timeRemaining > 0) {
+          // Final request before timeout (per API recommendation)
+          console.log("⏱️ Sending final status check before timeout...");
+          continue;
+        }
+
+        if (timeRemaining <= 0) {
+          // Timeout reached
+          setStatus("timeout");
+          setOrderStatus("processing");
           return;
         }
 
-        // Still processing - wait and try again
+        // Continue polling if still processing
+        if (data?.is_processing || data?.status === "processing" || data?.status === "3ds") {
+          await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+          continue;
+        }
+
+        // Unknown status - treat as processing and continue
+        console.warn(`⚠️ Unknown status: ${data?.status}, continuing to poll...`);
         await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
         
       } catch (error) {
@@ -172,21 +230,31 @@ export default function ProcessingPage() {
         ) {
           setStatus("failed");
           setErrorMessage("Invalid booking reference. This may be a test order that wasn't processed by the server.");
-          return; // Stop polling
+          return;
         }
         
-        // Network/server errors - wait and retry
-        if (currentAttempt < MAX_POLL_ATTEMPTS) {
+        // Network/server errors - wait and retry if we have time
+        const elapsed = Date.now() - startTime;
+        const timeRemaining = maxWaitTimeMs - elapsed;
+        
+        if (timeRemaining > POLL_INTERVAL_MS) {
+          console.warn(`⚠️ Error polling status, retrying in ${POLL_INTERVAL_MS}ms...`);
           await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+          continue;
         }
+        
+        // Timeout on error
+        setStatus("timeout");
+        setOrderStatus("processing");
+        return;
       }
     }
 
-    // Timeout reached
+    // Max attempts reached
     setStatus("timeout");
     setOrderStatus("processing");
     
-  }, [partnerOrderId, etgOrderId, setOrderId, setOrderStatus]);
+  }, [partnerOrderId, etgOrderId, is3DSReturn, setOrderId, setOrderStatus]);
 
   useEffect(() => {
     pollStatus();
@@ -195,13 +263,12 @@ export default function ProcessingPage() {
   const handleRetry = () => {
     setStatus("polling");
     setAttempts(0);
-    setProgressPercent(null);
+    setProgressPercent(0);
     setErrorMessage(null);
     pollStatus();
   };
 
   const handleViewConfirmation = () => {
-    // Use ETG order_id if available for confirmation page
     const orderIdForConfirmation = etgOrderId || partnerOrderId;
     navigate(`/orders/${orderIdForConfirmation}/confirmation`);
   };
@@ -233,11 +300,11 @@ export default function ProcessingPage() {
                 </p>
                 
                 <div className="space-y-2">
-                  <Progress value={displayProgress} className="h-2" />
+                  <Progress value={progressPercent} className="h-2" />
                   <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                     <Clock className="h-4 w-4" />
                     <span>
-                      {progressPercent !== null 
+                      {progressPercent > 0 
                         ? `${Math.round(progressPercent)}% complete`
                         : `Checking status... (${attempts}/${MAX_POLL_ATTEMPTS})`
                       }

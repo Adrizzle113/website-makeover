@@ -244,14 +244,22 @@ export const MOCK_API_RESPONSES = {
   }),
   
   orderStatus: (orderId: string) => ({
+    success: true,
     status: "ok" as const,
     data: {
+      status: "ok" as const,
+      is_final: true,
+      is_success: true,
+      is_processing: false,
+      partner_order_id: orderId,
       order_id: orderId,
-      status: "confirmed",
+      percent: 100,
+      confirmation_number: `ETG-${orderId}`,
       cancellation_info: {
-        is_cancellable: MOCK_BOOKING_DATA.cancellation.isCancellable,
         free_cancellation_before: MOCK_BOOKING_DATA.cancellation.freeCancellationBefore,
       },
     },
+    timestamp: new Date().toISOString(),
+    duration: "0ms",
   }),
 };
