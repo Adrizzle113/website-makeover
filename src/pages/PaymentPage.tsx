@@ -805,6 +805,9 @@ const PaymentPage = () => {
         const partnerOrderId = bookingData!.bookingId;
         const returnPath = `${window.location.origin}/processing/${partnerOrderId}?order_id=${orderId}`;
         
+        // Get free_cancellation_before from the selected room
+        const freeCancellationBefore = bookingData!.rooms[0]?.cancellationDeadline;
+
         const finishResponse = await bookingApi.finishBooking({
           order_id: orderId!,
           item_id: itemId!,
@@ -825,6 +828,8 @@ const PaymentPage = () => {
           init_uuid: generatedInitUuid,
           // Include return path for 3DS redirect
           return_path: returnPath,
+          // Include free_cancellation_before for refundable rates (prevents insufficient_b2b_balance)
+          free_cancellation_before: freeCancellationBefore,
         });
 
         if (finishResponse.error) {
@@ -984,6 +989,9 @@ const PaymentPage = () => {
       throw new Error("Email is required to complete booking");
     }
 
+    // Get free_cancellation_before from the selected room (use first room for single-room booking)
+    const freeCancellationBefore = bookingData!.rooms[0]?.cancellationDeadline;
+
     const response = await bookingApi.finishBooking({
       order_id: orderId!,
       item_id: itemId!,
@@ -999,6 +1007,8 @@ const PaymentPage = () => {
       })),
       email,
       phone,
+      // Include free_cancellation_before for refundable rates (prevents insufficient_b2b_balance)
+      free_cancellation_before: freeCancellationBefore,
     });
 
     if (response.error) {
@@ -1034,6 +1044,8 @@ const PaymentPage = () => {
         order_id: form.order_id,
         item_id: form.item_id,
         guests: guestsForRoom,
+        // Include free_cancellation_before for this room (prevents insufficient_b2b_balance)
+        free_cancellation_before: bookingData!.rooms[index]?.cancellationDeadline,
       };
     });
 
