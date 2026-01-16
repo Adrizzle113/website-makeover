@@ -656,22 +656,28 @@ const PaymentPage = () => {
       }
 
       // CRITICAL: Block deposit payment type in sandbox - causes insufficient_b2b_balance error
+      // EXCEPTION: Allow deposit for test hotel if flag is enabled (since it only has deposit rates)
       const apiPaymentTypeToUse = getApiPaymentType(paymentType);
       if (apiPaymentTypeToUse === "deposit" && BOOKING_CONFIG.sandboxRestrictions.blockDeposit) {
-        console.error("❌ Deposit payment blocked in sandbox mode");
-        toast({
-          title: "Deposit Not Available in Sandbox",
-          description: "Deposit payment requires B2B balance which sandbox accounts don't have. Please select 'Pay at Hotel' or use a card payment method.",
-          variant: "destructive",
-        });
-        setPaymentError(
-          `Deposit payment is not available in sandbox mode.\n\n` +
-          `This happens because:\n` +
-          `• Deposit requires B2B balance (pre-funded account)\n` +
-          `• Sandbox/test accounts have no B2B balance\n\n` +
-          `Solution: Select "Pay at Hotel" or card payment instead.`
-        );
-        return;
+        // Check if this is the test hotel AND we allow deposit exception
+        if (isTestHotelBooking && BOOKING_CONFIG.sandboxRestrictions.allowDepositForTestHotel) {
+          console.log("⚠️ Allowing deposit for test hotel (sandbox exception) - may fail with insufficient_b2b_balance");
+        } else {
+          console.error("❌ Deposit payment blocked in sandbox mode");
+          toast({
+            title: "Deposit Not Available in Sandbox",
+            description: "Deposit payment requires B2B balance which sandbox accounts don't have. Please select 'Pay at Hotel' or use a card payment method.",
+            variant: "destructive",
+          });
+          setPaymentError(
+            `Deposit payment is not available in sandbox mode.\n\n` +
+            `This happens because:\n` +
+            `• Deposit requires B2B balance (pre-funded account)\n` +
+            `• Sandbox/test accounts have no B2B balance\n\n` +
+            `Solution: Select "Pay at Hotel" or card payment instead.`
+          );
+          return;
+        }
       }
 
       // Check if selected rooms are refundable
