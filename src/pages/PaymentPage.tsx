@@ -172,15 +172,35 @@ const PaymentPage = () => {
       setItemId(formResponse.data.item_id);
       setFormDataLoaded(true);
 
-      // Extract Payota tokenization fields
-      setPayUuid(formResponse.data.pay_uuid || null);
-      setInitUuid(formResponse.data.init_uuid || null);
-      setIsNeedCreditCardData(formResponse.data.is_need_credit_card_data || false);
-      setIsNeedCvc(formResponse.data.is_need_cvc ?? true);
-
       // Store full payment types data with amounts
-      if (formResponse.data.payment_types) {
-        setPaymentTypesData(formResponse.data.payment_types);
+      const paymentTypesArray = formResponse.data.payment_types || [];
+      if (paymentTypesArray.length > 0) {
+        setPaymentTypesData(paymentTypesArray);
+      }
+
+      // Find the "now" payment type which contains tokenization data
+      const nowPaymentType = paymentTypesArray.find(
+        (pt: any) => pt.type === "now"
+      );
+
+      // Extract Payota tokenization fields from the "now" payment type
+      if (nowPaymentType) {
+        setPayUuid(nowPaymentType.pay_uuid || null);
+        setInitUuid(nowPaymentType.init_uuid || null);
+        setIsNeedCreditCardData(nowPaymentType.is_need_credit_card_data || false);
+        setIsNeedCvc(nowPaymentType.is_need_cvc ?? true);
+        
+        console.log("💳 Payota tokenization data:", {
+          pay_uuid: nowPaymentType.pay_uuid,
+          init_uuid: nowPaymentType.init_uuid,
+          is_need_credit_card_data: nowPaymentType.is_need_credit_card_data,
+          is_need_cvc: nowPaymentType.is_need_cvc,
+        });
+      } else {
+        // No "now" payment type available - card payment not supported
+        setPayUuid(null);
+        setInitUuid(null);
+        setIsNeedCreditCardData(false);
       }
 
       // Store and auto-select recommended payment type
@@ -197,16 +217,19 @@ const PaymentPage = () => {
       }
 
       // Determine available payment methods from the payment_types array
-      const paymentTypesArray = formResponse.data.payment_types || [];
-      const uniqueTypes = [...new Set(paymentTypesArray.map((pt: { type: string }) => pt.type))];
-      
       const paymentMethods: PaymentType[] = [];
-      uniqueTypes.forEach(type => {
-        if (type === "now") {
-          // "now" maps to both NET and GROSS card options
+      paymentTypesArray.forEach((pt: any) => {
+        if (pt.type === "now") {
+          // Only add "now" options if pay_uuid and init_uuid exist
+          if (pt.is_need_credit_card_data && (!pt.pay_uuid || !pt.init_uuid)) {
+            console.warn("⚠️ 'now' payment type requires credit card but missing pay_uuid/init_uuid - skipping");
+            return; // Skip this payment type
+          }
           paymentMethods.push("now_net", "now_gross");
-        } else {
-          paymentMethods.push(type as PaymentType);
+        } else if (pt.type === "hotel") {
+          paymentMethods.push("hotel");
+        } else if (pt.type === "deposit") {
+          paymentMethods.push("deposit");
         }
       });
       
@@ -353,6 +376,10 @@ const PaymentPage = () => {
       }
 
       // Get common payment types (intersection of all rooms)
+      // Also check if "now" has valid UUIDs before including card payment options
+      const firstRoom = orderForms[0];
+      const hasValidNowPayment = firstRoom?.pay_uuid && firstRoom?.init_uuid;
+      
       const commonPaymentTypes = formResponse.data.payment_types_available || 
         orderForms.reduce((common, room) => {
           if (common.length === 0) return room.payment_types;
@@ -362,6 +389,11 @@ const PaymentPage = () => {
       const paymentMethods: PaymentType[] = [];
       commonPaymentTypes.forEach(type => {
         if (type === "now") {
+          // Only add "now" options if pay_uuid and init_uuid exist
+          if (!hasValidNowPayment) {
+            console.warn("⚠️ Multiroom: 'now' payment type missing pay_uuid/init_uuid - skipping card options");
+            return;
+          }
           paymentMethods.push("now_net", "now_gross");
         } else {
           paymentMethods.push(type);
@@ -664,6 +696,36 @@ const PaymentPage = () => {
       const errorMessage = error instanceof Error 
         ? error.message 
         : "Failed to complete booking. Please try again.";
+      
+      // Check for payment session / UUID errors
+      const isPaymentSessionError = 
+        errorMessage.includes("Payment session expired") ||
+        errorMessage.includes("pay_uuid") ||
+        errorMessage.includes("init_uuid") ||
+        errorMessage.toLowerCase().includes("invalid_pay_uuid") ||
+        errorMessage.toLowerCase().includes("invalid_init_uuid");
+      
+      if (isPaymentSessionError && (paymentType === "now_net" || paymentType === "now_gross")) {
+        // Try to fallback to "hotel" payment type
+        const hotelPayment = paymentTypesData.find(pt => pt.type === "hotel");
+        
+        if (hotelPayment) {
+          console.log("💡 Payment session error - suggesting hotel payment type");
+          
+          toast({
+            title: "Card Payment Unavailable",
+            description: "Card payment is temporarily unavailable. Please select 'Pay at Property' to continue.",
+          });
+          
+          // Update available methods to exclude card payments
+          setAvailablePaymentMethods(prev => 
+            prev.filter(m => m !== "now_net" && m !== "now_gross")
+          );
+          setPaymentType("hotel");
+          setPaymentError("Card payment unavailable. Please use Pay at Property option.");
+          return;
+        }
+      }
       
       // Check for insufficient_b2b_balance error - suggest fallback to hotel payment
       const isB2BBalanceError = errorMessage.toLowerCase().includes("insufficient_b2b_balance") ||
