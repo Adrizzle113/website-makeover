@@ -33,6 +33,7 @@ import { Plus, User, Baby, X, ChevronDown, ChevronUp, Users, Check, ChevronsUpDo
 import { useBookingStore } from "@/stores/bookingStore";
 import type { HotelDetails, RoomSelection } from "@/types/booking";
 import { cn } from "@/lib/utils";
+import { sanitizeGuestName } from "@/lib/guestValidation";
 
 export interface Guest {
   id: string;
@@ -389,9 +390,14 @@ export function GuestInformationSection({
     field: "firstName" | "lastName" | "email" | "type" | "age",
     value: string | number
   ) => {
+    // Sanitize guest names - RateHawk doesn't allow digits in names
+    const sanitizedValue = (field === "firstName" || field === "lastName") 
+      ? sanitizeGuestName(value as string)
+      : value;
+    
     setGuests((prev) =>
       prev.map((guest) =>
-        guest.id === guestId ? { ...guest, [field]: value } : guest
+        guest.id === guestId ? { ...guest, [field]: sanitizedValue } : guest
       )
     );
   };
