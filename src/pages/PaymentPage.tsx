@@ -101,6 +101,33 @@ const PaymentPage = () => {
   // Detect card type from card number
   const cardType = useMemo(() => detectCardType(cardNumber), [cardNumber]);
 
+  // Guard: Ensure selected paymentType is always valid (exists in availablePaymentMethods)
+  useEffect(() => {
+    if (availablePaymentMethods.length === 0) return;
+    
+    const isCurrentTypeAvailable = availablePaymentMethods.includes(paymentType);
+    
+    if (!isCurrentTypeAvailable) {
+      // Current payment type is not available - switch to a valid fallback
+      const fallback = availablePaymentMethods.includes("hotel") 
+        ? "hotel" 
+        : availablePaymentMethods.includes("deposit") 
+          ? "deposit" 
+          : availablePaymentMethods[0];
+      
+      console.log(`⚠️ Payment type "${paymentType}" not available - switching to "${fallback}"`);
+      setPaymentType(fallback);
+      
+      // Show toast if this was a card payment type that's now unavailable
+      if (paymentType === "now_net" || paymentType === "now_gross") {
+        toast({
+          title: "Card Payment Unavailable",
+          description: "Card payment is not available for this booking. Please use an alternative payment method.",
+        });
+      }
+    }
+  }, [availablePaymentMethods, paymentType]);
+
   // Load booking data and verify price on mount
   useEffect(() => {
     const loadAndVerify = async () => {
@@ -203,21 +230,11 @@ const PaymentPage = () => {
         setIsNeedCreditCardData(false);
       }
 
-      // Store and auto-select recommended payment type
-      if (formResponse.data.recommended_payment_type) {
-        const recommended = formResponse.data.recommended_payment_type;
-        setRecommendedPaymentType(recommended);
-        
-        // Auto-select the recommended payment type
-        // Map API type to UI type (e.g., "now" might need to map to "now_net")
-        const uiPaymentType: PaymentType = recommended.type === "now" ? "now_net" : recommended.type;
-        setPaymentType(uiPaymentType);
-        
-        console.log("💡 Auto-selected recommended payment type:", recommended.type);
-      }
-
-      // Determine available payment methods from the payment_types array
+      // Determine available payment methods from the payment_types array FIRST
+      // This ensures we know which methods are valid before auto-selecting
       const paymentMethods: PaymentType[] = [];
+      let hasValidCardPayment = false;
+      
       paymentTypesArray.forEach((pt: any) => {
         if (pt.type === "now") {
           // Only add "now" options if pay_uuid and init_uuid exist
@@ -225,6 +242,7 @@ const PaymentPage = () => {
             console.warn("⚠️ 'now' payment type requires credit card but missing pay_uuid/init_uuid - skipping");
             return; // Skip this payment type
           }
+          hasValidCardPayment = true;
           paymentMethods.push("now_net", "now_gross");
         } else if (pt.type === "hotel") {
           paymentMethods.push("hotel");
@@ -238,6 +256,33 @@ const PaymentPage = () => {
         paymentMethods.unshift("deposit");
       }
       setAvailablePaymentMethods(paymentMethods);
+
+      // Store and auto-select recommended payment type (only if it's actually available)
+      if (formResponse.data.recommended_payment_type) {
+        const recommended = formResponse.data.recommended_payment_type;
+        setRecommendedPaymentType(recommended);
+        
+        // Map API type to UI type (e.g., "now" might need to map to "now_net")
+        let uiPaymentType: PaymentType = recommended.type === "now" ? "now_net" : recommended.type;
+        
+        // Only auto-select if the recommended type is actually available
+        if (recommended.type === "now" && !hasValidCardPayment) {
+          console.warn("⚠️ Recommended 'now' payment not available (missing UUIDs) - falling back");
+          // Fallback to hotel, then deposit
+          uiPaymentType = paymentMethods.includes("hotel") ? "hotel" : "deposit";
+        } else if (!paymentMethods.includes(uiPaymentType) && !(uiPaymentType === "now_net" && paymentMethods.includes("now_net"))) {
+          // If recommended type not in available methods, fallback
+          uiPaymentType = paymentMethods.includes("hotel") ? "hotel" : "deposit";
+        }
+        
+        setPaymentType(uiPaymentType);
+        console.log("💡 Auto-selected payment type:", uiPaymentType, "(recommended:", recommended.type, ")");
+      } else {
+        // No recommendation - default to hotel or deposit
+        const defaultType = paymentMethods.includes("hotel") ? "hotel" : "deposit";
+        setPaymentType(defaultType);
+        console.log("💡 No recommended payment type - defaulting to:", defaultType);
+      }
 
       console.log("📋 Single room order form loaded:", {
         orderId: formResponse.data.order_id,
@@ -362,23 +407,12 @@ const PaymentPage = () => {
           setPaymentTypesData(firstRoomFromResponse.payment_types_detail);
         }
         
-        // Store and auto-select recommended payment type from first room
-        if (firstRoomFromResponse?.recommended_payment_type) {
-          const recommended = firstRoomFromResponse.recommended_payment_type;
-          setRecommendedPaymentType(recommended);
-          
-          // Auto-select the recommended payment type
-          const uiPaymentType: PaymentType = recommended.type === "now" ? "now_net" : recommended.type;
-          setPaymentType(uiPaymentType);
-          
-          console.log("💡 Multiroom: Auto-selected recommended payment type:", recommended.type);
-        }
       }
 
       // Get common payment types (intersection of all rooms)
       // Also check if "now" has valid UUIDs before including card payment options
       const firstRoom = orderForms[0];
-      const hasValidNowPayment = firstRoom?.pay_uuid && firstRoom?.init_uuid;
+      const hasValidNowPayment = Boolean(firstRoom?.pay_uuid && firstRoom?.init_uuid);
       
       const commonPaymentTypes = formResponse.data.payment_types_available || 
         orderForms.reduce((common, room) => {
@@ -403,6 +437,29 @@ const PaymentPage = () => {
         paymentMethods.unshift("deposit");
       }
       setAvailablePaymentMethods(paymentMethods);
+
+      // Store and auto-select recommended payment type from first room (only if available)
+      const firstRoomFromResponse = formResponse.data.rooms[0];
+      if (firstRoomFromResponse?.recommended_payment_type) {
+        const recommended = firstRoomFromResponse.recommended_payment_type;
+        setRecommendedPaymentType(recommended);
+        
+        // Map API type to UI type
+        let uiPaymentType: PaymentType = recommended.type === "now" ? "now_net" : recommended.type;
+        
+        // Only auto-select if the recommended type is actually available
+        if (recommended.type === "now" && !hasValidNowPayment) {
+          console.warn("⚠️ Multiroom: Recommended 'now' payment not available - falling back");
+          uiPaymentType = paymentMethods.includes("hotel") ? "hotel" : "deposit";
+        }
+        
+        setPaymentType(uiPaymentType);
+        console.log("💡 Multiroom: Auto-selected payment type:", uiPaymentType);
+      } else {
+        // No recommendation - default to hotel or deposit
+        const defaultType = paymentMethods.includes("hotel") ? "hotel" : "deposit";
+        setPaymentType(defaultType);
+      }
 
       console.log("📋 Multiroom order forms loaded:", {
         totalRooms: orderForms.length,
