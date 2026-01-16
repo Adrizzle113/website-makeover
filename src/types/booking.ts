@@ -224,6 +224,8 @@ export interface RoomSelection {
   // Cancellation metadata for sandbox validation
   cancellationType?: "free_cancellation" | "partial_refund" | "non_refundable";
   cancellationDeadline?: string; // ISO date string
+  // CRITICAL: RateHawk sandbox requires actual free_cancellation_before field (not just policies)
+  hasFreeCancellationBefore?: boolean;
   // ECLC data for upsells
   earlyCheckin?: {
     available?: boolean;

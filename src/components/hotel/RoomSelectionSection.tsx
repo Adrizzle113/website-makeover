@@ -262,13 +262,16 @@ const formatCancellationDateWithTz = (isoDate: string): {
 };
 
 // Extract cancellation info from all possible locations in a rate
+// CRITICAL: hasFreeCancellationBefore is true ONLY if the actual free_cancellation_before field exists
+// RateHawk sandbox requires this field to be present for bookings to succeed
 const extractCancellation = (rate: RateHawkRate): { 
   cancellation: string; 
   cancellationDeadline?: string;
   cancellationTime?: string;
   cancellationTimezone?: string;
   cancellationRawDate?: string;
-  cancellationFee?: string 
+  cancellationFee?: string;
+  hasFreeCancellationBefore: boolean; // true ONLY if actual free_cancellation_before field exists
 } => {
   // Search all payment_types for cancellation data (not just index 0)
   const paymentTypes = rate.payment_options?.payment_types || [];
@@ -283,10 +286,12 @@ const extractCancellation = (rate: RateHawkRate): {
           cancellationTime: formatted.time,
           cancellationTimezone: formatted.timezone,
           cancellationRawDate: formatted.rawDate,
-          cancellationFee: "0" 
+          cancellationFee: "0",
+          hasFreeCancellationBefore: true, // ACTUAL field found
         };
       }
     }
+    // policies-only fallback - NOT a true free_cancellation_before
     if (cp?.policies?.length) {
       const policy = cp.policies[0];
       const formatted = formatCancellationDateWithTz(policy.end_at || policy.start_at || "");
@@ -298,7 +303,8 @@ const extractCancellation = (rate: RateHawkRate): {
           cancellationTime: formatted.time,
           cancellationTimezone: formatted.timezone,
           cancellationRawDate: formatted.rawDate,
-          cancellationFee: fee 
+          cancellationFee: fee,
+          hasFreeCancellationBefore: false, // Only policies, no actual free_cancellation_before
         };
       }
     }
@@ -314,7 +320,8 @@ const extractCancellation = (rate: RateHawkRate): {
         cancellationTime: formatted.time,
         cancellationTimezone: formatted.timezone,
         cancellationRawDate: formatted.rawDate,
-        cancellationFee: "0" 
+        cancellationFee: "0",
+        hasFreeCancellationBefore: true, // ACTUAL field found
       };
     }
   }
@@ -329,10 +336,12 @@ const extractCancellation = (rate: RateHawkRate): {
         cancellationTime: formatted.time,
         cancellationTimezone: formatted.timezone,
         cancellationRawDate: formatted.rawDate,
-        cancellationFee: "0" 
+        cancellationFee: "0",
+        hasFreeCancellationBefore: true, // ACTUAL field found
       };
     }
   }
+  // policies-only fallback at root level - NOT a true free_cancellation_before
   if (rate.cancellation_penalties?.policies?.length) {
     const policy = rate.cancellation_penalties.policies[0];
     const formatted = formatCancellationDateWithTz(policy.end_at || policy.start_at || "");
@@ -344,18 +353,19 @@ const extractCancellation = (rate: RateHawkRate): {
         cancellationTime: formatted.time,
         cancellationTimezone: formatted.timezone,
         cancellationRawDate: formatted.rawDate,
-        cancellationFee: fee 
+        cancellationFee: fee,
+        hasFreeCancellationBefore: false, // Only policies, no actual free_cancellation_before
       };
     }
   }
   
-  // Fallback to legacy fields
+  // Fallback to legacy fields - never has actual free_cancellation_before
   const legacyPolicy = rate.cancellation_policy?.type || rate.cancellationPolicy;
   if (legacyPolicy?.toLowerCase().includes("free") || legacyPolicy?.toLowerCase().includes("refundable")) {
-    return { cancellation: "free_cancellation" };
+    return { cancellation: "free_cancellation", hasFreeCancellationBefore: false };
   }
   
-  return { cancellation: "non_refundable" };
+  return { cancellation: "non_refundable", hasFreeCancellationBefore: false };
 };
 
 // Convert a RateHawkRate to a RateOption
@@ -366,14 +376,15 @@ const rateToRateOption = (rate: RateHawkRate, index: number): RateOption | null 
 
   const meal = rate.meal || "nomeal";
   
-  // Extract cancellation from all possible API locations (now includes time/timezone)
+  // Extract cancellation from all possible API locations (now includes time/timezone + hasFreeCancellationBefore)
   const { 
     cancellation, 
     cancellationDeadline, 
     cancellationTime,
     cancellationTimezone,
     cancellationRawDate,
-    cancellationFee 
+    cancellationFee,
+    hasFreeCancellationBefore,
   } = extractCancellation(rate);
   
   // Extract rate-specific amenities
@@ -450,6 +461,8 @@ const rateToRateOption = (rate: RateHawkRate, index: number): RateOption | null 
     roomSize,
     bedGuaranteed,
     cancellationFee,
+    // CRITICAL: Track if actual free_cancellation_before field exists (required for sandbox)
+    hasFreeCancellationBefore,
     // ECLC data (with serp_filters fallback)
     earlyCheckin: finalEarlyCheckin,
     lateCheckout: finalLateCheckout,
@@ -779,10 +792,23 @@ export function RoomSelectionSection({
       
       rooms = rooms.map(room => {
         // Filter rates based on sandbox requirements:
-        // 1. Must be refundable with future deadline
-        // 2. Must have an allowed payment type
+        // 1. Must have actual free_cancellation_before field (not just policies)
+        // 2. Must be refundable with future deadline
+        // 3. Must have an allowed payment type
         const validRates = room.allRates.filter(rate => {
-          // Check refundability
+          // CRITICAL: RateHawk sandbox requires actual free_cancellation_before field
+          // Rates with only "policies" will fail with insufficient_b2b_balance
+          if (!rate.hasFreeCancellationBefore) {
+            if (room.allRates.indexOf(rate) < 3) {
+              console.log('[Sandbox Filter] Rate REJECTED - missing free_cancellation_before:', {
+                rateId: rate.id?.substring(0, 20),
+                hasFreeCancellationBefore: rate.hasFreeCancellationBefore,
+              });
+            }
+            return false;
+          }
+          
+          // Check refundability and deadline
           if (!rate.cancellationRawDate) return false;
           const isRefundable = rate.cancellation === "free_cancellation" || 
                                rate.cancellation?.toLowerCase().includes("free");
@@ -800,6 +826,7 @@ export function RoomSelectionSection({
               paymentType: rate.paymentType,
               cancellation: rate.cancellation,
               rawDate: rate.cancellationRawDate,
+              hasFreeCancellationBefore: rate.hasFreeCancellationBefore,
               isRefundable,
               isFutureDeadline,
               hasAllowedPaymentType,
@@ -907,6 +934,8 @@ export function RoomSelectionSection({
         cancellationType,
         cancellationDeadline: activeRate.cancellationRawDate,
         cancellationPolicy: activeRate.cancellation,
+        // CRITICAL: RateHawk sandbox requires actual free_cancellation_before field
+        hasFreeCancellationBefore: activeRate.hasFreeCancellationBefore || false,
       });
     } else {
       updateRoomQuantity(room.id, currentQty + 1);
