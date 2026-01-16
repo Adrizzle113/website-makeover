@@ -133,6 +133,13 @@ export interface RateHawkRate {
   paymentInfo?: {
     allowed_payment_types?: Array<{ type: string }>;
   };
+  deposit?: {
+    free_cancellation_before?: string;
+    free_cancellation_until?: string;
+    deadline?: string;
+    date_before?: string;
+    until?: string;
+  };
 }
 
 export interface ProcessedRate {

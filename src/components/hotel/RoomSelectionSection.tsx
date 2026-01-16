@@ -273,12 +273,51 @@ const extractCancellation = (rate: RateHawkRate): {
   cancellationFee?: string;
   hasFreeCancellationBefore: boolean; // true ONLY if actual free_cancellation_before field exists
 } => {
-  // Search all payment_types for cancellation data (not just index 0)
+  // Helper: Extract free_cancellation_before from a penalty object (handles alternate field names)
+  const getFreeCancellationDate = (obj: any): string | null => {
+    if (!obj) return null;
+    return obj.free_cancellation_before || 
+           obj.free_cancellation_until || 
+           obj.deadline || 
+           obj.date_before || 
+           obj.until || 
+           null;
+  };
+
+  // Helper: Check cancellation_penalties which can be object OR array
+  const extractFromCancellationPenalties = (cp: any): { 
+    date: string | null; 
+    policies?: any[];
+  } => {
+    if (!cp) return { date: null };
+    
+    // Case 1: cp has direct free_cancellation_before
+    const directDate = getFreeCancellationDate(cp);
+    if (directDate) return { date: directDate };
+    
+    // Case 2: cp is an array of penalty objects
+    if (Array.isArray(cp)) {
+      for (const penalty of cp) {
+        const penaltyDate = getFreeCancellationDate(penalty);
+        if (penaltyDate) return { date: penaltyDate };
+      }
+    }
+    
+    // Case 3: Check policies array
+    if (cp.policies?.length) {
+      return { date: null, policies: cp.policies };
+    }
+    
+    return { date: null };
+  };
+
+  // Search all payment_types for cancellation data
   const paymentTypes = rate.payment_options?.payment_types || [];
   for (const pt of paymentTypes) {
-    const cp = pt.cancellation_penalties;
-    if (cp?.free_cancellation_before) {
-      const formatted = formatCancellationDateWithTz(cp.free_cancellation_before);
+    const result = extractFromCancellationPenalties(pt.cancellation_penalties);
+    
+    if (result.date) {
+      const formatted = formatCancellationDateWithTz(result.date);
       if (formatted) {
         return { 
           cancellation: "free_cancellation", 
@@ -291,9 +330,10 @@ const extractCancellation = (rate: RateHawkRate): {
         };
       }
     }
+    
     // policies-only fallback - NOT a true free_cancellation_before
-    if (cp?.policies?.length) {
-      const policy = cp.policies[0];
+    if (result.policies?.length) {
+      const policy = result.policies[0];
       const formatted = formatCancellationDateWithTz(policy.end_at || policy.start_at || "");
       const fee = policy.amount_show?.replace(/[^0-9.]/g, '') || undefined;
       if (formatted) {
@@ -311,8 +351,9 @@ const extractCancellation = (rate: RateHawkRate): {
   }
   
   // Check alternate locations: rate.cancellation_info
-  if (rate.cancellation_info?.free_cancellation_before) {
-    const formatted = formatCancellationDateWithTz(rate.cancellation_info.free_cancellation_before);
+  const infoDate = getFreeCancellationDate(rate.cancellation_info);
+  if (infoDate) {
+    const formatted = formatCancellationDateWithTz(infoDate);
     if (formatted) {
       return { 
         cancellation: "free_cancellation", 
@@ -326,9 +367,10 @@ const extractCancellation = (rate: RateHawkRate): {
     }
   }
   
-  // Check alternate locations: rate.cancellation_penalties (root level)
-  if (rate.cancellation_penalties?.free_cancellation_before) {
-    const formatted = formatCancellationDateWithTz(rate.cancellation_penalties.free_cancellation_before);
+  // Check alternate locations: rate.cancellation_penalties (root level) - handles array or object
+  const rootResult = extractFromCancellationPenalties(rate.cancellation_penalties);
+  if (rootResult.date) {
+    const formatted = formatCancellationDateWithTz(rootResult.date);
     if (formatted) {
       return { 
         cancellation: "free_cancellation", 
@@ -341,9 +383,10 @@ const extractCancellation = (rate: RateHawkRate): {
       };
     }
   }
+  
   // policies-only fallback at root level - NOT a true free_cancellation_before
-  if (rate.cancellation_penalties?.policies?.length) {
-    const policy = rate.cancellation_penalties.policies[0];
+  if (rootResult.policies?.length) {
+    const policy = rootResult.policies[0];
     const formatted = formatCancellationDateWithTz(policy.end_at || policy.start_at || "");
     const fee = policy.amount_show?.replace(/[^0-9.]/g, '') || undefined;
     if (formatted) {
@@ -355,6 +398,23 @@ const extractCancellation = (rate: RateHawkRate): {
         cancellationRawDate: formatted.rawDate,
         cancellationFee: fee,
         hasFreeCancellationBefore: false, // Only policies, no actual free_cancellation_before
+      };
+    }
+  }
+  
+  // Check rate.deposit (some rates have it here)
+  const depositDate = getFreeCancellationDate(rate.deposit);
+  if (depositDate) {
+    const formatted = formatCancellationDateWithTz(depositDate);
+    if (formatted) {
+      return { 
+        cancellation: "free_cancellation", 
+        cancellationDeadline: formatted.deadline,
+        cancellationTime: formatted.time,
+        cancellationTimezone: formatted.timezone,
+        cancellationRawDate: formatted.rawDate,
+        cancellationFee: "0",
+        hasFreeCancellationBefore: true, // ACTUAL field found
       };
     }
   }
