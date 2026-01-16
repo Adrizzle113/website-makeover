@@ -7,6 +7,7 @@ export const BOOKING_CONFIG = {
   // - Only refundable rates can be booked
   // - Only the test hotel (hid=8473727) can be booked
   // - Non-refundable rates will cause "insufficient_b2b_balance" errors
+  // - Deposit payment types require B2B balance (which sandbox accounts don't have)
   isSandboxMode: true, // Set to false for production
   
   // ETG Test Hotel IDs (only bookable in sandbox)
@@ -19,6 +20,12 @@ export const BOOKING_CONFIG = {
     refundableOnly: true,
     // Show warning banner to users
     showWarningBanner: true,
+    // Payment types allowed in sandbox (deposit requires B2B balance!)
+    // "hotel" = pay at property, "now" = card payment
+    // "deposit" is explicitly blocked because sandbox has no B2B balance
+    allowedPaymentTypes: ["hotel", "now"] as string[],
+    // Block deposit payment type entirely in sandbox
+    blockDeposit: true,
   },
   
   // Polling configuration
