@@ -47,10 +47,8 @@ const BOOKING_ENDPOINTS = {
   ORDER_INFO: "/api/ratehawk/order/info",
   ORDER_INFO_BATCH: "/api/ratehawk/order/info/batch",  // Batch retrieval
   ORDER_DOCUMENTS: "/api/ratehawk/order/documents",
-  // New booking flow endpoints
+  // Card payment tokenization
   CREATE_CARD_TOKEN: "/api/ratehawk/order/credit-card-token",
-  BOOKING_START: "/api/booking/start",
-  BOOKING_STATUS: "/api/booking/status",
   // Post-booking endpoints - aligned with backend mock API
   CANCEL_BOOKING: "/api/ratehawk/order/cancel",
   CONTRACT_DATA: "/api/ratehawk/contract/data",
@@ -548,6 +546,9 @@ class BookingApiService {
         phone: params.phone,
         user_ip: params.user_ip,
         language: params.language || "en",
+        // Include UUIDs for card payments (at root level for backend)
+        ...(params.pay_uuid && { pay_uuid: params.pay_uuid }),
+        ...(params.init_uuid && { init_uuid: params.init_uuid }),
       }),
     });
 
@@ -790,54 +791,7 @@ class BookingApiService {
     return response;
   }
 
-  /**
-   * Step 4b: Start Booking Process
-   * Called after card tokenization for card payments
-   */
-  async startBooking(orderId: string, paymentType: {
-    type: "deposit" | "hotel" | "now";
-    currency_code: string;
-    pay_uuid?: string;
-    init_uuid?: string;
-  }): Promise<OrderFinishResponse> {
-    const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.BOOKING_START}`;
-    const userId = this.getCurrentUserId();
-
-    console.log("🚀 Start booking request:", { orderId, paymentType, userId });
-
-    const response = await this.fetchWithError<OrderFinishResponse>(url, {
-      method: "POST",
-      body: JSON.stringify({
-        userId,
-        order_id: orderId,
-        payment_type: paymentType,
-      }),
-    });
-
-    console.log("🚀 Start booking response:", response);
-    return response;
-  }
-
-  /**
-   * Step 5b: Check Booking Status (alternative endpoint)
-   * Poll this for real-time booking status
-   */
-  async checkBookingStatus(orderId: string): Promise<OrderStatusResponse> {
-    const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.BOOKING_STATUS}/${orderId}`;
-    const userId = this.getCurrentUserId();
-
-    console.log("📊 Check booking status:", { orderId, userId });
-
-    const response = await this.fetchWithError<OrderStatusResponse>(url, {
-      method: "GET",
-      headers: {
-        "X-User-Id": userId,
-      },
-    });
-
-    console.log("📊 Booking status response:", response);
-    return response;
-  }
+  // startBooking and checkBookingStatus methods removed - use finishBooking with pay_uuid/init_uuid instead
 
   /**
    * Helper: Poll multiple room order statuses in parallel
