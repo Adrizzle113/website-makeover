@@ -832,6 +832,14 @@ export function RoomSelectionSection({
     const activeRate = getActiveRate(room);
     const currentQty = getSelectedQuantity(room.id);
     if (currentQty === 0) {
+      // Determine cancellation type from the rate
+      let cancellationType: "free_cancellation" | "partial_refund" | "non_refundable" = "non_refundable";
+      if (activeRate.cancellation === "free_cancellation" || activeRate.cancellation?.toLowerCase().includes("free")) {
+        cancellationType = "free_cancellation";
+      } else if (activeRate.cancellation?.toLowerCase().includes("partial")) {
+        cancellationType = "partial_refund";
+      }
+
       addRoom({
         roomId: room.id,
         roomName: room.name,
@@ -844,6 +852,10 @@ export function RoomSelectionSection({
         earlyCheckin: activeRate.earlyCheckin,
         lateCheckout: activeRate.lateCheckout,
         taxes: activeRate.taxes,
+        // Include cancellation metadata for sandbox validation
+        cancellationType,
+        cancellationDeadline: activeRate.cancellationRawDate,
+        cancellationPolicy: activeRate.cancellation,
       });
     } else {
       updateRoomQuantity(room.id, currentQty + 1);

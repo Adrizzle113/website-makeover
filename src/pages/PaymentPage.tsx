@@ -250,9 +250,15 @@ const PaymentPage = () => {
         }
       });
       
-      // Ensure deposit is always available as fallback
-      if (!paymentMethods.includes("deposit")) {
-        paymentMethods.unshift("deposit");
+      // Only use API-provided payment methods - no forced fallbacks
+      // If no payment methods available, show error state
+      if (paymentMethods.length === 0) {
+        console.error("❌ No payment methods available from API");
+        toast({
+          title: "Payment Not Available",
+          description: "No payment methods available for this booking. Please go back and try a different rate.",
+          variant: "destructive",
+        });
       }
       setAvailablePaymentMethods(paymentMethods);
 
@@ -421,8 +427,9 @@ const PaymentPage = () => {
           paymentMethods.push(type);
         }
       });
-      if (!paymentMethods.includes("deposit")) {
-        paymentMethods.unshift("deposit");
+      // Only use API-provided payment methods - no forced fallbacks
+      if (paymentMethods.length === 0) {
+        console.error("❌ No payment methods available from API for multiroom");
       }
       setAvailablePaymentMethods(paymentMethods);
 
@@ -630,6 +637,49 @@ const PaymentPage = () => {
   const handlePayment = async () => {
     if (isCardPayment && !validateForm()) return;
 
+    // Sandbox mode validation - check if booking can proceed
+    if (BOOKING_CONFIG.isSandboxMode && bookingData) {
+      const hotelId = bookingData.hotel?.id;
+      const isTestHotelBooking = hotelId === BOOKING_CONFIG.testHotelId || 
+                                  hotelId === BOOKING_CONFIG.testHotelSlug;
+      
+      // Check if booking non-test hotel in sandbox mode
+      if (!isTestHotelBooking) {
+        toast({
+          title: "Sandbox Mode Restriction",
+          description: `Sandbox API can only book the test hotel (ID: ${BOOKING_CONFIG.testHotelId}). Please use the test hotel or switch to a production API key.`,
+          variant: "destructive",
+        });
+        setPaymentError(`Cannot book real hotels in sandbox mode. Only test hotel (${BOOKING_CONFIG.testHotelId}) is allowed.`);
+        return;
+      }
+
+      // Check if selected rooms are refundable
+      const rooms = bookingData.rooms || [];
+      const nonRefundableRoom = rooms.find(room => {
+        // Check using the new cancellation metadata
+        if (room.cancellationType && room.cancellationType !== "free_cancellation") {
+          return true;
+        }
+        // Fallback: check if deadline is missing or in the past
+        if (!room.cancellationDeadline) {
+          return true;
+        }
+        const deadline = new Date(room.cancellationDeadline);
+        return deadline <= new Date();
+      });
+
+      if (nonRefundableRoom) {
+        toast({
+          title: "Sandbox Mode Restriction",
+          description: "Sandbox API requires refundable rates with future cancellation deadlines. Please select a refundable rate.",
+          variant: "destructive",
+        });
+        setPaymentError("Cannot book non-refundable rates in sandbox mode. Please go back and select a refundable rate.");
+        return;
+      }
+    }
+
     // Validate order form data
     if (isMultiroom) {
       if (multiroomOrderForms.length === 0) {
@@ -803,16 +853,37 @@ const PaymentPage = () => {
         }
       }
       
-      // Check for insufficient_b2b_balance error - suggest fallback to hotel payment
+      // Check for insufficient_b2b_balance error - provide sandbox-specific guidance
       const isB2BBalanceError = errorMessage.toLowerCase().includes("insufficient_b2b_balance") ||
                                  errorMessage.toLowerCase().includes("b2b") ||
-                                 errorMessage.toLowerCase().includes("insufficient balance");
+                                 errorMessage.toLowerCase().includes("insufficient balance") ||
+                                 errorMessage.includes("402");
       
-      if (isB2BBalanceError && paymentType === "deposit") {
-        // Try to fall back to "hotel" payment type
+      if (isB2BBalanceError) {
+        // In sandbox mode, this almost always means non-refundable rate or non-test hotel
+        if (BOOKING_CONFIG.isSandboxMode) {
+          console.log("💡 B2B balance error in sandbox mode - likely non-refundable rate");
+          
+          toast({
+            title: "Sandbox Booking Failed",
+            description: "Sandbox API requires refundable rates with future cancellation deadlines. Please go back and select a different rate.",
+            variant: "destructive",
+          });
+          
+          setPaymentError(
+            `Sandbox mode requires refundable rates. This error occurs when:\n` +
+            `• The rate is non-refundable\n` +
+            `• The cancellation deadline has passed\n` +
+            `• Booking a real hotel (not test hotel ${BOOKING_CONFIG.testHotelId})\n\n` +
+            `Please go back to the hotel page and select a refundable rate with "Free cancellation" and a future deadline.`
+          );
+          return;
+        }
+        
+        // Production mode - try to fallback to "hotel" payment type
         const hotelPayment = paymentTypesData.find(pt => pt.type === "hotel");
         
-        if (hotelPayment) {
+        if (hotelPayment && paymentType === "deposit") {
           console.log("💡 B2B balance error - suggesting hotel payment type");
           
           toast({

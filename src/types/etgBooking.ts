@@ -404,6 +404,10 @@ export interface PendingBookingData {
     quantity: number;
     pricePerRoom: number;
     totalPrice: number;
+    // Cancellation metadata for sandbox validation
+    cancellationType?: "free_cancellation" | "partial_refund" | "non_refundable";
+    cancellationDeadline?: string; // ISO date string
+    cancellationPolicy?: string;
     taxes?: Array<{
       name: string;
       included_by_supplier: boolean;
