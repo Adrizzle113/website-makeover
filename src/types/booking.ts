@@ -43,6 +43,23 @@ export interface RoomRate {
   available: number;
 }
 
+// Cancellation penalty types - can be object or array in API responses
+export interface CancellationPenaltyItem {
+  start_at?: string;
+  end_at?: string;
+  amount_charge?: string;
+  amount_show?: string;
+  deadline?: string;
+  date_before?: string;
+}
+
+export interface CancellationPenalties {
+  free_cancellation_before?: string;
+  free_cancellation_until?: string;
+  deadline?: string;
+  policies?: CancellationPenaltyItem[];
+}
+
 // RateHawk API data structures - Enhanced for room_groups matching
 export interface RateHawkRoomGroup {
   rg_hash: string;
@@ -80,39 +97,16 @@ export interface RateHawkRate {
       show_currency_code?: string;
       currency_code?: string;
       type?: string;
-      cancellation_penalties?: {
-        free_cancellation_before?: string;
-        policies?: Array<{
-          start_at?: string;
-          end_at?: string;
-          amount_charge?: string;
-          amount_show?: string;
-        }>;
-      };
+      cancellation_penalties?: CancellationPenalties;
       tax_data?: {
         taxes: TaxItem[];
       };
     }>;
   };
   // Alternate cancellation locations (some API responses)
-  cancellation_info?: {
-    free_cancellation_before?: string;
-    policies?: Array<{
-      start_at?: string;
-      end_at?: string;
-      amount_charge?: string;
-      amount_show?: string;
-    }>;
-  };
-  cancellation_penalties?: {
-    free_cancellation_before?: string;
-    policies?: Array<{
-      start_at?: string;
-      end_at?: string;
-      amount_charge?: string;
-      amount_show?: string;
-    }>;
-  };
+  cancellation_info?: CancellationPenalties;
+  // Can be object OR array depending on API response format
+  cancellation_penalties?: CancellationPenalties | CancellationPenaltyItem[];
   daily_prices?: string[] | string;
   price?: string;
   currency?: string;
