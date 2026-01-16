@@ -56,9 +56,7 @@ const PaymentPage = () => {
   // Recommended payment type from backend (priority: hotel > now > deposit)
   const [recommendedPaymentType, setRecommendedPaymentType] = useState<PaymentTypeDetail | null>(null);
   
-  // Payota tokenization data
-  const [payUuid, setPayUuid] = useState<string | null>(null);
-  const [initUuid, setInitUuid] = useState<string | null>(null);
+  // Payota tokenization data (UUIDs are generated at payment time, not from API)
   const [isNeedCreditCardData, setIsNeedCreditCardData] = useState(false);
   const [isNeedCvc, setIsNeedCvc] = useState(true); // Default true for safety
 
@@ -205,43 +203,34 @@ const PaymentPage = () => {
         setPaymentTypesData(paymentTypesArray);
       }
 
-      // Find the "now" payment type which contains tokenization data
+      // Find the "now" payment type to check card payment requirements
       const nowPaymentType = paymentTypesArray.find(
         (pt: any) => pt.type === "now"
       );
 
-      // Extract Payota tokenization fields from the "now" payment type
+      // Extract card requirement fields from the "now" payment type
+      // Note: pay_uuid and init_uuid are NOT from the API - they're generated at payment time
       if (nowPaymentType) {
-        setPayUuid(nowPaymentType.pay_uuid || null);
-        setInitUuid(nowPaymentType.init_uuid || null);
         setIsNeedCreditCardData(nowPaymentType.is_need_credit_card_data || false);
         setIsNeedCvc(nowPaymentType.is_need_cvc ?? true);
         
-        console.log("💳 Payota tokenization data:", {
-          pay_uuid: nowPaymentType.pay_uuid,
-          init_uuid: nowPaymentType.init_uuid,
+        console.log("💳 Card payment config:", {
           is_need_credit_card_data: nowPaymentType.is_need_credit_card_data,
           is_need_cvc: nowPaymentType.is_need_cvc,
         });
       } else {
         // No "now" payment type available - card payment not supported
-        setPayUuid(null);
-        setInitUuid(null);
         setIsNeedCreditCardData(false);
       }
 
-      // Determine available payment methods from the payment_types array FIRST
-      // This ensures we know which methods are valid before auto-selecting
+      // Determine available payment methods from the payment_types array
+      // UUIDs are generated client-side, so we always allow "now" if it's in the response
       const paymentMethods: PaymentType[] = [];
       let hasValidCardPayment = false;
       
       paymentTypesArray.forEach((pt: any) => {
         if (pt.type === "now") {
-          // Only add "now" options if pay_uuid and init_uuid exist
-          if (pt.is_need_credit_card_data && (!pt.pay_uuid || !pt.init_uuid)) {
-            console.warn("⚠️ 'now' payment type requires credit card but missing pay_uuid/init_uuid - skipping");
-            return; // Skip this payment type
-          }
+          // Card payment is available - UUIDs will be generated at payment time
           hasValidCardPayment = true;
           paymentMethods.push("now_net", "now_gross");
         } else if (pt.type === "hotel") {
@@ -382,8 +371,6 @@ const PaymentPage = () => {
         item_id: String(room.item_id),
         booking_hash: room.booking_hash,
         payment_types: room.payment_types,
-        pay_uuid: room.pay_uuid,
-        init_uuid: room.init_uuid,
         is_need_credit_card_data: room.is_need_credit_card_data,
         is_need_cvc: room.is_need_cvc,
       }));
@@ -391,13 +378,11 @@ const PaymentPage = () => {
       setMultiroomOrderForms(orderForms);
       setFormDataLoaded(true);
 
-      // Use first room's data for Payota (same for all rooms)
+      // Use first room's data for card payment config
       if (orderForms.length > 0) {
         const firstRoom = orderForms[0];
         setOrderId(firstRoom.order_id);
         setItemId(firstRoom.item_id);
-        setPayUuid(firstRoom.pay_uuid || null);
-        setInitUuid(firstRoom.init_uuid || null);
         setIsNeedCreditCardData(firstRoom.is_need_credit_card_data || false);
         setIsNeedCvc(firstRoom.is_need_cvc ?? true);
         
@@ -410,10 +395,7 @@ const PaymentPage = () => {
       }
 
       // Get common payment types (intersection of all rooms)
-      // Also check if "now" has valid UUIDs before including card payment options
-      const firstRoom = orderForms[0];
-      const hasValidNowPayment = Boolean(firstRoom?.pay_uuid && firstRoom?.init_uuid);
-      
+      // UUIDs are generated client-side, so we always allow "now" if available
       const commonPaymentTypes = formResponse.data.payment_types_available || 
         orderForms.reduce((common, room) => {
           if (common.length === 0) return room.payment_types;
@@ -423,11 +405,7 @@ const PaymentPage = () => {
       const paymentMethods: PaymentType[] = [];
       commonPaymentTypes.forEach(type => {
         if (type === "now") {
-          // Only add "now" options if pay_uuid and init_uuid exist
-          if (!hasValidNowPayment) {
-            console.warn("⚠️ Multiroom: 'now' payment type missing pay_uuid/init_uuid - skipping card options");
-            return;
-          }
+          // Card payment is available - UUIDs will be generated at payment time
           paymentMethods.push("now_net", "now_gross");
         } else {
           paymentMethods.push(type);
@@ -447,9 +425,8 @@ const PaymentPage = () => {
         // Map API type to UI type
         let uiPaymentType: PaymentType = recommended.type === "now" ? "now_net" : recommended.type;
         
-        // Only auto-select if the recommended type is actually available
-        if (recommended.type === "now" && !hasValidNowPayment) {
-          console.warn("⚠️ Multiroom: Recommended 'now' payment not available - falling back");
+        // Check if recommended type is in available methods
+        if (!paymentMethods.includes(uiPaymentType) && !(uiPaymentType === "now_net" && paymentMethods.includes("now_net"))) {
           uiPaymentType = paymentMethods.includes("hotel") ? "hotel" : "deposit";
         }
         
@@ -672,16 +649,16 @@ const PaymentPage = () => {
 
       // Step 1: Tokenize card if card payment type
       if (isCardPayment) {
-        if (!payUuid || !initUuid) {
-          throw new Error("Payment session expired. Please refresh and try again.");
-        }
+        // Generate fresh UUIDs for Payota session
+        const generatedPayUuid = crypto.randomUUID();
+        const generatedInitUuid = crypto.randomUUID();
 
         const [month, year] = expiryDate.split("/");
         
         const tokenRequest = {
           object_id: orderId!,
-          pay_uuid: payUuid,
-          init_uuid: initUuid,
+          pay_uuid: generatedPayUuid,
+          init_uuid: generatedInitUuid,
           user_first_name: leadGuest?.firstName || "",
           user_last_name: leadGuest?.lastName || "",
           is_cvc_required: isNeedCvc,
@@ -696,8 +673,8 @@ const PaymentPage = () => {
         
         console.log("💳 Card tokenization request:", { 
           object_id: tokenRequest.object_id,
-          pay_uuid: tokenRequest.pay_uuid,
-          init_uuid: tokenRequest.init_uuid,
+          pay_uuid: generatedPayUuid,
+          init_uuid: generatedInitUuid,
           card_last_4: tokenRequest.credit_card_data_core.card_number.slice(-4),
         });
 
@@ -711,12 +688,12 @@ const PaymentPage = () => {
 
         console.log("✅ Card tokenized successfully");
 
-        // Step 2: Start booking with card payment
+        // Step 2: Start booking with card payment using the generated UUIDs
         const startResponse = await bookingApi.startBooking(orderId!, {
           type: "now",
           currency_code: bookingData!.hotel.currency || "USD",
-          pay_uuid: payUuid,
-          init_uuid: initUuid,
+          pay_uuid: generatedPayUuid,
+          init_uuid: generatedInitUuid,
         });
 
         if (startResponse.error) {
