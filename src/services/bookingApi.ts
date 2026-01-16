@@ -48,7 +48,7 @@ const BOOKING_ENDPOINTS = {
   ORDER_INFO_BATCH: "/api/ratehawk/order/info/batch",  // Batch retrieval
   ORDER_DOCUMENTS: "/api/ratehawk/order/documents",
   // New booking flow endpoints
-  CREATE_CARD_TOKEN: "/api/booking/create-credit-card-token",
+  CREATE_CARD_TOKEN: "/api/ratehawk/order/credit-card-token",
   BOOKING_START: "/api/booking/start",
   BOOKING_STATUS: "/api/booking/status",
   // Post-booking endpoints - aligned with backend mock API
