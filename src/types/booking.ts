@@ -221,6 +221,9 @@ export interface RoomSelection {
   amenities?: string[];
   cancellationPolicy?: string;
   meal?: string;
+  // Cancellation metadata for sandbox validation
+  cancellationType?: "free_cancellation" | "partial_refund" | "non_refundable";
+  cancellationDeadline?: string; // ISO date string
   // ECLC data for upsells
   earlyCheckin?: {
     available?: boolean;
