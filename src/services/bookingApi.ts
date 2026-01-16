@@ -488,6 +488,8 @@ class BookingApiService {
             order_id: room.order_id,
             item_id: room.item_id,
             guests: room.guests,
+            // Include free_cancellation_before for refundable rates (prevents insufficient_b2b_balance)
+            ...(room.free_cancellation_before && { free_cancellation_before: room.free_cancellation_before }),
           })),
           payment_type: params.payment_type,
           payment_amount: params.payment_amount,
@@ -521,7 +523,7 @@ class BookingApiService {
 
     console.log("📤 Order finish request:", { ...params, userId });
 
-    // Transform guests to the correct format: [{ guests: [...] }]
+    // Transform guests to the correct format: [{ guests: [...], free_cancellation_before?: string }]
     const guestsPayload = [{
       guests: params.guests.map(g => ({
         first_name: g.first_name,
@@ -529,6 +531,8 @@ class BookingApiService {
         is_child: g.is_child || false,
         ...(g.is_child && g.age ? { age: g.age } : {}),
       })),
+      // Include free_cancellation_before for refundable rates (prevents insufficient_b2b_balance)
+      ...(params.free_cancellation_before && { free_cancellation_before: params.free_cancellation_before }),
     }];
 
     const response = await this.fetchWithError<OrderFinishResponse>(url, {
@@ -551,6 +555,8 @@ class BookingApiService {
         ...(params.init_uuid && { init_uuid: params.init_uuid }),
         // Include return_path for 3DS redirect
         ...(params.return_path && { return_path: params.return_path }),
+        // Include free_cancellation_before at root level as well for backend compatibility
+        ...(params.free_cancellation_before && { free_cancellation_before: params.free_cancellation_before }),
       }),
     });
 

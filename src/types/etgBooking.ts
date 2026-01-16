@@ -166,6 +166,8 @@ export interface OrderFinishParams {
   init_uuid?: string;
   // For 3DS redirect URL (required for "now" card payments)
   return_path?: string;
+  // For refundable rates - prevents insufficient_b2b_balance errors
+  free_cancellation_before?: string; // ISO date string from rate.cancellation_info
 }
 
 // Order Booking Finish response
@@ -559,6 +561,8 @@ export interface MultiroomOrderFinishRoom {
   order_id: number | string;
   item_id: number | string;
   guests: MultiroomGuests[];
+  // For refundable rates - prevents insufficient_b2b_balance errors
+  free_cancellation_before?: string;
 }
 
 // Multiroom Order Finish Request
