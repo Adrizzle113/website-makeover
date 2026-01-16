@@ -183,6 +183,58 @@ const PaymentPage = () => {
       return;
     }
 
+    // Skip if already loaded or loading (prevents duplicate calls on refresh/StrictMode)
+    if (formDataLoaded || isLoadingForm) {
+      console.log("⏭️ Order form already loaded or loading, skipping API call");
+      return;
+    }
+
+    // Check if we already have cached order form data from a previous session
+    const cachedData = data as any;
+    if (cachedData.orderId && cachedData.itemId && cachedData.paymentTypesData) {
+      console.log("📦 Using cached order form data from session storage");
+      setOrderId(cachedData.orderId);
+      setItemId(cachedData.itemId);
+      setFormDataLoaded(true);
+      
+      // Restore payment types data
+      if (Array.isArray(cachedData.paymentTypesData) && cachedData.paymentTypesData.length > 0) {
+        setPaymentTypesData(cachedData.paymentTypesData);
+        
+        // Rebuild available payment methods from cached data
+        const paymentMethods: PaymentType[] = [];
+        cachedData.paymentTypesData.forEach((pt: any) => {
+          if (pt.type === "now") {
+            paymentMethods.push("now_net", "now_gross");
+            setIsNeedCreditCardData(pt.is_need_credit_card_data || false);
+            setIsNeedCvc(pt.is_need_cvc ?? true);
+          } else if (pt.type === "hotel") {
+            paymentMethods.push("hotel");
+          } else if (pt.type === "deposit") {
+            paymentMethods.push("deposit");
+          }
+        });
+        if (paymentMethods.length > 0) {
+          setAvailablePaymentMethods(paymentMethods);
+        }
+        
+        // Restore recommended payment type
+        if (cachedData.recommendedPaymentType) {
+          setRecommendedPaymentType(cachedData.recommendedPaymentType);
+        }
+        
+        // Set default payment type
+        const defaultType = paymentMethods.includes("hotel") ? "hotel" : "deposit";
+        setPaymentType(cachedData.selectedPaymentType || defaultType);
+      }
+      
+      toast({
+        title: "Session Restored",
+        description: "Your booking session was restored successfully.",
+      });
+      return;
+    }
+
     setIsLoadingForm(true);
 
     try {
@@ -297,10 +349,15 @@ const PaymentPage = () => {
         recommendedPaymentType: formResponse.data.recommended_payment_type?.type,
       });
 
+      // Persist order form data to survive page refresh
       const updatedData = { 
         ...data, 
         orderId: formResponse.data.order_id,
         itemId: formResponse.data.item_id,
+        // Cache payment types data for session recovery
+        paymentTypesData: formResponse.data.payment_types || [],
+        recommendedPaymentType: formResponse.data.recommended_payment_type || null,
+        selectedPaymentType: paymentType,
       };
       setBookingData(updatedData);
       sessionStorage.setItem("pending_booking", JSON.stringify(updatedData));
@@ -310,7 +367,9 @@ const PaymentPage = () => {
       
       const errorMessage = error instanceof Error ? error.message : String(error);
       const isDoubleBookingError = errorMessage.toLowerCase().includes("double_booking_form") || 
-                                    errorMessage.toLowerCase().includes("booking session expired");
+                                    errorMessage.toLowerCase().includes("booking session expired") ||
+                                    errorMessage.toLowerCase().includes("booking form already exists") ||
+                                    errorMessage.toLowerCase().includes("already exists for this book_hash");
       
       // Check if this is a double_booking_form error - redirect to hotel page
       if (isDoubleBookingError) {
@@ -348,6 +407,43 @@ const PaymentPage = () => {
     if (!data.prebookedRooms || data.prebookedRooms.length === 0) {
       console.warn("No prebooked rooms for multiroom order form");
       setFormDataLoaded(true);
+      return;
+    }
+
+    // Skip if already loaded or loading (prevents duplicate calls on refresh/StrictMode)
+    if (formDataLoaded || isLoadingForm) {
+      console.log("⏭️ Multiroom order form already loaded or loading, skipping API call");
+      return;
+    }
+
+    // Check if we already have cached multiroom order form data
+    const cachedData = data as any;
+    if (cachedData.multiroomOrderForms && Array.isArray(cachedData.multiroomOrderForms) && cachedData.multiroomOrderForms.length > 0) {
+      console.log("📦 Using cached multiroom order form data from session storage");
+      setMultiroomOrderForms(cachedData.multiroomOrderForms);
+      setFormDataLoaded(true);
+      
+      // Restore first room's data for card payment config
+      const firstRoom = cachedData.multiroomOrderForms[0];
+      if (firstRoom) {
+        setOrderId(firstRoom.order_id);
+        setItemId(firstRoom.item_id);
+        setIsNeedCreditCardData(firstRoom.is_need_credit_card_data || false);
+        setIsNeedCvc(firstRoom.is_need_cvc ?? true);
+        
+        // Restore payment methods if cached
+        if (cachedData.availablePaymentMethods) {
+          setAvailablePaymentMethods(cachedData.availablePaymentMethods);
+        }
+        if (cachedData.selectedPaymentType) {
+          setPaymentType(cachedData.selectedPaymentType);
+        }
+      }
+      
+      toast({
+        title: "Session Restored",
+        description: "Your booking session was restored successfully.",
+      });
       return;
     }
 
@@ -461,11 +557,15 @@ const PaymentPage = () => {
         paymentTypes: paymentMethods,
       });
 
-      // Update booking data with order forms
+      // Update booking data with order forms and cache for session recovery
       const updatedData: MultiroomPendingBookingData = { 
         ...data, 
         orderForms,
-      };
+        // Cache additional data for session recovery
+        multiroomOrderForms: orderForms,
+        availablePaymentMethods: paymentMethods,
+        selectedPaymentType: paymentType,
+      } as any;
       setBookingData(updatedData);
       sessionStorage.setItem("pending_booking", JSON.stringify(updatedData));
 
@@ -474,7 +574,9 @@ const PaymentPage = () => {
       
       const errorMessage = error instanceof Error ? error.message : String(error);
       const isDoubleBookingError = errorMessage.toLowerCase().includes("double_booking_form") || 
-                                    errorMessage.toLowerCase().includes("booking session expired");
+                                    errorMessage.toLowerCase().includes("booking session expired") ||
+                                    errorMessage.toLowerCase().includes("booking form already exists") ||
+                                    errorMessage.toLowerCase().includes("already exists for this book_hash");
       
       // Check if this is a double_booking_form error - redirect to hotel page
       if (isDoubleBookingError) {

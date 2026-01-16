@@ -321,9 +321,12 @@ class BookingApiService {
         lastError = error instanceof Error ? error : new Error(String(error));
         const errorMsg = lastError.message.toLowerCase();
         
-        // Check for double_booking_form in error message - attempt recovery
-        if (errorMsg.includes("double_booking_form") || errorMsg.includes("double booking form")) {
-          console.warn("⚠️ double_booking_form in error message - attempting recovery");
+        // Check for double_booking_form or "booking form already exists" in error message - attempt recovery
+        if (errorMsg.includes("double_booking_form") || 
+            errorMsg.includes("double booking form") ||
+            errorMsg.includes("booking form already exists") ||
+            errorMsg.includes("already exists for this book_hash")) {
+          console.warn("⚠️ Duplicate booking form detected in error message - attempting recovery");
           const recovered = await this.recoverOrderByPartnerOrderId(partnerOrderId);
           if (recovered) {
             // Return minimal response with recovered data - cast through unknown for type safety
