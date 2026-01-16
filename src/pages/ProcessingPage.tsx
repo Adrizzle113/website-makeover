@@ -19,6 +19,13 @@ type ProcessingStatus = "polling" | "3ds" | "confirmed" | "failed" | "timeout";
  * Get user-friendly error message for each status code
  */
 function getStatusErrorMessage(status: BookingStatusValue, errorMessage?: string): string {
+  // Check for insufficient_b2b_balance in error message (sandbox mode issue)
+  if (errorMessage?.toLowerCase().includes("insufficient_b2b_balance") || 
+      errorMessage?.toLowerCase().includes("insufficient balance") ||
+      errorMessage?.toLowerCase().includes("b2b_balance")) {
+    return "This rate cannot be booked in sandbox mode. Please select a refundable rate with free cancellation available.";
+  }
+  
   switch (status) {
     case "block":
       return "Card payment could not be processed. Please try a different card.";

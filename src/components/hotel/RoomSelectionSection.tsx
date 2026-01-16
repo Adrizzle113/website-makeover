@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
-import { Plus, Minus, Bed, Check, X, Users, Maximize, Wifi, Bath, Wind, Tv, Crown, Home, Star, Coffee } from "lucide-react";
+import { Plus, Minus, Bed, Check, X, Users, Maximize, Wifi, Bath, Wind, Tv, Crown, Home, Star, Coffee, AlertTriangle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { HotelDetails, RateHawkRate, RateHawkRoomGroup } from "@/types/booking";
 import { useBookingStore } from "@/stores/bookingStore";
 import { RoomUpsells } from "./RoomUpsells";
@@ -10,6 +11,7 @@ import { PaymentTypeBadge, normalizePaymentType, getPaymentTypeLabel } from "./P
 import { RateOptionsList, type RateOption } from "./RateOptionsList";
 import { differenceInDays } from "date-fns";
 import { formatDateTimeWithPreference } from "@/hooks/useTimezone";
+import { BOOKING_CONFIG } from "@/config/booking";
 
 // Room category types for sorting and badges
 type RoomCategory = "standard" | "deluxe" | "suite" | "premium" | "family" | "apartment";
@@ -750,8 +752,37 @@ export function RoomSelectionSection({
   }, [searchParams]);
 
   // Process and sort rooms by category using room_groups + rg_hash matching
+  // In sandbox mode, filter to only show refundable rates
   const sortedRooms = useMemo(() => {
-    const rooms = processRoomsWithRoomGroups(hotel);
+    let rooms = processRoomsWithRoomGroups(hotel);
+    
+    // In sandbox mode, filter out non-refundable rates
+    if (BOOKING_CONFIG.isSandboxMode && BOOKING_CONFIG.sandboxRestrictions.refundableOnly) {
+      rooms = rooms.map(room => {
+        // Filter rates to only include refundable ones with future cancellation deadline
+        const refundableRates = room.allRates.filter(rate => {
+          if (!rate.cancellationRawDate) return false;
+          const isRefundable = rate.cancellation === "free_cancellation" || 
+                               rate.cancellation?.toLowerCase().includes("free");
+          const deadlineDate = new Date(rate.cancellationRawDate);
+          const isFutureDeadline = deadlineDate > new Date();
+          return isRefundable && isFutureDeadline;
+        });
+        
+        // If no refundable rates, exclude the room
+        if (refundableRates.length === 0) return null;
+        
+        return {
+          ...room,
+          allRates: refundableRates,
+          selectedRateId: refundableRates[0]?.id || room.selectedRateId,
+          // Update the room's display price to the first refundable rate
+          price: refundableRates[0]?.price || room.price,
+          cancellation: refundableRates[0]?.cancellation || room.cancellation,
+        };
+      }).filter((room): room is ProcessedRoom => room !== null);
+    }
+    
     return rooms.sort((a, b) => categorySortOrder[a.category] - categorySortOrder[b.category]);
   }, [hotel]);
   
@@ -902,12 +933,27 @@ export function RoomSelectionSection({
   return (
     <section className="py-8 bg-app-white-smoke">
       <div className="container">
+        {/* Sandbox Mode Warning Banner */}
+        {BOOKING_CONFIG.isSandboxMode && BOOKING_CONFIG.sandboxRestrictions.showWarningBanner && (
+          <Alert className="mb-6 border-amber-200 bg-amber-50">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertTitle className="text-amber-800">Sandbox Mode</AlertTitle>
+            <AlertDescription className="text-amber-700">
+              Only refundable rates with free cancellation can be booked in sandbox mode. 
+              Non-refundable rates have been filtered out to prevent booking errors.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <div className="mb-6">
           <h2 className="font-heading text-heading-standard text-foreground mb-2">
             Choose Your Room
           </h2>
           <p className="text-muted-foreground">
             {sortedRooms.length} room type{sortedRooms.length !== 1 ? "s" : ""} available
+            {BOOKING_CONFIG.isSandboxMode && (
+              <span className="ml-2 text-amber-600 text-xs">(refundable only)</span>
+            )}
             {hasActiveUpsellFilters && (
               <span className="ml-2 text-primary">
                 (filtered by check-in/checkout preferences)
