@@ -80,6 +80,11 @@ export interface PaymentTypeDetail {
   type: PaymentType;
   amount: string;         // e.g., "9.00"
   currency_code: string;  // e.g., "USD"
+  // Payota credit card tokenization fields (only present for type="now")
+  pay_uuid?: string;
+  init_uuid?: string;
+  is_need_credit_card_data?: boolean;
+  is_need_cvc?: boolean;
 }
 
 export interface OrderFormResponse {
