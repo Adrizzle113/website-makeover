@@ -1069,7 +1069,11 @@ export function RoomSelectionSection({
                   Hotel: {hotel.id} | Test Hotel: {isTestHotel(hotel.id) ? "✅ Yes" : "❌ No"}
                 </div>
                 <div className="mb-2 text-gray-600">
-                  Allowed Payment Types: {(BOOKING_CONFIG.sandboxRestrictions.allowedPaymentTypes || []).join(", ")}
+                  Allowed Payment Types: {
+                    isTestHotel(hotel.id) && BOOKING_CONFIG.sandboxRestrictions.allowDepositForTestHotel
+                      ? [...(BOOKING_CONFIG.sandboxRestrictions.allowedPaymentTypes || []), "deposit (test hotel only - may fail)"].join(", ")
+                      : (BOOKING_CONFIG.sandboxRestrictions.allowedPaymentTypes || []).join(", ")
+                  }
                 </div>
                 <div className="mb-2 text-gray-600">
                   Total Rooms After Filter: {sortedRooms.length}

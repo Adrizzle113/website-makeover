@@ -900,22 +900,34 @@ const PaymentPage = () => {
                                  errorMessage.includes("402");
       
       if (isB2BBalanceError) {
-        // In sandbox mode, this almost always means non-refundable rate or non-test hotel
+        // In sandbox mode, check if deposit payment was used
         if (BOOKING_CONFIG.isSandboxMode) {
-          console.log("💡 B2B balance error in sandbox mode - likely non-refundable rate");
+          const currentApiPaymentType = getApiPaymentType(paymentType);
+          const usedDepositPayment = currentApiPaymentType === "deposit";
+          console.log("💡 B2B balance error in sandbox mode - deposit payment:", usedDepositPayment);
           
           toast({
             title: "Sandbox Booking Failed",
-            description: "Sandbox API requires refundable rates with future cancellation deadlines. Please go back and select a different rate.",
+            description: usedDepositPayment 
+              ? "Deposit payment requires B2B balance which sandbox accounts don't have."
+              : "Sandbox API requires refundable rates. Please select a different rate.",
             variant: "destructive",
           });
           
           setPaymentError(
-            `Sandbox mode requires refundable rates. This error occurs when:\n` +
-            `• The rate is non-refundable\n` +
-            `• The cancellation deadline has passed\n` +
-            `• Booking a real hotel (not test hotel ${BOOKING_CONFIG.testHotelId})\n\n` +
-            `Please go back to the hotel page and select a refundable rate with "Free cancellation" and a future deadline.`
+            usedDepositPayment
+              ? `Deposit payment is not available in sandbox mode.\n\n` +
+                `This happens because:\n` +
+                `• Deposit requires pre-funded B2B balance\n` +
+                `• Sandbox accounts have $0 B2B balance\n\n` +
+                `Options:\n` +
+                `1. Search for a different hotel with "Pay at Hotel" or card payment options\n` +
+                `2. Contact RateHawk to request sandbox B2B credit: partners@ratehawk.com`
+              : `Sandbox mode requires refundable rates. This error occurs when:\n` +
+                `• The rate is non-refundable\n` +
+                `• The cancellation deadline has passed\n` +
+                `• Booking a real hotel (not test hotel ${BOOKING_CONFIG.testHotelId})\n\n` +
+                `Please go back to the hotel page and select a refundable rate with "Free cancellation" and a future deadline.`
           );
           return;
         }
