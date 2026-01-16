@@ -665,7 +665,7 @@ const PaymentPage = () => {
         const [month, year] = expiryDate.split("/");
         
         const tokenRequest = {
-          object_id: itemId!,
+          object_id: String(orderId!),
           pay_uuid: generatedPayUuid,
           init_uuid: generatedInitUuid,
           user_first_name: leadGuest?.firstName || "",
@@ -710,6 +710,9 @@ const PaymentPage = () => {
           throw new Error("Email is required to complete booking");
         }
 
+        // Build return path for 3DS redirect
+        const returnPath = `${window.location.origin}/processing/${orderId}`;
+        
         const finishResponse = await bookingApi.finishBooking({
           order_id: orderId!,
           item_id: itemId!,
@@ -728,6 +731,8 @@ const PaymentPage = () => {
           // Include the tokenization UUIDs for card payments
           pay_uuid: generatedPayUuid,
           init_uuid: generatedInitUuid,
+          // Include return path for 3DS redirect
+          return_path: returnPath,
         });
 
         if (finishResponse.error) {

@@ -164,6 +164,8 @@ export interface OrderFinishParams {
   // For card payments after tokenization (UUIDs at root level for backend)
   pay_uuid?: string;
   init_uuid?: string;
+  // For 3DS redirect URL (required for "now" card payments)
+  return_path?: string;
 }
 
 // Order Booking Finish response
