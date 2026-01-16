@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Loader2, CheckCircle, XCircle, Clock, AlertTriangle } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Clock, AlertTriangle, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -10,15 +10,45 @@ import { useBookingStore } from "@/stores/bookingStore";
 import { toast } from "@/hooks/use-toast";
 import { 
   isFinalFailureError, 
-  isRetryableError, 
   getBookingErrorMessage,
-  type BookingErrorCode 
 } from "@/types/etgBooking";
 
 const MAX_POLL_ATTEMPTS = 20;
 const POLL_INTERVAL_MS = 3000;
 
-type ProcessingStatus = "polling" | "confirmed" | "failed" | "timeout";
+type ProcessingStatus = "polling" | "3ds" | "confirmed" | "failed" | "timeout";
+
+/**
+ * Handle 3DS redirect - submits form to bank ACS
+ */
+function handle3DSRedirect(data3ds: { action_url: string; method: "get" | "post"; data: Record<string, string> }) {
+  console.log("🔐 Initiating 3DS redirect to:", data3ds.action_url);
+  
+  if (data3ds.method === "get") {
+    // For GET, append params to URL and redirect
+    const url = new URL(data3ds.action_url);
+    Object.entries(data3ds.data || {}).forEach(([key, value]) => {
+      url.searchParams.append(key, value);
+    });
+    window.location.href = url.toString();
+  } else {
+    // For POST, create and submit a hidden form
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = data3ds.action_url;
+    
+    Object.entries(data3ds.data || {}).forEach(([key, value]) => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = key;
+      input.value = value;
+      form.appendChild(input);
+    });
+    
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
 
 export default function ProcessingPage() {
   // RateHawk requires partner_order_id for status polling
@@ -32,10 +62,12 @@ export default function ProcessingPage() {
 
   const [status, setStatus] = useState<ProcessingStatus>("polling");
   const [attempts, setAttempts] = useState(0);
+  const [progressPercent, setProgressPercent] = useState<number | null>(null);
   const [confirmationNumber, setConfirmationNumber] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const progress = Math.min((attempts / MAX_POLL_ATTEMPTS) * 100, 100);
+  // Use progressPercent from API if available, otherwise calculate from attempts
+  const displayProgress = progressPercent ?? Math.min((attempts / MAX_POLL_ATTEMPTS) * 100, 100);
 
   const pollStatus = useCallback(async () => {
     if (!partnerOrderId) {
@@ -60,13 +92,32 @@ export default function ProcessingPage() {
       try {
         // Use partner_order_id for status polling (required by RateHawk API)
         const response = await bookingApi.getOrderStatus(partnerOrderId);
-        const orderStatus = response.data?.status;
+        
+        // RateHawk can return status at top level or in data
+        const topLevelStatus = response.status;
+        const dataStatus = response.data?.status;
+        
+        // Update progress if available
+        if (response.data?.percent !== undefined) {
+          setProgressPercent(response.data.percent);
+        }
 
-        console.log(`📊 Status poll #${currentAttempt}:`, orderStatus, response);
+        console.log(`📊 Status poll #${currentAttempt}:`, { topLevelStatus, dataStatus, response });
 
-        if (orderStatus === "confirmed") {
+        // Handle 3DS redirect - bank authentication required
+        if (dataStatus === "3ds" || topLevelStatus === "3ds") {
+          if (response.data?.data_3ds) {
+            setStatus("3ds");
+            // Small delay to show 3DS UI state before redirect
+            await new Promise(r => setTimeout(r, 500));
+            handle3DSRedirect(response.data.data_3ds);
+            return; // Stop polling - browser will redirect
+          }
+        }
+
+        // Handle confirmed status - booking complete
+        if (dataStatus === "confirmed" || topLevelStatus === "ok") {
           setStatus("confirmed");
-          // Use ETG order_id for display if available, otherwise partner_order_id
           const displayId = etgOrderId || response.data?.partner_order_id || partnerOrderId;
           setConfirmationNumber(response.data?.confirmation_number || displayId);
           setOrderId(etgOrderId || partnerOrderId);
@@ -83,7 +134,8 @@ export default function ProcessingPage() {
           return;
         }
 
-        if (orderStatus === "failed" || orderStatus === "cancelled") {
+        // Handle failed/cancelled status
+        if (dataStatus === "failed" || dataStatus === "cancelled" || topLevelStatus === "error") {
           const errorCode = response.error?.code || "";
           const userMessage = getBookingErrorMessage(errorCode);
           setStatus("failed");
@@ -123,7 +175,7 @@ export default function ProcessingPage() {
           return; // Stop polling
         }
         
-        // Network errors - wait and retry
+        // Network/server errors - wait and retry
         if (currentAttempt < MAX_POLL_ATTEMPTS) {
           await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
         }
@@ -143,6 +195,7 @@ export default function ProcessingPage() {
   const handleRetry = () => {
     setStatus("polling");
     setAttempts(0);
+    setProgressPercent(null);
     setErrorMessage(null);
     pollStatus();
   };
@@ -180,15 +233,43 @@ export default function ProcessingPage() {
                 </p>
                 
                 <div className="space-y-2">
-                  <Progress value={progress} className="h-2" />
+                  <Progress value={displayProgress} className="h-2" />
                   <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                     <Clock className="h-4 w-4" />
-                    <span>Checking status... ({attempts}/{MAX_POLL_ATTEMPTS})</span>
+                    <span>
+                      {progressPercent !== null 
+                        ? `${Math.round(progressPercent)}% complete`
+                        : `Checking status... (${attempts}/${MAX_POLL_ATTEMPTS})`
+                      }
+                    </span>
                   </div>
                 </div>
 
                 <p className="text-xs text-muted-foreground mt-6">
                   This may take up to a minute. Please don't close this page.
+                </p>
+              </div>
+            )}
+
+            {/* 3DS Authentication State */}
+            {status === "3ds" && (
+              <div className="text-center">
+                <div className="w-20 h-20 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-6">
+                  <CreditCard className="w-10 h-10 text-blue-500" />
+                </div>
+                <h1 className="font-heading text-2xl font-bold text-foreground mb-2">
+                  Card Verification Required
+                </h1>
+                <p className="text-muted-foreground mb-6">
+                  Redirecting you to your bank for secure authentication...
+                </p>
+                
+                <div className="flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+                </div>
+
+                <p className="text-xs text-muted-foreground mt-6">
+                  You'll be redirected back after verification.
                 </p>
               </div>
             )}

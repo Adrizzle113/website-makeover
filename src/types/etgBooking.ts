@@ -184,12 +184,13 @@ export interface OrderFinishResponse {
 }
 
 // Order Finish Status response
+// RateHawk can return: processing, 3ds, ok (confirmed), error (failed)
 export interface OrderStatusResponse {
   data: {
     order_id: string;
     order_group_id?: string;
     partner_order_id?: string;  // RateHawk returns this for status polling
-    status: "processing" | "confirmed" | "failed" | "cancelled";
+    status: "processing" | "3ds" | "confirmed" | "failed" | "cancelled" | "ok" | "error";
     confirmation_number?: string;
     supplier_confirmation?: string;
     final_price?: {
@@ -206,7 +207,7 @@ export interface OrderStatusResponse {
       data: Record<string, string>;
     };
   };
-  status: string;
+  status: string;  // Top-level status: "ok" | "processing" | "3ds" | "error"
   error?: {
     message: string;
     code: string;
