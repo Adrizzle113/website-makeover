@@ -23,7 +23,7 @@ export function Footer() {
 
           {/* Discover */}
           <div>
-            <h4 className="font-heading text-heading-sm mb-6">Discover</h4>
+            <h4 className="font-heading text-heading-sm mb-6 text-primary-foreground">Discover</h4>
             <ul className="space-y-4">
               <li>
                 <Link
@@ -62,7 +62,7 @@ export function Footer() {
 
           {/* Locations */}
           <div>
-            <h4 className="font-heading text-heading-sm mb-6">Top Destinations</h4>
+            <h4 className="font-heading text-heading-sm mb-6 text-primary-foreground">Top Destinations</h4>
             <ul className="space-y-4">
               <li>
                 <Link
@@ -101,7 +101,7 @@ export function Footer() {
 
           {/* Contact */}
           <div>
-            <h4 className="font-heading text-heading-sm mb-6">Contact</h4>
+            <h4 className="font-heading text-heading-sm mb-6 text-primary-foreground">Contact</h4>
             <ul className="space-y-4 text-body-md text-primary-foreground/70">
               <li>hello@explo.travel</li>
               <li>+1 (800) 123-4567</li>
