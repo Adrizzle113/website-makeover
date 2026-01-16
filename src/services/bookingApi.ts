@@ -549,6 +549,8 @@ class BookingApiService {
         // Include UUIDs for card payments (at root level for backend)
         ...(params.pay_uuid && { pay_uuid: params.pay_uuid }),
         ...(params.init_uuid && { init_uuid: params.init_uuid }),
+        // Include return_path for 3DS redirect
+        ...(params.return_path && { return_path: params.return_path }),
       }),
     });
 
