@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2, ArrowLeft, AlertCircle, Lock } from "lucide-react";
+import { Loader2, ArrowLeft, AlertCircle, Lock, Bug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { BookingProgressIndicator } from "@/components/booking/BookingProgressIndicator";
 import { PaymentFormPanel } from "@/components/booking/PaymentFormPanel";
 import { PaymentSummaryPanel } from "@/components/booking/PaymentSummaryPanel";
@@ -654,6 +655,25 @@ const PaymentPage = () => {
         return;
       }
 
+      // CRITICAL: Block deposit payment type in sandbox - causes insufficient_b2b_balance error
+      const apiPaymentTypeToUse = getApiPaymentType(paymentType);
+      if (apiPaymentTypeToUse === "deposit" && BOOKING_CONFIG.sandboxRestrictions.blockDeposit) {
+        console.error("❌ Deposit payment blocked in sandbox mode");
+        toast({
+          title: "Deposit Not Available in Sandbox",
+          description: "Deposit payment requires B2B balance which sandbox accounts don't have. Please select 'Pay at Hotel' or use a card payment method.",
+          variant: "destructive",
+        });
+        setPaymentError(
+          `Deposit payment is not available in sandbox mode.\n\n` +
+          `This happens because:\n` +
+          `• Deposit requires B2B balance (pre-funded account)\n` +
+          `• Sandbox/test accounts have no B2B balance\n\n` +
+          `Solution: Select "Pay at Hotel" or card payment instead.`
+        );
+        return;
+      }
+
       // Check if selected rooms are refundable
       const rooms = bookingData.rooms || [];
       const nonRefundableRoom = rooms.find(room => {
@@ -1203,13 +1223,68 @@ const PaymentPage = () => {
       {/* Main Content - Split Screen */}
       <main className="flex-1 py-10 lg:py-16">
         <div className="container mx-auto px-4 max-w-7xl">
+          {/* Sandbox Debug Panel */}
+          {BOOKING_CONFIG.isSandboxMode && (
+            <Collapsible className="mb-6">
+              <CollapsibleTrigger className="flex items-center gap-2 text-xs text-orange-600 hover:text-orange-800 underline">
+                <Bug className="h-3 w-3" />
+                <span>Show Payment Debug Info</span>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2">
+                <div className="bg-gray-100 border rounded p-3 text-xs font-mono overflow-auto max-h-64">
+                  <div className="mb-2 font-semibold text-gray-700">
+                    Hotel: {bookingData.hotel?.id} | Test Hotel: {bookingData.hotel?.id === BOOKING_CONFIG.testHotelId || bookingData.hotel?.id === BOOKING_CONFIG.testHotelSlug ? "✅ Yes" : "❌ No"}
+                  </div>
+                  <div className="mb-2">
+                    <span className="font-semibold">Selected Payment Type:</span>{" "}
+                    <span className={paymentType === "deposit" ? "text-red-600 font-bold" : "text-green-600"}>
+                      {paymentType} → API: {getApiPaymentType(paymentType)}
+                    </span>
+                    {paymentType === "deposit" && (
+                      <span className="text-red-600 ml-2">⚠️ WILL FAIL (no B2B balance)</span>
+                    )}
+                  </div>
+                  <div className="mb-2">
+                    <span className="font-semibold">Available Methods:</span> {availablePaymentMethods.join(", ")}
+                  </div>
+                  <div className="mb-2">
+                    <span className="font-semibold">Recommended:</span> {recommendedPaymentType?.type || "None"}
+                  </div>
+                  <div className="mb-2">
+                    <span className="font-semibold">Payment Types from API:</span>
+                    <div className="pl-2 mt-1">
+                      {paymentTypesData.map((pt, idx) => (
+                        <div key={idx} className={pt.type === "deposit" ? "text-red-600" : "text-green-600"}>
+                          • {pt.type}: {pt.currency_code} {pt.amount}
+                          {pt.type === "deposit" && " ⚠️ blocked in sandbox"}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="border-t pt-2 mt-2">
+                    <span className="font-semibold">Rooms:</span>
+                    {bookingData.rooms?.map((room, idx) => (
+                      <div key={idx} className="pl-2 mt-1">
+                        <div className="font-medium">{room.roomName}</div>
+                        <div className={room.cancellationType === "free_cancellation" ? "text-green-600" : "text-red-600"}>
+                          • Cancellation: {room.cancellationType || "unknown"}
+                        </div>
+                        <div>• Deadline: {room.cancellationDeadline || "N/A"}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+
           {/* Payment Error Alert */}
           {paymentError && (
             <div className="mb-8 bg-destructive/10 border border-destructive/20 rounded-2xl p-5 flex items-start gap-4 animate-fade-in">
               <AlertCircle className="h-6 w-6 text-destructive flex-shrink-0 mt-0.5" />
               <div>
                 <p className="font-heading text-lg font-semibold text-destructive">Payment Failed</p>
-                <p className="text-body-md text-destructive/80 mt-1">{paymentError}</p>
+                <p className="text-body-md text-destructive/80 mt-1 whitespace-pre-line">{paymentError}</p>
                 <Button 
                   variant="link" 
                   className="text-destructive p-0 h-auto text-body-sm mt-2"
