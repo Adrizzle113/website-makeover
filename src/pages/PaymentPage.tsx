@@ -680,9 +680,16 @@ const PaymentPage = () => {
         }
       }
 
-      // Check if selected rooms are refundable
+      // Check if selected rooms meet sandbox requirements
       const rooms = bookingData.rooms || [];
-      const nonRefundableRoom = rooms.find(room => {
+      const invalidRoom = rooms.find(room => {
+        // CRITICAL: RateHawk sandbox requires actual free_cancellation_before field
+        // Rates with only "policies" will fail with insufficient_b2b_balance
+        if (!room.hasFreeCancellationBefore) {
+          console.log('[PaymentPage] Room blocked - missing free_cancellation_before:', room.roomName);
+          return true;
+        }
+        
         // Check using the new cancellation metadata
         if (room.cancellationType && room.cancellationType !== "free_cancellation") {
           return true;
@@ -695,13 +702,20 @@ const PaymentPage = () => {
         return deadline <= new Date();
       });
 
-      if (nonRefundableRoom) {
+      if (invalidRoom) {
+        const missingFreeCancellationBefore = !invalidRoom.hasFreeCancellationBefore;
         toast({
           title: "Sandbox Mode Restriction",
-          description: "Sandbox API requires refundable rates with future cancellation deadlines. Please select a refundable rate.",
+          description: missingFreeCancellationBefore 
+            ? "RateHawk sandbox requires rates with free_cancellation_before field. This rate only has penalty policies."
+            : "Sandbox API requires refundable rates with future cancellation deadlines. Please select a refundable rate.",
           variant: "destructive",
         });
-        setPaymentError("Cannot book non-refundable rates in sandbox mode. Please go back and select a refundable rate.");
+        setPaymentError(
+          missingFreeCancellationBefore
+            ? "Cannot book this rate in sandbox mode.\n\nRateHawk requires rates with an explicit 'free_cancellation_before' date field. This rate only has penalty policies, which causes insufficient_b2b_balance errors.\n\nPlease go back and select a different rate."
+            : "Cannot book non-refundable rates in sandbox mode. Please go back and select a refundable rate."
+        );
         return;
       }
     }

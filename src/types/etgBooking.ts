@@ -408,6 +408,8 @@ export interface PendingBookingData {
     cancellationType?: "free_cancellation" | "partial_refund" | "non_refundable";
     cancellationDeadline?: string; // ISO date string
     cancellationPolicy?: string;
+    // CRITICAL: RateHawk sandbox requires actual free_cancellation_before field (not just policies)
+    hasFreeCancellationBefore?: boolean;
     taxes?: Array<{
       name: string;
       included_by_supplier: boolean;
