@@ -196,16 +196,21 @@ const PaymentPage = () => {
         console.log("💡 Auto-selected recommended payment type:", recommended.type);
       }
 
-      // Determine available payment methods
-      const apiPaymentTypes = formResponse.data.payment_types_available || ["deposit"];
+      // Determine available payment methods from the payment_types array
+      const paymentTypesArray = formResponse.data.payment_types || [];
+      const uniqueTypes = [...new Set(paymentTypesArray.map((pt: { type: string }) => pt.type))];
+      
       const paymentMethods: PaymentType[] = [];
-      apiPaymentTypes.forEach(type => {
+      uniqueTypes.forEach(type => {
         if (type === "now") {
+          // "now" maps to both NET and GROSS card options
           paymentMethods.push("now_net", "now_gross");
         } else {
-          paymentMethods.push(type);
+          paymentMethods.push(type as PaymentType);
         }
       });
+      
+      // Ensure deposit is always available as fallback
       if (!paymentMethods.includes("deposit")) {
         paymentMethods.unshift("deposit");
       }
