@@ -186,8 +186,55 @@ class BookingApiService {
   }
 
   /**
+   * Helper: Recover existing order by partner_order_id when double_booking_form occurs
+   * Uses getOrdersBatch to find the already-created order
+   */
+  async recoverOrderByPartnerOrderId(partnerOrderId: string): Promise<{
+    order_id: string;
+    item_id: string;
+    payment_types: any[];
+  } | null> {
+    try {
+      console.log("🔄 Attempting to recover existing order for:", partnerOrderId);
+      
+      const response = await this.getOrdersBatch({
+        partnerOrderIds: [partnerOrderId],
+        pageSize: 1,
+      });
+      
+      if (response.data?.orders?.length > 0) {
+        const order = response.data.orders[0] as any; // Use any for flexible property access
+        console.log("✅ Recovered existing order:", order.order_id);
+        
+        // Extract item_id from various possible locations in the response
+        const itemId = order.item_id || 
+                      order.rooms_data?.[0]?.item_id || 
+                      order.rooms?.[0]?.item_id || 
+                      "";
+        
+        // Extract payment types - may be in payment_data or as payment_types array
+        const paymentTypes = order.payment_types || 
+                            (order.payment_data?.payment_type ? [{ type: order.payment_data.payment_type }] : []);
+        
+        return {
+          order_id: String(order.order_id),
+          item_id: String(itemId),
+          payment_types: paymentTypes,
+        };
+      }
+      
+      console.warn("⚠️ No existing order found for partner_order_id:", partnerOrderId);
+      return null;
+    } catch (error) {
+      console.error("❌ Failed to recover order:", error);
+      return null;
+    }
+  }
+
+  /**
    * Step 3: Get Order Booking Form - Retrieve required guest fields
    * RateHawk Best Practices Section 5.3: Retry up to 10 times on 5xx, timeout, or unknown errors
+   * Recovers from double_booking_form by fetching the existing order
    * @param bookHash - The book_hash from prebook response
    * @param partnerOrderId - Required unique partner order ID
    */
@@ -227,8 +274,32 @@ class BookingApiService {
         if (response.error?.code) {
           const errorCode = response.error.code.toLowerCase();
           
+          // Handle double_booking_form by recovering the existing order
+          if (errorCode === "double_booking_form") {
+            console.warn("⚠️ double_booking_form from API response - attempting recovery");
+            const recovered = await this.recoverOrderByPartnerOrderId(partnerOrderId);
+            if (recovered) {
+              // Return minimal response with recovered data - cast through unknown for type safety
+              return {
+                status: "ok",
+                data: {
+                  order_id: recovered.order_id,
+                  item_id: recovered.item_id,
+                  payment_types: recovered.payment_types,
+                  _recovered: true,
+                  // Provide required fields with empty defaults for type compatibility
+                  required_fields: [],
+                  rooms: [],
+                  payment_types_available: recovered.payment_types.map((pt: any) => pt.type || pt),
+                  final_price: { amount: "0", currency_code: "USD" },
+                },
+              } as unknown as OrderFormResponse;
+            }
+            throw new Error("Booking session expired. Please return to hotel details and start a new booking.");
+          }
+          
           // Non-retryable errors - fail immediately
-          if (["contract_mismatch", "double_booking_form", "duplicate_reservation", 
+          if (["contract_mismatch", "duplicate_reservation", 
                "hotel_not_found", "insufficient_b2b_balance", "reservation_is_not_allowed",
                "rate_not_found", "sandbox_restriction"].includes(errorCode)) {
             console.error(`❌ Order form non-retryable error: ${errorCode}`);
@@ -252,9 +323,27 @@ class BookingApiService {
         lastError = error instanceof Error ? error : new Error(String(error));
         const errorMsg = lastError.message.toLowerCase();
         
-        // Check for double_booking_form in error message - don't retry this
+        // Check for double_booking_form in error message - attempt recovery
         if (errorMsg.includes("double_booking_form") || errorMsg.includes("double booking form")) {
-          console.error("❌ double_booking_form detected - stopping retries");
+          console.warn("⚠️ double_booking_form in error message - attempting recovery");
+          const recovered = await this.recoverOrderByPartnerOrderId(partnerOrderId);
+          if (recovered) {
+            // Return minimal response with recovered data - cast through unknown for type safety
+            return {
+              status: "ok",
+              data: {
+                order_id: recovered.order_id,
+                item_id: recovered.item_id,
+                payment_types: recovered.payment_types,
+                _recovered: true,
+                // Provide required fields with empty defaults for type compatibility
+                required_fields: [],
+                rooms: [],
+                payment_types_available: recovered.payment_types.map((pt: any) => pt.type || pt),
+                final_price: { amount: "0", currency_code: "USD" },
+              },
+            } as unknown as OrderFormResponse;
+          }
           throw new Error("Booking session expired. Please return to hotel details and start a new booking.");
         }
         
