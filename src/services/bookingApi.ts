@@ -559,8 +559,9 @@ class BookingApiService {
   }
 
   /**
-   * Step 5: Order Finish Status - Poll until final status
-   * MUST call repeatedly until confirmed or failed
+   * Step 5: Check Booking Status - Poll until final status
+   * MUST call repeatedly until is_final=true
+   * Uses new backend response format with is_final, is_success, is_processing flags
    * NOTE: RateHawk API requires partner_order_id (not order_id)
    */
   async getOrderStatus(partnerOrderId: string): Promise<OrderStatusResponse> {
@@ -579,11 +580,18 @@ class BookingApiService {
       method: "POST",
       body: JSON.stringify({
         userId,
-        partner_order_id: partnerOrderId,  // RateHawk requires partner_order_id
+        partner_order_id: partnerOrderId,
       }),
     });
 
-    console.log("📥 Order status response:", response);
+    console.log("📥 Order status response:", {
+      status: response.data?.status,
+      is_final: response.data?.is_final,
+      is_success: response.data?.is_success,
+      is_processing: response.data?.is_processing,
+      percent: response.data?.percent,
+    });
+    
     return response;
   }
 

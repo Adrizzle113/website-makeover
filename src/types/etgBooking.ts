@@ -184,30 +184,81 @@ export interface OrderFinishResponse {
 }
 
 // Order Finish Status response
-// RateHawk can return: processing, 3ds, ok (confirmed), error (failed)
+// New backend format with helper flags for easier status handling
+// RateHawk statuses: ok, processing, 3ds, error, timeout, block, charge, soldout, provider, book_limit, not_allowed, booking_finish_did_not_succeed
+export type BookingStatusValue = 
+  | "ok" 
+  | "processing" 
+  | "3ds" 
+  | "error" 
+  | "timeout" 
+  | "block" 
+  | "charge" 
+  | "soldout" 
+  | "provider" 
+  | "book_limit" 
+  | "not_allowed" 
+  | "booking_finish_did_not_succeed"
+  // Legacy status values for backward compatibility
+  | "confirmed" 
+  | "failed" 
+  | "cancelled";
+
 export interface OrderStatusResponse {
+  success?: boolean;
   data: {
-    order_id: string;
+    // Core status fields
+    status: BookingStatusValue;
+    is_final: boolean;        // true if status is final (ok or error-type)
+    is_success: boolean;      // true if status is "ok" (confirmed)
+    is_processing: boolean;   // true if status is "processing" or "3ds"
+    
+    // Order identifiers
+    order_id?: string;
     order_group_id?: string;
-    partner_order_id?: string;  // RateHawk returns this for status polling
-    status: "processing" | "3ds" | "confirmed" | "failed" | "cancelled" | "ok" | "error";
+    partner_order_id: string;
+    
+    // Progress indicator (0-100)
+    percent: number;
+    
+    // Confirmation details (when is_success=true)
     confirmation_number?: string;
     supplier_confirmation?: string;
+    
+    // Price info
     final_price?: {
       amount: string;
       currency_code: string;
     };
+    
+    // Cancellation info
     cancellation_info?: {
       free_cancellation_before?: string;
     };
-    percent?: number;  // Progress percentage from RateHawk
-    data_3ds?: {       // 3DS redirect data for card payments
+    
+    // 3DS redirect data (when status="3ds")
+    data_3ds?: {
       action_url: string;
       method: "get" | "post";
-      data: Record<string, string>;
+      data: {
+        MD: string;
+        PaReq: string;
+        TermUrl: string;
+        [key: string]: string;
+      };
+    };
+    
+    // Error details (when is_final=true and is_success=false)
+    error?: {
+      code: string;
+      message: string;
     };
   };
-  status: string;  // Top-level status: "ok" | "processing" | "3ds" | "error"
+  // Top-level status (for backward compatibility)
+  status?: string;
+  // Metadata
+  timestamp?: string;
+  duration?: string;
   error?: {
     message: string;
     code: string;
