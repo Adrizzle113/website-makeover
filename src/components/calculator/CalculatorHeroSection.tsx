@@ -29,14 +29,10 @@ export function CalculatorHeroSection({ activePreset, onApplyPreset }: Calculato
       </p>
       
       {/* Stats Chips */}
-      <div className="grid grid-cols-2 gap-4 mb-8 max-w-md">
+      <div className="grid grid-cols-3 gap-4 mb-8 max-w-lg">
         <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 px-5 py-3 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
           <span className="font-heading text-xl text-primary font-bold">25%</span>
           <span className="text-foreground text-sm font-medium">{t("calc.stats.maxSavings")}</span>
-        </div>
-        <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 px-5 py-3 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
-          <span className="font-heading text-xl text-primary font-bold">25%</span>
-          <span className="text-foreground text-sm font-medium">{t("calc.stats.maxMargin")}</span>
         </div>
         <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 px-5 py-3 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
           <span className="font-heading text-xl text-primary font-bold">R$0</span>
