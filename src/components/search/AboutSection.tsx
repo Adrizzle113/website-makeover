@@ -1,6 +1,7 @@
-import { CheckCircle, Headphones, Shield, MapPin } from "lucide-react";
+import { Headphones, Shield, MapPin } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import santoriniHouse from "@/assets/santorini-house.png";
+import { useLanguage } from "@/hooks/useLanguage";
 
 function StepsGrid({ steps }: { steps: { step: string; title: string; description: string }[] }) {
   const [visibleItems, setVisibleItems] = useState<number[]>([]);
@@ -59,42 +60,46 @@ function StepsGrid({ steps }: { steps: { step: string; title: string; descriptio
 }
 
 export function AboutSection() {
+  const { t } = useLanguage();
+  
   const features = [{
     icon: Shield,
-    label: "No Booking Fee"
+    label: t('about.feature.noFee')
   }, {
     icon: Headphones,
-    label: "24/7 Helpline"
+    label: t('about.feature.helpline')
   }];
+  
   const steps = [{
     step: "1",
-    title: "Create Your Free Account",
-    description: "Sign up in seconds and unlock exclusive hotel rates instantly."
+    title: t('about.step1.title'),
+    description: t('about.step1.description')
   }, {
     step: "2",
-    title: "Search & Compare",
-    description: "Browse thousands of properties with 20–30% lower pricing than major platforms."
+    title: t('about.step2.title'),
+    description: t('about.step2.description')
   }, {
     step: "3",
-    title: "Book & Earn More",
-    description: "Keep the profit margin you deserve on every reservation."
+    title: t('about.step3.title'),
+    description: t('about.step3.description')
   }, {
     step: "4",
-    title: "Get WhatsApp Support",
-    description: "Talk to our team anytime in Portuguese—fast, friendly, expert help."
+    title: t('about.step4.title'),
+    description: t('about.step4.description')
   }];
+  
   return <section id="about" className="py-24 bg-background">
       <div className="container">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           {/* Content */}
           <div>
             <span className="badge-pill bg-secondary text-secondary-foreground mb-6">
-              How It Works  
+              {t('about.badge')}
             </span>
             <h2 className="font-heading text-display-md text-foreground mb-6">
-              U.S.A. hotel rates, now available in Brasil!
+              {t('about.title')}
             </h2>
-            <p className="text-body-lg text-muted-foreground mb-8">We make it simple for Brazilian travel agents to access industry-leading rates and book with confidence.</p>
+            <p className="text-body-lg text-muted-foreground mb-8">{t('about.description')}</p>
 
             {/* Feature Badges */}
             <div className="flex flex-wrap gap-4 mb-10">
@@ -119,10 +124,10 @@ export function AboutSection() {
                 <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                   <MapPin className="h-5 w-5 text-primary" />
                 </div>
-                <span className="font-heading text-heading-sm">International Rates</span>
+                <span className="font-heading text-heading-sm">{t('about.card.title')}</span>
               </div>
               <p className="text-body-sm text-muted-foreground">
-                The same hotel pricing trusted by US travel agents.
+                {t('about.card.description')}
               </p>
             </div>
           </div>
