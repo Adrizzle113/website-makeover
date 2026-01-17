@@ -151,14 +151,14 @@ export default function CalculatorPage() {
   };
 
   return (
-    <div className="min-h-screen bg-primary">
-      <Header variant="dark" />
+    <div className="min-h-screen bg-background">
+      <Header variant="light" />
       
       <main className="pt-32 md:pt-36 pb-20">
         <div className="container">
           {/* Social Proof Banner */}
           <div className="flex items-center justify-center gap-2 mb-8 animate-fade-in">
-            <div className="flex items-center gap-2 bg-accent/20 text-accent px-4 py-2 rounded-full">
+            <div className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-full">
               <Users className="w-4 h-4" />
               <span className="text-sm font-medium">{t("calc.socialProof")}</span>
             </div>
@@ -168,45 +168,45 @@ export default function CalculatorPage() {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-start max-w-6xl mx-auto">
             
             {/* Left Column - Marketing Copy */}
-            <div className="text-primary-foreground lg:pt-8">
+            <div className="text-foreground lg:pt-8">
               <h1 className="font-heading text-heading-xl sm:text-display-lg lg:text-display-xl mb-6 uppercase tracking-tight leading-[0.95]">
                 {t("calc.title").split(" ").slice(0, 3).join(" ")}<br />
                 {t("calc.title").split(" ").slice(3).join(" ")}
               </h1>
-              <p className="text-primary-foreground/80 text-body-lg mb-8 max-w-md">
+              <p className="text-muted-foreground text-body-lg mb-8 max-w-md">
                 {t("calc.description")}
               </p>
               
               {/* Preset Scenarios */}
               <div className="mb-8">
-                <p className="text-primary-foreground/60 text-sm mb-3">{t("calc.presets.title")}</p>
+                <p className="text-muted-foreground text-sm mb-3">{t("calc.presets.title")}</p>
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => applyPreset("small")}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
                       activePreset === "small"
-                        ? "bg-accent text-accent-foreground"
-                        : "bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-secondary text-foreground border-border hover:bg-secondary/80"
                     }`}
                   >
                     {t("calc.presets.small")}
                   </button>
                   <button
                     onClick={() => applyPreset("growing")}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
                       activePreset === "growing"
-                        ? "bg-accent text-accent-foreground"
-                        : "bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-secondary text-foreground border-border hover:bg-secondary/80"
                     }`}
                   >
                     {t("calc.presets.growing")}
                   </button>
                   <button
                     onClick={() => applyPreset("highVolume")}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
                       activePreset === "highVolume"
-                        ? "bg-accent text-accent-foreground"
-                        : "bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-secondary text-foreground border-border hover:bg-secondary/80"
                     }`}
                   >
                     {t("calc.presets.highVolume")}
@@ -217,7 +217,7 @@ export default function CalculatorPage() {
               <Button
                 asChild
                 size="lg"
-                className="h-14 px-8 rounded-full bg-accent text-accent-foreground hover:bg-accent/90 font-semibold group"
+                className="h-14 px-8 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold group"
               >
                 <Link to="/auth/register">
                   {t("calc.cta")}
@@ -225,7 +225,7 @@ export default function CalculatorPage() {
                 </Link>
               </Button>
               
-              <p className="text-primary-foreground/50 text-sm mt-10">
+              <p className="text-muted-foreground text-sm mt-10">
                 {t("calc.disclaimer")}
               </p>
             </div>
@@ -338,25 +338,25 @@ export default function CalculatorPage() {
                 {result && retailNum > 0 ? (
                   <div className="space-y-5">
                     {/* Monthly Earnings Hero */}
-                    <div className="bg-primary rounded-2xl p-6 text-center relative overflow-hidden">
+                    <div className="bg-accent/10 border border-accent/20 rounded-2xl p-6 text-center relative overflow-hidden">
                       {/* Glow effect when positive */}
                       {result.difference.perMonth > 0 && (
-                        <div className="absolute inset-0 bg-gradient-to-br from-accent/20 via-transparent to-transparent pointer-events-none" />
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />
                       )}
                       
-                      <p className="text-primary-foreground/70 text-xs uppercase tracking-wider mb-2 relative">
+                      <p className="text-foreground/70 text-xs uppercase tracking-wider mb-2 relative">
                         {t("calc.result.monthlyEarnings")}
                       </p>
-                      <p className="font-heading text-display-md text-primary-foreground mb-1 relative">
+                      <p className="font-heading text-display-md text-foreground mb-1 relative">
                         <AnimatedNumber value={result.bookingJa.monthlyProfit} formatter={formatCurrency} />
                       </p>
-                      <p className="text-primary-foreground/60 text-body-sm relative">
+                      <p className="text-muted-foreground text-body-sm relative">
                         {t("calc.result.withBookingJa")}
                       </p>
                       
                       {/* Comparison */}
-                      <div className="mt-4 pt-4 border-t border-primary-foreground/20 relative">
-                        <p className="text-primary-foreground/60 text-body-sm">
+                      <div className="mt-4 pt-4 border-t border-border relative">
+                        <p className="text-muted-foreground text-body-sm">
                           {t("calc.result.vsToday").replace("{amount}", formatCurrency(result.today.monthlyProfit))}
                         </p>
                       </div>
@@ -364,30 +364,30 @@ export default function CalculatorPage() {
 
                     {/* Extra Earnings Highlight */}
                     {result.difference.perMonth > 0 && (
-                      <div className="bg-accent/15 border-2 border-accent/40 rounded-xl p-4 text-center relative animate-pulse-subtle">
+                      <div className="bg-primary/10 border-2 border-primary/30 rounded-xl p-4 text-center relative">
                         <div className="flex items-center justify-center gap-2 mb-2">
-                          <TrendingUp className="w-5 h-5 text-accent" />
-                          <span className="font-heading text-heading-lg text-accent">
+                          <TrendingUp className="w-5 h-5 text-primary" />
+                          <span className="font-heading text-heading-lg text-primary">
                             +<AnimatedNumber value={result.difference.perMonth} formatter={formatCurrency} />
                           </span>
                           {result.difference.percentIncrease > 0 && (
-                            <span className="bg-accent text-accent-foreground text-xs font-bold px-2 py-0.5 rounded-full">
+                            <span className="bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-full">
                               +{Math.round(result.difference.percentIncrease)}%
                             </span>
                           )}
                         </div>
-                        <p className="text-foreground/70 text-body-sm">
+                        <p className="text-muted-foreground text-body-sm">
                           {t("calc.result.morePerMonth")}
                         </p>
                         
                         {/* Annual projection */}
-                        <div className="mt-3 pt-3 border-t border-accent/20">
+                        <div className="mt-3 pt-3 border-t border-primary/20">
                           <div className="flex items-center justify-center gap-1">
-                            <Sparkles className="w-4 h-4 text-accent" />
-                            <span className="font-heading text-heading-sm text-accent">
+                            <Sparkles className="w-4 h-4 text-primary" />
+                            <span className="font-heading text-heading-sm text-primary">
                               +<AnimatedNumber value={result.difference.perYear} formatter={formatCurrency} />
                             </span>
-                            <span className="text-foreground/60 text-sm">/{t("calc.result.morePerYear").split(" ").slice(-2).join(" ")}</span>
+                            <span className="text-muted-foreground text-sm">/{t("calc.result.morePerYear").split(" ").slice(-2).join(" ")}</span>
                           </div>
                         </div>
                       </div>
@@ -416,7 +416,7 @@ export default function CalculatorPage() {
                     <Button
                       asChild
                       size="lg"
-                      className="w-full h-12 rounded-full bg-accent text-accent-foreground hover:bg-accent/90 font-semibold group"
+                      className="w-full h-12 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold group"
                     >
                       <Link to="/auth/register">
                         {t("calc.cta.startEarning")}
@@ -438,65 +438,65 @@ export default function CalculatorPage() {
           {/* Platform Comparison Section */}
           {result && retailNum > 0 && (
             <div className="max-w-4xl mx-auto mt-16 animate-fade-in">
-              <h3 className="font-heading text-heading-lg text-primary-foreground text-center mb-6">
+              <h3 className="font-heading text-heading-lg text-foreground text-center mb-6">
                 {t("calc.comparison.title")}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Booking.com */}
-                <div className="bg-primary-foreground/5 rounded-2xl p-5 text-center border border-primary-foreground/10">
-                  <p className="text-primary-foreground/60 text-sm mb-1">Booking.com</p>
-                  <p className="text-primary-foreground/40 text-xs mb-3">10% {t("calc.comparison.commission").toLowerCase()}</p>
-                  <p className="font-heading text-heading-md text-primary-foreground/70">
+                <div className="bg-card rounded-2xl p-5 text-center border border-border shadow-sm">
+                  <p className="text-muted-foreground text-sm mb-1">Booking.com</p>
+                  <p className="text-muted-foreground/60 text-xs mb-3">10% {t("calc.comparison.commission").toLowerCase()}</p>
+                  <p className="font-heading text-heading-md text-muted-foreground">
                     {formatCurrency(result.competitors.booking.profit * 12)}
                   </p>
-                  <p className="text-primary-foreground/40 text-xs mt-1">/ano</p>
+                  <p className="text-muted-foreground/60 text-xs mt-1">/ano</p>
                 </div>
                 
                 {/* Expedia TAAP */}
-                <div className="bg-primary-foreground/5 rounded-2xl p-5 text-center border border-primary-foreground/10">
-                  <p className="text-primary-foreground/60 text-sm mb-1">Expedia TAAP</p>
-                  <p className="text-primary-foreground/40 text-xs mb-3">8% {t("calc.comparison.commission").toLowerCase()}</p>
-                  <p className="font-heading text-heading-md text-primary-foreground/70">
+                <div className="bg-card rounded-2xl p-5 text-center border border-border shadow-sm">
+                  <p className="text-muted-foreground text-sm mb-1">Expedia TAAP</p>
+                  <p className="text-muted-foreground/60 text-xs mb-3">8% {t("calc.comparison.commission").toLowerCase()}</p>
+                  <p className="font-heading text-heading-md text-muted-foreground">
                     {formatCurrency(result.competitors.expedia.profit * 12)}
                   </p>
-                  <p className="text-primary-foreground/40 text-xs mt-1">/ano</p>
+                  <p className="text-muted-foreground/60 text-xs mt-1">/ano</p>
                 </div>
                 
                 {/* Booking Já - Highlighted */}
-                <div className="bg-accent/20 rounded-2xl p-5 text-center border-2 border-accent relative">
+                <div className="bg-primary/5 rounded-2xl p-5 text-center border-2 border-primary/30 relative shadow-sm">
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="bg-accent text-accent-foreground text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
+                    <span className="bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
                       <CheckCircle className="w-3 h-3" /> MELHOR
                     </span>
                   </div>
-                  <p className="text-accent text-sm font-medium mb-1 mt-2">Booking Já</p>
-                  <p className="text-primary-foreground/60 text-xs mb-3">{agentCommission}% {t("calc.comparison.commission").toLowerCase()}</p>
-                  <p className="font-heading text-heading-md text-accent">
+                  <p className="text-primary text-sm font-medium mb-1 mt-2">Booking Já</p>
+                  <p className="text-muted-foreground text-xs mb-3">{agentCommission}% {t("calc.comparison.commission").toLowerCase()}</p>
+                  <p className="font-heading text-heading-md text-primary">
                     {formatCurrency(result.competitors.bookingJa.profit * 12)}
                   </p>
-                  <p className="text-primary-foreground/60 text-xs mt-1">/ano</p>
+                  <p className="text-muted-foreground text-xs mt-1">/ano</p>
                 </div>
               </div>
             </div>
           )}
           
           {/* Stats Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-10 max-w-5xl mx-auto mt-20 pt-12 border-t border-primary-foreground/10 text-center lg:text-left">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-10 max-w-5xl mx-auto mt-20 pt-12 border-t border-border text-center lg:text-left">
             <div>
-              <p className="font-heading text-heading-xl lg:text-display-md text-accent mb-1">25%</p>
-              <p className="text-primary-foreground/60 text-body-sm">{t("calc.stats.maxSavings")}</p>
+              <p className="font-heading text-heading-xl lg:text-display-md text-primary mb-1">25%</p>
+              <p className="text-muted-foreground text-body-sm">{t("calc.stats.maxSavings")}</p>
             </div>
             <div>
-              <p className="font-heading text-heading-xl lg:text-display-md text-accent mb-1">25%</p>
-              <p className="text-primary-foreground/60 text-body-sm">{t("calc.stats.maxMargin")}</p>
+              <p className="font-heading text-heading-xl lg:text-display-md text-primary mb-1">25%</p>
+              <p className="text-muted-foreground text-body-sm">{t("calc.stats.maxMargin")}</p>
             </div>
             <div>
-              <p className="font-heading text-heading-xl lg:text-display-md text-accent mb-1">0</p>
-              <p className="text-primary-foreground/60 text-body-sm">{t("calc.stats.monthlyFees")}</p>
+              <p className="font-heading text-heading-xl lg:text-display-md text-primary mb-1">0</p>
+              <p className="text-muted-foreground text-body-sm">{t("calc.stats.monthlyFees")}</p>
             </div>
             <div>
-              <p className="font-heading text-heading-xl lg:text-display-md text-accent mb-1">24h</p>
-              <p className="text-primary-foreground/60 text-body-sm">{t("calc.stats.toGetStarted")}</p>
+              <p className="font-heading text-heading-xl lg:text-display-md text-primary mb-1">24h</p>
+              <p className="text-muted-foreground text-body-sm">{t("calc.stats.toGetStarted")}</p>
             </div>
           </div>
         </div>
