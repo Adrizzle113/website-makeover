@@ -26,20 +26,20 @@ export function HeroSection() {
         <p className="heading-spaced text-white/80 mb-6 opacity-0 animate-fade-in drop-shadow-md" style={{
         animationDelay: "0.1s"
       }}>
-          Stop losing money with expensive suppliers.
+          {t('hero.tagline')}
         </p>
         <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl text-white mb-8 opacity-0 animate-slide-up font-bold tracking-tight leading-tight drop-shadow-lg" style={{
         animationDelay: "0.2s",
         textShadow: "0 4px 12px rgba(0,0,0,0.4)"
       }}>
-          <span className="block">BETTER RATES</span>
-          <span className="block">HIGHER COMMISSIONS</span>
-          <span className="block text-cream">MADE FOR BRAZILIAN AGENTS</span>
+          <span className="block">{t('hero.title1')}</span>
+          <span className="block">{t('hero.title2')}</span>
+          <span className="block text-cream">{t('hero.title3')}</span>
         </h1>
         <p className="text-body-lg text-white/80 max-w-2xl mx-auto mb-10 opacity-0 animate-fade-in drop-shadow-md" style={{
         animationDelay: "0.4s"
       }}>
-          Access rates 20–30% lower than TAAP, Booking.com, and HotelBeds — and keep the profit you deserve.
+          {t('hero.description')}
         </p>
 
         <div className="opacity-0 animate-fade-in" style={{
@@ -75,8 +75,8 @@ export function HeroSection() {
           
           {/* Card Content */}
           <div className="pt-3 pb-1 px-1">
-            <h3 className="font-heading text-lg text-gray-900 mb-1">Luxury Suite</h3>
-            <p className="text-sm text-gray-500">Experience premium comfort</p>
+            <h3 className="font-heading text-lg text-gray-900 mb-1">{t('hero.card.title')}</h3>
+            <p className="text-sm text-gray-500">{t('hero.card.description')}</p>
           </div>
         </div>
 
@@ -103,8 +103,8 @@ export function HeroSection() {
             </Avatar>
           </div>
           <div className="text-white">
-            <p className="text-sm font-semibold">84k+ People</p>
-            <p className="text-xs text-white/70">Joined our tours</p>
+            <p className="text-sm font-semibold">{t('hero.social.count')}</p>
+            <p className="text-xs text-white/70">{t('hero.social.label')}</p>
           </div>
         </div>
       </div>
