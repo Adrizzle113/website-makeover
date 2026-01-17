@@ -45,7 +45,7 @@ export function Header({ variant = "auto" }: HeaderProps) {
   };
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${bgClass}`}>
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 mt-4 md:mt-8 mx-[21px] md:mx-[37px] rounded-2xl ${bgClass}`}>
       <div className="container py-4 md:py-6">
         <div className="flex items-center justify-between h-24">
           {/* Logo */}
