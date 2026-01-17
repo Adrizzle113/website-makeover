@@ -468,7 +468,7 @@ export default function CalculatorPage() {
           
           {/* Platform Comparison Section - Outside hero background */}
           {result && retailNum > 0 && (
-            <div className="relative z-10 mt-24 py-16 bg-muted/30">
+            <div className="relative z-10 mt-24 py-16 bg-muted w-screen -ml-[calc((100vw-100%)/2)]">
               <div className="container">
                 <div className="max-w-5xl mx-auto animate-fade-in">
                   <h3 className="font-heading text-heading-lg text-foreground text-center mb-2">
