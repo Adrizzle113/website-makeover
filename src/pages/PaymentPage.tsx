@@ -18,7 +18,7 @@ import {
   validateCVV,
 } from "@/lib/cardValidation";
 import { getMockPendingBookingData } from "@/lib/mockBookingData";
-import { BOOKING_CONFIG, isRateRefundable } from "@/config/booking";
+import { BOOKING_CONFIG, isRateRefundable, isTestHotel } from "@/config/booking";
 import { sanitizeGuestName } from "@/lib/guestValidation";
 import type { 
   PendingBookingData, 
@@ -226,8 +226,21 @@ const PaymentPage = () => {
             paymentMethods.push("deposit");
           }
         });
-        if (paymentMethods.length > 0) {
-          setAvailablePaymentMethods(paymentMethods);
+        
+        // Apply sandbox filtering to cached payment methods
+        const hotelId = data.hotel?.id || (cachedData as any).hotelId;
+        const isActualTestHotel = isTestHotel(hotelId);
+        let filteredPaymentMethods = paymentMethods;
+        
+        if (BOOKING_CONFIG.isSandboxMode && BOOKING_CONFIG.sandboxRestrictions.blockDeposit) {
+          if (!isActualTestHotel || !BOOKING_CONFIG.sandboxRestrictions.allowDepositForTestHotel) {
+            filteredPaymentMethods = paymentMethods.filter(pm => pm !== "deposit");
+            console.log('⚠️ [Sandbox/Cached] Removed deposit payment for non-test hotel');
+          }
+        }
+        
+        if (filteredPaymentMethods.length > 0) {
+          setAvailablePaymentMethods(filteredPaymentMethods);
         }
         
         // Restore recommended payment type
@@ -235,9 +248,16 @@ const PaymentPage = () => {
           setRecommendedPaymentType(cachedData.recommendedPaymentType);
         }
         
-        // Set default payment type
-        const defaultType = paymentMethods.includes("hotel") ? "hotel" : "deposit";
-        setPaymentType(cachedData.selectedPaymentType || defaultType);
+        // Set default payment type (respect sandbox filtering)
+        const defaultType = filteredPaymentMethods.includes("hotel") ? "hotel" : 
+                            filteredPaymentMethods.includes("now_net") ? "now_net" : 
+                            filteredPaymentMethods[0] || "deposit";
+        const selectedType = cachedData.selectedPaymentType;
+        // If cached selection is deposit but deposit is now blocked, use default
+        const finalType = (selectedType === "deposit" && !filteredPaymentMethods.includes("deposit")) 
+          ? defaultType 
+          : (selectedType || defaultType);
+        setPaymentType(finalType);
       }
       
       toast({
@@ -315,9 +335,41 @@ const PaymentPage = () => {
         }
       });
       
+      // 🏨 Sandbox mode: Filter out deposit for real hotels (only test hotel can use deposit)
+      const hotelId = data.hotel?.id || (data as any).hotelId;
+      const isActualTestHotel = isTestHotel(hotelId);
+      
+      console.log('🏨 [PaymentPage] Hotel ID check for sandbox filtering:', {
+        hotelId,
+        isTestHotel: isActualTestHotel,
+        isSandboxMode: BOOKING_CONFIG.isSandboxMode,
+        blockDeposit: BOOKING_CONFIG.sandboxRestrictions.blockDeposit,
+        allowDepositForTestHotel: BOOKING_CONFIG.sandboxRestrictions.allowDepositForTestHotel,
+        paymentMethodsBefore: [...paymentMethods],
+      });
+      
+      // In sandbox mode, block deposit for non-test hotels (causes insufficient_b2b_balance)
+      let filteredPaymentMethods = paymentMethods;
+      if (BOOKING_CONFIG.isSandboxMode && BOOKING_CONFIG.sandboxRestrictions.blockDeposit) {
+        if (!isActualTestHotel || !BOOKING_CONFIG.sandboxRestrictions.allowDepositForTestHotel) {
+          filteredPaymentMethods = paymentMethods.filter(pm => pm !== "deposit");
+          if (paymentMethods.includes("deposit") && !filteredPaymentMethods.includes("deposit")) {
+            console.log('⚠️ [Sandbox] Removed deposit payment for non-test hotel - sandbox has no B2B balance');
+            toast({
+              title: "Sandbox Mode",
+              description: "Deposit payment is not available for this hotel in sandbox mode. Please use card payment or pay at property.",
+            });
+          }
+        } else {
+          console.log('✅ [Sandbox] Allowing deposit for test hotel (sandbox exception)');
+        }
+      }
+      
+      console.log('🏨 [PaymentPage] Final payment methods after sandbox filtering:', filteredPaymentMethods);
+      
       // Only use API-provided payment methods - no forced fallbacks
       // If no payment methods available, show error state
-      if (paymentMethods.length === 0) {
+      if (filteredPaymentMethods.length === 0) {
         console.error("❌ No payment methods available from API");
         toast({
           title: "Payment Not Available",
@@ -325,7 +377,7 @@ const PaymentPage = () => {
           variant: "destructive",
         });
       }
-      setAvailablePaymentMethods(paymentMethods);
+      setAvailablePaymentMethods(filteredPaymentMethods);
 
       // Store and auto-select recommended payment type (only if it's actually available)
       if (formResponse.data.recommended_payment_type) {
@@ -335,21 +387,27 @@ const PaymentPage = () => {
         // Map API type to UI type (e.g., "now" might need to map to "now_net")
         let uiPaymentType: PaymentType = recommended.type === "now" ? "now_net" : recommended.type;
         
-        // Only auto-select if the recommended type is actually available
+        // Only auto-select if the recommended type is actually available (use filtered list)
         if (recommended.type === "now" && !hasValidCardPayment) {
           console.warn("⚠️ Recommended 'now' payment not available (missing UUIDs) - falling back");
-          // Fallback to hotel, then deposit
-          uiPaymentType = paymentMethods.includes("hotel") ? "hotel" : "deposit";
-        } else if (!paymentMethods.includes(uiPaymentType) && !(uiPaymentType === "now_net" && paymentMethods.includes("now_net"))) {
+          // Fallback to hotel, then now_net (deposit may be blocked in sandbox)
+          uiPaymentType = filteredPaymentMethods.includes("hotel") ? "hotel" : 
+                          filteredPaymentMethods.includes("now_net") ? "now_net" : 
+                          filteredPaymentMethods[0] || "deposit";
+        } else if (!filteredPaymentMethods.includes(uiPaymentType) && !(uiPaymentType === "now_net" && filteredPaymentMethods.includes("now_net"))) {
           // If recommended type not in available methods, fallback
-          uiPaymentType = paymentMethods.includes("hotel") ? "hotel" : "deposit";
+          uiPaymentType = filteredPaymentMethods.includes("hotel") ? "hotel" : 
+                          filteredPaymentMethods.includes("now_net") ? "now_net" : 
+                          filteredPaymentMethods[0] || "deposit";
         }
         
         setPaymentType(uiPaymentType);
         console.log("💡 Auto-selected payment type:", uiPaymentType, "(recommended:", recommended.type, ")");
       } else {
-        // No recommendation - default to hotel or deposit
-        const defaultType = paymentMethods.includes("hotel") ? "hotel" : "deposit";
+        // No recommendation - default to hotel or now_net (deposit may be blocked in sandbox)
+        const defaultType = filteredPaymentMethods.includes("hotel") ? "hotel" : 
+                            filteredPaymentMethods.includes("now_net") ? "now_net" : 
+                            filteredPaymentMethods[0] || "deposit";
         setPaymentType(defaultType);
         console.log("💡 No recommended payment type - defaulting to:", defaultType);
       }
@@ -536,11 +594,30 @@ const PaymentPage = () => {
           paymentMethods.push(type);
         }
       });
+      
+      // Apply sandbox filtering to multiroom payment methods
+      const hotelId = data.hotel?.id || (data as any).hotelId;
+      const isActualTestHotel = isTestHotel(hotelId);
+      let filteredPaymentMethods = paymentMethods;
+      
+      if (BOOKING_CONFIG.isSandboxMode && BOOKING_CONFIG.sandboxRestrictions.blockDeposit) {
+        if (!isActualTestHotel || !BOOKING_CONFIG.sandboxRestrictions.allowDepositForTestHotel) {
+          filteredPaymentMethods = paymentMethods.filter(pm => pm !== "deposit");
+          if (paymentMethods.includes("deposit") && !filteredPaymentMethods.includes("deposit")) {
+            console.log('⚠️ [Sandbox/Multiroom] Removed deposit payment for non-test hotel');
+            toast({
+              title: "Sandbox Mode",
+              description: "Deposit payment is not available for this hotel in sandbox mode.",
+            });
+          }
+        }
+      }
+      
       // Only use API-provided payment methods - no forced fallbacks
-      if (paymentMethods.length === 0) {
+      if (filteredPaymentMethods.length === 0) {
         console.error("❌ No payment methods available from API for multiroom");
       }
-      setAvailablePaymentMethods(paymentMethods);
+      setAvailablePaymentMethods(filteredPaymentMethods);
 
       // Store and auto-select recommended payment type from first room (only if available)
       const firstRoomFromResponse = formResponse.data.rooms[0];
@@ -551,22 +628,26 @@ const PaymentPage = () => {
         // Map API type to UI type
         let uiPaymentType: PaymentType = recommended.type === "now" ? "now_net" : recommended.type;
         
-        // Check if recommended type is in available methods
-        if (!paymentMethods.includes(uiPaymentType) && !(uiPaymentType === "now_net" && paymentMethods.includes("now_net"))) {
-          uiPaymentType = paymentMethods.includes("hotel") ? "hotel" : "deposit";
+        // Check if recommended type is in available methods (use filtered list)
+        if (!filteredPaymentMethods.includes(uiPaymentType) && !(uiPaymentType === "now_net" && filteredPaymentMethods.includes("now_net"))) {
+          uiPaymentType = filteredPaymentMethods.includes("hotel") ? "hotel" : 
+                          filteredPaymentMethods.includes("now_net") ? "now_net" : 
+                          filteredPaymentMethods[0] || "deposit";
         }
         
         setPaymentType(uiPaymentType);
         console.log("💡 Multiroom: Auto-selected payment type:", uiPaymentType);
       } else {
-        // No recommendation - default to hotel or deposit
-        const defaultType = paymentMethods.includes("hotel") ? "hotel" : "deposit";
+        // No recommendation - default to hotel or now_net (deposit may be blocked)
+        const defaultType = filteredPaymentMethods.includes("hotel") ? "hotel" : 
+                            filteredPaymentMethods.includes("now_net") ? "now_net" : 
+                            filteredPaymentMethods[0] || "deposit";
         setPaymentType(defaultType);
       }
 
       console.log("📋 Multiroom order forms loaded:", {
         totalRooms: orderForms.length,
-        paymentTypes: paymentMethods,
+        paymentTypes: filteredPaymentMethods,
       });
 
       // Update booking data with order forms and cache for session recovery
@@ -575,7 +656,7 @@ const PaymentPage = () => {
         orderForms,
         // Cache additional data for session recovery
         multiroomOrderForms: orderForms,
-        availablePaymentMethods: paymentMethods,
+        availablePaymentMethods: filteredPaymentMethods,
         selectedPaymentType: paymentType,
       } as any;
       setBookingData(updatedData);
