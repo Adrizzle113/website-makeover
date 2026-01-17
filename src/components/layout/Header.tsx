@@ -14,10 +14,10 @@ export function Header({ variant = "light" }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { t } = useLanguage();
   
-  const isLight = variant === "light";
-  const textColor = isLight ? "text-white" : "text-foreground";
-  const textColorMuted = isLight ? "text-white/80" : "text-foreground/80";
-  const hoverColor = isLight ? "hover:text-white" : "hover:text-foreground";
+  // Both variants use white text - "light" is on image overlay, "dark" is on primary bg
+  const textColor = "text-white";
+  const textColorMuted = "text-white/80";
+  const hoverColor = "hover:text-white";
   
   const scrollToSection = (sectionId: string) => {
     const section = document.getElementById(sectionId);
