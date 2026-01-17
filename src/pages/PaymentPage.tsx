@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2, ArrowLeft, AlertCircle, Lock, Bug } from "lucide-react";
+import { Loader2, ArrowLeft, AlertCircle, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { BookingProgressIndicator } from "@/components/booking/BookingProgressIndicator";
 import { PaymentFormPanel } from "@/components/booking/PaymentFormPanel";
 import { PaymentSummaryPanel } from "@/components/booking/PaymentSummaryPanel";
@@ -18,7 +17,6 @@ import {
   validateCVV,
 } from "@/lib/cardValidation";
 import { getMockPendingBookingData } from "@/lib/mockBookingData";
-import { BOOKING_CONFIG, isRateRefundable, isTestHotel } from "@/config/booking";
 import { sanitizeGuestName } from "@/lib/guestValidation";
 import type { 
   PendingBookingData, 
@@ -227,20 +225,8 @@ const PaymentPage = () => {
           }
         });
         
-        // Apply sandbox filtering to cached payment methods
-        const hotelId = data.hotel?.id || (cachedData as any).hotelId;
-        const isActualTestHotel = isTestHotel(hotelId);
-        let filteredPaymentMethods = paymentMethods;
-        
-        if (BOOKING_CONFIG.isSandboxMode && BOOKING_CONFIG.sandboxRestrictions.blockDeposit) {
-          if (!isActualTestHotel || !BOOKING_CONFIG.sandboxRestrictions.allowDepositForTestHotel) {
-            filteredPaymentMethods = paymentMethods.filter(pm => pm !== "deposit");
-            console.log('⚠️ [Sandbox/Cached] Removed deposit payment for non-test hotel');
-          }
-        }
-        
-        if (filteredPaymentMethods.length > 0) {
-          setAvailablePaymentMethods(filteredPaymentMethods);
+        if (paymentMethods.length > 0) {
+          setAvailablePaymentMethods(paymentMethods);
         }
         
         // Restore recommended payment type
@@ -248,16 +234,12 @@ const PaymentPage = () => {
           setRecommendedPaymentType(cachedData.recommendedPaymentType);
         }
         
-        // Set default payment type (respect sandbox filtering)
-        const defaultType = filteredPaymentMethods.includes("hotel") ? "hotel" : 
-                            filteredPaymentMethods.includes("now_net") ? "now_net" : 
-                            filteredPaymentMethods[0] || "deposit";
-        const selectedType = cachedData.selectedPaymentType;
-        // If cached selection is deposit but deposit is now blocked, use default
-        const finalType = (selectedType === "deposit" && !filteredPaymentMethods.includes("deposit")) 
-          ? defaultType 
-          : (selectedType || defaultType);
-        setPaymentType(finalType);
+        // Set default payment type
+        const defaultType = paymentMethods.includes("hotel") ? "hotel" : 
+                            paymentMethods.includes("now_net") ? "now_net" : 
+                            paymentMethods[0] || "deposit";
+        const selectedType = cachedData.selectedPaymentType || defaultType;
+        setPaymentType(selectedType);
       }
       
       toast({
@@ -335,41 +317,11 @@ const PaymentPage = () => {
         }
       });
       
-      // 🏨 Sandbox mode: Filter out deposit for real hotels (only test hotel can use deposit)
-      const hotelId = data.hotel?.id || (data as any).hotelId;
-      const isActualTestHotel = isTestHotel(hotelId);
-      
-      console.log('🏨 [PaymentPage] Hotel ID check for sandbox filtering:', {
-        hotelId,
-        isTestHotel: isActualTestHotel,
-        isSandboxMode: BOOKING_CONFIG.isSandboxMode,
-        blockDeposit: BOOKING_CONFIG.sandboxRestrictions.blockDeposit,
-        allowDepositForTestHotel: BOOKING_CONFIG.sandboxRestrictions.allowDepositForTestHotel,
-        paymentMethodsBefore: [...paymentMethods],
-      });
-      
-      // In sandbox mode, block deposit for non-test hotels (causes insufficient_b2b_balance)
-      let filteredPaymentMethods = paymentMethods;
-      if (BOOKING_CONFIG.isSandboxMode && BOOKING_CONFIG.sandboxRestrictions.blockDeposit) {
-        if (!isActualTestHotel || !BOOKING_CONFIG.sandboxRestrictions.allowDepositForTestHotel) {
-          filteredPaymentMethods = paymentMethods.filter(pm => pm !== "deposit");
-          if (paymentMethods.includes("deposit") && !filteredPaymentMethods.includes("deposit")) {
-            console.log('⚠️ [Sandbox] Removed deposit payment for non-test hotel - sandbox has no B2B balance');
-            toast({
-              title: "Sandbox Mode",
-              description: "Deposit payment is not available for this hotel in sandbox mode. Please use card payment or pay at property.",
-            });
-          }
-        } else {
-          console.log('✅ [Sandbox] Allowing deposit for test hotel (sandbox exception)');
-        }
-      }
-      
-      console.log('🏨 [PaymentPage] Final payment methods after sandbox filtering:', filteredPaymentMethods);
+      console.log('🏨 [PaymentPage] Available payment methods:', paymentMethods);
       
       // Only use API-provided payment methods - no forced fallbacks
       // If no payment methods available, show error state
-      if (filteredPaymentMethods.length === 0) {
+      if (paymentMethods.length === 0) {
         console.error("❌ No payment methods available from API");
         toast({
           title: "Payment Not Available",
@@ -377,7 +329,7 @@ const PaymentPage = () => {
           variant: "destructive",
         });
       }
-      setAvailablePaymentMethods(filteredPaymentMethods);
+      setAvailablePaymentMethods(paymentMethods);
 
       // Store and auto-select recommended payment type (only if it's actually available)
       if (formResponse.data.recommended_payment_type) {
@@ -387,27 +339,26 @@ const PaymentPage = () => {
         // Map API type to UI type (e.g., "now" might need to map to "now_net")
         let uiPaymentType: PaymentType = recommended.type === "now" ? "now_net" : recommended.type;
         
-        // Only auto-select if the recommended type is actually available (use filtered list)
+        // Only auto-select if the recommended type is actually available
         if (recommended.type === "now" && !hasValidCardPayment) {
           console.warn("⚠️ Recommended 'now' payment not available (missing UUIDs) - falling back");
-          // Fallback to hotel, then now_net (deposit may be blocked in sandbox)
-          uiPaymentType = filteredPaymentMethods.includes("hotel") ? "hotel" : 
-                          filteredPaymentMethods.includes("now_net") ? "now_net" : 
-                          filteredPaymentMethods[0] || "deposit";
-        } else if (!filteredPaymentMethods.includes(uiPaymentType) && !(uiPaymentType === "now_net" && filteredPaymentMethods.includes("now_net"))) {
+          uiPaymentType = paymentMethods.includes("hotel") ? "hotel" : 
+                          paymentMethods.includes("now_net") ? "now_net" : 
+                          paymentMethods[0] || "deposit";
+        } else if (!paymentMethods.includes(uiPaymentType) && !(uiPaymentType === "now_net" && paymentMethods.includes("now_net"))) {
           // If recommended type not in available methods, fallback
-          uiPaymentType = filteredPaymentMethods.includes("hotel") ? "hotel" : 
-                          filteredPaymentMethods.includes("now_net") ? "now_net" : 
-                          filteredPaymentMethods[0] || "deposit";
+          uiPaymentType = paymentMethods.includes("hotel") ? "hotel" : 
+                          paymentMethods.includes("now_net") ? "now_net" : 
+                          paymentMethods[0] || "deposit";
         }
         
         setPaymentType(uiPaymentType);
         console.log("💡 Auto-selected payment type:", uiPaymentType, "(recommended:", recommended.type, ")");
       } else {
-        // No recommendation - default to hotel or now_net (deposit may be blocked in sandbox)
-        const defaultType = filteredPaymentMethods.includes("hotel") ? "hotel" : 
-                            filteredPaymentMethods.includes("now_net") ? "now_net" : 
-                            filteredPaymentMethods[0] || "deposit";
+        // No recommendation - default to hotel or now_net
+        const defaultType = paymentMethods.includes("hotel") ? "hotel" : 
+                            paymentMethods.includes("now_net") ? "now_net" : 
+                            paymentMethods[0] || "deposit";
         setPaymentType(defaultType);
         console.log("💡 No recommended payment type - defaulting to:", defaultType);
       }
@@ -595,29 +546,11 @@ const PaymentPage = () => {
         }
       });
       
-      // Apply sandbox filtering to multiroom payment methods
-      const hotelId = data.hotel?.id || (data as any).hotelId;
-      const isActualTestHotel = isTestHotel(hotelId);
-      let filteredPaymentMethods = paymentMethods;
-      
-      if (BOOKING_CONFIG.isSandboxMode && BOOKING_CONFIG.sandboxRestrictions.blockDeposit) {
-        if (!isActualTestHotel || !BOOKING_CONFIG.sandboxRestrictions.allowDepositForTestHotel) {
-          filteredPaymentMethods = paymentMethods.filter(pm => pm !== "deposit");
-          if (paymentMethods.includes("deposit") && !filteredPaymentMethods.includes("deposit")) {
-            console.log('⚠️ [Sandbox/Multiroom] Removed deposit payment for non-test hotel');
-            toast({
-              title: "Sandbox Mode",
-              description: "Deposit payment is not available for this hotel in sandbox mode.",
-            });
-          }
-        }
-      }
-      
       // Only use API-provided payment methods - no forced fallbacks
-      if (filteredPaymentMethods.length === 0) {
+      if (paymentMethods.length === 0) {
         console.error("❌ No payment methods available from API for multiroom");
       }
-      setAvailablePaymentMethods(filteredPaymentMethods);
+      setAvailablePaymentMethods(paymentMethods);
 
       // Store and auto-select recommended payment type from first room (only if available)
       const firstRoomFromResponse = formResponse.data.rooms[0];
@@ -628,26 +561,26 @@ const PaymentPage = () => {
         // Map API type to UI type
         let uiPaymentType: PaymentType = recommended.type === "now" ? "now_net" : recommended.type;
         
-        // Check if recommended type is in available methods (use filtered list)
-        if (!filteredPaymentMethods.includes(uiPaymentType) && !(uiPaymentType === "now_net" && filteredPaymentMethods.includes("now_net"))) {
-          uiPaymentType = filteredPaymentMethods.includes("hotel") ? "hotel" : 
-                          filteredPaymentMethods.includes("now_net") ? "now_net" : 
-                          filteredPaymentMethods[0] || "deposit";
+        // Check if recommended type is in available methods
+        if (!paymentMethods.includes(uiPaymentType) && !(uiPaymentType === "now_net" && paymentMethods.includes("now_net"))) {
+          uiPaymentType = paymentMethods.includes("hotel") ? "hotel" : 
+                          paymentMethods.includes("now_net") ? "now_net" : 
+                          paymentMethods[0] || "deposit";
         }
         
         setPaymentType(uiPaymentType);
         console.log("💡 Multiroom: Auto-selected payment type:", uiPaymentType);
       } else {
-        // No recommendation - default to hotel or now_net (deposit may be blocked)
-        const defaultType = filteredPaymentMethods.includes("hotel") ? "hotel" : 
-                            filteredPaymentMethods.includes("now_net") ? "now_net" : 
-                            filteredPaymentMethods[0] || "deposit";
+        // No recommendation - default to hotel or now_net
+        const defaultType = paymentMethods.includes("hotel") ? "hotel" : 
+                            paymentMethods.includes("now_net") ? "now_net" : 
+                            paymentMethods[0] || "deposit";
         setPaymentType(defaultType);
       }
 
       console.log("📋 Multiroom order forms loaded:", {
         totalRooms: orderForms.length,
-        paymentTypes: filteredPaymentMethods,
+        paymentTypes: paymentMethods,
       });
 
       // Update booking data with order forms and cache for session recovery
@@ -656,7 +589,7 @@ const PaymentPage = () => {
         orderForms,
         // Cache additional data for session recovery
         multiroomOrderForms: orderForms,
-        availablePaymentMethods: filteredPaymentMethods,
+        availablePaymentMethods: paymentMethods,
         selectedPaymentType: paymentType,
       } as any;
       setBookingData(updatedData);
@@ -832,88 +765,6 @@ const PaymentPage = () => {
 
   const handlePayment = async () => {
     if (isCardPayment && !validateForm()) return;
-
-    // Sandbox mode validation - check if booking can proceed
-    if (BOOKING_CONFIG.isSandboxMode && bookingData) {
-      const hotelId = bookingData.hotel?.id;
-      const isTestHotelBooking = hotelId === BOOKING_CONFIG.testHotelId || 
-                                  hotelId === BOOKING_CONFIG.testHotelSlug;
-      
-      // Check if booking non-test hotel in sandbox mode
-      if (!isTestHotelBooking) {
-        toast({
-          title: "Sandbox Mode Restriction",
-          description: `Sandbox API can only book the test hotel (ID: ${BOOKING_CONFIG.testHotelId}). Please use the test hotel or switch to a production API key.`,
-          variant: "destructive",
-        });
-        setPaymentError(`Cannot book real hotels in sandbox mode. Only test hotel (${BOOKING_CONFIG.testHotelId}) is allowed.`);
-        return;
-      }
-
-      // CRITICAL: Block deposit payment type in sandbox - causes insufficient_b2b_balance error
-      // EXCEPTION: Allow deposit for test hotel if flag is enabled (since it only has deposit rates)
-      const apiPaymentTypeToUse = getApiPaymentType(paymentType);
-      if (apiPaymentTypeToUse === "deposit" && BOOKING_CONFIG.sandboxRestrictions.blockDeposit) {
-        // Check if this is the test hotel AND we allow deposit exception
-        if (isTestHotelBooking && BOOKING_CONFIG.sandboxRestrictions.allowDepositForTestHotel) {
-          console.log("⚠️ Allowing deposit for test hotel (sandbox exception) - may fail with insufficient_b2b_balance");
-        } else {
-          console.error("❌ Deposit payment blocked in sandbox mode");
-          toast({
-            title: "Deposit Not Available in Sandbox",
-            description: "Deposit payment requires B2B balance which sandbox accounts don't have. Please select 'Pay at Hotel' or use a card payment method.",
-            variant: "destructive",
-          });
-          setPaymentError(
-            `Deposit payment is not available in sandbox mode.\n\n` +
-            `This happens because:\n` +
-            `• Deposit requires B2B balance (pre-funded account)\n` +
-            `• Sandbox/test accounts have no B2B balance\n\n` +
-            `Solution: Select "Pay at Hotel" or card payment instead.`
-          );
-          return;
-        }
-      }
-
-      // Check if selected rooms meet sandbox requirements
-      const rooms = bookingData.rooms || [];
-      const invalidRoom = rooms.find(room => {
-        // CRITICAL: RateHawk sandbox requires actual free_cancellation_before field
-        // Rates with only "policies" will fail with insufficient_b2b_balance
-        if (!room.hasFreeCancellationBefore) {
-          console.log('[PaymentPage] Room blocked - missing free_cancellation_before:', room.roomName);
-          return true;
-        }
-        
-        // Check using the new cancellation metadata
-        if (room.cancellationType && room.cancellationType !== "free_cancellation") {
-          return true;
-        }
-        // Fallback: check if deadline is missing or in the past
-        if (!room.cancellationDeadline) {
-          return true;
-        }
-        const deadline = new Date(room.cancellationDeadline);
-        return deadline <= new Date();
-      });
-
-      if (invalidRoom) {
-        const missingFreeCancellationBefore = !invalidRoom.hasFreeCancellationBefore;
-        toast({
-          title: "Sandbox Mode Restriction",
-          description: missingFreeCancellationBefore 
-            ? "RateHawk sandbox requires rates with free_cancellation_before field. This rate only has penalty policies."
-            : "Sandbox API requires refundable rates with future cancellation deadlines. Please select a refundable rate.",
-          variant: "destructive",
-        });
-        setPaymentError(
-          missingFreeCancellationBefore
-            ? "Cannot book this rate in sandbox mode.\n\nRateHawk requires rates with an explicit 'free_cancellation_before' date field. This rate only has penalty policies, which causes insufficient_b2b_balance errors.\n\nPlease go back and select a different rate."
-            : "Cannot book non-refundable rates in sandbox mode. Please go back and select a refundable rate."
-        );
-        return;
-      }
-    }
 
     // Validate order form data
     if (isMultiroom) {
@@ -1111,46 +962,14 @@ const PaymentPage = () => {
         }
       }
       
-      // Check for insufficient_b2b_balance error - provide sandbox-specific guidance
+      // Check for insufficient_b2b_balance error - provide guidance
       const isB2BBalanceError = errorMessage.toLowerCase().includes("insufficient_b2b_balance") ||
                                  errorMessage.toLowerCase().includes("b2b") ||
                                  errorMessage.toLowerCase().includes("insufficient balance") ||
                                  errorMessage.includes("402");
       
       if (isB2BBalanceError) {
-        // In sandbox mode, check if deposit payment was used
-        if (BOOKING_CONFIG.isSandboxMode) {
-          const currentApiPaymentType = getApiPaymentType(paymentType);
-          const usedDepositPayment = currentApiPaymentType === "deposit";
-          console.log("💡 B2B balance error in sandbox mode - deposit payment:", usedDepositPayment);
-          
-          toast({
-            title: "Sandbox Booking Failed",
-            description: usedDepositPayment 
-              ? "Deposit payment requires B2B balance which sandbox accounts don't have."
-              : "Sandbox API requires refundable rates. Please select a different rate.",
-            variant: "destructive",
-          });
-          
-          setPaymentError(
-            usedDepositPayment
-              ? `Deposit payment is not available in sandbox mode.\n\n` +
-                `This happens because:\n` +
-                `• Deposit requires pre-funded B2B balance\n` +
-                `• Sandbox accounts have $0 B2B balance\n\n` +
-                `Options:\n` +
-                `1. Search for a different hotel with "Pay at Hotel" or card payment options\n` +
-                `2. Contact RateHawk to request sandbox B2B credit: partners@ratehawk.com`
-              : `Sandbox mode requires refundable rates. This error occurs when:\n` +
-                `• The rate is non-refundable\n` +
-                `• The cancellation deadline has passed\n` +
-                `• Booking a real hotel (not test hotel ${BOOKING_CONFIG.testHotelId})\n\n` +
-                `Please go back to the hotel page and select a refundable rate with "Free cancellation" and a future deadline.`
-          );
-          return;
-        }
-        
-        // Production mode - try to fallback to "hotel" payment type
+        // Try to fallback to "hotel" payment type
         const hotelPayment = paymentTypesData.find(pt => pt.type === "hotel");
         
         if (hotelPayment && paymentType === "deposit") {
@@ -1223,12 +1042,6 @@ const PaymentPage = () => {
       });
     }
 
-    // ✅ Validate cancellation data for sandbox compliance
-    if (BOOKING_CONFIG.isSandboxMode && bookingData!.rooms[0]?.hasFreeCancellationBefore && !freeCancellationBefore) {
-      console.error('[Payment] Refundable rate missing cancellationDeadline:', bookingData!.rooms[0]);
-      throw new Error("Booking failed: Refundable rate missing cancellation deadline. Please select a different rate.");
-    }
-
     const response = await bookingApi.finishBooking({
       order_id: orderId!,
       item_id: itemId!,
@@ -1264,17 +1077,6 @@ const PaymentPage = () => {
 
   // Multiroom finish
   const handleMultiroomFinish = async (leadGuest: PendingBookingData["guests"][number] | undefined) => {
-    // ✅ Validate each room's cancellation data for sandbox compliance
-    if (BOOKING_CONFIG.isSandboxMode) {
-      for (let i = 0; i < bookingData!.rooms.length; i++) {
-        const room = bookingData!.rooms[i];
-        if (room.hasFreeCancellationBefore && !room.cancellationDeadline) {
-          console.error(`[Payment] Room ${i + 1} missing cancellationDeadline:`, room);
-          throw new Error(`Room ${i + 1} is marked refundable but missing cancellation deadline. Please select a different rate.`);
-        }
-      }
-    }
-
     // Build rooms array for multiroom finish
     const rooms: MultiroomOrderFinishParams["rooms"] = multiroomOrderForms.map((form, index) => {
       // Build guests for this room
@@ -1515,61 +1317,6 @@ const PaymentPage = () => {
       {/* Main Content - Split Screen */}
       <main className="flex-1 py-10 lg:py-16">
         <div className="container mx-auto px-4 max-w-7xl">
-          {/* Sandbox Debug Panel */}
-          {BOOKING_CONFIG.isSandboxMode && (
-            <Collapsible className="mb-6">
-              <CollapsibleTrigger className="flex items-center gap-2 text-xs text-orange-600 hover:text-orange-800 underline">
-                <Bug className="h-3 w-3" />
-                <span>Show Payment Debug Info</span>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-2">
-                <div className="bg-gray-100 border rounded p-3 text-xs font-mono overflow-auto max-h-64">
-                  <div className="mb-2 font-semibold text-gray-700">
-                    Hotel: {bookingData.hotel?.id} | Test Hotel: {bookingData.hotel?.id === BOOKING_CONFIG.testHotelId || bookingData.hotel?.id === BOOKING_CONFIG.testHotelSlug ? "✅ Yes" : "❌ No"}
-                  </div>
-                  <div className="mb-2">
-                    <span className="font-semibold">Selected Payment Type:</span>{" "}
-                    <span className={paymentType === "deposit" ? "text-red-600 font-bold" : "text-green-600"}>
-                      {paymentType} → API: {getApiPaymentType(paymentType)}
-                    </span>
-                    {paymentType === "deposit" && (
-                      <span className="text-red-600 ml-2">⚠️ WILL FAIL (no B2B balance)</span>
-                    )}
-                  </div>
-                  <div className="mb-2">
-                    <span className="font-semibold">Available Methods:</span> {availablePaymentMethods.join(", ")}
-                  </div>
-                  <div className="mb-2">
-                    <span className="font-semibold">Recommended:</span> {recommendedPaymentType?.type || "None"}
-                  </div>
-                  <div className="mb-2">
-                    <span className="font-semibold">Payment Types from API:</span>
-                    <div className="pl-2 mt-1">
-                      {paymentTypesData.map((pt, idx) => (
-                        <div key={idx} className={pt.type === "deposit" ? "text-red-600" : "text-green-600"}>
-                          • {pt.type}: {pt.currency_code} {pt.amount}
-                          {pt.type === "deposit" && " ⚠️ blocked in sandbox"}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="border-t pt-2 mt-2">
-                    <span className="font-semibold">Rooms:</span>
-                    {bookingData.rooms?.map((room, idx) => (
-                      <div key={idx} className="pl-2 mt-1">
-                        <div className="font-medium">{room.roomName}</div>
-                        <div className={room.cancellationType === "free_cancellation" ? "text-green-600" : "text-red-600"}>
-                          • Cancellation: {room.cancellationType || "unknown"}
-                        </div>
-                        <div>• Deadline: {room.cancellationDeadline || "N/A"}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-
           {/* Payment Error Alert */}
           {paymentError && (
             <div className="mb-8 bg-destructive/10 border border-destructive/20 rounded-2xl p-5 flex items-start gap-4 animate-fade-in">
