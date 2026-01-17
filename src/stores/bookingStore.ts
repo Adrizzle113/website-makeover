@@ -11,8 +11,8 @@ import type {
   UpsellsState,
 } from "@/types/booking";
 import { DEFAULT_FILTERS, DEFAULT_UPSELLS_STATE } from "@/types/booking";
-import type { 
-  OrderStatus, 
+import type {
+  OrderStatus,
   PaymentType,
   PrebookedRoom,
   OrderFormData,
@@ -54,31 +54,31 @@ interface BookingStore {
   currentPage: number;
   totalResults: number;
   displayedCount: number;
-  
+
   // Search Type State
   searchType: SearchType;
-  
+
   // Filter & Sort State
   filters: SearchFilters;
   sortBy: SortOption;
-  
+
   // Upsells Preferences (for API requests)
   upsellsPreferences: UpsellsState;
 
   // ETG Booking State (Single Room - Backward Compatible)
-  bookingHash: string | null;      // book_hash from prebook
-  partnerOrderId: string | null;   // Generated once per booking
-  orderId: string | null;          // From order form response
-  itemId: string | null;           // From order form response
+  bookingHash: string | null; // book_hash from prebook
+  partnerOrderId: string | null; // Generated once per booking
+  orderId: string | null; // From order form response
+  itemId: string | null; // From order form response
   orderGroupId: string | null;
   orderStatus: OrderStatus;
   paymentType: PaymentType | null;
   residency: string;
 
   // Multiroom Booking State
-  prebookedRooms: PrebookedRoom[];           // Results from multiroom prebook
-  orderForms: OrderFormData[];               // Order forms for each room
-  multiroomStatus: MultiroomBookingStatus | null;  // Tracking status of all rooms
+  prebookedRooms: PrebookedRoom[]; // Results from multiroom prebook
+  orderForms: OrderFormData[]; // Order forms for each room
+  multiroomStatus: MultiroomBookingStatus | null; // Tracking status of all rooms
 
   // Actions
   setSearchParams: (params: SearchParams) => void;
@@ -101,13 +101,13 @@ interface BookingStore {
   setCurrentPage: (page: number) => void;
   clearSearch: () => void;
   reset: () => void;
-  
+
   // Upsell Actions
   addUpsell: (upsell: SelectedUpsell) => void;
   removeUpsell: (upsellId: string, roomId: string) => void;
   clearUpsells: () => void;
   getUpsellsForRoom: (roomId: string) => SelectedUpsell[];
-  
+
   // Search Type Actions
   setSearchType: (type: SearchType) => void;
 
@@ -115,7 +115,7 @@ interface BookingStore {
   setFilters: (filters: Partial<SearchFilters>) => void;
   resetFilters: () => void;
   setSortBy: (sort: SortOption) => void;
-  
+
   // Upsells Preferences Actions
   setUpsellsPreferences: (upsells: UpsellsState) => void;
   resetUpsellsPreferences: () => void;
@@ -139,7 +139,11 @@ interface BookingStore {
   setOrderForms: (forms: OrderFormData[]) => void;
   addOrderForm: (form: OrderFormData) => void;
   setMultiroomStatus: (status: MultiroomBookingStatus | null) => void;
-  updateRoomBookingStatus: (roomIndex: number, status: "processing" | "confirmed" | "failed", confirmationNumber?: string) => void;
+  updateRoomBookingStatus: (
+    roomIndex: number,
+    status: "processing" | "confirmed" | "failed",
+    confirmationNumber?: string,
+  ) => void;
   isMultiroomBooking: () => boolean;
   clearMultiroomState: () => void;
 
@@ -201,8 +205,8 @@ export const useBookingStore = create<BookingStore>()(
         } catch (e) {
           console.warn("Failed to clear localStorage:", e);
         }
-        set({ 
-          searchResults: results, 
+        set({
+          searchResults: results,
           hasMoreResults: hasMore,
           totalResults: total || results.length,
           currentPage: 1,
@@ -218,7 +222,7 @@ export const useBookingStore = create<BookingStore>()(
           console.warn("Failed to clear localStorage:", e);
         }
         const firstBatch = results.slice(0, DISPLAY_BATCH_SIZE);
-        set({ 
+        set({
           rawSearchResults: results,
           searchResults: firstBatch, // First batch, will be enriched
           totalResults: total || results.length,
@@ -230,15 +234,16 @@ export const useBookingStore = create<BookingStore>()(
       },
 
       // Append enriched hotels to display
-      appendToDisplayed: (hotels) => set((state) => {
-        const newDisplayed = [...state.searchResults, ...hotels];
-        const newCount = newDisplayed.length;
-        return {
-          searchResults: newDisplayed,
-          displayedCount: newCount,
-          hasMoreResults: newCount < state.rawSearchResults.length,
-        };
-      }),
+      appendToDisplayed: (hotels) =>
+        set((state) => {
+          const newDisplayed = [...state.searchResults, ...hotels];
+          const newCount = newDisplayed.length;
+          return {
+            searchResults: newDisplayed,
+            displayedCount: newCount,
+            hasMoreResults: newCount < state.rawSearchResults.length,
+          };
+        }),
 
       // Get next batch from raw results
       getNextBatchToDisplay: () => {
@@ -248,21 +253,23 @@ export const useBookingStore = create<BookingStore>()(
         return state.rawSearchResults.slice(start, end);
       },
 
-      appendSearchResults: (results, hasMore = false) => set((state) => ({
-        searchResults: [...state.searchResults, ...results],
-        rawSearchResults: [...state.rawSearchResults, ...results],
-        hasMoreResults: hasMore,
-        currentPage: state.currentPage + 1,
-        displayedCount: state.searchResults.length + results.length,
-      })),
+      appendSearchResults: (results, hasMore = false) =>
+        set((state) => ({
+          searchResults: [...state.searchResults, ...results],
+          rawSearchResults: [...state.rawSearchResults, ...results],
+          hasMoreResults: hasMore,
+          currentPage: state.currentPage + 1,
+          displayedCount: state.searchResults.length + results.length,
+        })),
 
       setEnriching: (loading) => set({ isEnriching: loading }),
 
-      setEnrichedHotels: (hotels) => set((state) => {
-        const next = new Map(state.enrichedHotels);
-        hotels.forEach(h => next.set(h.id, h));
-        return { enrichedHotels: next };
-      }),
+      setEnrichedHotels: (hotels) =>
+        set((state) => {
+          const next = new Map(state.enrichedHotels);
+          hotels.forEach((h) => next.set(h.id, h));
+          return { enrichedHotels: next };
+        }),
 
       clearEnrichedHotels: () => set({ enrichedHotels: new Map() }),
 
@@ -270,20 +277,28 @@ export const useBookingStore = create<BookingStore>()(
 
       addRoom: (room) =>
         set((state) => {
-          const existingIndex = state.selectedRooms.findIndex(
-            (r) => r.roomId === room.roomId
-          );
+          const existingIndex = state.selectedRooms.findIndex((r) => r.roomId === room.roomId);
           if (existingIndex >= 0) {
             const updatedRooms = [...state.selectedRooms];
+            const existingRoom = updatedRooms[existingIndex];
+            // Preserve ALL room properties when updating, not just quantity and price
             updatedRooms[existingIndex] = {
-              ...updatedRooms[existingIndex],
-              quantity: updatedRooms[existingIndex].quantity + room.quantity,
-              totalPrice:
-                (updatedRooms[existingIndex].quantity + room.quantity) *
-                room.pricePerRoom,
+              ...room, // Use new room data as base (includes cancellation metadata)
+              quantity: existingRoom.quantity + room.quantity,
+              totalPrice: (existingRoom.quantity + room.quantity) * room.pricePerRoom,
             };
+            console.log("[BookingStore] Updated existing room:", {
+              roomId: room.roomId,
+              cancellationDeadline: updatedRooms[existingIndex].cancellationDeadline,
+              hasFreeCancellationBefore: updatedRooms[existingIndex].hasFreeCancellationBefore,
+            });
             return { selectedRooms: updatedRooms };
           }
+          console.log("[BookingStore] Added new room:", {
+            roomId: room.roomId,
+            cancellationDeadline: room.cancellationDeadline,
+            hasFreeCancellationBefore: room.hasFreeCancellationBefore,
+          });
           return { selectedRooms: [...state.selectedRooms, room] };
         }),
 
@@ -298,18 +313,14 @@ export const useBookingStore = create<BookingStore>()(
         set((state) => {
           if (quantity <= 0) {
             return {
-              selectedRooms: state.selectedRooms.filter(
-                (r) => r.roomId !== roomId
-              ),
+              selectedRooms: state.selectedRooms.filter((r) => r.roomId !== roomId),
               // Also remove upsells for this room
               selectedUpsells: state.selectedUpsells.filter((u) => u.roomId !== roomId),
             };
           }
           return {
             selectedRooms: state.selectedRooms.map((r) =>
-              r.roomId === roomId
-                ? { ...r, quantity, totalPrice: quantity * r.pricePerRoom }
-                : r
+              r.roomId === roomId ? { ...r, quantity, totalPrice: quantity * r.pricePerRoom } : r,
             ),
           };
         }),
@@ -341,23 +352,19 @@ export const useBookingStore = create<BookingStore>()(
         }),
 
       reset: () => set(initialState),
-      
+
       // Upsell Actions
       addUpsell: (upsell) =>
         set((state) => {
           // Check if already exists
-          const exists = state.selectedUpsells.some(
-            (u) => u.id === upsell.id && u.roomId === upsell.roomId
-          );
+          const exists = state.selectedUpsells.some((u) => u.id === upsell.id && u.roomId === upsell.roomId);
           if (exists) return state;
           return { selectedUpsells: [...state.selectedUpsells, upsell] };
         }),
 
       removeUpsell: (upsellId, roomId) =>
         set((state) => ({
-          selectedUpsells: state.selectedUpsells.filter(
-            (u) => !(u.id === upsellId && u.roomId === roomId)
-          ),
+          selectedUpsells: state.selectedUpsells.filter((u) => !(u.id === upsellId && u.roomId === roomId)),
         })),
 
       clearUpsells: () => set({ selectedUpsells: [] }),
@@ -365,68 +372,71 @@ export const useBookingStore = create<BookingStore>()(
       getUpsellsForRoom: (roomId) => {
         return get().selectedUpsells.filter((u) => u.roomId === roomId);
       },
-      
+
       // Search Type Actions
       setSearchType: (type) => set({ searchType: type }),
 
       // Filter & Sort Actions
-      setFilters: (newFilters) => set((state) => ({
-        filters: { ...state.filters, ...newFilters },
-      })),
-      
+      setFilters: (newFilters) =>
+        set((state) => ({
+          filters: { ...state.filters, ...newFilters },
+        })),
+
       resetFilters: () => set({ filters: DEFAULT_FILTERS }),
-      
+
       setSortBy: (sort) => set({ sortBy: sort }),
-      
+
       // Upsells Preferences Actions
       setUpsellsPreferences: (upsells) => set({ upsellsPreferences: upsells }),
-      
+
       resetUpsellsPreferences: () => set({ upsellsPreferences: DEFAULT_UPSELLS_STATE }),
 
       // ETG Booking Actions
       setBookingHash: (hash) => set({ bookingHash: hash }),
-      
+
       setPartnerOrderId: (id) => set({ partnerOrderId: id }),
-      
+
       setOrderId: (id) => set({ orderId: id }),
-      
+
       setItemId: (id) => set({ itemId: id }),
-      
+
       setOrderGroupId: (id) => set({ orderGroupId: id }),
-      
+
       setOrderStatus: (status) => set({ orderStatus: status }),
-      
+
       setPaymentType: (type) => set({ paymentType: type }),
-      
+
       setResidency: (residency) => set({ residency }),
-      
-      clearBookingState: () => set({
-        bookingHash: null,
-        partnerOrderId: null,  // Force regeneration on next booking attempt
-        orderId: null,
-        itemId: null,
-        orderGroupId: null,
-        orderStatus: "idle",
-        paymentType: null,
-        // Also clear multiroom state
-        prebookedRooms: [],
-        orderForms: [],
-        multiroomStatus: null,
-      }),
+
+      clearBookingState: () =>
+        set({
+          bookingHash: null,
+          partnerOrderId: null, // Force regeneration on next booking attempt
+          orderId: null,
+          itemId: null,
+          orderGroupId: null,
+          orderStatus: "idle",
+          paymentType: null,
+          // Also clear multiroom state
+          prebookedRooms: [],
+          orderForms: [],
+          multiroomStatus: null,
+        }),
 
       // Clear only transient booking attempt data (for navigation between hotels)
       // Keeps partnerOrderId as it will be regenerated when needed
-      clearBookingAttemptState: () => set({
-        bookingHash: null,
-        orderId: null,
-        itemId: null,
-        orderGroupId: null,
-        orderStatus: "idle",
-        prebookedRooms: [],
-        orderForms: [],
-        multiroomStatus: null,
-      }),
-      
+      clearBookingAttemptState: () =>
+        set({
+          bookingHash: null,
+          orderId: null,
+          itemId: null,
+          orderGroupId: null,
+          orderStatus: "idle",
+          prebookedRooms: [],
+          orderForms: [],
+          multiroomStatus: null,
+        }),
+
       generateAndSetPartnerOrderId: () => {
         const timestamp = Date.now();
         const random = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -437,83 +447,75 @@ export const useBookingStore = create<BookingStore>()(
 
       // Multiroom Booking Actions
       setPrebookedRooms: (rooms) => set({ prebookedRooms: rooms }),
-      
-      addPrebookedRoom: (room) => set((state) => ({
-        prebookedRooms: [...state.prebookedRooms, room],
-      })),
-      
+
+      addPrebookedRoom: (room) =>
+        set((state) => ({
+          prebookedRooms: [...state.prebookedRooms, room],
+        })),
+
       setOrderForms: (forms) => set({ orderForms: forms }),
-      
-      addOrderForm: (form) => set((state) => ({
-        orderForms: [...state.orderForms, form],
-      })),
-      
+
+      addOrderForm: (form) =>
+        set((state) => ({
+          orderForms: [...state.orderForms, form],
+        })),
+
       setMultiroomStatus: (status) => set({ multiroomStatus: status }),
-      
-      updateRoomBookingStatus: (roomIndex, status, confirmationNumber) => set((state) => {
-        if (!state.multiroomStatus) return state;
-        
-        const updatedRooms = state.multiroomStatus.rooms.map((room) =>
-          room.roomIndex === roomIndex
-            ? { ...room, status, confirmation_number: confirmationNumber || room.confirmation_number }
-            : room
-        );
-        
-        const successful = updatedRooms.filter(r => r.status === "confirmed").length;
-        const failed = updatedRooms.filter(r => r.status === "failed").length;
-        
-        return {
-          multiroomStatus: {
-            ...state.multiroomStatus,
-            rooms: updatedRooms,
-            successful_rooms: successful,
-            failed_rooms: failed,
-          },
-        };
-      }),
-      
+
+      updateRoomBookingStatus: (roomIndex, status, confirmationNumber) =>
+        set((state) => {
+          if (!state.multiroomStatus) return state;
+
+          const updatedRooms = state.multiroomStatus.rooms.map((room) =>
+            room.roomIndex === roomIndex
+              ? { ...room, status, confirmation_number: confirmationNumber || room.confirmation_number }
+              : room,
+          );
+
+          const successful = updatedRooms.filter((r) => r.status === "confirmed").length;
+          const failed = updatedRooms.filter((r) => r.status === "failed").length;
+
+          return {
+            multiroomStatus: {
+              ...state.multiroomStatus,
+              rooms: updatedRooms,
+              successful_rooms: successful,
+              failed_rooms: failed,
+            },
+          };
+        }),
+
       isMultiroomBooking: () => {
         const state = get();
         // Multiroom if we have multiple rooms selected OR any room has quantity > 1
         const totalRooms = state.selectedRooms.reduce((sum, room) => sum + room.quantity, 0);
         return totalRooms > 1 || state.selectedRooms.length > 1;
       },
-      
-      clearMultiroomState: () => set({
-        prebookedRooms: [],
-        orderForms: [],
-        multiroomStatus: null,
-      }),
+
+      clearMultiroomState: () =>
+        set({
+          prebookedRooms: [],
+          orderForms: [],
+          multiroomStatus: null,
+        }),
 
       getTotalPrice: () => {
         const state = get();
-        const roomsTotal = state.selectedRooms.reduce(
-          (total, room) => total + room.totalPrice,
-          0
-        );
-        const upsellsTotal = state.selectedUpsells.reduce(
-          (total, upsell) => total + upsell.price,
-          0
-        );
+        const roomsTotal = state.selectedRooms.reduce((total, room) => total + room.totalPrice, 0);
+        const upsellsTotal = state.selectedUpsells.reduce((total, upsell) => total + upsell.price, 0);
         return roomsTotal + upsellsTotal;
       },
 
       getTotalRooms: () => {
         const state = get();
-        return state.selectedRooms.reduce(
-          (total, room) => total + room.quantity,
-          0
-        );
+        return state.selectedRooms.reduce((total, room) => total + room.quantity, 0);
       },
 
       getTotalUpsellsPrice: () => {
         const state = get();
-        return state.selectedUpsells.reduce(
-          (total, upsell) => total + upsell.price,
-          0
-        );
+        return state.selectedUpsells.reduce((total, upsell) => total + upsell.price, 0);
       },
-      
+
       getActiveFilterCount: () => {
         const { filters, upsellsPreferences } = get();
         let count = 0;
@@ -557,6 +559,6 @@ export const useBookingStore = create<BookingStore>()(
         }
         return state;
       },
-    }
-  )
+    },
+  ),
 );
