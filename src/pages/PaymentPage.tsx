@@ -911,6 +911,24 @@ const PaymentPage = () => {
         // Get free_cancellation_before from the selected room
         const freeCancellationBefore = bookingData!.rooms[0]?.cancellationDeadline;
 
+        // ✅ DEBUG: Verify cancellation data before API call
+        console.log('🔍 DEBUG - Card Payment - Booking cancellation data:', {
+          room: bookingData!.rooms[0],
+          cancellationDeadline: bookingData!.rooms[0]?.cancellationDeadline,
+          hasFreeCancellationBefore: bookingData!.rooms[0]?.hasFreeCancellationBefore,
+          cancellationType: bookingData!.rooms[0]?.cancellationType,
+          freeCancellationBefore: freeCancellationBefore,
+          paymentType: apiPaymentType,
+        });
+
+        // ✅ VALIDATION: Warn if refundable rate missing deadline
+        if (bookingData!.rooms[0]?.hasFreeCancellationBefore && !freeCancellationBefore) {
+          console.error('❌ CRITICAL: Refundable rate missing cancellationDeadline!', {
+            room: bookingData!.rooms[0],
+            hasFreeCancellationBefore: bookingData!.rooms[0]?.hasFreeCancellationBefore,
+          });
+        }
+
         const finishResponse = await bookingApi.finishBooking({
           order_id: orderId!,
           item_id: itemId!,
@@ -1094,6 +1112,24 @@ const PaymentPage = () => {
 
     // Get free_cancellation_before from the selected room (use first room for single-room booking)
     const freeCancellationBefore = bookingData!.rooms[0]?.cancellationDeadline;
+
+    // ✅ DEBUG: Verify cancellation data before API call
+    console.log('🔍 DEBUG - Single Room Finish - Booking cancellation data:', {
+      room: bookingData!.rooms[0],
+      cancellationDeadline: bookingData!.rooms[0]?.cancellationDeadline,
+      hasFreeCancellationBefore: bookingData!.rooms[0]?.hasFreeCancellationBefore,
+      cancellationType: bookingData!.rooms[0]?.cancellationType,
+      freeCancellationBefore: freeCancellationBefore,
+      paymentType: apiPaymentType,
+    });
+
+    // ✅ VALIDATION: Warn if refundable rate missing deadline
+    if (bookingData!.rooms[0]?.hasFreeCancellationBefore && !freeCancellationBefore) {
+      console.error('❌ CRITICAL: Refundable rate missing cancellationDeadline!', {
+        room: bookingData!.rooms[0],
+        hasFreeCancellationBefore: bookingData!.rooms[0]?.hasFreeCancellationBefore,
+      });
+    }
 
     // ✅ Validate cancellation data for sandbox compliance
     if (BOOKING_CONFIG.isSandboxMode && bookingData!.rooms[0]?.hasFreeCancellationBefore && !freeCancellationBefore) {

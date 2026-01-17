@@ -275,12 +275,14 @@ export const useBookingStore = create<BookingStore>()(
           );
           if (existingIndex >= 0) {
             const updatedRooms = [...state.selectedRooms];
+            const existingRoom = updatedRooms[existingIndex];
+            // ✅ CRITICAL FIX: Merge all room properties (including cancellation metadata)
+            // This preserves cancellationDeadline, hasFreeCancellationBefore, etc. when rate changes
             updatedRooms[existingIndex] = {
-              ...updatedRooms[existingIndex],
-              quantity: updatedRooms[existingIndex].quantity + room.quantity,
-              totalPrice:
-                (updatedRooms[existingIndex].quantity + room.quantity) *
-                room.pricePerRoom,
+              ...existingRoom,
+              ...room, // Include all new room properties (cancellationDeadline, hasFreeCancellationBefore, book_hash, match_hash, etc.)
+              quantity: existingRoom.quantity + room.quantity,
+              totalPrice: (existingRoom.quantity + room.quantity) * room.pricePerRoom,
             };
             return { selectedRooms: updatedRooms };
           }
