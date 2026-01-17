@@ -472,40 +472,42 @@ export default function CalculatorPage() {
               <h3 className="font-heading text-heading-lg text-foreground text-center mb-6">
                 {t("calc.comparison.title")}
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Booking.com */}
-                <div className="bg-card rounded-2xl p-5 text-center border border-border shadow-sm">
-                  <p className="text-muted-foreground text-sm mb-1">Booking.com</p>
-                  <p className="text-muted-foreground/60 text-xs mb-3">10% {t("calc.comparison.commission").toLowerCase()}</p>
-                  <p className="font-heading text-heading-md text-muted-foreground">
-                    {formatCurrency(result.competitors.booking.profit * 12)}
-                  </p>
-                  <p className="text-muted-foreground/60 text-xs mt-1">/ano</p>
-                </div>
-                
-                {/* Expedia TAAP */}
-                <div className="bg-card rounded-2xl p-5 text-center border border-border shadow-sm">
-                  <p className="text-muted-foreground text-sm mb-1">Expedia TAAP</p>
-                  <p className="text-muted-foreground/60 text-xs mb-3">8% {t("calc.comparison.commission").toLowerCase()}</p>
-                  <p className="font-heading text-heading-md text-muted-foreground">
-                    {formatCurrency(result.competitors.expedia.profit * 12)}
-                  </p>
-                  <p className="text-muted-foreground/60 text-xs mt-1">/ano</p>
-                </div>
-                
-                {/* Booking Já - Highlighted */}
-                <div className="bg-primary/5 rounded-2xl p-5 text-center border-2 border-primary/30 relative shadow-sm">
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3" /> MELHOR
-                    </span>
+              <div className="bg-secondary/50 rounded-2xl p-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Booking.com */}
+                  <div className="p-5 text-center">
+                    <p className="text-muted-foreground text-sm mb-1">Booking.com</p>
+                    <p className="text-muted-foreground/60 text-xs mb-3">10% {t("calc.comparison.commission").toLowerCase()}</p>
+                    <p className="font-heading text-heading-md text-muted-foreground">
+                      {formatCurrency(result.competitors.booking.profit * 12)}
+                    </p>
+                    <p className="text-muted-foreground/60 text-xs mt-1">/ano</p>
                   </div>
-                  <p className="text-primary text-sm font-medium mb-1 mt-2">Booking Já</p>
-                  <p className="text-muted-foreground text-xs mb-3">{agentCommission}% {t("calc.comparison.commission").toLowerCase()}</p>
-                  <p className="font-heading text-heading-md text-primary">
-                    {formatCurrency(result.competitors.bookingJa.profit * 12)}
-                  </p>
-                  <p className="text-muted-foreground text-xs mt-1">/ano</p>
+                  
+                  {/* Expedia TAAP */}
+                  <div className="p-5 text-center">
+                    <p className="text-muted-foreground text-sm mb-1">Expedia TAAP</p>
+                    <p className="text-muted-foreground/60 text-xs mb-3">8% {t("calc.comparison.commission").toLowerCase()}</p>
+                    <p className="font-heading text-heading-md text-muted-foreground">
+                      {formatCurrency(result.competitors.expedia.profit * 12)}
+                    </p>
+                    <p className="text-muted-foreground/60 text-xs mt-1">/ano</p>
+                  </div>
+                  
+                  {/* Booking Já - Highlighted */}
+                  <div className="p-5 text-center relative">
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <span className="bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" /> MELHOR
+                      </span>
+                    </div>
+                    <p className="text-primary text-sm font-medium mb-1 mt-2">Booking Já</p>
+                    <p className="text-muted-foreground text-xs mb-3">{agentCommission}% {t("calc.comparison.commission").toLowerCase()}</p>
+                    <p className="font-heading text-heading-md text-primary">
+                      {formatCurrency(result.competitors.bookingJa.profit * 12)}
+                    </p>
+                    <p className="text-muted-foreground text-xs mt-1">/ano</p>
+                  </div>
                 </div>
               </div>
             </div>
