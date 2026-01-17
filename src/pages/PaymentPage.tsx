@@ -387,27 +387,25 @@ const PaymentPage = () => {
       console.error("Failed to load order form:", error);
       
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const isDoubleBookingError = errorMessage.toLowerCase().includes("double_booking_form") || 
-                                    errorMessage.toLowerCase().includes("booking session expired") ||
-                                    errorMessage.toLowerCase().includes("booking form already exists") ||
-                                    errorMessage.toLowerCase().includes("already exists for this book_hash");
+      const isRecoverableError = errorMessage.toLowerCase().includes("double_booking_form") || 
+                                  errorMessage.toLowerCase().includes("booking form already exists") ||
+                                  errorMessage.toLowerCase().includes("already exists for this book_hash");
+      const isSessionExpired = errorMessage.toLowerCase().includes("booking session expired");
       
-      // Check if this is a double_booking_form error - redirect to hotel page
-      if (isDoubleBookingError) {
+      // If recovery was attempted but failed (session expired), show a softer message
+      // but DON'T immediately redirect - let user retry or continue
+      if (isRecoverableError || isSessionExpired) {
+        console.log("⚠️ Order form issue detected - attempting to continue without immediate redirect");
+        
         toast({
-          title: "Booking Session Expired",
-          description: "Your booking session has expired. Please start a new booking.",
-          variant: "destructive",
+          title: "Booking Form Issue",
+          description: "There was an issue loading the booking form. You can try refreshing or start a new booking.",
+          variant: "default",
         });
         
-        // Clear session storage and redirect
-        sessionStorage.removeItem("pending_booking");
-        
-        if (data?.hotel?.id) {
-          navigate(`/hoteldetails/${data.hotel.id}`);
-        } else {
-          navigate("/dashboard/search");
-        }
+        // Don't clear session storage immediately - let user decide
+        // They can refresh or navigate away manually
+        setFormDataLoaded(true);
         return;
       }
       
@@ -599,27 +597,24 @@ const PaymentPage = () => {
       console.error("Failed to load multiroom order form:", error);
       
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const isDoubleBookingError = errorMessage.toLowerCase().includes("double_booking_form") || 
-                                    errorMessage.toLowerCase().includes("booking session expired") ||
-                                    errorMessage.toLowerCase().includes("booking form already exists") ||
-                                    errorMessage.toLowerCase().includes("already exists for this book_hash");
+      const isRecoverableError = errorMessage.toLowerCase().includes("double_booking_form") || 
+                                  errorMessage.toLowerCase().includes("booking form already exists") ||
+                                  errorMessage.toLowerCase().includes("already exists for this book_hash");
+      const isSessionExpired = errorMessage.toLowerCase().includes("booking session expired");
       
-      // Check if this is a double_booking_form error - redirect to hotel page
-      if (isDoubleBookingError) {
+      // If recovery was attempted but failed, show a softer message
+      // but DON'T immediately redirect - let user retry or continue
+      if (isRecoverableError || isSessionExpired) {
+        console.log("⚠️ Multiroom order form issue detected - attempting to continue without immediate redirect");
+        
         toast({
-          title: "Booking Session Expired",
-          description: "Your booking session has expired. Please start a new booking.",
-          variant: "destructive",
+          title: "Booking Form Issue",
+          description: "There was an issue loading the booking forms. You can try refreshing or start a new booking.",
+          variant: "default",
         });
         
-        // Clear session storage and redirect
-        sessionStorage.removeItem("pending_booking");
-        
-        if (data?.hotel?.id) {
-          navigate(`/hoteldetails/${data.hotel.id}`);
-        } else {
-          navigate("/dashboard/search");
-        }
+        // Don't clear session storage immediately - let user decide
+        setFormDataLoaded(true);
         return;
       }
       
