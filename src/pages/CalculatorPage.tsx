@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import santoriniHouse from "@/assets/santorini-house.png";
+import nycSkyline from "@/assets/nyc-skyline.webp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -160,7 +160,7 @@ export default function CalculatorPage() {
         {/* Background Image - Right Half on Desktop */}
         <div 
           className="hidden lg:block absolute top-0 right-0 w-1/2 h-full bg-cover bg-center"
-          style={{ backgroundImage: `url(${santoriniHouse})` }}
+          style={{ backgroundImage: `url(${nycSkyline})` }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/50 to-transparent" />
         </div>
