@@ -19,7 +19,18 @@ const translations: Record<Language, Record<string, string>> = {
     "nav.blog": "Blog",
     "nav.contact": "Contact",
     "nav.dashboard": "Dashboard",
+    // Hero
+    "hero.tagline": "Stop losing money with expensive suppliers.",
+    "hero.title1": "BETTER RATES",
+    "hero.title2": "HIGHER COMMISSIONS",
+    "hero.title3": "MADE FOR BRAZILIAN AGENTS",
+    "hero.description": "Access rates 20–30% lower than TAAP, Booking.com, and HotelBeds — and keep the profit you deserve.",
     "hero.cta": "Create Free Account",
+    // Hero Card
+    "hero.card.title": "Luxury Suite",
+    "hero.card.description": "Experience premium comfort",
+    "hero.social.count": "84k+ People",
+    "hero.social.label": "Joined our tours",
   },
   "pt-BR": {
     // Header
@@ -31,7 +42,18 @@ const translations: Record<Language, Record<string, string>> = {
     "nav.blog": "Blog",
     "nav.contact": "Contato",
     "nav.dashboard": "Painel",
-    "hero.cta": "Criar Conta Grátis",
+    // Hero
+    "hero.tagline": "Pare de perder dinheiro com fornecedores caros.",
+    "hero.title1": "MELHORES TAXAS",
+    "hero.title2": "COMISSÕES MAIORES",
+    "hero.title3": "FEITO PARA AGENTES BRASILEIROS",
+    "hero.description": "Acesse tarifas 20 a 30% mais baixas do que as da TAAP, Booking.com e HotelBeds — e fique com o lucro que você merece.",
+    "hero.cta": "Crie sua conta gratuita",
+    // Hero Card
+    "hero.card.title": "Suíte de Luxo",
+    "hero.card.description": "Experimente conforto premium",
+    "hero.social.count": "84 mil+ Pessoas",
+    "hero.social.label": "Já se juntaram",
   },
 };
 
