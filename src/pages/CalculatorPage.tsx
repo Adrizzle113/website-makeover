@@ -451,9 +451,9 @@ export default function CalculatorPage() {
                   <p className="text-primary-foreground/60 text-sm mb-1">Booking.com</p>
                   <p className="text-primary-foreground/40 text-xs mb-3">10% {t("calc.comparison.commission").toLowerCase()}</p>
                   <p className="font-heading text-heading-md text-primary-foreground/70">
-                    {formatCurrency(result.competitors.booking.profit)}
+                    {formatCurrency(result.competitors.booking.profit * 12)}
                   </p>
-                  <p className="text-primary-foreground/40 text-xs mt-1">/mês</p>
+                  <p className="text-primary-foreground/40 text-xs mt-1">/ano</p>
                 </div>
                 
                 {/* Expedia TAAP */}
@@ -461,9 +461,9 @@ export default function CalculatorPage() {
                   <p className="text-primary-foreground/60 text-sm mb-1">Expedia TAAP</p>
                   <p className="text-primary-foreground/40 text-xs mb-3">8% {t("calc.comparison.commission").toLowerCase()}</p>
                   <p className="font-heading text-heading-md text-primary-foreground/70">
-                    {formatCurrency(result.competitors.expedia.profit)}
+                    {formatCurrency(result.competitors.expedia.profit * 12)}
                   </p>
-                  <p className="text-primary-foreground/40 text-xs mt-1">/mês</p>
+                  <p className="text-primary-foreground/40 text-xs mt-1">/ano</p>
                 </div>
                 
                 {/* Booking Já - Highlighted */}
@@ -476,9 +476,9 @@ export default function CalculatorPage() {
                   <p className="text-accent text-sm font-medium mb-1 mt-2">Booking Já</p>
                   <p className="text-primary-foreground/60 text-xs mb-3">{agentCommission}% {t("calc.comparison.commission").toLowerCase()}</p>
                   <p className="font-heading text-heading-md text-accent">
-                    {formatCurrency(result.competitors.bookingJa.profit)}
+                    {formatCurrency(result.competitors.bookingJa.profit * 12)}
                   </p>
-                  <p className="text-primary-foreground/60 text-xs mt-1">/mês</p>
+                  <p className="text-primary-foreground/60 text-xs mt-1">/ano</p>
                 </div>
               </div>
             </div>
