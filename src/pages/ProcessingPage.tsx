@@ -19,13 +19,12 @@ type ProcessingStatus = "polling" | "3ds" | "confirmed" | "failed" | "timeout";
  * Get user-friendly error message for each status code
  */
 function getStatusErrorMessage(status: BookingStatusValue, errorMessage?: string): string {
-  // Check for insufficient_b2b_balance in error message (sandbox mode issue)
+  // Check for insufficient_b2b_balance in error message
   if (errorMessage?.toLowerCase().includes("insufficient_b2b_balance") || 
       errorMessage?.toLowerCase().includes("insufficient balance") ||
       errorMessage?.toLowerCase().includes("b2b_balance")) {
-    return "Deposit booking failed - sandbox account has no B2B balance. " +
-           "This is expected for the test hotel which only offers deposit rates. " +
-           "Contact RateHawk support to fund your sandbox account, or use a production API key.";
+    return "Deposit payment failed - insufficient account balance. " +
+           "Please try 'Pay at Property' or card payment instead.";
   }
   
   switch (status) {
