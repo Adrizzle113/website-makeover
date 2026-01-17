@@ -1,8 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useLanguage } from "@/hooks/useLanguage";
 
 export function ServicesSection() {
+  const { t } = useLanguage();
+  
   return (
     <section id="services" className="py-24 bg-primary">
       <div className="container">
@@ -10,13 +13,13 @@ export function ServicesSection() {
           {/* Left Content */}
           <div>
             <span className="badge-pill bg-primary-foreground/10 text-primary-foreground mb-6">
-              Commission Comparison
+              {t('services.badge')}
             </span>
             <h2 className="font-heading text-display-md text-primary-foreground mb-6">
-              See how much more you could earn
+              {t('services.title')}
             </h2>
             <p className="text-body-lg text-primary-foreground/80 mb-10">
-              Compare your current commissions with Booking Já's rates. Create a free account to access real pricing and start earning more on every booking.
+              {t('services.description')}
             </p>
 
             <Button
@@ -25,7 +28,7 @@ export function ServicesSection() {
               className="h-14 rounded-full px-8 bg-cream text-primary hover:bg-cream/90 font-semibold group"
             >
               <Link to="/signup">
-                Create free account
+                {t('services.cta')}
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
             </Button>
@@ -39,12 +42,12 @@ export function ServicesSection() {
                   <span className="text-cream font-heading text-xl font-bold">%</span>
                 </div>
                 <div>
-                  <p className="text-primary-foreground/60 text-body-sm">Average savings</p>
-                  <p className="text-primary-foreground font-heading text-heading-lg">20-30% lower</p>
+                  <p className="text-primary-foreground/60 text-body-sm">{t('services.savings.label')}</p>
+                  <p className="text-primary-foreground font-heading text-heading-lg">{t('services.savings.value')}</p>
                 </div>
               </div>
               <p className="text-primary-foreground/70 text-body-sm">
-                Than major OTAs like Booking.com and Expedia
+                {t('services.savings.description')}
               </p>
             </div>
 
@@ -54,12 +57,12 @@ export function ServicesSection() {
                   <span className="text-cream font-heading text-xl font-bold">$</span>
                 </div>
                 <div>
-                  <p className="text-primary-foreground/60 text-body-sm">Your profit margin</p>
-                  <p className="text-primary-foreground font-heading text-heading-lg">You keep it all</p>
+                  <p className="text-primary-foreground/60 text-body-sm">{t('services.profit.label')}</p>
+                  <p className="text-primary-foreground font-heading text-heading-lg">{t('services.profit.value')}</p>
                 </div>
               </div>
               <p className="text-primary-foreground/70 text-body-sm">
-                No hidden fees or commission splits on your bookings
+                {t('services.profit.description')}
               </p>
             </div>
           </div>

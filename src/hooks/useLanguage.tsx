@@ -47,6 +47,17 @@ const translations: Record<Language, Record<string, string>> = {
     "about.step4.description": "Talk to our team anytime in Portuguese—fast, friendly, expert help.",
     "about.card.title": "International Rates",
     "about.card.description": "The same hotel pricing trusted by US travel agents.",
+    // Services Section
+    "services.badge": "Commission Comparison",
+    "services.title": "See how much more you could earn",
+    "services.description": "Compare your current commissions with Booking Já's rates. Create a free account to access real pricing and start earning more on every booking.",
+    "services.cta": "Create free account",
+    "services.savings.label": "Average savings",
+    "services.savings.value": "20-30% lower",
+    "services.savings.description": "Than major OTAs like Booking.com and Expedia",
+    "services.profit.label": "Your profit margin",
+    "services.profit.value": "You keep it all",
+    "services.profit.description": "No hidden fees or commission splits on your bookings",
   },
   "pt-BR": {
     // Header
@@ -86,6 +97,17 @@ const translations: Record<Language, Record<string, string>> = {
     "about.step4.description": "Fale com nossa equipe a qualquer hora em português — ajuda rápida, amigável e especializada.",
     "about.card.title": "Tarifas internacionais",
     "about.card.description": "Os mesmos preços de hotéis em que os agentes de viagens dos EUA confiam.",
+    // Services Section
+    "services.badge": "Comparação de Comissões",
+    "services.title": "Veja quanto mais você pode ganhar",
+    "services.description": "Compare suas comissões atuais com as taxas da Booking Já. Crie uma conta gratuita para acessar preços reais e comece a ganhar mais em cada reserva.",
+    "services.cta": "Criar conta gratuita",
+    "services.savings.label": "Economia média",
+    "services.savings.value": "20-30% menor",
+    "services.savings.description": "Em comparação com as principais Agências de Viagens Online, como Booking.com e Expedia",
+    "services.profit.label": "Sua margem de lucro",
+    "services.profit.value": "É toda sua",
+    "services.profit.description": "Sem taxas ocultas ou divisão de comissões sobre suas reservas",
   },
 };
 
