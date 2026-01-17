@@ -113,6 +113,17 @@
         <input type="text" id="apiBaseUrl" value="https://travelapi-bg6t.onrender.com" placeholder="https://your-api-url.com">
       </div>
       <div class="field">
+        <label>Search Type</label>
+        <select id="searchType" onchange="toggleSearchType()">
+          <option value="destination">By Destination (recommended)</option>
+          <option value="hotelId">By Hotel ID</option>
+        </select>
+      </div>
+      <div class="field" id="destinationField">
+        <label>Destination</label>
+        <input type="text" id="destination" value="Miami Beach, FL" placeholder="e.g., Miami Beach, FL">
+      </div>
+      <div class="field" id="hotelIdField" style="display:none">
         <label>Hotel ID</label>
         <input type="text" id="hotelId" value="8473727" placeholder="e.g., 8473727">
       </div>
@@ -159,6 +170,12 @@
       document.getElementById('apiBaseUrl').placeholder = 'Enter your Supabase Functions URL';
     }
 
+    function toggleSearchType() {
+      const searchType = document.getElementById('searchType').value;
+      document.getElementById('destinationField').style.display = searchType === 'destination' ? 'block' : 'none';
+      document.getElementById('hotelIdField').style.display = searchType === 'hotelId' ? 'block' : 'none';
+    }
+
     function clearResults() {
       document.getElementById('results').innerHTML = '<p style="color: #666;">Click "Start Booking Flow Test" to begin...</p>';
     }
@@ -182,6 +199,8 @@
 
     async function runFullTest() {
       const apiBaseUrl = document.getElementById('apiBaseUrl').value.trim();
+      const searchType = document.getElementById('searchType').value;
+      const destination = document.getElementById('destination').value.trim();
       const hotelId = document.getElementById('hotelId').value.trim();
       const checkin = document.getElementById('checkin').value;
       const checkout = document.getElementById('checkout').value;
@@ -196,40 +215,104 @@
       document.getElementById('startTest').disabled = true;
       clearResults();
 
+      let hotel = null;
+      let rates = [];
+
       try {
         // ========== STEP 1: SEARCH ==========
-        logStep('📍 Step 1: Hotel Search', `Searching for hotel ${hotelId}...`);
+        if (searchType === 'destination') {
+          // Destination-based search
+          logStep('📍 Step 1a: Destination Search', `Searching for hotels in "${destination}"...`);
 
-        const searchBody = {
-          ids: [hotelId],
-          checkin,
-          checkout,
-          guests: [{ adults: 2, children: [] }],
-          residency,
-          currency: 'USD',
-          language: 'en',
-          userId,
-        };
+          const searchBody = {
+            destination: destination,
+            checkin,
+            checkout,
+            guests: [{ adults: 2, children: [] }],
+            residency,
+            currency: 'USD',
+            language: 'en',
+            userId,
+          };
 
-        const searchRes = await fetch(`${apiBaseUrl}/api/ratehawk/search/by-ids`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(searchBody),
-        });
+          const searchRes = await fetch(`${apiBaseUrl}/api/ratehawk/search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(searchBody),
+          });
 
-        const searchData = await searchRes.json();
-        console.log('🔍 Search response:', searchData);
+          const searchData = await searchRes.json();
+          console.log('🔍 Destination search response:', searchData);
 
-        if (!searchData.hotels?.length) {
-          throw new Error('No hotels found in search response: ' + JSON.stringify(searchData).slice(0, 200));
+          const hotels = searchData.hotels || searchData.data?.hotels || [];
+          
+          if (!hotels.length) {
+            throw new Error('No hotels found for destination: ' + destination);
+          }
+
+          // Find first hotel with rates
+          hotel = hotels.find(h => {
+            const r = h.rates || h.ratehawk_data?.rates || [];
+            return r.length > 0;
+          }) || hotels[0];
+
+          rates = hotel.rates || hotel.ratehawk_data?.rates || [];
+
+          logStep('✅ Step 1: Search Complete', `
+            Found <strong>${hotels.length}</strong> hotels in ${destination}<br>
+            Selected: <strong>${hotel.name || hotel.hid || 'Unknown'}</strong> (ID: ${hotel.hid || hotel.id})<br>
+            Rates available: <strong>${rates.length}</strong>
+          `, 'success');
+
+        } else {
+          // Hotel ID-based search
+          logStep('📍 Step 1: Hotel Search', `Searching for hotel ${hotelId}...`);
+
+          const searchBody = {
+            ids: [hotelId],
+            checkin,
+            checkout,
+            guests: [{ adults: 2, children: [] }],
+            residency,
+            currency: 'USD',
+            language: 'en',
+            userId,
+          };
+
+          const searchRes = await fetch(`${apiBaseUrl}/api/ratehawk/search/by-ids`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(searchBody),
+          });
+
+          const searchData = await searchRes.json();
+          console.log('🔍 Search response:', searchData);
+
+          if (!searchData.hotels?.length) {
+            throw new Error('No hotels found in search response: ' + JSON.stringify(searchData).slice(0, 200));
+          }
+
+          hotel = searchData.hotels[0];
+          rates = hotel.rates || hotel.ratehawk_data?.rates || [];
+
+          logStep('✅ Step 1: Search Complete', `
+            Found hotel: <strong>${hotel.name || hotelId}</strong><br>
+            Rates available: <strong>${rates.length}</strong>
+          `, 'success');
         }
 
-        const hotel = searchData.hotels[0];
-        const rates = hotel.rates || hotel.ratehawk_data?.rates || [];
+        if (!rates.length) {
+          throw new Error('Hotel found but no rates available. Try different dates or destination.');
+        }
 
-        logStep('✅ Step 1: Search Complete', `
-          Found hotel: <strong>${hotel.name || hotelId}</strong><br>
-          Rates available: <strong>${rates.length}</strong>
+        // Log the raw rate structure for debugging
+        const rateDebugId = 'rate_debug_' + Date.now();
+        logStep('🔬 Rate Data Structure', `
+          <button class="copy-btn" onclick="copyToClipboard(document.getElementById('${rateDebugId}').textContent, this)">Copy</button>
+          <details>
+            <summary style="cursor: pointer; color: #999;">Click to view raw rate[0] data</summary>
+            <div class="payload" id="${rateDebugId}">${JSON.stringify(rates[0], null, 2)}</div>
+          </details>
         `, 'success');
 
         // ========== STEP 2: EXTRACT FREE_CANCELLATION_BEFORE ==========
@@ -297,14 +380,31 @@
         });
 
         const prebookData = await prebookRes.json();
+        console.log('📦 Prebook response:', prebookData);
 
         if (prebookData.error) {
           throw new Error(`Prebook failed: ${prebookData.error.message || prebookData.error.code}`);
         }
 
+        // Check if prebook response has free_cancellation_before
+        const prebookFcb = prebookData.data?.free_cancellation_before 
+          || prebookData.data?.cancellation_penalties?.free_cancellation_before
+          || prebookData.data?.payment_options?.payment_types?.[0]?.cancellation_penalties?.free_cancellation_before;
+        
+        if (prebookFcb && !freeCancellationBefore) {
+          freeCancellationBefore = prebookFcb;
+          extractionSource = 'prebook response';
+        }
+
         const bookingHash = prebookData.data?.booking_hash;
+        const prebookDebugId = 'prebook_debug_' + Date.now();
         logStep('✅ Step 3: Prebook Complete', `
-          booking_hash: <code>${bookingHash}</code>
+          booking_hash: <code>${bookingHash}</code><br>
+          free_cancellation_before from prebook: <span class="${prebookFcb ? 'highlight' : 'missing'}">${prebookFcb || 'NOT FOUND'}</span>
+          <details>
+            <summary style="cursor: pointer; color: #999;">View prebook response</summary>
+            <div class="payload" id="${prebookDebugId}">${JSON.stringify(prebookData.data, null, 2)}</div>
+          </details>
         `, 'success');
 
         // ========== STEP 4: ORDER FORM ==========
