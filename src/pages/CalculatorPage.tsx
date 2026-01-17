@@ -330,10 +330,6 @@ export default function CalculatorPage() {
                     step={1}
                     className="w-full"
                   />
-                  <div className="flex justify-between text-xs text-muted-foreground mt-1.5">
-                    <span>{t("calc.slider.min")}</span>
-                    <span>{t("calc.slider.max")}</span>
-                  </div>
                 </div>
               </div>
               
