@@ -1,22 +1,40 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { useLanguage } from "@/hooks/useLanguage";
 
 interface HeaderProps {
-  variant?: "light" | "dark";
+  variant?: "light" | "dark" | "auto";
 }
 
-export function Header({ variant = "light" }: HeaderProps) {
+export function Header({ variant = "auto" }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const { t } = useLanguage();
   
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 100);
+    };
+    
+    window.addEventListener("scroll", handleScroll);
+    handleScroll(); // Check initial state
+    
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+  
+  // Determine effective variant: auto mode switches based on scroll
+  const effectiveVariant = variant === "auto" 
+    ? (scrolled ? "light" : "dark") 
+    : variant;
+  
   // Light variant = light background, use dark text; Dark variant = dark background, use white text
-  const textColor = variant === "light" ? "text-foreground" : "text-white";
-  const textColorMuted = variant === "light" ? "text-muted-foreground" : "text-white/80";
-  const hoverColor = variant === "light" ? "hover:text-primary" : "hover:text-white";
+  const textColor = effectiveVariant === "light" ? "text-foreground" : "text-white";
+  const textColorMuted = effectiveVariant === "light" ? "text-muted-foreground" : "text-white/80";
+  const hoverColor = effectiveVariant === "light" ? "hover:text-primary" : "hover:text-white";
+  const bgClass = scrolled ? "bg-background/95 backdrop-blur-md shadow-sm" : "bg-transparent";
   
   const scrollToSection = (sectionId: string) => {
     const section = document.getElementById(sectionId);
@@ -27,8 +45,8 @@ export function Header({ variant = "light" }: HeaderProps) {
   };
 
   return (
-    <header className="absolute top-0 left-0 right-0 z-50 mt-4 md:mt-8 mx-[21px] md:mx-[37px]">
-      <div className="container">
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${bgClass}`}>
+      <div className="container py-4 md:py-6">
         <div className="flex items-center justify-between h-24">
           {/* Logo */}
           <Link to="/" className="flex items-center">
