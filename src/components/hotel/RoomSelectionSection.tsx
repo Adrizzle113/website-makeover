@@ -273,6 +273,17 @@ const extractCancellation = (rate: RateHawkRate): {
   cancellationFee?: string;
   hasFreeCancellationBefore: boolean; // true ONLY if actual free_cancellation_before field exists
 } => {
+  // 🔍 DEBUG: Log input rate structure
+  console.log('🔍 [extractCancellation] Input rate:', {
+    hasPaymentOptions: !!rate.payment_options,
+    paymentTypesCount: rate.payment_options?.payment_types?.length,
+    firstPtType: rate.payment_options?.payment_types?.[0]?.type,
+    hasCancellationPenalties: !!rate.payment_options?.payment_types?.[0]?.cancellation_penalties,
+    cancellationPenaltiesKeys: Object.keys(rate.payment_options?.payment_types?.[0]?.cancellation_penalties || {}),
+    hasCancellationInfo: !!rate.cancellation_info,
+    hasRootCancellationPenalties: !!rate.cancellation_penalties,
+  });
+
   // Helper: Extract free_cancellation_before from a penalty object (handles alternate field names)
   const getFreeCancellationDate = (obj: any): string | null => {
     if (!obj) return null;
@@ -319,6 +330,11 @@ const extractCancellation = (rate: RateHawkRate): {
     if (result.date) {
       const formatted = formatCancellationDateWithTz(result.date);
       if (formatted) {
+        console.log('✅ [extractCancellation] Found free_cancellation_before in payment_type:', {
+          source: 'payment_type.cancellation_penalties',
+          rawDate: result.date,
+          formattedRawDate: formatted.rawDate,
+        });
         return { 
           cancellation: "free_cancellation", 
           cancellationDeadline: formatted.deadline,
@@ -1012,11 +1028,16 @@ export function RoomSelectionSection({
         cancellationType = "partial_refund";
       }
 
-      console.log('[Room Selection] Room added:', {
+      console.log('🏨 [handleIncrease] Active rate full data:', {
         roomId: room.id,
-        cancellationType,
-        cancellationDeadline: activeRate.cancellationRawDate,
+        rateId: activeRate.id?.substring(0, 30),
+        cancellation: activeRate.cancellation,
+        cancellationRawDate: activeRate.cancellationRawDate,
+        cancellationDeadline: activeRate.cancellationDeadline,
         hasFreeCancellationBefore: activeRate.hasFreeCancellationBefore,
+        cancellationType,
+        price: activeRate.price,
+        bookHash: activeRate.bookHash?.substring(0, 30),
       });
 
       addRoom({
