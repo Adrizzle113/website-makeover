@@ -221,10 +221,41 @@
       try {
         // ========== STEP 1: SEARCH ==========
         if (searchType === 'destination') {
-          // Destination-based search
-          logStep('📍 Step 1a: Destination Search', `Searching for hotels in "${destination}"...`);
+          // Step 1a: Resolve destination to region_id first
+          logStep('📍 Step 1a: Resolving Destination', `Looking up region_id for "${destination}"...`);
+
+          const destRes = await fetch(`${apiBaseUrl}/api/destination`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: destination }),
+          });
+
+          const destData = await destRes.json();
+          console.log('🔍 Destination resolution response:', destData);
+
+          // Extract region_id from response (supports multiple formats)
+          let regionId = null;
+          if (destData?.data?.destinations?.[0]?.region_id) {
+            regionId = destData.data.destinations[0].region_id;
+          } else if (destData?.regions?.[0]?.id) {
+            regionId = parseInt(destData.regions[0].id, 10);
+          } else if (destData?.destinations?.[0]?.id) {
+            regionId = parseInt(destData.destinations[0].id, 10);
+          }
+
+          if (!regionId) {
+            throw new Error(`Could not resolve destination "${destination}" to a region_id. Response: ${JSON.stringify(destData).slice(0, 300)}`);
+          }
+
+          logStep('✅ Step 1a: Destination Resolved', `
+            Found <strong>region_id: ${regionId}</strong> for "${destination}"
+          `, 'success');
+
+          // Step 1b: Search hotels with resolved region_id
+          logStep('📍 Step 1b: Hotel Search', `Searching for hotels with region_id ${regionId}...`);
 
           const searchBody = {
+            regionId: regionId,
             destination: destination,
             checkin,
             checkout,
@@ -247,7 +278,7 @@
           const hotels = searchData.hotels || searchData.data?.hotels || [];
           
           if (!hotels.length) {
-            throw new Error('No hotels found for destination: ' + destination);
+            throw new Error('No hotels found for region_id: ' + regionId + ' (destination: ' + destination + ')');
           }
 
           // Find first hotel with rates
@@ -258,7 +289,7 @@
 
           rates = hotel.rates || hotel.ratehawk_data?.rates || [];
 
-          logStep('✅ Step 1: Search Complete', `
+          logStep('✅ Step 1b: Search Complete', `
             Found <strong>${hotels.length}</strong> hotels in ${destination}<br>
             Selected: <strong>${hotel.name || hotel.hid || 'Unknown'}</strong> (ID: ${hotel.hid || hotel.id})<br>
             Rates available: <strong>${rates.length}</strong>
