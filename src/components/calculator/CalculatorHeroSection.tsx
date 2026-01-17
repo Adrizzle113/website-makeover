@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Users } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/hooks/useLanguage";
 
@@ -19,13 +19,6 @@ export function CalculatorHeroSection({ activePreset, onApplyPreset }: Calculato
 
   return (
     <div className="text-foreground lg:pt-8">
-      {/* Social Proof Banner */}
-      <div className="flex items-center justify-center lg:justify-start gap-2 mb-8 animate-fade-in">
-        <div className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-full">
-          <Users className="w-4 h-4" />
-          <span className="text-sm font-medium">{t("calc.socialProof")}</span>
-        </div>
-      </div>
 
       <h1 className="font-heading text-heading-xl sm:text-display-lg lg:text-display-xl mb-6 uppercase tracking-tight leading-[0.95]">
         {t("calc.title").split(" ").slice(0, 3).join(" ")}<br />
