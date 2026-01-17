@@ -1,10 +1,8 @@
 import { useState, useMemo } from "react";
-import { Plus, Minus, Bed, Check, X, Users, Maximize, Wifi, Bath, Wind, Tv, Crown, Home, Star, Coffee, AlertTriangle, Bug, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Minus, Bed, Check, X, Users, Maximize, Wifi, Bath, Wind, Tv, Crown, Home, Star, Coffee, ChevronDown, ChevronUp } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { HotelDetails, RateHawkRate, RateHawkRoomGroup } from "@/types/booking";
 import { useBookingStore } from "@/stores/bookingStore";
 import { RoomUpsells } from "./RoomUpsells";
@@ -12,7 +10,6 @@ import { PaymentTypeBadge, normalizePaymentType, getPaymentTypeLabel } from "./P
 import { RateOptionsList, type RateOption } from "./RateOptionsList";
 import { differenceInDays } from "date-fns";
 import { formatDateTimeWithPreference } from "@/hooks/useTimezone";
-import { BOOKING_CONFIG, isTestHotel } from "@/config/booking";
 
 // Room category types for sorting and badges
 type RoomCategory = "standard" | "deluxe" | "suite" | "premium" | "family" | "apartment";
@@ -841,117 +838,11 @@ export function RoomSelectionSection({
     return 1;
   }, [searchParams]);
 
-  // Check if current hotel is the test hotel (allows deposit exception)
-  const isTestHotelPage = useMemo(() => {
-    const hotelId = hotel.id;
-    const ratehawkHid = hotel.ratehawk_data?.hid?.toString();
-    return hotelId === BOOKING_CONFIG.testHotelId || 
-           hotelId === BOOKING_CONFIG.testHotelSlug ||
-           ratehawkHid === BOOKING_CONFIG.testHotelId;
-  }, [hotel.id, hotel.ratehawk_data?.hid]);
-
   // Process and sort rooms by category using room_groups + rg_hash matching
-  // In sandbox mode, filter to only show refundable rates with allowed payment types
   const sortedRooms = useMemo(() => {
-    let rooms = processRoomsWithRoomGroups(hotel);
-    
-    // In sandbox mode, filter out non-refundable rates AND deposit-only rates
-    // EXCEPTION: Test hotel can show deposit rates if allowDepositForTestHotel is true
-    if (BOOKING_CONFIG.isSandboxMode && BOOKING_CONFIG.sandboxRestrictions.refundableOnly) {
-      const baseAllowedPaymentTypes = BOOKING_CONFIG.sandboxRestrictions.allowedPaymentTypes || ["hotel", "now"];
-      
-      // Allow deposit for test hotel if the flag is enabled
-      const effectiveAllowedPaymentTypes = (isTestHotelPage && 
-        BOOKING_CONFIG.sandboxRestrictions.allowDepositForTestHotel)
-          ? [...baseAllowedPaymentTypes, "deposit"]
-          : baseAllowedPaymentTypes;
-      
-      rooms = rooms.map(room => {
-        // Filter rates based on sandbox requirements:
-        // 1. Must have actual free_cancellation_before field (not just policies)
-        // 2. Must be refundable with future deadline
-        // 3. Must have an allowed payment type
-        const validRates = room.allRates.filter(rate => {
-          // CRITICAL: RateHawk sandbox requires actual free_cancellation_before field
-          // Rates with only "policies" will fail with insufficient_b2b_balance
-          if (!rate.hasFreeCancellationBefore) {
-            if (room.allRates.indexOf(rate) < 3) {
-              console.log('[Sandbox Filter] Rate REJECTED - missing free_cancellation_before:', {
-                rateId: rate.id?.substring(0, 20),
-                hasFreeCancellationBefore: rate.hasFreeCancellationBefore,
-              });
-            }
-            return false;
-          }
-          
-          // Check refundability and deadline
-          if (!rate.cancellationRawDate) return false;
-          const isRefundable = rate.cancellation === "free_cancellation" || 
-                               rate.cancellation?.toLowerCase().includes("free");
-          const deadlineDate = new Date(rate.cancellationRawDate);
-          const isFutureDeadline = deadlineDate > new Date();
-          
-          // Check payment type - use effective allowed types (may include deposit for test hotel)
-          const hasAllowedPaymentType = effectiveAllowedPaymentTypes.includes(rate.paymentType);
-          
-          // Debug log for first few rates
-          if (room.allRates.indexOf(rate) < 3) {
-            console.log('[Sandbox Filter] Rate check:', {
-              rateId: rate.id?.substring(0, 20),
-              price: rate.price,
-              paymentType: rate.paymentType,
-              cancellation: rate.cancellation,
-              rawDate: rate.cancellationRawDate,
-              hasFreeCancellationBefore: rate.hasFreeCancellationBefore,
-              isRefundable,
-              isFutureDeadline,
-              hasAllowedPaymentType,
-              isTestHotel: isTestHotelPage,
-              effectiveAllowedPaymentTypes,
-              willInclude: isRefundable && isFutureDeadline && hasAllowedPaymentType,
-            });
-          }
-          
-          return isRefundable && isFutureDeadline && hasAllowedPaymentType;
-        });
-        
-        // If no valid rates, exclude the room
-        if (validRates.length === 0) return null;
-        
-        return {
-          ...room,
-          allRates: validRates,
-          selectedRateId: validRates[0]?.id || room.selectedRateId,
-          // Update the room's display price to the first valid rate
-          price: validRates[0]?.price || room.price,
-          cancellation: validRates[0]?.cancellation || room.cancellation,
-          paymentType: validRates[0]?.paymentType || room.paymentType,
-        };
-      }).filter((room): room is ProcessedRoom => room !== null);
-      
-      console.log('[Sandbox Filter] Result:', {
-        originalRooms: processRoomsWithRoomGroups(hotel).length,
-        filteredRooms: rooms.length,
-        isTestHotel: isTestHotelPage,
-        effectiveAllowedPaymentTypes,
-      });
-
-      // Warn about rates that pass filter but may have incomplete cancellation data
-      for (const room of rooms) {
-        for (const rate of room.allRates) {
-          if (rate.hasFreeCancellationBefore && !rate.cancellationRawDate) {
-            console.warn('[Sandbox Warning] Rate has hasFreeCancellationBefore but no cancellationRawDate:', {
-              roomId: room.id,
-              rateId: rate.id?.substring(0, 20),
-              cancellation: rate.cancellation,
-            });
-          }
-        }
-      }
-    }
-    
+    const rooms = processRoomsWithRoomGroups(hotel);
     return rooms.sort((a, b) => categorySortOrder[a.category] - categorySortOrder[b.category]);
-  }, [hotel, isTestHotelPage]);
+  }, [hotel]);
   
   const roomsToDisplay = sortedRooms.slice(0, displayedRooms);
   const hasMoreRooms = sortedRooms.length > displayedRooms;
@@ -1147,87 +1038,12 @@ export function RoomSelectionSection({
   return (
     <section className="py-8 bg-app-white-smoke">
       <div className="container">
-        {/* Sandbox Mode Warning Banner */}
-        {BOOKING_CONFIG.isSandboxMode && BOOKING_CONFIG.sandboxRestrictions.showWarningBanner && (
-          <Alert className="mb-6 border-amber-200 bg-amber-50">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
-            <AlertTitle className="text-amber-800">Sandbox Mode</AlertTitle>
-            <AlertDescription className="text-amber-700">
-              Only refundable rates with "Pay at Hotel" or card payment can be booked in sandbox mode. 
-              Deposit rates and non-refundable rates have been filtered out (sandbox has no B2B balance).
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        {/* Test Hotel Deposit Warning - Special exception for test hotel */}
-        {isTestHotelPage && BOOKING_CONFIG.isSandboxMode && BOOKING_CONFIG.sandboxRestrictions.allowDepositForTestHotel && (
-          <Alert className="mb-6 border-orange-300 bg-orange-50">
-            <AlertTriangle className="h-4 w-4 text-orange-600" />
-            <AlertTitle className="text-orange-800">Test Hotel - Deposit Rates Only</AlertTitle>
-            <AlertDescription className="text-orange-700">
-              <p className="mb-2">
-                This test hotel only offers <strong>"deposit"</strong> payment rates. Booking may fail with 
-                <code className="mx-1 px-1 bg-orange-100 rounded text-orange-900">insufficient_b2b_balance</code> 
-                if your sandbox account has no credit.
-              </p>
-              <p className="text-sm">
-                <strong>This is expected behavior for testing.</strong> To complete bookings, contact RateHawk 
-                support to fund your sandbox account or use a production API key.
-              </p>
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        {/* Sandbox Debug Panel */}
-        {BOOKING_CONFIG.isSandboxMode && (
-          <Collapsible className="mb-4">
-            <CollapsibleTrigger className="flex items-center gap-2 text-xs text-orange-600 hover:text-orange-800 underline">
-              <Bug className="h-3 w-3" />
-              <span>Show Sandbox Debug Info</span>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-2">
-              <div className="bg-gray-100 border rounded p-3 text-xs font-mono overflow-auto max-h-64">
-                <div className="mb-2 font-semibold text-gray-700">
-                  Hotel: {hotel.id} | Test Hotel: {isTestHotel(hotel.id) ? "✅ Yes" : "❌ No"}
-                </div>
-                <div className="mb-2 text-gray-600">
-                  Allowed Payment Types: {
-                    isTestHotel(hotel.id) && BOOKING_CONFIG.sandboxRestrictions.allowDepositForTestHotel
-                      ? [...(BOOKING_CONFIG.sandboxRestrictions.allowedPaymentTypes || []), "deposit (test hotel only - may fail)"].join(", ")
-                      : (BOOKING_CONFIG.sandboxRestrictions.allowedPaymentTypes || []).join(", ")
-                  }
-                </div>
-                <div className="mb-2 text-gray-600">
-                  Total Rooms After Filter: {sortedRooms.length}
-                </div>
-                <div className="border-t pt-2 mt-2">
-                  <div className="font-semibold mb-1">Rate Summary:</div>
-                  {sortedRooms.slice(0, 5).map(room => (
-                    <div key={room.id} className="mb-2 pl-2 border-l-2 border-gray-300">
-                      <div className="font-medium">{room.name}</div>
-                      {room.allRates.slice(0, 3).map(rate => (
-                        <div key={rate.id} className={`pl-2 ${rate.paymentType === 'deposit' ? 'text-red-600' : 'text-green-600'}`}>
-                          ${rate.price} | {rate.paymentType} | {rate.cancellation} | 
-                          Deadline: {rate.cancellationRawDate ? new Date(rate.cancellationRawDate).toLocaleDateString() : 'N/A'}
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        )}
-        
         <div className="mb-6">
           <h2 className="font-heading text-heading-standard text-foreground mb-2">
             Choose Your Room
           </h2>
           <p className="text-muted-foreground">
             {sortedRooms.length} room type{sortedRooms.length !== 1 ? "s" : ""} available
-            {BOOKING_CONFIG.isSandboxMode && (
-              <span className="ml-2 text-amber-600 text-xs">(refundable only)</span>
-            )}
             {hasActiveUpsellFilters && (
               <span className="ml-2 text-primary">
                 (filtered by check-in/checkout preferences)
