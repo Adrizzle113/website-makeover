@@ -957,29 +957,23 @@ const PaymentPage = () => {
         }
       }
       
-      // Check for insufficient_b2b_balance error - provide guidance
+      // Check for insufficient_b2b_balance error - show error but let user choose
       const isB2BBalanceError = errorMessage.toLowerCase().includes("insufficient_b2b_balance") ||
                                  errorMessage.toLowerCase().includes("b2b") ||
                                  errorMessage.toLowerCase().includes("insufficient balance") ||
                                  errorMessage.includes("402");
       
       if (isB2BBalanceError) {
-        // Try to fallback to "hotel" payment type
-        const hotelPayment = paymentTypesData.find(pt => pt.type === "hotel");
+        console.log("⚠️ B2B balance error - showing payment options");
         
-        if (hotelPayment && paymentType === "deposit") {
-          console.log("💡 B2B balance error - suggesting hotel payment type");
-          
-          toast({
-            title: "Deposit Payment Unavailable",
-            description: "Deposit payment is unavailable. Please select 'Pay at Property' to continue.",
-          });
-          
-          // Update payment type to hotel
-          setPaymentType("hotel");
-          setPaymentError("Deposit payment unavailable. Please use Pay at Property option.");
-          return;
-        }
+        toast({
+          title: "Deposit Payment Failed",
+          description: "Insufficient account balance. Please choose a different payment method.",
+          variant: "destructive",
+        });
+        
+        setPaymentError("Insufficient account balance for deposit payment. Try 'Pay at Property' or card payment.");
+        return;
       }
       
       toast({

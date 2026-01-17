@@ -29,7 +29,7 @@ export interface RateOption {
   bedGuaranteed?: boolean;
   cancellationFee?: string;
   // CRITICAL: true ONLY if actual free_cancellation_before field exists in API response
-  // RateHawk sandbox requires this field to be present for bookings to succeed
+  // RateHawk requires this field for deposit payment bookings
   hasFreeCancellationBefore?: boolean;
   // ECLC (Early Check-in / Late Checkout) data from API
   earlyCheckin?: {

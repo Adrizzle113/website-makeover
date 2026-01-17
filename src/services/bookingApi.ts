@@ -313,7 +313,7 @@ class BookingApiService {
           // Non-retryable errors - fail immediately
           if (["contract_mismatch", "duplicate_reservation", 
                "hotel_not_found", "insufficient_b2b_balance", "reservation_is_not_allowed",
-               "rate_not_found", "sandbox_restriction"].includes(errorCode)) {
+               "rate_not_found"].includes(errorCode)) {
             console.error(`❌ Order form non-retryable error: ${errorCode}`);
             throw new Error(response.error.message || `Booking failed: ${errorCode}`);
           }
@@ -436,7 +436,7 @@ class BookingApiService {
           
           if (["contract_mismatch", "double_booking_form", "duplicate_reservation", 
                "hotel_not_found", "insufficient_b2b_balance", "reservation_is_not_allowed",
-               "rate_not_found", "sandbox_restriction"].includes(errorCode)) {
+               "rate_not_found"].includes(errorCode)) {
             console.error(`❌ Multiroom order form non-retryable error: ${errorCode}`);
             throw new Error(response.error.message || `Booking failed: ${errorCode}`);
           }
