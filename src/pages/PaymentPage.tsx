@@ -11,12 +11,17 @@ import { PriceConfirmationModal } from "@/components/booking/PriceConfirmationMo
 import { BillingAddress } from "@/components/booking/BillingAddressSection";
 import { bookingApi } from "@/services/bookingApi";
 import { toast } from "@/hooks/use-toast";
-import { detectCardType, validateCardNumber, validateExpiryDate, validateCVV } from "@/lib/cardValidation";
+import {
+  detectCardType,
+  validateCardNumber,
+  validateExpiryDate,
+  validateCVV,
+} from "@/lib/cardValidation";
 import { getMockPendingBookingData } from "@/lib/mockBookingData";
 import { BOOKING_CONFIG, isRateRefundable } from "@/config/booking";
 import { sanitizeGuestName } from "@/lib/guestValidation";
-import type {
-  PendingBookingData,
+import type { 
+  PendingBookingData, 
   PaymentType,
   PaymentTypeDetail,
   MultiroomPendingBookingData,
@@ -37,7 +42,7 @@ const PaymentPage = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [bookingData, setBookingData] = useState<PendingBookingData | MultiroomPendingBookingData | null>(null);
   const [paymentType, setPaymentType] = useState<PaymentType>("deposit");
-
+  
   // ETG API order form data (single room)
   const [orderId, setOrderId] = useState<string | null>(null);
   const [itemId, setItemId] = useState<string | null>(null);
@@ -48,17 +53,12 @@ const PaymentPage = () => {
   const [isMultiroom, setIsMultiroom] = useState(false);
 
   // Dynamic payment methods from API
-  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<PaymentType[]>([
-    "deposit",
-    "hotel",
-    "now_net",
-    "now_gross",
-  ]);
+  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<PaymentType[]>(["deposit", "hotel", "now_net", "now_gross"]);
   // Full payment types with amounts (for finish request)
   const [paymentTypesData, setPaymentTypesData] = useState<PaymentTypeDetail[]>([]);
   // Recommended payment type from backend (priority: hotel > now > deposit)
   const [recommendedPaymentType, setRecommendedPaymentType] = useState<PaymentTypeDetail | null>(null);
-
+  
   // Payota tokenization data (UUIDs are generated at payment time, not from API)
   const [isNeedCreditCardData, setIsNeedCreditCardData] = useState(false);
   const [isNeedCvc, setIsNeedCvc] = useState(true); // Default true for safety
@@ -105,20 +105,20 @@ const PaymentPage = () => {
   // Guard: Ensure selected paymentType is always valid (exists in availablePaymentMethods)
   useEffect(() => {
     if (availablePaymentMethods.length === 0) return;
-
+    
     const isCurrentTypeAvailable = availablePaymentMethods.includes(paymentType);
-
+    
     if (!isCurrentTypeAvailable) {
       // Current payment type is not available - switch to a valid fallback
-      const fallback = availablePaymentMethods.includes("hotel")
-        ? "hotel"
-        : availablePaymentMethods.includes("deposit")
-          ? "deposit"
+      const fallback = availablePaymentMethods.includes("hotel") 
+        ? "hotel" 
+        : availablePaymentMethods.includes("deposit") 
+          ? "deposit" 
           : availablePaymentMethods[0];
-
+      
       console.log(`⚠️ Payment type "${paymentType}" not available - switching to "${fallback}"`);
       setPaymentType(fallback);
-
+      
       // Show toast if this was a card payment type that's now unavailable
       if (paymentType === "now_net" || paymentType === "now_gross") {
         toast({
@@ -164,8 +164,7 @@ const PaymentPage = () => {
   const loadOrderForm = async (data: PendingBookingData | MultiroomPendingBookingData) => {
     // Check if this is a multiroom booking
     const multiroomData = data as MultiroomPendingBookingData;
-    const isMultiroomBooking =
-      multiroomData.isMultiroom && multiroomData.prebookedRooms && multiroomData.prebookedRooms.length > 1;
+    const isMultiroomBooking = multiroomData.isMultiroom && multiroomData.prebookedRooms && multiroomData.prebookedRooms.length > 1;
     setIsMultiroom(isMultiroomBooking);
 
     if (isMultiroomBooking) {
@@ -198,11 +197,11 @@ const PaymentPage = () => {
       setOrderId(cachedData.orderId);
       setItemId(cachedData.itemId);
       setFormDataLoaded(true);
-
+      
       // Restore payment types data
       if (Array.isArray(cachedData.paymentTypesData) && cachedData.paymentTypesData.length > 0) {
         setPaymentTypesData(cachedData.paymentTypesData);
-
+        
         // Rebuild available payment methods from cached data
         const paymentMethods: PaymentType[] = [];
         cachedData.paymentTypesData.forEach((pt: any) => {
@@ -219,17 +218,17 @@ const PaymentPage = () => {
         if (paymentMethods.length > 0) {
           setAvailablePaymentMethods(paymentMethods);
         }
-
+        
         // Restore recommended payment type
         if (cachedData.recommendedPaymentType) {
           setRecommendedPaymentType(cachedData.recommendedPaymentType);
         }
-
+        
         // Set default payment type
         const defaultType = paymentMethods.includes("hotel") ? "hotel" : "deposit";
         setPaymentType(cachedData.selectedPaymentType || defaultType);
       }
-
+      
       toast({
         title: "Session Restored",
         description: "Your booking session was restored successfully.",
@@ -240,7 +239,10 @@ const PaymentPage = () => {
     setIsLoadingForm(true);
 
     try {
-      const formResponse = await bookingApi.getOrderForm(data.bookingHash, data.bookingId);
+      const formResponse = await bookingApi.getOrderForm(
+        data.bookingHash,
+        data.bookingId
+      );
 
       if (formResponse.error) {
         throw new Error(formResponse.error.message);
@@ -266,14 +268,16 @@ const PaymentPage = () => {
       }
 
       // Find the "now" payment type to check card payment requirements
-      const nowPaymentType = paymentTypesArray.find((pt: any) => pt.type === "now");
+      const nowPaymentType = paymentTypesArray.find(
+        (pt: any) => pt.type === "now"
+      );
 
       // Extract card requirement fields from the "now" payment type
       // Note: pay_uuid and init_uuid are NOT from the API - they're generated at payment time
       if (nowPaymentType) {
         setIsNeedCreditCardData(nowPaymentType.is_need_credit_card_data || false);
         setIsNeedCvc(nowPaymentType.is_need_cvc ?? true);
-
+        
         console.log("💳 Card payment config:", {
           is_need_credit_card_data: nowPaymentType.is_need_credit_card_data,
           is_need_cvc: nowPaymentType.is_need_cvc,
@@ -287,7 +291,7 @@ const PaymentPage = () => {
       // UUIDs are generated client-side, so we always allow "now" if it's in the response
       const paymentMethods: PaymentType[] = [];
       let hasValidCardPayment = false;
-
+      
       paymentTypesArray.forEach((pt: any) => {
         if (pt.type === "now") {
           // Card payment is available - UUIDs will be generated at payment time
@@ -299,7 +303,7 @@ const PaymentPage = () => {
           paymentMethods.push("deposit");
         }
       });
-
+      
       // Only use API-provided payment methods - no forced fallbacks
       // If no payment methods available, show error state
       if (paymentMethods.length === 0) {
@@ -316,23 +320,20 @@ const PaymentPage = () => {
       if (formResponse.data.recommended_payment_type) {
         const recommended = formResponse.data.recommended_payment_type;
         setRecommendedPaymentType(recommended);
-
+        
         // Map API type to UI type (e.g., "now" might need to map to "now_net")
         let uiPaymentType: PaymentType = recommended.type === "now" ? "now_net" : recommended.type;
-
+        
         // Only auto-select if the recommended type is actually available
         if (recommended.type === "now" && !hasValidCardPayment) {
           console.warn("⚠️ Recommended 'now' payment not available (missing UUIDs) - falling back");
           // Fallback to hotel, then deposit
           uiPaymentType = paymentMethods.includes("hotel") ? "hotel" : "deposit";
-        } else if (
-          !paymentMethods.includes(uiPaymentType) &&
-          !(uiPaymentType === "now_net" && paymentMethods.includes("now_net"))
-        ) {
+        } else if (!paymentMethods.includes(uiPaymentType) && !(uiPaymentType === "now_net" && paymentMethods.includes("now_net"))) {
           // If recommended type not in available methods, fallback
           uiPaymentType = paymentMethods.includes("hotel") ? "hotel" : "deposit";
         }
-
+        
         setPaymentType(uiPaymentType);
         console.log("💡 Auto-selected payment type:", uiPaymentType, "(recommended:", recommended.type, ")");
       } else {
@@ -350,8 +351,8 @@ const PaymentPage = () => {
       });
 
       // Persist order form data to survive page refresh
-      const updatedData = {
-        ...data,
+      const updatedData = { 
+        ...data, 
         orderId: formResponse.data.order_id,
         itemId: formResponse.data.item_id,
         // Cache payment types data for session recovery
@@ -361,16 +362,16 @@ const PaymentPage = () => {
       };
       setBookingData(updatedData);
       sessionStorage.setItem("pending_booking", JSON.stringify(updatedData));
+
     } catch (error) {
       console.error("Failed to load order form:", error);
-
+      
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const isDoubleBookingError =
-        errorMessage.toLowerCase().includes("double_booking_form") ||
-        errorMessage.toLowerCase().includes("booking session expired") ||
-        errorMessage.toLowerCase().includes("booking form already exists") ||
-        errorMessage.toLowerCase().includes("already exists for this book_hash");
-
+      const isDoubleBookingError = errorMessage.toLowerCase().includes("double_booking_form") || 
+                                    errorMessage.toLowerCase().includes("booking session expired") ||
+                                    errorMessage.toLowerCase().includes("booking form already exists") ||
+                                    errorMessage.toLowerCase().includes("already exists for this book_hash");
+      
       // Check if this is a double_booking_form error - redirect to hotel page
       if (isDoubleBookingError) {
         toast({
@@ -378,10 +379,10 @@ const PaymentPage = () => {
           description: "Your booking session has expired. Please start a new booking.",
           variant: "destructive",
         });
-
+        
         // Clear session storage and redirect
         sessionStorage.removeItem("pending_booking");
-
+        
         if (data?.hotel?.id) {
           navigate(`/hoteldetails/${data.hotel.id}`);
         } else {
@@ -389,9 +390,9 @@ const PaymentPage = () => {
         }
         return;
       }
-
+      
       setFormDataLoaded(true);
-
+      
       toast({
         title: "Form Loading Warning",
         description: "Unable to prepare booking form. You may continue, but booking might fail.",
@@ -418,15 +419,11 @@ const PaymentPage = () => {
 
     // Check if we already have cached multiroom order form data
     const cachedData = data as any;
-    if (
-      cachedData.multiroomOrderForms &&
-      Array.isArray(cachedData.multiroomOrderForms) &&
-      cachedData.multiroomOrderForms.length > 0
-    ) {
+    if (cachedData.multiroomOrderForms && Array.isArray(cachedData.multiroomOrderForms) && cachedData.multiroomOrderForms.length > 0) {
       console.log("📦 Using cached multiroom order form data from session storage");
       setMultiroomOrderForms(cachedData.multiroomOrderForms);
       setFormDataLoaded(true);
-
+      
       // Restore first room's data for card payment config
       const firstRoom = cachedData.multiroomOrderForms[0];
       if (firstRoom) {
@@ -434,7 +431,7 @@ const PaymentPage = () => {
         setItemId(firstRoom.item_id);
         setIsNeedCreditCardData(firstRoom.is_need_credit_card_data || false);
         setIsNeedCvc(firstRoom.is_need_cvc ?? true);
-
+        
         // Restore payment methods if cached
         if (cachedData.availablePaymentMethods) {
           setAvailablePaymentMethods(cachedData.availablePaymentMethods);
@@ -443,7 +440,7 @@ const PaymentPage = () => {
           setPaymentType(cachedData.selectedPaymentType);
         }
       }
-
+      
       toast({
         title: "Session Restored",
         description: "Your booking session was restored successfully.",
@@ -455,13 +452,17 @@ const PaymentPage = () => {
 
     try {
       // Build prebooked_rooms array from prebookedRooms - backend expects field named "book_hash"
-      const prebookedRoomsForApi = data.prebookedRooms.map((room) => ({
+      const prebookedRoomsForApi = data.prebookedRooms.map(room => ({
         book_hash: room.booking_hash,
       }));
 
       console.log(`📋 Loading multiroom order form for ${prebookedRoomsForApi.length} rooms`);
 
-      const formResponse = await bookingApi.getMultiroomOrderForm(prebookedRoomsForApi, data.bookingId, "en");
+      const formResponse = await bookingApi.getMultiroomOrderForm(
+        prebookedRoomsForApi,
+        data.bookingId,
+        "en"
+      );
 
       if (formResponse.error) {
         throw new Error(formResponse.error.message);
@@ -478,7 +479,7 @@ const PaymentPage = () => {
       }
 
       // Store order forms for each room
-      const orderForms: OrderFormData[] = formResponse.data.rooms.map((room) => ({
+      const orderForms: OrderFormData[] = formResponse.data.rooms.map(room => ({
         roomIndex: room.roomIndex,
         order_id: String(room.order_id),
         item_id: String(room.item_id),
@@ -498,25 +499,25 @@ const PaymentPage = () => {
         setItemId(firstRoom.item_id);
         setIsNeedCreditCardData(firstRoom.is_need_credit_card_data || false);
         setIsNeedCvc(firstRoom.is_need_cvc ?? true);
-
+        
         // Extract payment types with amounts for multiroom (use first room's payment types)
         const firstRoomFromResponse = formResponse.data.rooms[0];
         if (firstRoomFromResponse?.payment_types_detail) {
           setPaymentTypesData(firstRoomFromResponse.payment_types_detail);
         }
+        
       }
 
       // Get common payment types (intersection of all rooms)
       // UUIDs are generated client-side, so we always allow "now" if available
-      const commonPaymentTypes =
-        formResponse.data.payment_types_available ||
+      const commonPaymentTypes = formResponse.data.payment_types_available || 
         orderForms.reduce((common, room) => {
           if (common.length === 0) return room.payment_types;
-          return common.filter((type) => room.payment_types.includes(type));
+          return common.filter(type => room.payment_types.includes(type));
         }, [] as PaymentType[]);
 
       const paymentMethods: PaymentType[] = [];
-      commonPaymentTypes.forEach((type) => {
+      commonPaymentTypes.forEach(type => {
         if (type === "now") {
           // Card payment is available - UUIDs will be generated at payment time
           paymentMethods.push("now_net", "now_gross");
@@ -535,18 +536,15 @@ const PaymentPage = () => {
       if (firstRoomFromResponse?.recommended_payment_type) {
         const recommended = firstRoomFromResponse.recommended_payment_type;
         setRecommendedPaymentType(recommended);
-
+        
         // Map API type to UI type
         let uiPaymentType: PaymentType = recommended.type === "now" ? "now_net" : recommended.type;
-
+        
         // Check if recommended type is in available methods
-        if (
-          !paymentMethods.includes(uiPaymentType) &&
-          !(uiPaymentType === "now_net" && paymentMethods.includes("now_net"))
-        ) {
+        if (!paymentMethods.includes(uiPaymentType) && !(uiPaymentType === "now_net" && paymentMethods.includes("now_net"))) {
           uiPaymentType = paymentMethods.includes("hotel") ? "hotel" : "deposit";
         }
-
+        
         setPaymentType(uiPaymentType);
         console.log("💡 Multiroom: Auto-selected payment type:", uiPaymentType);
       } else {
@@ -561,8 +559,8 @@ const PaymentPage = () => {
       });
 
       // Update booking data with order forms and cache for session recovery
-      const updatedData: MultiroomPendingBookingData = {
-        ...data,
+      const updatedData: MultiroomPendingBookingData = { 
+        ...data, 
         orderForms,
         // Cache additional data for session recovery
         multiroomOrderForms: orderForms,
@@ -571,16 +569,16 @@ const PaymentPage = () => {
       } as any;
       setBookingData(updatedData);
       sessionStorage.setItem("pending_booking", JSON.stringify(updatedData));
+
     } catch (error) {
       console.error("Failed to load multiroom order form:", error);
-
+      
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const isDoubleBookingError =
-        errorMessage.toLowerCase().includes("double_booking_form") ||
-        errorMessage.toLowerCase().includes("booking session expired") ||
-        errorMessage.toLowerCase().includes("booking form already exists") ||
-        errorMessage.toLowerCase().includes("already exists for this book_hash");
-
+      const isDoubleBookingError = errorMessage.toLowerCase().includes("double_booking_form") || 
+                                    errorMessage.toLowerCase().includes("booking session expired") ||
+                                    errorMessage.toLowerCase().includes("booking form already exists") ||
+                                    errorMessage.toLowerCase().includes("already exists for this book_hash");
+      
       // Check if this is a double_booking_form error - redirect to hotel page
       if (isDoubleBookingError) {
         toast({
@@ -588,10 +586,10 @@ const PaymentPage = () => {
           description: "Your booking session has expired. Please start a new booking.",
           variant: "destructive",
         });
-
+        
         // Clear session storage and redirect
         sessionStorage.removeItem("pending_booking");
-
+        
         if (data?.hotel?.id) {
           navigate(`/hoteldetails/${data.hotel.id}`);
         } else {
@@ -599,9 +597,9 @@ const PaymentPage = () => {
         }
         return;
       }
-
+      
       setFormDataLoaded(true);
-
+      
       toast({
         title: "Form Loading Error",
         description: "Unable to prepare booking forms. Please try again.",
@@ -620,7 +618,7 @@ const PaymentPage = () => {
   const handlePriceAccept = () => {
     setPriceModalOpen(false);
     setPriceVerified(true);
-
+    
     if (bookingData && verifiedPrice !== originalPrice) {
       const updatedData = { ...bookingData, totalPrice: verifiedPrice, priceUpdated: true };
       setBookingData(updatedData);
@@ -630,7 +628,7 @@ const PaymentPage = () => {
 
   const handlePriceDecline = () => {
     setPriceModalOpen(false);
-
+    
     if (bookingData?.hotel?.id) {
       navigate(`/hotel/${bookingData.hotel.id}`);
     } else {
@@ -719,7 +717,7 @@ const PaymentPage = () => {
     setCardErrors(errors);
 
     const billingValid = validateBillingAddress();
-
+    
     if (!isValid || !billingValid) {
       toast({
         title: "Please fix the errors",
@@ -746,8 +744,9 @@ const PaymentPage = () => {
     // Sandbox mode validation - check if booking can proceed
     if (BOOKING_CONFIG.isSandboxMode && bookingData) {
       const hotelId = bookingData.hotel?.id;
-      const isTestHotelBooking = hotelId === BOOKING_CONFIG.testHotelId || hotelId === BOOKING_CONFIG.testHotelSlug;
-
+      const isTestHotelBooking = hotelId === BOOKING_CONFIG.testHotelId || 
+                                  hotelId === BOOKING_CONFIG.testHotelSlug;
+      
       // Check if booking non-test hotel in sandbox mode
       if (!isTestHotelBooking) {
         toast({
@@ -755,9 +754,7 @@ const PaymentPage = () => {
           description: `Sandbox API can only book the test hotel (ID: ${BOOKING_CONFIG.testHotelId}). Please use the test hotel or switch to a production API key.`,
           variant: "destructive",
         });
-        setPaymentError(
-          `Cannot book real hotels in sandbox mode. Only test hotel (${BOOKING_CONFIG.testHotelId}) is allowed.`,
-        );
+        setPaymentError(`Cannot book real hotels in sandbox mode. Only test hotel (${BOOKING_CONFIG.testHotelId}) is allowed.`);
         return;
       }
 
@@ -767,23 +764,20 @@ const PaymentPage = () => {
       if (apiPaymentTypeToUse === "deposit" && BOOKING_CONFIG.sandboxRestrictions.blockDeposit) {
         // Check if this is the test hotel AND we allow deposit exception
         if (isTestHotelBooking && BOOKING_CONFIG.sandboxRestrictions.allowDepositForTestHotel) {
-          console.log(
-            "⚠️ Allowing deposit for test hotel (sandbox exception) - may fail with insufficient_b2b_balance",
-          );
+          console.log("⚠️ Allowing deposit for test hotel (sandbox exception) - may fail with insufficient_b2b_balance");
         } else {
           console.error("❌ Deposit payment blocked in sandbox mode");
           toast({
             title: "Deposit Not Available in Sandbox",
-            description:
-              "Deposit payment requires B2B balance which sandbox accounts don't have. Please select 'Pay at Hotel' or use a card payment method.",
+            description: "Deposit payment requires B2B balance which sandbox accounts don't have. Please select 'Pay at Hotel' or use a card payment method.",
             variant: "destructive",
           });
           setPaymentError(
             `Deposit payment is not available in sandbox mode.\n\n` +
-              `This happens because:\n` +
-              `• Deposit requires B2B balance (pre-funded account)\n` +
-              `• Sandbox/test accounts have no B2B balance\n\n` +
-              `Solution: Select "Pay at Hotel" or card payment instead.`,
+            `This happens because:\n` +
+            `• Deposit requires B2B balance (pre-funded account)\n` +
+            `• Sandbox/test accounts have no B2B balance\n\n` +
+            `Solution: Select "Pay at Hotel" or card payment instead.`
           );
           return;
         }
@@ -791,14 +785,14 @@ const PaymentPage = () => {
 
       // Check if selected rooms meet sandbox requirements
       const rooms = bookingData.rooms || [];
-      const invalidRoom = rooms.find((room) => {
+      const invalidRoom = rooms.find(room => {
         // CRITICAL: RateHawk sandbox requires actual free_cancellation_before field
         // Rates with only "policies" will fail with insufficient_b2b_balance
         if (!room.hasFreeCancellationBefore) {
-          console.log("[PaymentPage] Room blocked - missing free_cancellation_before:", room.roomName);
+          console.log('[PaymentPage] Room blocked - missing free_cancellation_before:', room.roomName);
           return true;
         }
-
+        
         // Check using the new cancellation metadata
         if (room.cancellationType && room.cancellationType !== "free_cancellation") {
           return true;
@@ -815,7 +809,7 @@ const PaymentPage = () => {
         const missingFreeCancellationBefore = !invalidRoom.hasFreeCancellationBefore;
         toast({
           title: "Sandbox Mode Restriction",
-          description: missingFreeCancellationBefore
+          description: missingFreeCancellationBefore 
             ? "RateHawk sandbox requires rates with free_cancellation_before field. This rate only has penalty policies."
             : "Sandbox API requires refundable rates with future cancellation deadlines. Please select a refundable rate.",
           variant: "destructive",
@@ -823,7 +817,7 @@ const PaymentPage = () => {
         setPaymentError(
           missingFreeCancellationBefore
             ? "Cannot book this rate in sandbox mode.\n\nRateHawk requires rates with an explicit 'free_cancellation_before' date field. This rate only has penalty policies, which causes insufficient_b2b_balance errors.\n\nPlease go back and select a different rate."
-            : "Cannot book non-refundable rates in sandbox mode. Please go back and select a refundable rate.",
+            : "Cannot book non-refundable rates in sandbox mode. Please go back and select a refundable rate."
         );
         return;
       }
@@ -863,7 +857,7 @@ const PaymentPage = () => {
         const generatedInitUuid = crypto.randomUUID();
 
         const [month, year] = expiryDate.split("/");
-
+        
         const tokenRequest = {
           object_id: String(orderId!),
           pay_uuid: generatedPayUuid,
@@ -879,8 +873,8 @@ const PaymentPage = () => {
             year: year,
           },
         };
-
-        console.log("💳 Card tokenization request:", {
+        
+        console.log("💳 Card tokenization request:", { 
           object_id: tokenRequest.object_id,
           pay_uuid: generatedPayUuid,
           init_uuid: generatedInitUuid,
@@ -889,7 +883,7 @@ const PaymentPage = () => {
 
         // Call Payota tokenization endpoint
         const tokenResponse = await bookingApi.createCreditCardToken(tokenRequest);
-
+        
         if (tokenResponse.status !== "ok") {
           const errorMsg = getPayotaErrorMessage(tokenResponse.error || "UNKNOWN_ERROR");
           throw new Error(errorMsg);
@@ -899,10 +893,10 @@ const PaymentPage = () => {
 
         // Step 2: Complete booking using finishBooking WITH the UUIDs
         const apiPaymentType = getApiPaymentType(paymentType);
-        const selectedPayment = paymentTypesData.find((pt) => pt.type === apiPaymentType);
-
+        const selectedPayment = paymentTypesData.find(pt => pt.type === apiPaymentType);
+        
         const email = leadGuest?.email;
-        const phone = bookingData!.bookingDetails.phoneNumber
+        const phone = bookingData!.bookingDetails.phoneNumber 
           ? `${bookingData!.bookingDetails.countryCode}${bookingData!.bookingDetails.phoneNumber}`
           : undefined;
 
@@ -913,18 +907,9 @@ const PaymentPage = () => {
         // Build return path for 3DS redirect (use partner_order_id)
         const partnerOrderId = bookingData!.bookingId;
         const returnPath = `${window.location.origin}/processing/${partnerOrderId}?order_id=${orderId}`;
-
+        
         // Get free_cancellation_before from the selected room
         const freeCancellationBefore = bookingData!.rooms[0]?.cancellationDeadline;
-
-        // ✅ DEBUG: Log cancellation data before API call
-        console.log("[PaymentPage] Card payment - Cancellation data:", {
-          hasCancellationDeadline: !!freeCancellationBefore,
-          cancellationDeadline: freeCancellationBefore,
-          hasFreeCancellationBefore: bookingData!.rooms[0]?.hasFreeCancellationBefore,
-          cancellationType: bookingData!.rooms[0]?.cancellationType,
-          roomName: bookingData!.rooms[0]?.roomName,
-        });
 
         const finishResponse = await bookingApi.finishBooking({
           order_id: orderId!,
@@ -933,12 +918,12 @@ const PaymentPage = () => {
           payment_type: apiPaymentType,
           payment_amount: selectedPayment?.amount || "0.00",
           payment_currency_code: selectedPayment?.currency_code || bookingData!.hotel.currency || "USD",
-          guests: bookingData!.guests.map((g) => ({
-            first_name: sanitizeGuestName(g.firstName),
-            last_name: sanitizeGuestName(g.lastName),
-            is_child: g.type === "child",
-            age: g.age,
-          })),
+        guests: bookingData!.guests.map((g) => ({
+          first_name: sanitizeGuestName(g.firstName),
+          last_name: sanitizeGuestName(g.lastName),
+          is_child: g.type === "child",
+          age: g.age,
+        })),
           email,
           phone,
           // Include the tokenization UUIDs for card payments
@@ -958,11 +943,11 @@ const PaymentPage = () => {
         if (!finalOrderId) {
           throw new Error("No order ID received from booking");
         }
-
+        
         // Navigate using partner_order_id (required for status polling)
         // Pass order_id in query string for confirmation page
         if (isMultiroom) {
-          const orderIds = multiroomOrderForms.map((f) => f.order_id).join(",");
+          const orderIds = multiroomOrderForms.map(f => f.order_id).join(",");
           navigate(`/processing/${partnerOrderId}?order_id=${finalOrderId}&multiroom=true&order_ids=${orderIds}`);
         } else {
           navigate(`/processing/${partnerOrderId}?order_id=${finalOrderId}`);
@@ -978,103 +963,107 @@ const PaymentPage = () => {
         // Single room finish
         await handleSingleRoomFinish(leadGuest);
       }
+      
     } catch (error) {
       console.error("Order finish failed:", error);
-
-      const errorMessage = error instanceof Error ? error.message : "Failed to complete booking. Please try again.";
-
+      
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Failed to complete booking. Please try again.";
+      
       // Check for payment session / UUID errors
-      const isPaymentSessionError =
+      const isPaymentSessionError = 
         errorMessage.includes("Payment session expired") ||
         errorMessage.includes("pay_uuid") ||
         errorMessage.includes("init_uuid") ||
         errorMessage.toLowerCase().includes("invalid_pay_uuid") ||
         errorMessage.toLowerCase().includes("invalid_init_uuid");
-
+      
       if (isPaymentSessionError && (paymentType === "now_net" || paymentType === "now_gross")) {
         // Try to fallback to "hotel" payment type
-        const hotelPayment = paymentTypesData.find((pt) => pt.type === "hotel");
-
+        const hotelPayment = paymentTypesData.find(pt => pt.type === "hotel");
+        
         if (hotelPayment) {
           console.log("💡 Payment session error - suggesting hotel payment type");
-
+          
           toast({
             title: "Card Payment Unavailable",
             description: "Card payment is temporarily unavailable. Please select 'Pay at Property' to continue.",
           });
-
+          
           // Update available methods to exclude card payments
-          setAvailablePaymentMethods((prev) => prev.filter((m) => m !== "now_net" && m !== "now_gross"));
+          setAvailablePaymentMethods(prev => 
+            prev.filter(m => m !== "now_net" && m !== "now_gross")
+          );
           setPaymentType("hotel");
           setPaymentError("Card payment unavailable. Please use Pay at Property option.");
           return;
         }
       }
-
+      
       // Check for insufficient_b2b_balance error - provide sandbox-specific guidance
-      const isB2BBalanceError =
-        errorMessage.toLowerCase().includes("insufficient_b2b_balance") ||
-        errorMessage.toLowerCase().includes("b2b") ||
-        errorMessage.toLowerCase().includes("insufficient balance") ||
-        errorMessage.includes("402");
-
+      const isB2BBalanceError = errorMessage.toLowerCase().includes("insufficient_b2b_balance") ||
+                                 errorMessage.toLowerCase().includes("b2b") ||
+                                 errorMessage.toLowerCase().includes("insufficient balance") ||
+                                 errorMessage.includes("402");
+      
       if (isB2BBalanceError) {
         // In sandbox mode, check if deposit payment was used
         if (BOOKING_CONFIG.isSandboxMode) {
           const currentApiPaymentType = getApiPaymentType(paymentType);
           const usedDepositPayment = currentApiPaymentType === "deposit";
           console.log("💡 B2B balance error in sandbox mode - deposit payment:", usedDepositPayment);
-
+          
           toast({
             title: "Sandbox Booking Failed",
-            description: usedDepositPayment
+            description: usedDepositPayment 
               ? "Deposit payment requires B2B balance which sandbox accounts don't have."
               : "Sandbox API requires refundable rates. Please select a different rate.",
             variant: "destructive",
           });
-
+          
           setPaymentError(
             usedDepositPayment
               ? `Deposit payment is not available in sandbox mode.\n\n` +
-                  `This happens because:\n` +
-                  `• Deposit requires pre-funded B2B balance\n` +
-                  `• Sandbox accounts have $0 B2B balance\n\n` +
-                  `Options:\n` +
-                  `1. Search for a different hotel with "Pay at Hotel" or card payment options\n` +
-                  `2. Contact RateHawk to request sandbox B2B credit: partners@ratehawk.com`
+                `This happens because:\n` +
+                `• Deposit requires pre-funded B2B balance\n` +
+                `• Sandbox accounts have $0 B2B balance\n\n` +
+                `Options:\n` +
+                `1. Search for a different hotel with "Pay at Hotel" or card payment options\n` +
+                `2. Contact RateHawk to request sandbox B2B credit: partners@ratehawk.com`
               : `Sandbox mode requires refundable rates. This error occurs when:\n` +
-                  `• The rate is non-refundable\n` +
-                  `• The cancellation deadline has passed\n` +
-                  `• Booking a real hotel (not test hotel ${BOOKING_CONFIG.testHotelId})\n\n` +
-                  `Please go back to the hotel page and select a refundable rate with "Free cancellation" and a future deadline.`,
+                `• The rate is non-refundable\n` +
+                `• The cancellation deadline has passed\n` +
+                `• Booking a real hotel (not test hotel ${BOOKING_CONFIG.testHotelId})\n\n` +
+                `Please go back to the hotel page and select a refundable rate with "Free cancellation" and a future deadline.`
           );
           return;
         }
-
+        
         // Production mode - try to fallback to "hotel" payment type
-        const hotelPayment = paymentTypesData.find((pt) => pt.type === "hotel");
-
+        const hotelPayment = paymentTypesData.find(pt => pt.type === "hotel");
+        
         if (hotelPayment && paymentType === "deposit") {
           console.log("💡 B2B balance error - suggesting hotel payment type");
-
+          
           toast({
             title: "Deposit Payment Unavailable",
             description: "Deposit payment is unavailable. Please select 'Pay at Property' to continue.",
           });
-
+          
           // Update payment type to hotel
           setPaymentType("hotel");
           setPaymentError("Deposit payment unavailable. Please use Pay at Property option.");
           return;
         }
       }
-
+      
       toast({
         title: "Booking Failed",
         description: errorMessage,
         variant: "destructive",
       });
-
+      
       setPaymentError(errorMessage);
     } finally {
       setIsProcessing(false);
@@ -1085,17 +1074,17 @@ const PaymentPage = () => {
   const handleSingleRoomFinish = async (leadGuest: PendingBookingData["guests"][number] | undefined) => {
     // Get the API payment type
     const apiPaymentType = getApiPaymentType(paymentType);
-
+    
     // Find the selected payment type details from order form
-    const selectedPayment = paymentTypesData.find((pt) => pt.type === apiPaymentType);
-
+    const selectedPayment = paymentTypesData.find(pt => pt.type === apiPaymentType);
+    
     if (!selectedPayment) {
       console.warn(`Payment type ${apiPaymentType} not found in paymentTypesData, using fallback`);
     }
 
     // Validate required contact info
     const email = leadGuest?.email;
-    const phone = bookingData!.bookingDetails.phoneNumber
+    const phone = bookingData!.bookingDetails.phoneNumber 
       ? `${bookingData!.bookingDetails.countryCode}${bookingData!.bookingDetails.phoneNumber}`
       : undefined;
 
@@ -1108,18 +1097,9 @@ const PaymentPage = () => {
 
     // ✅ Validate cancellation data for sandbox compliance
     if (BOOKING_CONFIG.isSandboxMode && bookingData!.rooms[0]?.hasFreeCancellationBefore && !freeCancellationBefore) {
-      console.error("[Payment] Refundable rate missing cancellationDeadline:", bookingData!.rooms[0]);
+      console.error('[Payment] Refundable rate missing cancellationDeadline:', bookingData!.rooms[0]);
       throw new Error("Booking failed: Refundable rate missing cancellation deadline. Please select a different rate.");
     }
-
-    // ✅ DEBUG: Log cancellation data before API call
-    console.log("[PaymentPage] Single room finish - Cancellation data:", {
-      hasCancellationDeadline: !!freeCancellationBefore,
-      cancellationDeadline: freeCancellationBefore,
-      hasFreeCancellationBefore: bookingData!.rooms[0]?.hasFreeCancellationBefore,
-      cancellationType: bookingData!.rooms[0]?.cancellationType,
-      roomName: bookingData!.rooms[0]?.roomName,
-    });
 
     const response = await bookingApi.finishBooking({
       order_id: orderId!,
@@ -1148,7 +1128,7 @@ const PaymentPage = () => {
     if (!finalOrderId) {
       throw new Error("No order ID received from booking");
     }
-
+    
     // Navigate using partner_order_id (required for status polling)
     const partnerOrderId = bookingData!.bookingId;
     navigate(`/processing/${partnerOrderId}?order_id=${finalOrderId}`);
@@ -1162,9 +1142,7 @@ const PaymentPage = () => {
         const room = bookingData!.rooms[i];
         if (room.hasFreeCancellationBefore && !room.cancellationDeadline) {
           console.error(`[Payment] Room ${i + 1} missing cancellationDeadline:`, room);
-          throw new Error(
-            `Room ${i + 1} is marked refundable but missing cancellation deadline. Please select a different rate.`,
-          );
+          throw new Error(`Room ${i + 1} is marked refundable but missing cancellation deadline. Please select a different rate.`);
         }
       }
     }
@@ -1176,41 +1154,27 @@ const PaymentPage = () => {
       const searchParamsData = bookingData!.searchParams;
       const adultsCount = searchParamsData?.guests || 2;
       const childrenAges = searchParamsData?.childrenAges || [];
-
-      const guestsForRoom: MultiroomGuests[] = [
-        {
-          adults: adultsCount,
-          children: childrenAges.map((age) => ({ age })),
-        },
-      ];
-
-      const roomCancellationDeadline = bookingData!.rooms[index]?.cancellationDeadline;
-
-      // ✅ DEBUG: Log cancellation data for each room
-      console.log(`[PaymentPage] Multiroom finish - Room ${index + 1} cancellation data:`, {
-        order_id: form.order_id,
-        hasCancellationDeadline: !!roomCancellationDeadline,
-        cancellationDeadline: roomCancellationDeadline,
-        hasFreeCancellationBefore: bookingData!.rooms[index]?.hasFreeCancellationBefore,
-        cancellationType: bookingData!.rooms[index]?.cancellationType,
-        roomName: bookingData!.rooms[index]?.roomName,
-      });
+      
+      const guestsForRoom: MultiroomGuests[] = [{
+        adults: adultsCount,
+        children: childrenAges.map(age => ({ age })),
+      }];
 
       return {
         order_id: form.order_id,
         item_id: form.item_id,
         guests: guestsForRoom,
         // Include free_cancellation_before for this room (prevents insufficient_b2b_balance)
-        free_cancellation_before: roomCancellationDeadline,
+        free_cancellation_before: bookingData!.rooms[index]?.cancellationDeadline,
       };
     });
 
     // Get payment type details and contact info
     const apiPaymentType = getApiPaymentType(paymentType);
-    const selectedPayment = paymentTypesData.find((pt) => pt.type === apiPaymentType);
-
+    const selectedPayment = paymentTypesData.find(pt => pt.type === apiPaymentType);
+    
     const email = leadGuest?.email;
-    const phone = bookingData!.bookingDetails.phoneNumber
+    const phone = bookingData!.bookingDetails.phoneNumber 
       ? `${bookingData!.bookingDetails.countryCode}${bookingData!.bookingDetails.phoneNumber}`
       : undefined;
 
@@ -1255,23 +1219,21 @@ const PaymentPage = () => {
     const primaryOrderId = orderIds[0];
     const allOrderIds = orderIds.join(",");
     const partnerOrderId = bookingData!.bookingId;
-    navigate(
-      `/processing/${partnerOrderId}?order_id=${primaryOrderId}&multiroom=true&order_ids=${allOrderIds}&total=${response.data.total_rooms}&success=${response.data.successful_rooms}`,
-    );
+    navigate(`/processing/${partnerOrderId}?order_id=${primaryOrderId}&multiroom=true&order_ids=${allOrderIds}&total=${response.data.total_rooms}&success=${response.data.successful_rooms}`);
   };
 
   // Helper to get user-friendly Payota error messages
   const getPayotaErrorMessage = (errorCode: string): string => {
     const errorMessages: Record<string, string> = {
-      INVALID_CARD_NUMBER: "The card number is invalid. Please check and try again.",
-      CARD_EXPIRED: "This card has expired. Please use a different card.",
-      INSUFFICIENT_FUNDS: "Insufficient funds. Please try a different card.",
-      CARD_DECLINED: "Your card was declined. Please contact your bank or try another card.",
-      INVALID_CVC: "The security code (CVV/CVC) is incorrect.",
-      PROCESSING_ERROR: "Payment processing error. Please try again.",
-      NETWORK_ERROR: "Network error. Please check your connection and try again.",
-      SESSION_EXPIRED: "Payment session expired. Please refresh and try again.",
-      UNKNOWN_ERROR: "An unexpected error occurred. Please try again.",
+      "INVALID_CARD_NUMBER": "The card number is invalid. Please check and try again.",
+      "CARD_EXPIRED": "This card has expired. Please use a different card.",
+      "INSUFFICIENT_FUNDS": "Insufficient funds. Please try a different card.",
+      "CARD_DECLINED": "Your card was declined. Please contact your bank or try another card.",
+      "INVALID_CVC": "The security code (CVV/CVC) is incorrect.",
+      "PROCESSING_ERROR": "Payment processing error. Please try again.",
+      "NETWORK_ERROR": "Network error. Please check your connection and try again.",
+      "SESSION_EXPIRED": "Payment session expired. Please refresh and try again.",
+      "UNKNOWN_ERROR": "An unexpected error occurred. Please try again.",
     };
     return errorMessages[errorCode] || `Payment error: ${errorCode}`;
   };
@@ -1281,10 +1243,10 @@ const PaymentPage = () => {
     if (isProcessing) return "Processing...";
     if (isVerifyingPrice) return "Verifying Price...";
     if (isLoadingForm) return "Preparing Booking...";
-
+    
     const displayPrice = priceVerified ? verifiedPrice : bookingData?.totalPrice || 0;
     const currency = bookingData?.hotel?.currency || "USD";
-
+    
     if (isCardPayment) {
       return `Pay ${currency} ${displayPrice.toFixed(2)}`;
     } else if (paymentType === "deposit") {
@@ -1313,11 +1275,16 @@ const PaymentPage = () => {
           <Card className="border-0 shadow-lg">
             <CardContent className="p-8">
               <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
-              <h2 className="text-2xl font-heading font-bold text-foreground mb-2">Payment Session Expired</h2>
+              <h2 className="text-2xl font-heading font-bold text-foreground mb-2">
+                Payment Session Expired
+              </h2>
               <p className="text-muted-foreground mb-6">
                 Your booking session has expired. Please start a new booking.
               </p>
-              <Button onClick={() => navigate("/dashboard/search")} className="bg-primary hover:bg-primary/90">
+              <Button
+                onClick={() => navigate("/dashboard/search")}
+                className="bg-primary hover:bg-primary/90"
+              >
                 Start New Booking
               </Button>
             </CardContent>
@@ -1383,19 +1350,25 @@ const PaymentPage = () => {
               <span>DEV: Skip to Confirmation</span>
             </Button>
           </div>
-
-          <p className="heading-spaced text-white/80 mb-3 opacity-0 animate-fade-in" style={{ animationDelay: "0.2s" }}>
+          
+          <p 
+            className="heading-spaced text-white/80 mb-3 opacity-0 animate-fade-in"
+            style={{ animationDelay: "0.2s" }}
+          >
             Secure Checkout
           </p>
-
-          <h1
+          
+          <h1 
             className="font-heading text-display-md md:text-display-lg text-white mb-4 opacity-0 animate-slide-up"
             style={{ animationDelay: "0.3s" }}
           >
             Complete Your Payment
           </h1>
-
-          <div className="flex items-center gap-2 opacity-0 animate-fade-in" style={{ animationDelay: "0.4s" }}>
+          
+          <div 
+            className="flex items-center gap-2 opacity-0 animate-fade-in"
+            style={{ animationDelay: "0.4s" }}
+          >
             <Lock className="h-4 w-4 text-white/80" />
             <span className="text-white/80 text-body-md">256-bit SSL Encrypted</span>
           </div>
@@ -1405,10 +1378,7 @@ const PaymentPage = () => {
       {/* Progress Indicator - Floating Card */}
       <section className="relative -mt-6 z-20 px-4 md:px-8">
         <div className="container max-w-7xl">
-          <div
-            className="bg-card rounded-2xl shadow-card p-4 opacity-0 animate-fade-in"
-            style={{ animationDelay: "0.5s" }}
-          >
+          <div className="bg-card rounded-2xl shadow-card p-4 opacity-0 animate-fade-in" style={{ animationDelay: "0.5s" }}>
             <BookingProgressIndicator currentStep={3} />
           </div>
         </div>
@@ -1427,11 +1397,7 @@ const PaymentPage = () => {
               <CollapsibleContent className="mt-2">
                 <div className="bg-gray-100 border rounded p-3 text-xs font-mono overflow-auto max-h-64">
                   <div className="mb-2 font-semibold text-gray-700">
-                    Hotel: {bookingData.hotel?.id} | Test Hotel:{" "}
-                    {bookingData.hotel?.id === BOOKING_CONFIG.testHotelId ||
-                    bookingData.hotel?.id === BOOKING_CONFIG.testHotelSlug
-                      ? "✅ Yes"
-                      : "❌ No"}
+                    Hotel: {bookingData.hotel?.id} | Test Hotel: {bookingData.hotel?.id === BOOKING_CONFIG.testHotelId || bookingData.hotel?.id === BOOKING_CONFIG.testHotelSlug ? "✅ Yes" : "❌ No"}
                   </div>
                   <div className="mb-2">
                     <span className="font-semibold">Selected Payment Type:</span>{" "}
@@ -1464,9 +1430,7 @@ const PaymentPage = () => {
                     {bookingData.rooms?.map((room, idx) => (
                       <div key={idx} className="pl-2 mt-1">
                         <div className="font-medium">{room.roomName}</div>
-                        <div
-                          className={room.cancellationType === "free_cancellation" ? "text-green-600" : "text-red-600"}
-                        >
+                        <div className={room.cancellationType === "free_cancellation" ? "text-green-600" : "text-red-600"}>
                           • Cancellation: {room.cancellationType || "unknown"}
                         </div>
                         <div>• Deadline: {room.cancellationDeadline || "N/A"}</div>
@@ -1485,8 +1449,8 @@ const PaymentPage = () => {
               <div>
                 <p className="font-heading text-lg font-semibold text-destructive">Payment Failed</p>
                 <p className="text-body-md text-destructive/80 mt-1 whitespace-pre-line">{paymentError}</p>
-                <Button
-                  variant="link"
+                <Button 
+                  variant="link" 
                   className="text-destructive p-0 h-auto text-body-sm mt-2"
                   onClick={() => setPaymentError(null)}
                 >
@@ -1499,10 +1463,7 @@ const PaymentPage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-stretch">
             {/* Left Panel - Payment Form */}
             <div className="order-2 lg:order-1">
-              <div
-                className="bg-card rounded-3xl shadow-card p-6 lg:p-8 opacity-0 animate-fade-in h-full"
-                style={{ animationDelay: "0.1s" }}
-              >
+              <div className="bg-card rounded-3xl shadow-card p-6 lg:p-8 opacity-0 animate-fade-in h-full" style={{ animationDelay: "0.1s" }}>
                 <PaymentFormPanel
                   paymentType={paymentType}
                   onPaymentTypeChange={setPaymentType}
