@@ -185,48 +185,62 @@ class BookingApiService {
 
   /**
    * Helper: Recover existing order by partner_order_id when double_booking_form occurs
-   * Uses getOrdersBatch to find the already-created order
+   * Uses getOrdersBatch to find the already-created order with retry mechanism
+   * due to eventual consistency in the backend
    */
   async recoverOrderByPartnerOrderId(partnerOrderId: string): Promise<{
     order_id: string;
     item_id: string;
     payment_types: any[];
   } | null> {
-    try {
-      console.log("🔄 Attempting to recover existing order for:", partnerOrderId);
-      
-      const response = await this.getOrdersBatch({
-        partnerOrderIds: [partnerOrderId],
-        pageSize: 1,
-      });
-      
-      if (response.data?.orders?.length > 0) {
-        const order = response.data.orders[0] as any; // Use any for flexible property access
-        console.log("✅ Recovered existing order:", order.order_id);
+    const MAX_RECOVERY_ATTEMPTS = 6;
+    const INITIAL_DELAY_MS = 500;
+    
+    for (let attempt = 1; attempt <= MAX_RECOVERY_ATTEMPTS; attempt++) {
+      try {
+        console.log(`🔄 Recovery attempt ${attempt}/${MAX_RECOVERY_ATTEMPTS} for:`, partnerOrderId);
         
-        // Extract item_id from various possible locations in the response
-        const itemId = order.item_id || 
-                      order.rooms_data?.[0]?.item_id || 
-                      order.rooms?.[0]?.item_id || 
-                      "";
+        const response = await this.getOrdersBatch({
+          partnerOrderIds: [partnerOrderId],
+          pageSize: 1,
+        });
         
-        // Extract payment types - may be in payment_data or as payment_types array
-        const paymentTypes = order.payment_types || 
-                            (order.payment_data?.payment_type ? [{ type: order.payment_data.payment_type }] : []);
+        if (response.data?.orders?.length > 0) {
+          const order = response.data.orders[0] as any;
+          console.log("✅ Recovered existing order:", order.order_id);
+          
+          const itemId = order.item_id || 
+                        order.rooms_data?.[0]?.item_id || 
+                        order.rooms?.[0]?.item_id || 
+                        "";
+          
+          const paymentTypes = order.payment_types || 
+                              (order.payment_data?.payment_type ? [{ type: order.payment_data.payment_type }] : []);
+          
+          return {
+            order_id: String(order.order_id),
+            item_id: String(itemId),
+            payment_types: paymentTypes,
+          };
+        }
         
-        return {
-          order_id: String(order.order_id),
-          item_id: String(itemId),
-          payment_types: paymentTypes,
-        };
+        // No order found yet - wait and retry (eventual consistency)
+        if (attempt < MAX_RECOVERY_ATTEMPTS) {
+          const delay = INITIAL_DELAY_MS * Math.pow(1.5, attempt - 1);
+          console.log(`⏳ Order not found yet, waiting ${delay}ms before retry...`);
+          await new Promise(r => setTimeout(r, delay));
+        }
+      } catch (error) {
+        console.error(`❌ Recovery attempt ${attempt} failed:`, error);
+        if (attempt < MAX_RECOVERY_ATTEMPTS) {
+          const delay = INITIAL_DELAY_MS * Math.pow(1.5, attempt - 1);
+          await new Promise(r => setTimeout(r, delay));
+        }
       }
-      
-      console.warn("⚠️ No existing order found for partner_order_id:", partnerOrderId);
-      return null;
-    } catch (error) {
-      console.error("❌ Failed to recover order:", error);
-      return null;
     }
+    
+    console.warn("⚠️ Failed to recover order after all attempts for:", partnerOrderId);
+    return null;
   }
 
   /**

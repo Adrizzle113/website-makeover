@@ -579,7 +579,50 @@ const HotelDetailsPage = () => {
         hid: numericHid,                 // Should be numeric like 7497446
       });
 
-      const canFetchRates = !!context?.checkin && !!context?.checkout;
+      // Validate and fix dates to ensure check-in is at least tomorrow (RateHawk requirement)
+      const validateAndFixDates = () => {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const dayAfterTomorrow = new Date(tomorrow);
+        dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
+        
+        const formatDateStr = (d: Date) => d.toISOString().split('T')[0];
+        const tomorrowStr = formatDateStr(tomorrow);
+        const dayAfterTomorrowStr = formatDateStr(dayAfterTomorrow);
+        
+        if (!context?.checkin || !context?.checkout) {
+          return { checkIn: tomorrowStr, checkOut: dayAfterTomorrowStr, isValid: true };
+        }
+        
+        let checkIn = context.checkin;
+        let checkOut = context.checkout;
+        
+        // Parse stored dates
+        const storedCheckIn = new Date(checkIn);
+        const storedCheckOut = new Date(checkOut);
+        
+        // If check-in is today or in the past, bump to tomorrow
+        if (storedCheckIn <= today) {
+          console.log(`📅 Check-in date ${checkIn} is today or past - bumping to tomorrow ${tomorrowStr}`);
+          checkIn = tomorrowStr;
+          
+          // Calculate how many nights were originally selected
+          const originalNights = Math.max(1, Math.round((storedCheckOut.getTime() - storedCheckIn.getTime()) / (1000 * 60 * 60 * 24)));
+          
+          // Move checkout to maintain same duration
+          const newCheckOut = new Date(tomorrow);
+          newCheckOut.setDate(newCheckOut.getDate() + originalNights);
+          checkOut = formatDateStr(newCheckOut);
+          console.log(`📅 Adjusted checkout to ${checkOut} (${originalNights} nights)`);
+        }
+        
+        return { checkIn, checkOut, isValid: true };
+      };
+      
+      const { checkIn: validatedCheckIn, checkOut: validatedCheckOut } = validateAndFixDates();
+      const canFetchRates = !!validatedCheckIn && !!validatedCheckOut;
 
       // Format dates helper
       const formatDate = (date: string | Date): string => {
@@ -623,9 +666,9 @@ const HotelDetailsPage = () => {
             body: JSON.stringify({
               hotelId: ratesHotelId,
               searchContext: {
-                checkin: formatDate(context.checkin),
-                checkout: formatDate(context.checkout),
-                guests: formatGuests(context.guests),
+                checkin: formatDate(validatedCheckIn),
+                checkout: formatDate(validatedCheckOut),
+                guests: formatGuests(context?.guests),
               },
               residency: "en-us",
               currency: "USD",
@@ -639,9 +682,9 @@ const HotelDetailsPage = () => {
       if (canFetchRates) {
         console.log("💰 Rates request params:", {
           hotelId: ratesHotelId,
-          checkin: formatDate(context.checkin),
-          checkout: formatDate(context.checkout),
-          guests: formatGuests(context.guests),
+          checkin: formatDate(validatedCheckIn),
+          checkout: formatDate(validatedCheckOut),
+          guests: formatGuests(context?.guests),
         });
       }
 
