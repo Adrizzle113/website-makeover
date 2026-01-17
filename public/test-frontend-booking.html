@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧪 Frontend Booking Flow Test</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+      margin: 0; 
+      padding: 20px; 
+      background: #1a1a2e;
+      color: #eee;
+    }
+    h1 { color: #00d9ff; margin-bottom: 20px; }
+    h2 { color: #ffaa00; margin: 20px 0 10px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .config-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    label { font-size: 12px; color: #999; text-transform: uppercase; }
+    input, select { 
+      padding: 10px; 
+      border: 1px solid #333; 
+      border-radius: 6px; 
+      background: #16213e; 
+      color: #fff;
+      font-size: 14px;
+    }
+    input:focus, select:focus { outline: none; border-color: #00d9ff; }
+    button { 
+      padding: 12px 24px; 
+      background: linear-gradient(135deg, #00d9ff, #0099cc); 
+      border: none; 
+      border-radius: 6px; 
+      color: #000; 
+      font-weight: 600; 
+      font-size: 14px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    button:hover { transform: scale(1.02); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .results {
+      background: #0f0f23;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 20px;
+      min-height: 400px;
+      max-height: 70vh;
+      overflow-y: auto;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .step { margin: 15px 0; padding: 10px; border-left: 3px solid #333; background: rgba(255,255,255,0.02); }
+    .step-title { color: #00d9ff; font-weight: 600; margin-bottom: 5px; }
+    .success { border-left-color: #00ff88; }
+    .error { border-left-color: #ff4444; }
+    .warning { border-left-color: #ffaa00; }
+    .payload { 
+      background: #1a1a2e; 
+      padding: 10px; 
+      border-radius: 4px; 
+      overflow-x: auto; 
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin: 5px 0;
+    }
+    .highlight { color: #00ff88; font-weight: 600; }
+    .missing { color: #ff4444; font-weight: 600; }
+    .copy-btn {
+      padding: 4px 8px;
+      font-size: 11px;
+      background: #333;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      float: right;
+    }
+    .copy-btn:hover { background: #444; }
+    .comparison { 
+      display: grid; 
+      grid-template-columns: 1fr 1fr; 
+      gap: 10px; 
+      margin: 10px 0;
+    }
+    .comparison > div { 
+      background: #16213e; 
+      padding: 10px; 
+      border-radius: 4px;
+    }
+    .comparison h4 { margin: 0 0 10px; font-size: 12px; color: #999; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 Frontend Booking Flow Test</h1>
+    <p style="color: #999; margin-bottom: 20px;">
+      This tool tests the exact same API flow as the frontend app to diagnose <code>free_cancellation_before</code> issues.
+    </p>
+
+    <h2>Step 1: Configuration</h2>
+    <div class="config-grid">
+      <div class="field">
+        <label>API Base URL</label>
+        <input type="text" id="apiBaseUrl" value="" placeholder="https://your-project.supabase.co/functions/v1">
+      </div>
+      <div class="field">
+        <label>Hotel ID</label>
+        <input type="text" id="hotelId" value="8473727" placeholder="e.g., 8473727">
+      </div>
+      <div class="field">
+        <label>Check-in Date</label>
+        <input type="date" id="checkin" value="">
+      </div>
+      <div class="field">
+        <label>Check-out Date</label>
+        <input type="date" id="checkout" value="">
+      </div>
+      <div class="field">
+        <label>User ID</label>
+        <input type="text" id="userId" value="test_frontend_user" placeholder="e.g., default_user">
+      </div>
+      <div class="field">
+        <label>Residency</label>
+        <input type="text" id="residency" value="US" placeholder="e.g., US">
+      </div>
+    </div>
+    <button id="startTest" onclick="runFullTest()">🚀 Start Booking Flow Test</button>
+    <button onclick="clearResults()" style="background: #333; color: #fff; margin-left: 10px;">Clear Results</button>
+
+    <h2>Test Results</h2>
+    <div id="results" class="results">
+      <p style="color: #666;">Click "Start Booking Flow Test" to begin...</p>
+    </div>
+  </div>
+
+  <script>
+    // Set default dates (tomorrow + 2 days)
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfter = new Date();
+    dayAfter.setDate(dayAfter.getDate() + 3);
+    document.getElementById('checkin').value = tomorrow.toISOString().split('T')[0];
+    document.getElementById('checkout').value = dayAfter.toISOString().split('T')[0];
+
+    // Auto-detect API base URL from current location
+    const currentHost = window.location.origin;
+    if (currentHost.includes('lovable.app') || currentHost.includes('localhost')) {
+      // Try to extract Supabase URL from environment or use a default pattern
+      const projectId = currentHost.match(/([a-z0-9-]+)\.lovable\.app/)?.[1] || '';
+      document.getElementById('apiBaseUrl').placeholder = 'Enter your Supabase Functions URL';
+    }
+
+    function clearResults() {
+      document.getElementById('results').innerHTML = '<p style="color: #666;">Click "Start Booking Flow Test" to begin...</p>';
+    }
+
+    function log(html, className = '') {
+      const results = document.getElementById('results');
+      if (results.querySelector('p')) results.innerHTML = '';
+      results.innerHTML += `<div class="step ${className}">${html}</div>`;
+      results.scrollTop = results.scrollHeight;
+    }
+
+    function logStep(title, content, status = '') {
+      log(`<div class="step-title">${title}</div>${content}`, status);
+    }
+
+    function copyToClipboard(text, btn) {
+      navigator.clipboard.writeText(text);
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 1500);
+    }
+
+    async function runFullTest() {
+      const apiBaseUrl = document.getElementById('apiBaseUrl').value.trim();
+      const hotelId = document.getElementById('hotelId').value.trim();
+      const checkin = document.getElementById('checkin').value;
+      const checkout = document.getElementById('checkout').value;
+      const userId = document.getElementById('userId').value.trim();
+      const residency = document.getElementById('residency').value.trim();
+
+      if (!apiBaseUrl) {
+        log('<div class="step-title">❌ Error</div>Please enter your API Base URL (Supabase Functions URL)', 'error');
+        return;
+      }
+
+      document.getElementById('startTest').disabled = true;
+      clearResults();
+
+      try {
+        // ========== STEP 1: SEARCH ==========
+        logStep('📍 Step 1: Hotel Search', `Searching for hotel ${hotelId}...`);
+
+        const searchBody = {
+          ids: [hotelId],
+          checkin,
+          checkout,
+          guests: [{ adults: 2, children: [] }],
+          residency,
+          currency: 'USD',
+          language: 'en',
+          userId,
+        };
+
+        const searchRes = await fetch(`${apiBaseUrl}/travelapi-search-ids`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(searchBody),
+        });
+
+        const searchData = await searchRes.json();
+
+        if (!searchData.data?.hotels?.length) {
+          throw new Error('No hotels found in search response');
+        }
+
+        const hotel = searchData.data.hotels[0];
+        const rates = hotel.rates || [];
+
+        logStep('✅ Step 1: Search Complete', `
+          Found hotel: <strong>${hotel.name || hotelId}</strong><br>
+          Rates available: <strong>${rates.length}</strong>
+        `, 'success');
+
+        // ========== STEP 2: EXTRACT FREE_CANCELLATION_BEFORE ==========
+        logStep('🔍 Step 2: Extracting free_cancellation_before', 'Checking all API locations...');
+
+        const rate = rates[0];
+        let freeCancellationBefore = null;
+        let extractionSource = 'NOT FOUND';
+
+        // Try all extraction paths (same as frontend)
+        const extractionPaths = [
+          { path: 'rate.free_cancellation_before', value: rate?.free_cancellation_before },
+          { path: 'rate.cancellation_penalties?.free_cancellation_before', value: rate?.cancellation_penalties?.free_cancellation_before },
+          { path: 'rate.payment_options?.payment_types[0]?.cancellation_penalties?.free_cancellation_before', 
+            value: rate?.payment_options?.payment_types?.[0]?.cancellation_penalties?.free_cancellation_before },
+          { path: 'rate.cancellation_info?.free_cancellation_before', value: rate?.cancellation_info?.free_cancellation_before },
+          { path: 'rate.deposit?.free_cancellation_before', value: rate?.deposit?.free_cancellation_before },
+        ];
+
+        let extractionDetails = '<table style="width:100%; font-size: 12px;">';
+        for (const { path, value } of extractionPaths) {
+          const status = value ? '✅' : '❌';
+          const color = value ? '#00ff88' : '#666';
+          extractionDetails += `<tr><td style="color:${color}">${status} ${path}</td><td style="color:${color}">${value || 'undefined'}</td></tr>`;
+          if (value && !freeCancellationBefore) {
+            freeCancellationBefore = value;
+            extractionSource = path;
+          }
+        }
+        extractionDetails += '</table>';
+
+        const fcbStatus = freeCancellationBefore ? 'success' : 'error';
+        logStep(`${freeCancellationBefore ? '✅' : '❌'} Step 2: Extraction Result`, `
+          <strong>free_cancellation_before:</strong> 
+          <span class="${freeCancellationBefore ? 'highlight' : 'missing'}">
+            ${freeCancellationBefore || 'NOT FOUND - THIS IS THE PROBLEM!'}
+          </span><br>
+          <strong>Source:</strong> ${extractionSource}<br><br>
+          <details>
+            <summary style="cursor: pointer; color: #999;">All extraction paths checked:</summary>
+            ${extractionDetails}
+          </details>
+        `, fcbStatus);
+
+        // ========== STEP 3: PREBOOK ==========
+        logStep('📦 Step 3: Prebook', 'Locking rate...');
+
+        const bookHash = rate?.book_hash;
+        if (!bookHash) {
+          throw new Error('No book_hash found in rate');
+        }
+
+        const prebookBody = {
+          book_hash: bookHash,
+          residency,
+          currency: 'USD',
+          price_increase_percent: 20,
+          userId,
+        };
+
+        const prebookRes = await fetch(`${apiBaseUrl}/api/ratehawk/prebook`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(prebookBody),
+        });
+
+        const prebookData = await prebookRes.json();
+
+        if (prebookData.error) {
+          throw new Error(`Prebook failed: ${prebookData.error.message || prebookData.error.code}`);
+        }
+
+        const bookingHash = prebookData.data?.booking_hash;
+        logStep('✅ Step 3: Prebook Complete', `
+          booking_hash: <code>${bookingHash}</code>
+        `, 'success');
+
+        // ========== STEP 4: ORDER FORM ==========
+        logStep('📝 Step 4: Order Form', 'Getting payment options...');
+
+        const partnerOrderId = `TEST_${Date.now()}`;
+        const orderFormRes = await fetch(`${apiBaseUrl}/api/ratehawk/order/form`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            book_hash: bookingHash,
+            partner_order_id: partnerOrderId,
+            language: 'en',
+            userId,
+          }),
+        });
+
+        const orderFormData = await orderFormRes.json();
+
+        if (orderFormData.error) {
+          throw new Error(`Order form failed: ${orderFormData.error.message || orderFormData.error.code}`);
+        }
+
+        const orderId = orderFormData.data?.id;
+        const itemId = orderFormData.data?.item_id || orderFormData.data?.items?.[0]?.id;
+        const paymentTypes = orderFormData.data?.payment_types || [];
+        const depositPayment = paymentTypes.find(pt => pt.type === 'deposit');
+
+        logStep('✅ Step 4: Order Form Complete', `
+          order_id: <code>${orderId}</code><br>
+          item_id: <code>${itemId}</code><br>
+          payment_types: ${paymentTypes.map(pt => pt.type).join(', ')}<br>
+          deposit amount: ${depositPayment?.amount || 'N/A'} ${depositPayment?.currency_code || ''}
+        `, 'success');
+
+        // ========== STEP 5: BUILD FINISH PAYLOAD ==========
+        logStep('🔧 Step 5: Building Finish Payload', 'This is what would be sent to /order/finish...');
+
+        const finishPayload = {
+          order_id: orderId,
+          item_id: itemId,
+          partner_order_id: partnerOrderId,
+          userId: userId,
+          payment_type: 'deposit',
+          payment_amount: depositPayment?.amount || '0.00',
+          payment_currency_code: depositPayment?.currency_code || 'USD',
+          guests: [{
+            first_name: 'Test',
+            last_name: 'Guest',
+            is_child: false,
+          }],
+          email: 'test@example.com',
+          phone: '+1234567890',
+          language: 'en',
+          // ✅ CRITICAL: This field must be present for deposit bookings
+          free_cancellation_before: freeCancellationBefore,
+        };
+
+        const payloadJson = JSON.stringify(finishPayload, null, 2);
+        const payloadId = 'payload_' + Date.now();
+
+        logStep('📤 Step 5: Finish Payload Ready', `
+          <button class="copy-btn" onclick="copyToClipboard(document.getElementById('${payloadId}').textContent, this)">Copy</button>
+          <div class="payload" id="${payloadId}">${payloadJson}</div>
+          <br>
+          <strong>Critical Field Check:</strong><br>
+          <span class="${freeCancellationBefore ? 'highlight' : 'missing'}">
+            free_cancellation_before: ${freeCancellationBefore ? '✅ INCLUDED' : '❌ MISSING'}
+          </span>
+        `, freeCancellationBefore ? 'success' : 'error');
+
+        // ========== STEP 6: ATTEMPT FINISH (Optional) ==========
+        const shouldFinish = confirm('Do you want to attempt the actual /order/finish call? (This will consume the booking attempt)');
+        
+        if (shouldFinish) {
+          logStep('🚀 Step 6: Calling /order/finish', 'Sending request...');
+
+          const finishRes = await fetch(`${apiBaseUrl}/api/ratehawk/order/finish`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(finishPayload),
+          });
+
+          const finishData = await finishRes.json();
+          const statusCode = finishRes.status;
+
+          if (statusCode === 402 || finishData.error?.code === 'insufficient_b2b_balance') {
+            logStep(`❌ Step 6: HTTP ${statusCode} - insufficient_b2b_balance`, `
+              <strong>This is the error you're seeing!</strong><br><br>
+              <div class="payload">${JSON.stringify(finishData, null, 2)}</div>
+              <br>
+              <strong>Diagnosis:</strong><br>
+              ${!freeCancellationBefore 
+                ? '<span class="missing">❌ free_cancellation_before is MISSING - this is likely the cause!</span>' 
+                : '<span class="warning">⚠️ free_cancellation_before is present but API still returned 402. This may be an account balance issue.</span>'}
+            `, 'error');
+          } else if (finishData.error) {
+            logStep(`❌ Step 6: Booking Failed`, `
+              Error: ${finishData.error.code || 'unknown'}<br>
+              Message: ${finishData.error.message || 'No message'}
+              <div class="payload">${JSON.stringify(finishData, null, 2)}</div>
+            `, 'error');
+          } else {
+            logStep('✅ Step 6: Booking Successful!', `
+              <span class="highlight">Order ID: ${finishData.data?.order_id}</span><br>
+              Status: ${finishData.data?.status || 'pending'}
+            `, 'success');
+          }
+        } else {
+          logStep('⏭️ Step 6: Skipped', 'Finish call was skipped. Payload is ready above for comparison.', 'warning');
+        }
+
+        // ========== SUMMARY ==========
+        log(`
+          <div class="step-title">📊 Summary</div>
+          <div class="comparison">
+            <div>
+              <h4>Frontend Extraction</h4>
+              <strong>free_cancellation_before:</strong><br>
+              <span class="${freeCancellationBefore ? 'highlight' : 'missing'}">${freeCancellationBefore || 'NOT FOUND'}</span><br><br>
+              <strong>Source:</strong> ${extractionSource}
+            </div>
+            <div>
+              <h4>Expected (from working script)</h4>
+              <strong>free_cancellation_before:</strong><br>
+              <span style="color: #00ff88;">2026-01-24T20:00:00</span> (example)<br><br>
+              <strong>Must match ISO format</strong>
+            </div>
+          </div>
+          ${!freeCancellationBefore 
+            ? '<p class="missing" style="margin-top: 15px;">⚠️ The issue is confirmed: free_cancellation_before is not being extracted from the API response. Check the rate data structure.</p>'
+            : '<p style="color: #00ff88; margin-top: 15px;">✅ free_cancellation_before is being extracted correctly. If 402 still occurs, it\'s likely an account balance issue.</p>'}
+        `, freeCancellationBefore ? 'success' : 'error');
+
+      } catch (error) {
+        logStep('❌ Error', `${error.message}`, 'error');
+        console.error('Test error:', error);
+      } finally {
+        document.getElementById('startTest').disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
