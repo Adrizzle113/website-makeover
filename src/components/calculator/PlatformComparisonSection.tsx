@@ -21,7 +21,7 @@ export function PlatformComparisonSection({
   const { t } = useLanguage();
 
   return (
-    <section className="relative z-10 mt-24 py-16 bg-muted w-screen -ml-[calc((100vw-100%)/2)]">
+    <section className="relative z-10 py-16 bg-muted w-screen -ml-[calc((100vw-100%)/2)]">
       <div className="container">
         <div className="max-w-5xl mx-auto animate-fade-in">
           <h3 className="font-heading text-heading-lg text-foreground text-center mb-2">
