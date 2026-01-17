@@ -211,20 +211,21 @@
           userId,
         };
 
-        const searchRes = await fetch(`${apiBaseUrl}/api/ratehawk/search-ids`, {
+        const searchRes = await fetch(`${apiBaseUrl}/api/ratehawk/search/by-ids`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(searchBody),
         });
 
         const searchData = await searchRes.json();
+        console.log('🔍 Search response:', searchData);
 
-        if (!searchData.data?.hotels?.length) {
-          throw new Error('No hotels found in search response');
+        if (!searchData.hotels?.length) {
+          throw new Error('No hotels found in search response: ' + JSON.stringify(searchData).slice(0, 200));
         }
 
-        const hotel = searchData.data.hotels[0];
-        const rates = hotel.rates || [];
+        const hotel = searchData.hotels[0];
+        const rates = hotel.rates || hotel.ratehawk_data?.rates || [];
 
         logStep('✅ Step 1: Search Complete', `
           Found hotel: <strong>${hotel.name || hotelId}</strong><br>
