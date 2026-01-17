@@ -34,7 +34,10 @@ import type {
   OrderInfoBatchRequest,
   RateHawkOrderInfoBatchResponse,
 } from "@/types/etgBooking";
-import { isMultiroomPrebookParams, isMultiroomOrderFinishParams } from "@/types/etgBooking";
+import {
+  isMultiroomPrebookParams,
+  isMultiroomOrderFinishParams,
+} from "@/types/etgBooking";
 
 const BOOKING_ENDPOINTS = {
   PREBOOK: "/api/ratehawk/prebook",
@@ -42,7 +45,7 @@ const BOOKING_ENDPOINTS = {
   ORDER_FINISH: "/api/ratehawk/order/finish",
   ORDER_STATUS: "/api/ratehawk/order/status",
   ORDER_INFO: "/api/ratehawk/order/info",
-  ORDER_INFO_BATCH: "/api/ratehawk/order/info/batch", // Batch retrieval
+  ORDER_INFO_BATCH: "/api/ratehawk/order/info/batch",  // Batch retrieval
   ORDER_DOCUMENTS: "/api/ratehawk/order/documents",
   // Card payment tokenization
   CREATE_CARD_TOKEN: "/api/ratehawk/order/credit-card-token",
@@ -95,12 +98,12 @@ class BookingApiService {
 
   private async getUserIp(): Promise<string> {
     try {
-      const response = await fetch("https://api.ipify.org?format=json");
+      const response = await fetch('https://api.ipify.org?format=json');
       const data = await response.json();
-      return data.ip || "0.0.0.0";
+      return data.ip || '0.0.0.0';
     } catch {
-      console.warn("Could not detect user IP, using fallback");
-      return "0.0.0.0";
+      console.warn('Could not detect user IP, using fallback');
+      return '0.0.0.0';
     }
   }
 
@@ -123,7 +126,7 @@ class BookingApiService {
         method: "POST",
         body: JSON.stringify({
           userId,
-          rooms: params.rooms.map((room) => ({
+          rooms: params.rooms.map(room => ({
             book_hash: room.book_hash,
             match_hash: room.match_hash,
             guests: room.guests,
@@ -191,30 +194,33 @@ class BookingApiService {
   } | null> {
     try {
       console.log("🔄 Attempting to recover existing order for:", partnerOrderId);
-
+      
       const response = await this.getOrdersBatch({
         partnerOrderIds: [partnerOrderId],
         pageSize: 1,
       });
-
+      
       if (response.data?.orders?.length > 0) {
         const order = response.data.orders[0] as any; // Use any for flexible property access
         console.log("✅ Recovered existing order:", order.order_id);
-
+        
         // Extract item_id from various possible locations in the response
-        const itemId = order.item_id || order.rooms_data?.[0]?.item_id || order.rooms?.[0]?.item_id || "";
-
+        const itemId = order.item_id || 
+                      order.rooms_data?.[0]?.item_id || 
+                      order.rooms?.[0]?.item_id || 
+                      "";
+        
         // Extract payment types - may be in payment_data or as payment_types array
-        const paymentTypes =
-          order.payment_types || (order.payment_data?.payment_type ? [{ type: order.payment_data.payment_type }] : []);
-
+        const paymentTypes = order.payment_types || 
+                            (order.payment_data?.payment_type ? [{ type: order.payment_data.payment_type }] : []);
+        
         return {
           order_id: String(order.order_id),
           item_id: String(itemId),
           payment_types: paymentTypes,
         };
       }
-
+      
       console.warn("⚠️ No existing order found for partner_order_id:", partnerOrderId);
       return null;
     } catch (error) {
@@ -255,7 +261,7 @@ class BookingApiService {
 
     while (attempt < MAX_RETRIES) {
       attempt++;
-
+      
       try {
         const response = await this.fetchWithError<OrderFormResponse>(url, {
           method: "POST",
@@ -265,7 +271,7 @@ class BookingApiService {
         // Check for retryable errors in response
         if (response.error?.code) {
           const errorCode = response.error.code.toLowerCase();
-
+          
           // Handle double_booking_form by recovering the existing order
           if (errorCode === "double_booking_form") {
             console.warn("⚠️ double_booking_form from API response - attempting recovery");
@@ -289,23 +295,15 @@ class BookingApiService {
             }
             throw new Error("Booking session expired. Please return to hotel details and start a new booking.");
           }
-
+          
           // Non-retryable errors - fail immediately
-          if (
-            [
-              "contract_mismatch",
-              "duplicate_reservation",
-              "hotel_not_found",
-              "insufficient_b2b_balance",
-              "reservation_is_not_allowed",
-              "rate_not_found",
-              "sandbox_restriction",
-            ].includes(errorCode)
-          ) {
+          if (["contract_mismatch", "duplicate_reservation", 
+               "hotel_not_found", "insufficient_b2b_balance", "reservation_is_not_allowed",
+               "rate_not_found", "sandbox_restriction"].includes(errorCode)) {
             console.error(`❌ Order form non-retryable error: ${errorCode}`);
             throw new Error(response.error.message || `Booking failed: ${errorCode}`);
           }
-
+          
           // Retryable errors - continue loop
           if (["timeout", "unknown"].includes(errorCode) && attempt < MAX_RETRIES) {
             console.warn(`⚠️ Order form attempt ${attempt}/${MAX_RETRIES} got ${errorCode}, retrying...`);
@@ -318,17 +316,16 @@ class BookingApiService {
         // Success
         console.log("📥 Order form response:", response);
         return response;
+        
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         const errorMsg = lastError.message.toLowerCase();
-
+        
         // Check for double_booking_form or "booking form already exists" in error message - attempt recovery
-        if (
-          errorMsg.includes("double_booking_form") ||
-          errorMsg.includes("double booking form") ||
-          errorMsg.includes("booking form already exists") ||
-          errorMsg.includes("already exists for this book_hash")
-        ) {
+        if (errorMsg.includes("double_booking_form") || 
+            errorMsg.includes("double booking form") ||
+            errorMsg.includes("booking form already exists") ||
+            errorMsg.includes("already exists for this book_hash")) {
           console.warn("⚠️ Duplicate booking form detected in error message - attempting recovery");
           const recovered = await this.recoverOrderByPartnerOrderId(partnerOrderId);
           if (recovered) {
@@ -350,18 +347,18 @@ class BookingApiService {
           }
           throw new Error("Booking session expired. Please return to hotel details and start a new booking.");
         }
-
+        
         // Check if it's a 5xx error or network error (retryable)
         const is5xxError = errorMsg.includes("5") && errorMsg.includes("http");
         const isNetworkError = errorMsg.includes("network") || errorMsg.includes("fetch");
-
+        
         if ((is5xxError || isNetworkError) && attempt < MAX_RETRIES) {
           console.warn(`⚠️ Order form attempt ${attempt}/${MAX_RETRIES} failed, retrying...`, error);
           const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
           await new Promise((r) => setTimeout(r, backoffMs));
           continue;
         }
-
+        
         // Non-retryable error
         throw lastError;
       }
@@ -380,7 +377,7 @@ class BookingApiService {
   async getMultiroomOrderForm(
     prebookedRooms: Array<{ book_hash: string }>,
     partnerOrderId: string,
-    language: string = "en",
+    language: string = "en"
   ): Promise<MultiroomOrderFormResponse> {
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.ORDER_FORM}`;
     const userId = this.getCurrentUserId();
@@ -401,9 +398,9 @@ class BookingApiService {
       user_ip: userIp,
     };
 
-    console.log("📤 Multiroom Order form request:", {
-      rooms: prebookedRooms.length,
-      partnerOrderId,
+    console.log("📤 Multiroom Order form request:", { 
+      rooms: prebookedRooms.length, 
+      partnerOrderId 
     });
 
     const MAX_RETRIES = 10;
@@ -412,7 +409,7 @@ class BookingApiService {
 
     while (attempt < MAX_RETRIES) {
       attempt++;
-
+      
       try {
         const response = await this.fetchWithError<MultiroomOrderFormResponse>(url, {
           method: "POST",
@@ -422,23 +419,14 @@ class BookingApiService {
         // Check for retryable errors
         if (response.error?.code) {
           const errorCode = response.error.code.toLowerCase();
-
-          if (
-            [
-              "contract_mismatch",
-              "double_booking_form",
-              "duplicate_reservation",
-              "hotel_not_found",
-              "insufficient_b2b_balance",
-              "reservation_is_not_allowed",
-              "rate_not_found",
-              "sandbox_restriction",
-            ].includes(errorCode)
-          ) {
+          
+          if (["contract_mismatch", "double_booking_form", "duplicate_reservation", 
+               "hotel_not_found", "insufficient_b2b_balance", "reservation_is_not_allowed",
+               "rate_not_found", "sandbox_restriction"].includes(errorCode)) {
             console.error(`❌ Multiroom order form non-retryable error: ${errorCode}`);
             throw new Error(response.error.message || `Booking failed: ${errorCode}`);
           }
-
+          
           if (["timeout", "unknown"].includes(errorCode) && attempt < MAX_RETRIES) {
             console.warn(`⚠️ Multiroom order form attempt ${attempt}/${MAX_RETRIES} got ${errorCode}, retrying...`);
             const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
@@ -453,20 +441,21 @@ class BookingApiService {
           failed: response.data?.failed_rooms,
         });
         return response;
+        
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         const errorMsg = lastError.message.toLowerCase();
-
+        
         const is5xxError = errorMsg.includes("5") && errorMsg.includes("http");
         const isNetworkError = errorMsg.includes("network") || errorMsg.includes("fetch");
-
+        
         if ((is5xxError || isNetworkError) && attempt < MAX_RETRIES) {
           console.warn(`⚠️ Multiroom order form attempt ${attempt}/${MAX_RETRIES} failed, retrying...`, error);
           const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
           await new Promise((r) => setTimeout(r, backoffMs));
           continue;
         }
-
+        
         throw lastError;
       }
     }
@@ -482,34 +471,23 @@ class BookingApiService {
    */
   async finishBooking(params: OrderFinishParams): Promise<OrderFinishResponse>;
   async finishBooking(params: MultiroomOrderFinishParams): Promise<MultiroomOrderFinishResponse>;
-  async finishBooking(
-    params: OrderFinishParams | MultiroomOrderFinishParams,
-  ): Promise<OrderFinishResponse | MultiroomOrderFinishResponse> {
+  async finishBooking(params: OrderFinishParams | MultiroomOrderFinishParams): Promise<OrderFinishResponse | MultiroomOrderFinishResponse> {
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.ORDER_FINISH}`;
     const userId = this.getCurrentUserId();
 
     // Detect if multiroom request
     if (isMultiroomOrderFinishParams(params)) {
-      console.log("📤 Multiroom Order finish request:", {
+      console.log("📤 Multiroom Order finish request:", { 
         rooms: params.rooms.length,
         partner_order_id: params.partner_order_id,
         payment_type: params.payment_type,
-      });
-
-      // ✅ DEBUG: Log free_cancellation_before for each room
-      params.rooms.forEach((room, index) => {
-        console.log(`[BookingApi] Multiroom finish - Room ${index + 1} free_cancellation_before:`, {
-          order_id: room.order_id,
-          included: !!room.free_cancellation_before,
-          value: room.free_cancellation_before || "MISSING",
-        });
       });
 
       const response = await this.fetchWithError<MultiroomOrderFinishResponse>(url, {
         method: "POST",
         body: JSON.stringify({
           userId,
-          rooms: params.rooms.map((room) => ({
+          rooms: params.rooms.map(room => ({
             order_id: room.order_id,
             item_id: room.item_id,
             guests: room.guests,
@@ -549,25 +527,16 @@ class BookingApiService {
     console.log("📤 Order finish request:", { ...params, userId });
 
     // Transform guests to the correct format: [{ guests: [...], free_cancellation_before?: string }]
-    const guestsPayload = [
-      {
-        guests: params.guests.map((g) => ({
-          first_name: g.first_name,
-          last_name: g.last_name,
-          is_child: g.is_child || false,
-          ...(g.is_child && g.age ? { age: g.age } : {}),
-        })),
-        // Include free_cancellation_before for refundable rates (prevents insufficient_b2b_balance)
-        ...(params.free_cancellation_before && { free_cancellation_before: params.free_cancellation_before }),
-      },
-    ];
-
-    // ✅ DEBUG: Log if free_cancellation_before is included in payload
-    console.log("[BookingApi] Single room finish - free_cancellation_before check:", {
-      included: !!params.free_cancellation_before,
-      value: params.free_cancellation_before || "MISSING",
-      inGuestsPayload: !!guestsPayload[0].free_cancellation_before,
-    });
+    const guestsPayload = [{
+      guests: params.guests.map(g => ({
+        first_name: g.first_name,
+        last_name: g.last_name,
+        is_child: g.is_child || false,
+        ...(g.is_child && g.age ? { age: g.age } : {}),
+      })),
+      // Include free_cancellation_before for refundable rates (prevents insufficient_b2b_balance)
+      ...(params.free_cancellation_before && { free_cancellation_before: params.free_cancellation_before }),
+    }];
 
     const response = await this.fetchWithError<OrderFinishResponse>(url, {
       method: "POST",
@@ -631,7 +600,7 @@ class BookingApiService {
       is_processing: response.data?.is_processing,
       percent: response.data?.percent,
     });
-
+    
     return response;
   }
 
@@ -688,19 +657,17 @@ class BookingApiService {
    * Uses the RateHawk /api/b2b/v3/hotel/order/info/ endpoint
    * More efficient than individual fetches for My Bookings page
    */
-  async getOrdersBatch(
-    params: {
-      orderIds?: number[];
-      partnerOrderIds?: string[];
-      page?: number;
-      pageSize?: number;
-      fromDate?: string;
-      toDate?: string;
-      status?: Array<"confirmed" | "cancelled" | "processing" | "failed">;
-      orderingBy?: "created_at" | "checkin_at" | "checkout_at";
-      orderingType?: "asc" | "desc";
-    } = {},
-  ): Promise<RateHawkOrderInfoBatchResponse> {
+  async getOrdersBatch(params: {
+    orderIds?: number[];
+    partnerOrderIds?: string[];
+    page?: number;
+    pageSize?: number;
+    fromDate?: string;
+    toDate?: string;
+    status?: Array<"confirmed" | "cancelled" | "processing" | "failed">;
+    orderingBy?: "created_at" | "checkin_at" | "checkout_at";
+    orderingType?: "asc" | "desc";
+  } = {}): Promise<RateHawkOrderInfoBatchResponse> {
     const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.ORDER_INFO_BATCH}`;
     const userId = this.getCurrentUserId();
 
@@ -717,19 +684,17 @@ class BookingApiService {
         order_id: params.orderIds,
         partner_order_id: params.partnerOrderIds,
         status: params.status,
-        created_at: params.fromDate
-          ? {
-              from_date: params.fromDate,
-              to_date: params.toDate,
-            }
-          : undefined,
+        created_at: params.fromDate ? {
+          from_date: params.fromDate,
+          to_date: params.toDate,
+        } : undefined,
       },
       language: "en",
     };
 
     // Clean up undefined search fields
     if (requestBody.search) {
-      Object.keys(requestBody.search).forEach((key) => {
+      Object.keys(requestBody.search).forEach(key => {
         if ((requestBody.search as Record<string, unknown>)[key] === undefined) {
           delete (requestBody.search as Record<string, unknown>)[key];
         }
@@ -773,18 +738,18 @@ class BookingApiService {
       maxAttempts?: number;
       intervalMs?: number;
       onStatusUpdate?: (status: string, attempt: number) => void;
-    } = {},
+    } = {}
   ): Promise<OrderStatusResponse> {
     const { maxAttempts = 20, intervalMs = 3000, onStatusUpdate } = options;
     let attempts = 0;
 
     while (attempts < maxAttempts) {
       attempts++;
-
+      
       try {
         const statusResponse = await this.getOrderStatus(orderId);
         const status = statusResponse.data?.status;
-
+        
         onStatusUpdate?.(status, attempts);
 
         if (status === "confirmed" || status === "failed" || status === "cancelled") {
@@ -795,7 +760,7 @@ class BookingApiService {
         await new Promise((resolve) => setTimeout(resolve, intervalMs));
       } catch (error) {
         console.error(`Status poll attempt ${attempts} failed:`, error);
-
+        
         // If it's a network error, wait and retry
         if (attempts < maxAttempts) {
           await new Promise((resolve) => setTimeout(resolve, intervalMs));
@@ -858,7 +823,7 @@ class BookingApiService {
       maxAttempts?: number;
       intervalMs?: number;
       onStatusUpdate?: (statuses: Map<string, string>, attempt: number) => void;
-    } = {},
+    } = {}
   ): Promise<Map<string, OrderStatusResponse>> {
     const { maxAttempts = 20, intervalMs = 3000, onStatusUpdate } = options;
     const results = new Map<string, OrderStatusResponse>();
@@ -870,7 +835,7 @@ class BookingApiService {
 
     while (attempts < maxAttempts && pendingOrderIds.length > 0) {
       attempts++;
-
+      
       try {
         // Poll all pending orders in parallel
         const pollPromises = pendingOrderIds.map(async (orderId) => {
