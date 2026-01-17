@@ -119,7 +119,7 @@ export default function CalculatorPage() {
       <section className="relative">
         {/* Background Image - Right Half on Desktop */}
         <div 
-          className="hidden lg:block absolute top-0 right-0 w-1/2 h-[calc(100vh-80px)] bg-cover bg-center"
+          className="hidden lg:block absolute top-0 right-0 w-1/2 h-full bg-cover bg-center"
           style={{ backgroundImage: `url(${nycSkyline})` }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/50 to-transparent" />
