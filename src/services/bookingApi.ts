@@ -538,6 +538,15 @@ class BookingApiService {
       ...(params.free_cancellation_before && { free_cancellation_before: params.free_cancellation_before }),
     }];
 
+    // ✅ DEBUG: Log what's being sent to the API
+    console.log('📤 finishBooking payload - free_cancellation_before check:', {
+      hasField: !!params.free_cancellation_before,
+      value: params.free_cancellation_before,
+      willIncludeInGuests: !!(params.free_cancellation_before && guestsPayload[0]),
+      willIncludeAtRoot: !!params.free_cancellation_before,
+      guestsPayloadHasField: !!guestsPayload[0]?.free_cancellation_before,
+    });
+
     const response = await this.fetchWithError<OrderFinishResponse>(url, {
       method: "POST",
       body: JSON.stringify({
