@@ -157,9 +157,9 @@ export default function CalculatorPage() {
       
       {/* Hero Section with Image Background on Right */}
       <div className="relative">
-        {/* Background Image - Right Half on Desktop - Fixed Height */}
+        {/* Background Image - Right Half on Desktop - Extends to comparison section */}
         <div 
-          className="hidden lg:block absolute top-0 right-0 w-1/2 h-[calc(100vh-80px)] bg-cover bg-center"
+          className="hidden lg:block absolute top-0 right-0 w-1/2 bottom-0 bg-cover bg-center"
           style={{ backgroundImage: `url(${nycSkyline})` }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/50 to-transparent" />
