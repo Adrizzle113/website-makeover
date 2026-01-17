@@ -1,8 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, ChevronDown } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useState } from "react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { useLanguage } from "@/hooks/useLanguage";
 
@@ -40,23 +39,9 @@ export function Header({ variant = "light" }: HeaderProps) {
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-8">
-            <DropdownMenu>
-              <DropdownMenuTrigger className={`flex items-center gap-1 ${textColorMuted} ${hoverColor} transition-colors text-body-md font-medium`}>
-                {t("nav.explore")}
-                <ChevronDown className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-white/95 backdrop-blur-sm">
-                <DropdownMenuItem onClick={() => scrollToSection("destinations")} className="cursor-pointer">
-                  {t("nav.destinations")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => scrollToSection("tour-packages")} className="cursor-pointer">
-                  {t("nav.tourPackages")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => scrollToSection("services")} className="cursor-pointer">
-                  {t("nav.services")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Link to="/calculator" className={`${textColorMuted} ${hoverColor} transition-colors text-body-md font-medium`}>
+              {t("nav.calculator")}
+            </Link>
             <button onClick={() => scrollToSection("about")} className={`${textColorMuted} ${hoverColor} transition-colors text-body-md font-medium`}>
               {t("nav.about")}
             </button>
@@ -88,17 +73,11 @@ export function Header({ variant = "light" }: HeaderProps) {
         {isMenuOpen && (
           <div className="lg:hidden bg-primary/95 backdrop-blur-sm rounded-2xl p-6 mb-4">
             <nav className="flex flex-col gap-4">
+              <Link to="/calculator" onClick={() => setIsMenuOpen(false)} className="text-white hover:text-cream transition-colors py-2 text-body-md text-left">
+                Calculator
+              </Link>
               <button onClick={() => scrollToSection("about")} className="text-white hover:text-cream transition-colors py-2 text-body-md text-left">
                 About
-              </button>
-              <button onClick={() => scrollToSection("destinations")} className="text-white hover:text-cream transition-colors py-2 text-body-md text-left">
-                Destinations
-              </button>
-              <button onClick={() => scrollToSection("tour-packages")} className="text-white hover:text-cream transition-colors py-2 text-body-md text-left">
-                Tour Packages
-              </button>
-              <button onClick={() => scrollToSection("services")} className="text-white hover:text-cream transition-colors py-2 text-body-md text-left">
-                Services
               </button>
               <Link to="/contact" onClick={() => setIsMenuOpen(false)} className="text-white hover:text-cream transition-colors py-2 text-body-md text-left">
                 Contact
