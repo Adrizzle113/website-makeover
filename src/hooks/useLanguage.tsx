@@ -18,6 +18,7 @@ const translations: Record<Language, Record<string, string>> = {
     "nav.about": "About",
     "nav.blog": "Blog",
     "nav.contact": "Contact",
+    "nav.calculator": "Calculator",
     "nav.dashboard": "Dashboard",
     // Hero
     "hero.tagline": "Stop losing money with expensive suppliers.",
@@ -133,6 +134,7 @@ const translations: Record<Language, Record<string, string>> = {
     "nav.about": "Sobre",
     "nav.blog": "Blog",
     "nav.contact": "Contato",
+    "nav.calculator": "Calculadora",
     "nav.dashboard": "Painel",
     // Hero
     "hero.tagline": "Pare de perder dinheiro com fornecedores caros.",
