@@ -155,90 +155,91 @@ export default function CalculatorPage() {
     <div className="min-h-screen bg-background">
       <Header variant="light" />
       
-      <main className="pt-32 md:pt-36 pb-20">
-        <div className="container">
-          {/* Social Proof Banner */}
-          <div className="flex items-center justify-center gap-2 mb-8 animate-fade-in">
-            <div className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-full">
-              <Users className="w-4 h-4" />
-              <span className="text-sm font-medium">{t("calc.socialProof")}</span>
+      {/* Hero Section with Image Background on Right */}
+      <div className="relative min-h-[calc(100vh-80px)]">
+        {/* Background Image - Right Half on Desktop */}
+        <div 
+          className="hidden lg:block absolute top-0 right-0 w-1/2 h-full bg-cover bg-center"
+          style={{ backgroundImage: `url(${santoriniHouse})` }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/50 to-transparent" />
+        </div>
+        
+        <main className="relative pt-32 md:pt-36 pb-20">
+          <div className="container">
+            {/* Social Proof Banner */}
+            <div className="flex items-center justify-center lg:justify-start gap-2 mb-8 animate-fade-in">
+              <div className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-full">
+                <Users className="w-4 h-4" />
+                <span className="text-sm font-medium">{t("calc.socialProof")}</span>
+              </div>
             </div>
-          </div>
 
-          {/* Two Column Hero Layout */}
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-start max-w-6xl mx-auto">
-            
-            {/* Left Column - Marketing Copy */}
-            <div className="text-foreground lg:pt-8">
-              <h1 className="font-heading text-heading-xl sm:text-display-lg lg:text-display-xl mb-6 uppercase tracking-tight leading-[0.95]">
-                {t("calc.title").split(" ").slice(0, 3).join(" ")}<br />
-                {t("calc.title").split(" ").slice(3).join(" ")}
-              </h1>
-              <p className="text-muted-foreground text-body-lg mb-8 max-w-md">
-                {t("calc.description")}
-              </p>
+            {/* Two Column Hero Layout */}
+            <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-start max-w-6xl mx-auto">
               
-              {/* Preset Scenarios */}
-              <div className="mb-8">
-                <p className="text-muted-foreground text-sm mb-3">{t("calc.presets.title")}</p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => applyPreset("small")}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
-                      activePreset === "small"
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-secondary text-foreground border-border hover:bg-secondary/80"
-                    }`}
-                  >
-                    {t("calc.presets.small")}
-                  </button>
-                  <button
-                    onClick={() => applyPreset("growing")}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
-                      activePreset === "growing"
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-secondary text-foreground border-border hover:bg-secondary/80"
-                    }`}
-                  >
-                    {t("calc.presets.growing")}
-                  </button>
-                  <button
-                    onClick={() => applyPreset("highVolume")}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
-                      activePreset === "highVolume"
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-secondary text-foreground border-border hover:bg-secondary/80"
-                    }`}
-                  >
-                    {t("calc.presets.highVolume")}
-                  </button>
+              {/* Left Column - Marketing Copy */}
+              <div className="text-foreground lg:pt-8">
+                <h1 className="font-heading text-heading-xl sm:text-display-lg lg:text-display-xl mb-6 uppercase tracking-tight leading-[0.95]">
+                  {t("calc.title").split(" ").slice(0, 3).join(" ")}<br />
+                  {t("calc.title").split(" ").slice(3).join(" ")}
+                </h1>
+                <p className="text-muted-foreground text-body-lg mb-8 max-w-md">
+                  {t("calc.description")}
+                </p>
+                
+                {/* Preset Scenarios */}
+                <div className="mb-8">
+                  <p className="text-muted-foreground text-sm mb-3">{t("calc.presets.title")}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => applyPreset("small")}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
+                        activePreset === "small"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-secondary text-foreground border-border hover:bg-secondary/80"
+                      }`}
+                    >
+                      {t("calc.presets.small")}
+                    </button>
+                    <button
+                      onClick={() => applyPreset("growing")}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
+                        activePreset === "growing"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-secondary text-foreground border-border hover:bg-secondary/80"
+                      }`}
+                    >
+                      {t("calc.presets.growing")}
+                    </button>
+                    <button
+                      onClick={() => applyPreset("highVolume")}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
+                        activePreset === "highVolume"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-secondary text-foreground border-border hover:bg-secondary/80"
+                      }`}
+                    >
+                      {t("calc.presets.highVolume")}
+                    </button>
+                  </div>
                 </div>
+                
+                <Button
+                  asChild
+                  size="lg"
+                  className="h-14 px-8 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold group"
+                >
+                  <Link to="/auth/register">
+                    {t("calc.cta")}
+                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                </Button>
+                
+                <p className="text-muted-foreground text-sm mt-10">
+                  {t("calc.disclaimer")}
+                </p>
               </div>
-              
-              <Button
-                asChild
-                size="lg"
-                className="h-14 px-8 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold group"
-              >
-                <Link to="/auth/register">
-                  {t("calc.cta")}
-                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </Link>
-              </Button>
-              
-              <p className="text-muted-foreground text-sm mt-10">
-                {t("calc.disclaimer")}
-              </p>
-              
-              {/* Hero Image */}
-              <div className="mt-8 hidden lg:block">
-                <img 
-                  src={santoriniHouse} 
-                  alt="Luxury travel destination"
-                  className="rounded-2xl shadow-lg w-full max-w-md object-cover"
-                />
-              </div>
-            </div>
             
             {/* Right Column - Calculator Card */}
             <div className="bg-card rounded-3xl shadow-card overflow-hidden">
@@ -511,8 +512,9 @@ export default function CalculatorPage() {
           </div>
         </div>
       </main>
-
-      <Footer />
     </div>
+
+    <Footer />
+  </div>
   );
 }
