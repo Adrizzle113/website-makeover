@@ -64,7 +64,7 @@ export function Header({ variant = "auto" }: HeaderProps) {
               {t("nav.about")}
             </button>
             <Link to="/contact" className={`${textColorMuted} ${hoverColor} transition-colors text-body-md font-medium`}>
-              {t("nav.contact")}
+              Demo
             </Link>
           </nav>
 
@@ -98,7 +98,7 @@ export function Header({ variant = "auto" }: HeaderProps) {
                 About
               </button>
               <Link to="/contact" onClick={() => setIsMenuOpen(false)} className="text-white hover:text-cream transition-colors py-2 text-body-md text-left">
-                Contact
+                Demo
               </Link>
               <div className="pt-4 border-t border-white/20 flex flex-col gap-2">
                 <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
