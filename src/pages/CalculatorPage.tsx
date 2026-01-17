@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import santoriniHouse from "@/assets/santorini-house.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -228,6 +229,15 @@ export default function CalculatorPage() {
               <p className="text-muted-foreground text-sm mt-10">
                 {t("calc.disclaimer")}
               </p>
+              
+              {/* Hero Image */}
+              <div className="mt-8 hidden lg:block">
+                <img 
+                  src={santoriniHouse} 
+                  alt="Luxury travel destination"
+                  className="rounded-2xl shadow-lg w-full max-w-md object-cover"
+                />
+              </div>
             </div>
             
             {/* Right Column - Calculator Card */}
