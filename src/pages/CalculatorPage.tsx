@@ -188,6 +188,26 @@ export default function CalculatorPage() {
                   {t("calc.description")}
                 </p>
                 
+                {/* Stats Chips */}
+                <div className="flex flex-wrap gap-3 mb-6">
+                  <div className="flex items-center gap-1.5 bg-secondary/80 px-3 py-1.5 rounded-full">
+                    <span className="font-heading text-sm text-primary">25%</span>
+                    <span className="text-muted-foreground text-xs">{t("calc.stats.maxSavings")}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-secondary/80 px-3 py-1.5 rounded-full">
+                    <span className="font-heading text-sm text-primary">25%</span>
+                    <span className="text-muted-foreground text-xs">{t("calc.stats.maxMargin")}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-secondary/80 px-3 py-1.5 rounded-full">
+                    <span className="font-heading text-sm text-primary">0</span>
+                    <span className="text-muted-foreground text-xs">{t("calc.stats.monthlyFees")}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-secondary/80 px-3 py-1.5 rounded-full">
+                    <span className="font-heading text-sm text-primary">24h</span>
+                    <span className="text-muted-foreground text-xs">{t("calc.stats.toGetStarted")}</span>
+                  </div>
+                </div>
+                
                 {/* Preset Scenarios */}
                 <div className="mb-8">
                   <p className="text-muted-foreground text-sm mb-3">{t("calc.presets.title")}</p>
@@ -491,25 +511,6 @@ export default function CalculatorPage() {
             </div>
           )}
           
-          {/* Stats Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-10 max-w-5xl mx-auto mt-20 pt-12 border-t border-border text-center lg:text-left">
-            <div>
-              <p className="font-heading text-heading-xl lg:text-display-md text-primary mb-1">25%</p>
-              <p className="text-muted-foreground text-body-sm">{t("calc.stats.maxSavings")}</p>
-            </div>
-            <div>
-              <p className="font-heading text-heading-xl lg:text-display-md text-primary mb-1">25%</p>
-              <p className="text-muted-foreground text-body-sm">{t("calc.stats.maxMargin")}</p>
-            </div>
-            <div>
-              <p className="font-heading text-heading-xl lg:text-display-md text-primary mb-1">0</p>
-              <p className="text-muted-foreground text-body-sm">{t("calc.stats.monthlyFees")}</p>
-            </div>
-            <div>
-              <p className="font-heading text-heading-xl lg:text-display-md text-primary mb-1">24h</p>
-              <p className="text-muted-foreground text-body-sm">{t("calc.stats.toGetStarted")}</p>
-            </div>
-          </div>
         </div>
       </main>
     </div>
