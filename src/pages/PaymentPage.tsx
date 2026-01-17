@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2, ArrowLeft, AlertCircle, Lock } from "lucide-react";
+import { Loader2, ArrowLeft, AlertCircle, Lock, Bug, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BookingProgressIndicator } from "@/components/booking/BookingProgressIndicator";
@@ -77,6 +77,10 @@ const PaymentPage = () => {
 
   // Payment error state
   const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  // Debug mode (enabled by ?debug=1)
+  const isDebugMode = searchParams.get("debug") === "1";
+  const [copiedDebug, setCopiedDebug] = useState(false);
 
   // Card validation errors
   const [cardErrors, setCardErrors] = useState<{
@@ -859,12 +863,19 @@ const PaymentPage = () => {
           paymentType: apiPaymentType,
         });
 
-        // ✅ VALIDATION: Warn if refundable rate missing deadline
-        if (bookingData!.rooms[0]?.hasFreeCancellationBefore && !freeCancellationBefore) {
-          console.error('❌ CRITICAL: Refundable rate missing cancellationDeadline!', {
+        // ✅ VALIDATION: Block deposit payment if free_cancellation_before is missing but required
+        if (apiPaymentType === 'deposit' && bookingData!.rooms[0]?.hasFreeCancellationBefore && !freeCancellationBefore) {
+          console.error('❌ CRITICAL: Deposit payment requires free_cancellation_before but it is missing!', {
             room: bookingData!.rooms[0],
             hasFreeCancellationBefore: bookingData!.rooms[0]?.hasFreeCancellationBefore,
           });
+          throw new Error('Cancellation data missing for deposit payment. Please go back and reselect the room.');
+        }
+
+        // ✅ VALIDATION: Block if selectedPayment is missing (would result in 0.00 payment)
+        if (!selectedPayment) {
+          console.error('❌ CRITICAL: No payment type details found for:', apiPaymentType);
+          throw new Error(`Payment type "${apiPaymentType}" not available. Please choose another payment method.`);
         }
 
         const finishResponse = await bookingApi.finishBooking({
@@ -872,8 +883,8 @@ const PaymentPage = () => {
           item_id: itemId!,
           partner_order_id: bookingData!.bookingId,
           payment_type: apiPaymentType,
-          payment_amount: selectedPayment?.amount || "0.00",
-          payment_currency_code: selectedPayment?.currency_code || bookingData!.hotel.currency || "USD",
+          payment_amount: selectedPayment.amount,
+          payment_currency_code: selectedPayment.currency_code || bookingData!.hotel.currency || "USD",
         guests: bookingData!.guests.map((g) => ({
           first_name: sanitizeGuestName(g.firstName),
           last_name: sanitizeGuestName(g.lastName),
@@ -1023,12 +1034,19 @@ const PaymentPage = () => {
       paymentType: apiPaymentType,
     });
 
-    // ✅ VALIDATION: Warn if refundable rate missing deadline
-    if (bookingData!.rooms[0]?.hasFreeCancellationBefore && !freeCancellationBefore) {
-      console.error('❌ CRITICAL: Refundable rate missing cancellationDeadline!', {
+    // ✅ VALIDATION: Block deposit payment if free_cancellation_before is missing but required
+    if (apiPaymentType === 'deposit' && bookingData!.rooms[0]?.hasFreeCancellationBefore && !freeCancellationBefore) {
+      console.error('❌ CRITICAL: Deposit payment requires free_cancellation_before but it is missing!', {
         room: bookingData!.rooms[0],
         hasFreeCancellationBefore: bookingData!.rooms[0]?.hasFreeCancellationBefore,
       });
+      throw new Error('Cancellation data missing for deposit payment. Please go back and reselect the room.');
+    }
+
+    // ✅ VALIDATION: Block if selectedPayment is missing (would result in 0.00 payment)
+    if (!selectedPayment) {
+      console.error('❌ CRITICAL: No payment type details found for:', apiPaymentType);
+      throw new Error(`Payment type "${apiPaymentType}" not available. Please choose another payment method.`);
     }
 
     const response = await bookingApi.finishBooking({
@@ -1092,6 +1110,12 @@ const PaymentPage = () => {
     const apiPaymentType = getApiPaymentType(paymentType);
     const selectedPayment = paymentTypesData.find(pt => pt.type === apiPaymentType);
     
+    // ✅ VALIDATION: Block if selectedPayment is missing (would result in 0.00 payment)
+    if (!selectedPayment) {
+      console.error('❌ CRITICAL: No payment type details found for multiroom:', apiPaymentType);
+      throw new Error(`Payment type "${apiPaymentType}" not available. Please choose another payment method.`);
+    }
+    
     const email = leadGuest?.email;
     const phone = bookingData!.bookingDetails.phoneNumber 
       ? `${bookingData!.bookingDetails.countryCode}${bookingData!.bookingDetails.phoneNumber}`
@@ -1106,8 +1130,8 @@ const PaymentPage = () => {
     const response = await bookingApi.finishBooking({
       rooms,
       payment_type: apiPaymentType,
-      payment_amount: selectedPayment?.amount || "0.00",
-      payment_currency_code: selectedPayment?.currency_code || "USD",
+      payment_amount: selectedPayment.amount,
+      payment_currency_code: selectedPayment.currency_code || "USD",
       email,
       phone,
       partner_order_id: bookingData!.bookingId,
@@ -1306,6 +1330,106 @@ const PaymentPage = () => {
       {/* Main Content - Split Screen */}
       <main className="flex-1 py-10 lg:py-16">
         <div className="container mx-auto px-4 max-w-7xl">
+          {/* Debug Panel - Only visible with ?debug=1 */}
+          {isDebugMode && bookingData && (
+            <div className="mb-8 bg-amber-950/30 border border-amber-500/30 rounded-2xl p-5 animate-fade-in">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Bug className="h-5 w-5 text-amber-400" />
+                  <span className="font-heading font-semibold text-amber-400">Debug: Finish Payload Data</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-amber-500/50 text-amber-400 hover:bg-amber-500/20"
+                  onClick={() => {
+                    const apiPaymentType = paymentType === "now_net" || paymentType === "now_gross" ? "now" : paymentType;
+                    const selectedPayment = paymentTypesData.find(pt => pt.type === apiPaymentType);
+                    const freeCancellationBefore = bookingData.rooms[0]?.cancellationDeadline;
+                    const debugData = {
+                      // Critical fields for /order/finish
+                      free_cancellation_before: freeCancellationBefore || null,
+                      hasFreeCancellationBefore: bookingData.rooms[0]?.hasFreeCancellationBefore,
+                      payment_type: apiPaymentType,
+                      payment_amount: selectedPayment?.amount || "MISSING",
+                      payment_currency_code: selectedPayment?.currency_code || "MISSING",
+                      // Order identifiers
+                      order_id: orderId,
+                      item_id: itemId,
+                      partner_order_id: bookingData.bookingId,
+                      // Room data
+                      room: {
+                        roomId: bookingData.rooms[0]?.roomId,
+                        roomName: bookingData.rooms[0]?.roomName,
+                        cancellationDeadline: bookingData.rooms[0]?.cancellationDeadline,
+                        hasFreeCancellationBefore: bookingData.rooms[0]?.hasFreeCancellationBefore,
+                        cancellationType: bookingData.rooms[0]?.cancellationType,
+                      },
+                      // All payment types from order form
+                      paymentTypesData: paymentTypesData,
+                    };
+                    navigator.clipboard.writeText(JSON.stringify(debugData, null, 2));
+                    setCopiedDebug(true);
+                    setTimeout(() => setCopiedDebug(false), 2000);
+                  }}
+                >
+                  {copiedDebug ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
+                  {copiedDebug ? "Copied!" : "Copy Full Payload"}
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm font-mono">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">free_cancellation_before:</span>
+                    <span className={bookingData.rooms[0]?.cancellationDeadline ? "text-green-400" : "text-red-400 font-bold"}>
+                      {bookingData.rooms[0]?.cancellationDeadline || "❌ MISSING"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">hasFreeCancellationBefore:</span>
+                    <span className={bookingData.rooms[0]?.hasFreeCancellationBefore ? "text-green-400" : "text-yellow-400"}>
+                      {String(bookingData.rooms[0]?.hasFreeCancellationBefore)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">payment_type:</span>
+                    <span className="text-foreground">{paymentType === "now_net" || paymentType === "now_gross" ? "now" : paymentType}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">payment_amount:</span>
+                    <span className={paymentTypesData.find(pt => pt.type === (paymentType === "now_net" || paymentType === "now_gross" ? "now" : paymentType))?.amount ? "text-foreground" : "text-red-400"}>
+                      {paymentTypesData.find(pt => pt.type === (paymentType === "now_net" || paymentType === "now_gross" ? "now" : paymentType))?.amount || "❌ MISSING"}
+                    </span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">order_id:</span>
+                    <span className="text-foreground">{orderId || "loading..."}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">item_id:</span>
+                    <span className="text-foreground">{itemId || "loading..."}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">partner_order_id:</span>
+                    <span className="text-foreground text-xs">{bookingData.bookingId}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">formDataLoaded:</span>
+                    <span className={formDataLoaded ? "text-green-400" : "text-yellow-400"}>{String(formDataLoaded)}</span>
+                  </div>
+                </div>
+              </div>
+              {bookingData.rooms[0]?.hasFreeCancellationBefore && !bookingData.rooms[0]?.cancellationDeadline && (
+                <div className="mt-4 p-3 bg-red-950/50 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                  ⚠️ <strong>CRITICAL:</strong> This room has hasFreeCancellationBefore=true but cancellationDeadline is missing!
+                  This will cause deposit bookings to fail with insufficient_b2b_balance.
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Payment Error Alert */}
           {paymentError && (
             <div className="mb-8 bg-destructive/10 border border-destructive/20 rounded-2xl p-5 flex items-start gap-4 animate-fade-in">
@@ -1313,13 +1437,45 @@ const PaymentPage = () => {
               <div>
                 <p className="font-heading text-lg font-semibold text-destructive">Payment Failed</p>
                 <p className="text-body-md text-destructive/80 mt-1 whitespace-pre-line">{paymentError}</p>
-                <Button 
-                  variant="link" 
-                  className="text-destructive p-0 h-auto text-body-sm mt-2"
-                  onClick={() => setPaymentError(null)}
-                >
-                  Dismiss
-                </Button>
+                <div className="flex gap-3 mt-3">
+                  {/* Show alternative payment options for B2B balance errors */}
+                  {paymentError.includes("balance") && (
+                    <>
+                      {availablePaymentMethods.includes("hotel") && paymentType !== "hotel" && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setPaymentType("hotel");
+                            setPaymentError(null);
+                          }}
+                        >
+                          Try Pay at Property
+                        </Button>
+                      )}
+                      {(availablePaymentMethods.includes("now_net") || availablePaymentMethods.includes("now_gross")) && 
+                       paymentType !== "now_net" && paymentType !== "now_gross" && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setPaymentType(availablePaymentMethods.includes("now_net") ? "now_net" : "now_gross");
+                            setPaymentError(null);
+                          }}
+                        >
+                          Try Card Payment
+                        </Button>
+                      )}
+                    </>
+                  )}
+                  <Button 
+                    variant="link" 
+                    className="text-destructive p-0 h-auto text-body-sm"
+                    onClick={() => setPaymentError(null)}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
               </div>
             </div>
           )}
