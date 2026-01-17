@@ -29,22 +29,22 @@ export function CalculatorHeroSection({ activePreset, onApplyPreset }: Calculato
       </p>
       
       {/* Stats Chips */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        <div className="flex items-center gap-1.5 bg-secondary/80 px-3 py-1.5 rounded-full">
-          <span className="font-heading text-sm text-primary">25%</span>
-          <span className="text-muted-foreground text-xs">{t("calc.stats.maxSavings")}</span>
+      <div className="flex flex-wrap gap-4 mb-8">
+        <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 px-5 py-3 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+          <span className="font-heading text-xl text-primary font-bold">25%</span>
+          <span className="text-foreground text-sm font-medium">{t("calc.stats.maxSavings")}</span>
         </div>
-        <div className="flex items-center gap-1.5 bg-secondary/80 px-3 py-1.5 rounded-full">
-          <span className="font-heading text-sm text-primary">25%</span>
-          <span className="text-muted-foreground text-xs">{t("calc.stats.maxMargin")}</span>
+        <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 px-5 py-3 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+          <span className="font-heading text-xl text-primary font-bold">25%</span>
+          <span className="text-foreground text-sm font-medium">{t("calc.stats.maxMargin")}</span>
         </div>
-        <div className="flex items-center gap-1.5 bg-secondary/80 px-3 py-1.5 rounded-full">
-          <span className="font-heading text-sm text-primary">0</span>
-          <span className="text-muted-foreground text-xs">{t("calc.stats.monthlyFees")}</span>
+        <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 px-5 py-3 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+          <span className="font-heading text-xl text-primary font-bold">R$0</span>
+          <span className="text-foreground text-sm font-medium">{t("calc.stats.monthlyFees")}</span>
         </div>
-        <div className="flex items-center gap-1.5 bg-secondary/80 px-3 py-1.5 rounded-full">
-          <span className="font-heading text-sm text-primary">24h</span>
-          <span className="text-muted-foreground text-xs">{t("calc.stats.toGetStarted")}</span>
+        <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 px-5 py-3 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+          <span className="font-heading text-xl text-primary font-bold">24h</span>
+          <span className="text-foreground text-sm font-medium">{t("calc.stats.toGetStarted")}</span>
         </div>
       </div>
       
