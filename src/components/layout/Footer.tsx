@@ -7,7 +7,7 @@ export function Footer() {
   return (
     <footer className="bg-primary text-primary-foreground pt-20 pb-8">
       <div className="container">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 mb-16">
           {/* Brand */}
           <div className="lg:col-span-1">
             <Link to="/" className="inline-block mb-6">
@@ -60,44 +60,6 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Locations */}
-          <div>
-            <h4 className="font-heading text-heading-sm mb-6 text-primary-foreground">Top Destinations</h4>
-            <ul className="space-y-4">
-              <li>
-                <Link
-                  to="/destinations/bali"
-                  className="text-body-md text-primary-foreground/70 hover:text-primary-foreground transition-colors"
-                >
-                  Bali, Indonesia
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/destinations/switzerland"
-                  className="text-body-md text-primary-foreground/70 hover:text-primary-foreground transition-colors"
-                >
-                  Switzerland
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/destinations/new-zealand"
-                  className="text-body-md text-primary-foreground/70 hover:text-primary-foreground transition-colors"
-                >
-                  New Zealand
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/destinations/iceland"
-                  className="text-body-md text-primary-foreground/70 hover:text-primary-foreground transition-colors"
-                >
-                  Iceland
-                </Link>
-              </li>
-            </ul>
-          </div>
 
           {/* Contact */}
           <div>
