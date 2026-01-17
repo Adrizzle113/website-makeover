@@ -1,4 +1,5 @@
 import { Instagram } from "lucide-react";
+import { useLanguage } from "@/hooks/useLanguage";
 
 const images = [
   "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=400&q=80",
@@ -10,16 +11,18 @@ const images = [
 ];
 
 export function InstagramSection() {
+  const { t } = useLanguage();
+
   return (
     <section className="py-24 bg-background">
       <div className="container">
         {/* Header */}
         <div className="text-center mb-12">
           <span className="heading-spaced text-primary mb-4 block">
-            Follow Us
+            {t("instagram.badge")}
           </span>
           <h2 className="font-heading text-display-md text-foreground">
-            Follow us online!
+            {t("instagram.title")}
           </h2>
         </div>
 
