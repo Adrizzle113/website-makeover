@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { Users } from "lucide-react";
+import { useLanguage } from "@/hooks/useLanguage";
 import nycSkyline from "@/assets/nyc-skyline.webp";
 import {
   CalculatorHeroSection,
@@ -69,6 +71,7 @@ function calcBookingJa({
 }
 
 export default function CalculatorPage() {
+  const { t } = useLanguage();
   const [retailPrice, setRetailPrice] = useState<string>("500");
   const [nightsPerStay, setNightsPerStay] = useState<string>("3");
   const [bookingsPerMonth, setBookingsPerMonth] = useState<string>("5");
@@ -127,8 +130,16 @@ export default function CalculatorPage() {
         
         <div className="relative pt-32 md:pt-36 pb-20">
           <div className="container">
+            {/* Centered Social Proof Banner */}
+            <div className="flex items-center justify-center mb-16 animate-fade-in">
+              <div className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-full">
+                <Users className="w-4 h-4" />
+                <span className="text-sm font-medium">{t("calc.socialProof")}</span>
+              </div>
+            </div>
+            
             {/* Two Column Hero Layout */}
-            <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-start max-w-6xl mx-auto">
+            <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-start max-w-6xl mx-auto mt-8">
               
               {/* Left Column - Marketing Copy */}
               <CalculatorHeroSection
