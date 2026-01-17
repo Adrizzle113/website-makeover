@@ -146,6 +146,17 @@ const PaymentPage = () => {
         }
 
         setBookingData(parsed);
+        
+        // 📥 DEBUG: Log what's loaded from session storage
+        console.log('📥 [PaymentPage] Loaded booking data rooms:', parsed.rooms?.map((r: any) => ({
+          roomId: r.roomId,
+          roomName: r.roomName,
+          cancellationDeadline: r.cancellationDeadline,
+          hasFreeCancellationBefore: r.hasFreeCancellationBefore,
+          cancellationType: r.cancellationType,
+          cancellationPolicy: r.cancellationPolicy,
+        })));
+        
         setOriginalPrice(parsed.totalPrice || 0);
         setIsLoading(false);
 

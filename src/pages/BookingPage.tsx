@@ -560,6 +560,16 @@ const BookingPage = () => {
       })),
     };
 
+    // 📦 DEBUG: Log what's being stored in session
+    console.log('📦 [navigateToPayment] selectedRooms cancellation data:', selectedRooms.map(r => ({
+      roomId: r.roomId,
+      roomName: r.roomName,
+      cancellationDeadline: r.cancellationDeadline,
+      hasFreeCancellationBefore: r.hasFreeCancellationBefore,
+      cancellationType: r.cancellationType,
+      cancellationPolicy: r.cancellationPolicy,
+    })));
+
     // Add multiroom data if applicable
     if (isMultiroomBooking && multiroomPrebookedRooms) {
       const multiroomBooking: MultiroomPendingBookingData = {
@@ -567,8 +577,18 @@ const BookingPage = () => {
         isMultiroom: true,
         prebookedRooms: multiroomPrebookedRooms,
       };
+      console.log('📦 [navigateToPayment] Storing multiroom booking with rooms:', multiroomBooking.rooms.map(r => ({
+        roomId: r.roomId,
+        cancellationDeadline: r.cancellationDeadline,
+        hasFreeCancellationBefore: r.hasFreeCancellationBefore,
+      })));
       sessionStorage.setItem("pending_booking", JSON.stringify(multiroomBooking));
     } else {
+      console.log('📦 [navigateToPayment] Storing single booking with rooms:', basePendingBooking.rooms.map(r => ({
+        roomId: r.roomId,
+        cancellationDeadline: r.cancellationDeadline,
+        hasFreeCancellationBefore: r.hasFreeCancellationBefore,
+      })));
       sessionStorage.setItem("pending_booking", JSON.stringify(basePendingBooking));
     }
 
