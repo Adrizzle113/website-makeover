@@ -125,7 +125,7 @@ export default function CalculatorPage() {
           <div className="absolute inset-0 bg-gradient-to-r from-background via-background/50 to-transparent" />
         </div>
         
-        <div className="relative pt-32 md:pt-36 pb-20">
+        <div className="relative pt-32 md:pt-36">
           <div className="container">
             {/* Two Column Hero Layout */}
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-start max-w-6xl mx-auto">
