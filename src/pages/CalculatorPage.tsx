@@ -168,7 +168,7 @@ export default function CalculatorPage() {
         <main className="relative pt-32 md:pt-36 pb-20">
           <div className="container">
             {/* Social Proof Banner */}
-            <div className="flex items-center justify-center lg:justify-start gap-2 mb-8 animate-fade-in">
+            <div className="flex items-center justify-center gap-2 mb-8 animate-fade-in">
               <div className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-full">
                 <Users className="w-4 h-4" />
                 <span className="text-sm font-medium">{t("calc.socialProof")}</span>
