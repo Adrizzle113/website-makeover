@@ -6,7 +6,6 @@ import {
   InstagramSection,
   TestimonialSection,
   FAQSection,
-  CallToActionSection,
 } from "@/components/search";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -23,7 +22,6 @@ const SearchPage = () => {
         <InstagramSection />
         <TestimonialSection />
         <FAQSection />
-        <CallToActionSection />
       </main>
       <Footer />
     </div>
