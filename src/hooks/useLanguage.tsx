@@ -58,6 +58,32 @@ const translations: Record<Language, Record<string, string>> = {
     "services.profit.label": "Your profit margin",
     "services.profit.value": "You keep it all",
     "services.profit.description": "No hidden fees or commission splits on your bookings",
+    
+    // Instagram Section
+    "instagram.badge": "Follow Us",
+    "instagram.title": "Follow us online!",
+    
+    // Testimonial Section
+    "testimonial.quote": "Booking Já created something better than I ever could have imagined. The attention to detail and personalized service made our honeymoon absolutely perfect.",
+    "testimonial.author": "Sarah Mitchell",
+    "testimonial.role": "Travel Enthusiast",
+    "testimonial.cta.start": "Start Your Journey",
+    "testimonial.cta.stories": "Read More Stories",
+    
+    // FAQ Section
+    "faq.badge": "FAQ",
+    "faq.title": "Frequently Asked Questions",
+    "faq.description": "Find answers to common questions about our tours and services.",
+    "faq.q1.question": "How do I book a tour with Booking Já?",
+    "faq.q1.answer": "Booking is simple! Browse our tour packages, select your preferred dates, and complete the booking form. Our team will confirm your reservation within 24 hours.",
+    "faq.q2.question": "What's included in the tour packages?",
+    "faq.q2.answer": "Our packages typically include accommodation, transportation, guided tours, and select meals. Each package page details exactly what's included and what's optional.",
+    "faq.q3.question": "Can I customize my tour itinerary?",
+    "faq.q3.answer": "Absolutely! We offer customization options for most tours. Contact our team to discuss your preferences and we'll create a personalized experience just for you.",
+    "faq.q4.question": "What is your cancellation policy?",
+    "faq.q4.answer": "We offer free cancellation up to 30 days before departure. Cancellations within 30 days may incur fees depending on the tour. Full details are provided at booking.",
+    "faq.q5.question": "Do you offer group discounts?",
+    "faq.q5.answer": "Yes! Groups of 6 or more receive a 10% discount, and groups of 12+ receive 15% off. Contact us for custom group pricing on larger bookings.",
   },
   "pt-BR": {
     // Header
@@ -108,6 +134,32 @@ const translations: Record<Language, Record<string, string>> = {
     "services.profit.label": "Sua margem de lucro",
     "services.profit.value": "É toda sua",
     "services.profit.description": "Sem taxas ocultas ou divisão de comissões sobre suas reservas",
+    
+    // Instagram Section
+    "instagram.badge": "Siga-nos",
+    "instagram.title": "Siga-nos online!",
+    
+    // Testimonial Section
+    "testimonial.quote": "A Booking JÁ criou algo melhor do que eu jamais poderia ter imaginado. A atenção aos detalhes e o serviço personalizado tornaram nossa lua de mel absolutamente perfeita.",
+    "testimonial.author": "Sarah Mitchell",
+    "testimonial.role": "Entusiasta de Viagens",
+    "testimonial.cta.start": "Comece sua jornada",
+    "testimonial.cta.stories": "Leia mais histórias",
+    
+    // FAQ Section
+    "faq.badge": "Perguntas frequentes",
+    "faq.title": "Perguntas frequentes",
+    "faq.description": "Encontre respostas para perguntas comuns sobre nossos serviços.",
+    "faq.q1.question": "Como faço para reservar um passeio com a Booking JÁ?",
+    "faq.q1.answer": "Reservar é simples! Navegue pelos nossos pacotes turísticos, selecione as datas de sua preferência e preencha o formulário de reserva. Nossa equipe confirmará sua reserva em até 24 horas.",
+    "faq.q2.question": "O que está incluído nos pacotes turísticos?",
+    "faq.q2.answer": "Nossos pacotes geralmente incluem acomodação, transporte, passeios guiados e algumas refeições. A página de cada pacote detalha exatamente o que está incluído e o que é opcional.",
+    "faq.q3.question": "Posso personalizar meu roteiro de viagem?",
+    "faq.q3.answer": "Com certeza! Oferecemos opções de personalização para a maioria das viagens. Entre em contato com nossa equipe para discutir suas preferências e criaremos uma experiência personalizada só para você.",
+    "faq.q4.question": "Qual é a sua política de cancelamento?",
+    "faq.q4.answer": "Oferecemos cancelamento gratuito até 30 dias antes da partida. Cancelamentos com menos de 30 dias de antecedência podem estar sujeitos a taxas, dependendo do passeio. Informações completas serão fornecidas no momento da reserva.",
+    "faq.q5.question": "Vocês oferecem descontos para grupos?",
+    "faq.q5.answer": "Sim! Grupos de 6 ou mais pessoas recebem 10% de desconto, e grupos de 12 ou mais recebem 15% de desconto. Entre em contato conosco para obter preços personalizados para grupos maiores.",
   },
 };
 

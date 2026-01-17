@@ -4,31 +4,34 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-
-const faqs = [
-  {
-    question: "How do I book a tour with Explo?",
-    answer: "Booking is simple! Browse our tour packages, select your preferred dates, and complete the booking form. Our team will confirm your reservation within 24 hours.",
-  },
-  {
-    question: "What's included in the tour packages?",
-    answer: "Our packages typically include accommodation, transportation, guided tours, and select meals. Each package page details exactly what's included and what's optional.",
-  },
-  {
-    question: "Can I customize my tour itinerary?",
-    answer: "Absolutely! We offer customization options for most tours. Contact our team to discuss your preferences and we'll create a personalized experience just for you.",
-  },
-  {
-    question: "What is your cancellation policy?",
-    answer: "We offer free cancellation up to 30 days before departure. Cancellations within 30 days may incur fees depending on the tour. Full details are provided at booking.",
-  },
-  {
-    question: "Do you offer group discounts?",
-    answer: "Yes! Groups of 6 or more receive a 10% discount, and groups of 12+ receive 15% off. Contact us for custom group pricing on larger bookings.",
-  },
-];
+import { useLanguage } from "@/hooks/useLanguage";
 
 export function FAQSection() {
+  const { t } = useLanguage();
+
+  const faqs = [
+    {
+      question: t("faq.q1.question"),
+      answer: t("faq.q1.answer"),
+    },
+    {
+      question: t("faq.q2.question"),
+      answer: t("faq.q2.answer"),
+    },
+    {
+      question: t("faq.q3.question"),
+      answer: t("faq.q3.answer"),
+    },
+    {
+      question: t("faq.q4.question"),
+      answer: t("faq.q4.answer"),
+    },
+    {
+      question: t("faq.q5.question"),
+      answer: t("faq.q5.answer"),
+    },
+  ];
+
   return (
     <section className="py-24 bg-muted">
       <div className="container">
@@ -36,13 +39,13 @@ export function FAQSection() {
           {/* Header */}
           <div className="text-center mb-12">
             <span className="heading-spaced text-primary mb-4 block">
-              FAQ
+              {t("faq.badge")}
             </span>
             <h2 className="font-heading text-display-md text-foreground mb-4">
-              Frequently Asked Questions
+              {t("faq.title")}
             </h2>
             <p className="text-body-lg text-muted-foreground">
-              Find answers to common questions about our tours and services.
+              {t("faq.description")}
             </p>
           </div>
 
