@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useBookingStore } from "@/stores/bookingStore";
 import { format, parseISO } from "date-fns";
 import type { SearchFilters, SortOption, MealPlan } from "@/types/booking";
+import { validateAndRefreshDates } from "@/lib/dateValidation";
 
 // URL parameter keys
 const URL_PARAMS = {
@@ -199,11 +200,17 @@ export function useURLSync() {
     if (parsed.hasSearchParams && parsed.checkIn && parsed.checkOut) {
       isUpdatingFromURL.current = true;
       
+      // Validate and refresh dates if they're stale
+      const { checkIn, checkOut, wasRefreshed } = validateAndRefreshDates(
+        parsed.checkIn,
+        parsed.checkOut
+      );
+      
       setStoreSearchParams({
         destination: parsed.destination,
         destinationId: parsed.destinationId,
-        checkIn: parsed.checkIn,
-        checkOut: parsed.checkOut,
+        checkIn,
+        checkOut,
         guests: parsed.guests,
         rooms: parsed.rooms,
         children: parsed.children,
@@ -216,6 +223,14 @@ export function useURLSync() {
 
       if (parsedSort) {
         setSortBy(parsedSort);
+      }
+
+      // If dates were refreshed, update URL to reflect new valid dates
+      if (wasRefreshed) {
+        const newParams = new URLSearchParams(searchParams);
+        newParams.set("checkIn", format(checkIn, "yyyy-MM-dd"));
+        newParams.set("checkOut", format(checkOut, "yyyy-MM-dd"));
+        setSearchParams(newParams, { replace: true });
       }
 
       // Reset flag after a tick
