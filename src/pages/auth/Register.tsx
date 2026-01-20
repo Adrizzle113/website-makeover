@@ -3,12 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
-import { MailIcon, UserIcon, Loader2, BuildingIcon, MapPinIcon, FileTextIcon, AlertCircleIcon } from "lucide-react";
+import { MailIcon, UserIcon, Loader2, BuildingIcon, MapPinIcon, FileTextIcon, AlertCircleIcon, LockIcon, EyeIcon, EyeOffIcon } from "lucide-react";
 import { toast } from "sonner";
-import { API_BASE_URL } from "@/config/api";
+import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import { useLanguage } from "@/hooks/useLanguage";
-
 // Phone validation functions for Brazil and US
 const validateBrazilPhone = (phone: string): boolean => {
   // Brazil: 10-11 digits (with area code). Mobile: 11 digits, Landline: 10 digits
@@ -132,6 +131,10 @@ const createStep1Schema = (countryCode: string) => z.object({
     .trim()
     .email("Please enter a valid email address")
     .max(255, "Email must be less than 255 characters"),
+  password: z
+    .string()
+    .min(6, "Password must be at least 6 characters")
+    .max(72, "Password must be less than 72 characters"),
   phone_number: z.string().trim().refine(
     (val) => validatePhoneByCountry(val, countryCode),
     {
@@ -167,8 +170,10 @@ export const Register = (): JSX.Element => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [countryCode, setCountryCode] = useState("+55");
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
+    password: "",
     first_name: "",
     last_name: "",
     phone_number: "",
@@ -274,24 +279,47 @@ export const Register = (): JSX.Element => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/user/users`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+      // 1. Sign up with Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        }
       });
 
-      const data = await res.json();
+      if (error) throw error;
 
-      if (res.ok) {
-        toast.success(data.success || t("register.success"));
-        localStorage.setItem("pendingVerificationEmail", formData.email);
-        navigate("/auth/email-verification", { state: { email: formData.email } });
-      } else {
-        toast.error(data.message || t("register.failed"));
+      if (data.user) {
+        // 2. Update profile with additional info (profile already created by trigger)
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            first_name: formData.first_name,
+            last_name: formData.last_name,
+            email: formData.email,
+            phone_number: `${countryCode}${formData.phone_number}`,
+            legal_name: formData.legal_name,
+            city: formData.city,
+            country: formData.country,
+            address: formData.address,
+            itn: formData.itn,
+            actual_address_matches: formData.actual_address_matches,
+          })
+          .eq('id', data.user.id);
+
+        if (profileError) {
+          console.error('Profile update error:', profileError);
+          // Continue anyway - profile was created by trigger with minimal info
+        }
       }
-    } catch (err) {
-      console.error("Error:", err);
-      toast.error(t("register.failed"));
+
+      toast.success(t("register.success"));
+      navigate("/auth/pending-approval");
+      
+    } catch (err: any) {
+      console.error("Registration error:", err);
+      toast.error(err.message || t("register.failed"));
     } finally {
       setLoading(false);
     }
@@ -406,6 +434,30 @@ export const Register = (): JSX.Element => {
                     <MailIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   </div>
                   <InputError message={errors.email} />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">{t("register.password")}</label>
+                  <div className="relative">
+                    <Input
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      type={showPassword ? "text" : "password"}
+                      placeholder={t("register.placeholder.password")}
+                      className={`pl-12 pr-12 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.password ? "border-red-500 focus:border-red-500" : "border-border/50 focus:border-primary"}`}
+                    />
+                    <LockIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showPassword ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{t("register.passwordHint")}</p>
+                  <InputError message={errors.password} />
                 </div>
 
                 <div>

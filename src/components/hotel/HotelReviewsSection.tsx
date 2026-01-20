@@ -73,7 +73,7 @@ export function HotelReviewsSection({ hotel }: HotelReviewsSectionProps) {
                       (hotel as any).ratehawk_data?.ota_hotel_id || 
                       hotel.id;
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("hotel_reviews")
         .select("*")
         .eq("hotel_id", hotelId)
@@ -88,11 +88,11 @@ export function HotelReviewsSection({ hotel }: HotelReviewsSectionProps) {
       }
 
       if (data && data.length > 0) {
-        setReviews(data);
+        setReviews(data as Review[]);
         
         // Calculate rating breakdown
         const breakdown: RatingBreakdown = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-        data.forEach((review) => {
+        (data as Review[]).forEach((review) => {
           const roundedRating = Math.round(review.rating) as keyof RatingBreakdown;
           if (roundedRating >= 1 && roundedRating <= 5) {
             breakdown[roundedRating]++;
