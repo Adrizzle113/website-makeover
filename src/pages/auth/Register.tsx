@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { MailIcon, UserIcon, Loader2, BuildingIcon, MapPinIcon, FileTextIcon, AlertCircleIcon } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/config/api";
@@ -306,7 +307,12 @@ export const Register = (): JSX.Element => {
   };
 
   return (
-    <main className="flex min-h-screen">
+    <main className="flex min-h-screen relative">
+      {/* Language Toggle - Top Right */}
+      <div className="absolute top-4 right-4 z-50">
+        <LanguageToggle />
+      </div>
+
       {/* Left side - Decorative */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary/90 to-accent relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/90 via-primary/70 to-transparent" />
