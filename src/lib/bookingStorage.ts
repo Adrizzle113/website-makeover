@@ -46,6 +46,18 @@ export async function saveBookingToDatabase(
       console.log("📦 Using mock pending data for demo order:", orderId);
     }
 
+    // For real orders, fetch complete details from WorldOTA if no API response provided
+    if (!isDemo && !apiResponse) {
+      try {
+        console.log("📡 Fetching order details from WorldOTA for:", orderId);
+        apiResponse = await bookingApi.getOrderInfoDirect(orderId);
+        console.log("✅ WorldOTA order info fetched successfully");
+      } catch (err) {
+        console.warn("⚠️ Could not fetch order info from WorldOTA:", err);
+        // Continue with pending data only
+      }
+    }
+
     // Check if booking already exists using raw query
     const { data: existing, error: checkError } = await supabase
       .from(TABLE_NAME as any)

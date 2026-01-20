@@ -24,3 +24,9 @@ verify_jwt = false
 
 [functions.worldota-hotel-info]
 verify_jwt = false
+
+[functions.worldota-order-info]
+verify_jwt = false
+
+[functions.worldota-order-cancel]
+verify_jwt = false
