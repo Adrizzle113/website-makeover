@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ import { useBookingStore } from "@/stores/bookingStore";
 import type { HotelDetails, RoomSelection } from "@/types/booking";
 import { cn } from "@/lib/utils";
 import { sanitizeGuestName } from "@/lib/guestValidation";
+import { GuestCompositionChangeModal } from "./GuestCompositionChangeModal";
 
 export interface Guest {
   id: string;
@@ -47,10 +48,16 @@ export interface Guest {
   citizenship?: string;
 }
 
+interface GuestComposition {
+  adults: number;
+  childrenAges: number[];
+}
+
 interface GuestInformationSectionProps {
   rooms: RoomSelection[];
   hotel: HotelDetails;
   onGuestsChange?: (guests: Guest[]) => void;
+  onCompositionChangeConfirmed?: (newComposition: GuestComposition) => void;
 }
 
 const countries = [
@@ -311,13 +318,21 @@ const childAges = Array.from({ length: 17 }, (_, i) => i + 1);
 export function GuestInformationSection({ 
   rooms, 
   hotel,
-  onGuestsChange 
+  onGuestsChange,
+  onCompositionChangeConfirmed,
 }: GuestInformationSectionProps) {
-  const { searchParams, setSearchParams, setResidency } = useBookingStore();
+  const { searchParams, setResidency } = useBookingStore();
   const [citizenship, setCitizenship] = useState("us");
   const [citizenshipOpen, setCitizenshipOpen] = useState(false);
   const [expandedRooms, setExpandedRooms] = useState<number[]>([0, 1, 2, 3, 4]); // All expanded by default
   const [sameAsLead, setSameAsLead] = useState<Record<number, boolean>>({});
+  
+  // Modal state for composition change
+  const [showCompositionChangeModal, setShowCompositionChangeModal] = useState(false);
+  const [pendingComposition, setPendingComposition] = useState<GuestComposition | null>(null);
+  
+  // Store original composition from search params (immutable reference)
+  const originalCompositionRef = useRef<GuestComposition | null>(null);
   
   // Get selected country name for display
   const selectedCountryName = useMemo(() => {
@@ -335,6 +350,14 @@ export function GuestInformationSection({
     const childrenAgesFromParams = searchParams?.childrenAges || [];
     const numChildren = childrenAgesFromParams.length;
     const numAdults = Math.max(1, totalGuestsFromParams - numChildren);
+    
+    // Store original composition on first render
+    if (!originalCompositionRef.current) {
+      originalCompositionRef.current = {
+        adults: numAdults,
+        childrenAges: [...childrenAgesFromParams],
+      };
+    }
     
     console.log("👥 Initializing guests from search params:", {
       totalGuestsFromParams,
@@ -386,31 +409,46 @@ export function GuestInformationSection({
     setResidency(citizenship);
   }, [citizenship, setResidency]);
 
-  // Sync guest count with booking store
+  // Detect guest composition changes and show modal
+  // DO NOT update searchParams - composition must stay locked to original search
   useEffect(() => {
-    if (searchParams) {
-      const totalGuests = guests.length;
-      const children = guests.filter((g) => g.type === "child");
-      const childrenAges = children
-        .map((c) => c.age)
-        .filter((age): age is number => age !== undefined);
-
-      setSearchParams({
-        ...searchParams,
-        guests: totalGuests,
-        children: children.length,
-        childrenAges,
+    if (!originalCompositionRef.current) return;
+    
+    const currentAdults = guests.filter(g => g.type === "adult").length;
+    const currentChildAges = guests
+      .filter(g => g.type === "child" && g.age !== undefined)
+      .map(g => g.age as number)
+      .sort((a, b) => a - b);
+    
+    const originalAdults = originalCompositionRef.current.adults;
+    const originalChildAges = [...originalCompositionRef.current.childrenAges].sort((a, b) => a - b);
+    
+    const compositionChanged = 
+      currentAdults !== originalAdults ||
+      currentChildAges.length !== originalChildAges.length ||
+      JSON.stringify(currentChildAges) !== JSON.stringify(originalChildAges);
+    
+    if (compositionChanged) {
+      console.log("⚠️ Guest composition changed:", {
+        original: { adults: originalAdults, children: originalChildAges },
+        current: { adults: currentAdults, children: currentChildAges },
       });
+      
+      setPendingComposition({
+        adults: currentAdults,
+        childrenAges: currentChildAges,
+      });
+      setShowCompositionChangeModal(true);
     }
     
-    // Add citizenship to guests
+    // Add citizenship to guests and notify parent
     const guestsWithCitizenship = guests.map(g => ({
       ...g,
       citizenship: g.isLead ? citizenship : undefined,
     }));
     
     onGuestsChange?.(guestsWithCitizenship);
-  }, [guests, citizenship]);
+  }, [guests, citizenship, onGuestsChange]);
 
   const handleGuestChange = (
     guestId: string,
@@ -484,6 +522,25 @@ export function GuestInformationSection({
         return guest;
       }));
     }
+  };
+
+  // Handle canceling the composition change - revert to original
+  const handleCompositionChangeCancel = () => {
+    if (!originalCompositionRef.current) return;
+    
+    // Reinitialize guests to original composition
+    setGuests(initializeGuests());
+    setPendingComposition(null);
+    setShowCompositionChangeModal(false);
+  };
+
+  // Handle confirming composition change - navigate back to hotel
+  const handleCompositionChangeConfirm = () => {
+    if (pendingComposition && onCompositionChangeConfirmed) {
+      onCompositionChangeConfirmed(pendingComposition);
+    }
+    setPendingComposition(null);
+    setShowCompositionChangeModal(false);
   };
 
   // Group guests by room
@@ -809,6 +866,18 @@ export function GuestInformationSection({
           </div>
         )}
       </CardContent>
+
+      {/* Guest Composition Change Modal */}
+      {originalCompositionRef.current && pendingComposition && (
+        <GuestCompositionChangeModal
+          open={showCompositionChangeModal}
+          onOpenChange={setShowCompositionChangeModal}
+          originalComposition={originalCompositionRef.current}
+          newComposition={pendingComposition}
+          onConfirm={handleCompositionChangeConfirm}
+          onCancel={handleCompositionChangeCancel}
+        />
+      )}
     </Card>
   );
 }

@@ -43,7 +43,8 @@ const BookingPage = () => {
   const { 
     selectedHotel, 
     selectedRooms, 
-    searchParams, 
+    searchParams,
+    setSearchParams,
     getTotalPrice, 
     setBookingHash,
     bookingHash,
@@ -51,6 +52,7 @@ const BookingPage = () => {
     generateAndSetPartnerOrderId,
     residency, 
     selectedUpsells,
+    clearRoomSelection,
     // Multiroom actions
     isMultiroomBooking,
     setPrebookedRooms,
@@ -733,6 +735,40 @@ const BookingPage = () => {
     navigate("/");
   };
 
+  // Handle guest composition change - update searchParams and navigate back to hotel
+  const handleCompositionChangeConfirmed = (newComposition: { adults: number; childrenAges: number[] }) => {
+    if (searchParams) {
+      const totalGuests = newComposition.adults + newComposition.childrenAges.length;
+      
+      // Update searchParams with new composition
+      setSearchParams({
+        ...searchParams,
+        guests: totalGuests,
+        children: newComposition.childrenAges.length,
+        childrenAges: newComposition.childrenAges,
+      });
+      
+      console.log("🔄 Guest composition updated, navigating to hotel for rate refresh:", {
+        oldGuests: searchParams.guests,
+        oldChildren: searchParams.childrenAges,
+        newGuests: totalGuests,
+        newChildren: newComposition.childrenAges,
+      });
+    }
+    
+    // Clear room selection since rates are now stale
+    clearRoomSelection();
+    
+    // Navigate back to hotel details to re-select room with new rates
+    if (selectedHotel) {
+      toast({
+        title: "Guest Composition Updated",
+        description: "Please select a room again with the updated guest count.",
+      });
+      navigate(`/hoteldetails/${selectedHotel.id}`);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <main className="flex-1">
@@ -824,6 +860,7 @@ const BookingPage = () => {
                     rooms={selectedRooms}
                     hotel={selectedHotel}
                     onGuestsChange={setGuests}
+                    onCompositionChangeConfirmed={handleCompositionChangeConfirmed}
                   />
                 </div>
                 

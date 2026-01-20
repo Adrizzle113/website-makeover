@@ -25,3 +25,4 @@ export { PhoneInput } from "./PhoneInput";
 export { BookingTimeline } from "./BookingTimeline";
 export { RoomAddonsSection } from "./RoomAddonsSection";
 export { MultiroomPriceChangeModal } from "./MultiroomPriceChangeModal";
+export { GuestCompositionChangeModal } from "./GuestCompositionChangeModal";
