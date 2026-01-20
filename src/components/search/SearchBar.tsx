@@ -296,6 +296,29 @@ export function SearchBar() {
         children: room.childrenAges,
       }));
 
+      // CRITICAL: Store search params for ALL search types to ensure children ages flow through to booking
+      const searchParamsData = {
+        destination: searchType === "region" ? destination : 
+                     searchType === "poi" ? poiName :
+                     searchType === "geo" ? `Geo: ${geoCoords?.lat?.toFixed(4)}, ${geoCoords?.lon?.toFixed(4)}` :
+                     `Hotel IDs: ${hotelIds.slice(0, 3).join(", ")}${hotelIds.length > 3 ? "..." : ""}`,
+        destinationId: searchType === "region" ? destinationId : undefined,
+        checkIn,
+        checkOut,
+        guests: totalGuests,
+        rooms: rooms.length,
+        children: totalChildren,
+        childrenAges: allChildrenAges,
+      };
+      setSearchParams(searchParamsData);
+      
+      console.log("🔍 Search params stored:", {
+        totalGuests,
+        totalChildren,
+        childrenAges: allChildrenAges,
+        searchType,
+      });
+
       let response;
 
       switch (searchType) {
@@ -329,17 +352,6 @@ export function SearchBar() {
           break;
         case "region":
         default:
-          const searchParamsData = {
-            destination,
-            destinationId,
-            checkIn,
-            checkOut,
-            guests: totalGuests,
-            rooms: rooms.length,
-            children: totalChildren,
-            childrenAges: allChildrenAges,
-          };
-          setSearchParams(searchParamsData);
           response = await ratehawkApi.searchHotels(searchParamsData, 1, filters);
           break;
       }

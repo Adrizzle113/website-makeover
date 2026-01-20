@@ -291,12 +291,31 @@ const BookingPage = () => {
 
     console.log("📤 Single room prebook with book_hash:", bookHash);
 
-    const adultGuests = guests.filter(g => g.type === "adult").length;
-    const childAges = guests
+    // CRITICAL: Calculate adults correctly by subtracting children from total guests
+    // RateHawk requires guest composition to match original search exactly
+    const totalGuestsFromParams = searchParams?.guests || 2;
+    const childrenFromParams = searchParams?.childrenAges || [];
+    const adultsFromParams = Math.max(1, totalGuestsFromParams - childrenFromParams.length);
+    
+    // Use form guest data if available, otherwise fall back to search params
+    const formAdultCount = guests.filter(g => g.type === "adult").length;
+    const formChildAges = guests
       .filter(g => g.type === "child" && typeof g.age === "number")
       .map(g => g.age as number);
-    const adultsCount = adultGuests > 0 ? adultGuests : (searchParams?.guests || 2);
-    const fallbackChildrenAges = childAges.length > 0 ? childAges : (searchParams?.childrenAges || []);
+    
+    // IMPORTANT: Use search params as source of truth to ensure consistency
+    const adultsCount = formAdultCount > 0 ? formAdultCount : adultsFromParams;
+    const childrenAges = formChildAges.length > 0 ? formChildAges : childrenFromParams;
+    
+    console.log("📤 Single room prebook guest data:", {
+      totalGuestsFromParams,
+      childrenFromParams,
+      adultsFromParams,
+      formAdultCount,
+      formChildAges,
+      finalAdults: adultsCount,
+      finalChildren: childrenAges,
+    });
 
     const response = await bookingApi.prebook({
       book_hash: bookHash,
@@ -305,7 +324,7 @@ const BookingPage = () => {
       price_increase_percent: 20,
       guests: [{
         adults: adultsCount,
-        children: fallbackChildrenAges.map(age => ({ age })),
+        children: childrenAges.map(age => ({ age })),
       }],
       language: "en",
     });
@@ -354,17 +373,23 @@ const BookingPage = () => {
 
       // For each quantity, add a separate room entry
       for (let i = 0; i < room.quantity; i++) {
-        // Build guests for this room from the guests array
-        // For simplicity, split guests evenly or use search params
-        const adultsCount = searchParams?.guests || 2;
-        const childrenAges = searchParams?.childrenAges || [];
+        // CRITICAL: Calculate adults correctly by subtracting children from total guests
+        const totalGuestsFromParams = searchParams?.guests || 2;
+        const childrenFromParams = searchParams?.childrenAges || [];
+        const adultsCount = Math.max(1, totalGuestsFromParams - childrenFromParams.length);
+        
+        console.log("📤 Multiroom prebook guest data for room", roomIndex, ":", {
+          totalGuestsFromParams,
+          childrenFromParams,
+          adultsCount,
+        });
         
         rooms.push({
           book_hash: bookHash.startsWith('h-') || bookHash.startsWith('p-') ? bookHash : undefined,
           match_hash: bookHash.startsWith('m-') ? bookHash : undefined,
           guests: [{
             adults: adultsCount,
-            children: childrenAges.map(age => ({ age })),
+            children: childrenFromParams.map(age => ({ age })),
           }],
           residency: residency || "US",
           price_increase_percent: 20,
