@@ -11,12 +11,20 @@ import { useLanguage } from "@/hooks/useLanguage";
 const step1Schema = z.object({
   first_name: z.string().trim().min(1, "First name is required").max(50, "First name must be less than 50 characters"),
   last_name: z.string().trim().min(1, "Last name is required").max(50, "Last name must be less than 50 characters"),
-  email: z.string().trim().email("Please enter a valid email address").max(255, "Email must be less than 255 characters"),
+  email: z
+    .string()
+    .trim()
+    .email("Please enter a valid email address")
+    .max(255, "Email must be less than 255 characters"),
   phone_number: z.string().trim().min(7, "Please enter a valid phone number").max(20, "Phone number is too long"),
 });
 
 const step2Schema = z.object({
-  legal_name: z.string().trim().min(1, "Legal entity name is required").max(100, "Legal name must be less than 100 characters"),
+  legal_name: z
+    .string()
+    .trim()
+    .min(1, "Legal entity name is required")
+    .max(100, "Legal name must be less than 100 characters"),
   itn: z.string().trim().min(1, "Tax ID is required").max(20, "Tax ID must be less than 20 characters"),
   city: z.string().trim().min(1, "City is required").max(100, "City must be less than 100 characters"),
   address: z.string().trim().min(1, "Address is required").max(200, "Address must be less than 200 characters"),
@@ -94,26 +102,26 @@ export const Register = (): JSX.Element => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateStep2()) {
       return;
     }
 
     setLoading(true);
-    
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/user/users`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
       });
-      
+
       const data = await res.json();
 
       if (res.ok) {
         toast.success(data.success || t("register.success"));
-        localStorage.setItem('pendingVerificationEmail', formData.email);
-        navigate('/auth/email-verification', { state: { email: formData.email } });
+        localStorage.setItem("pendingVerificationEmail", formData.email);
+        navigate("/auth/email-verification", { state: { email: formData.email } });
       } else {
         toast.error(data.message || t("register.failed"));
       }
@@ -138,17 +146,15 @@ export const Register = (): JSX.Element => {
   return (
     <main className="flex min-h-screen">
       {/* Left side - Decorative */}
-      <div 
-        className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary/90 to-accent relative overflow-hidden"
-      >
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary/90 to-accent relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/90 via-primary/70 to-transparent" />
         <div className="relative z-10 flex flex-col justify-center p-16 text-primary-foreground">
           <h2 className="font-heading text-5xl mb-6 leading-tight">
-            {t("register.heroTitle1")}<br />{t("register.heroTitle2")}
+            {t("register.heroTitle1")}
+            <br />
+            {t("register.heroTitle2")}
           </h2>
-          <p className="text-primary-foreground/80 text-lg max-w-md leading-relaxed">
-            {t("register.heroDescription")}
-          </p>
+          <p className="text-primary-foreground/80 text-lg max-w-md leading-relaxed">{t("register.heroDescription")}</p>
         </div>
       </div>
 
@@ -160,17 +166,19 @@ export const Register = (): JSX.Element => {
               <span className="font-heading text-2xl text-primary">T</span>
             </div>
             <h1 className="font-heading text-3xl text-foreground mb-2">{t("register.createAccount")}</h1>
-            <p className="text-muted-foreground">
-              {t("register.subtitle")}
-            </p>
-            
+            <p className="text-muted-foreground">{t("register.subtitle")}</p>
+
             {/* Step indicator */}
             <div className="flex justify-center items-center gap-3 mt-6">
-              <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-colors ${step >= 1 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+              <div
+                className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-colors ${step >= 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+              >
                 1
               </div>
-              <div className={`w-12 h-0.5 transition-colors ${step >= 2 ? 'bg-primary' : 'bg-muted'}`} />
-              <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-colors ${step >= 2 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+              <div className={`w-12 h-0.5 transition-colors ${step >= 2 ? "bg-primary" : "bg-muted"}`} />
+              <div
+                className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-colors ${step >= 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+              >
                 2
               </div>
             </div>
@@ -184,9 +192,7 @@ export const Register = (): JSX.Element => {
               <div className="space-y-4 animate-fade-in">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      {t("register.firstName")}
-                    </label>
+                    <label className="block text-sm font-medium text-foreground mb-2">{t("register.firstName")}</label>
                     <div className="relative">
                       <Input
                         name="first_name"
@@ -194,16 +200,14 @@ export const Register = (): JSX.Element => {
                         onChange={handleChange}
                         type="text"
                         placeholder="John"
-                        className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.first_name ? 'border-red-500 focus:border-red-500' : 'border-border/50 focus:border-primary'}`}
+                        className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.first_name ? "border-red-500 focus:border-red-500" : "border-border/50 focus:border-primary"}`}
                       />
                       <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                     </div>
                     <InputError message={errors.first_name} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      {t("register.lastName")}
-                    </label>
+                    <label className="block text-sm font-medium text-foreground mb-2">{t("register.lastName")}</label>
                     <div className="relative">
                       <Input
                         name="last_name"
@@ -211,7 +215,7 @@ export const Register = (): JSX.Element => {
                         onChange={handleChange}
                         type="text"
                         placeholder="Doe"
-                        className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.last_name ? 'border-red-500 focus:border-red-500' : 'border-border/50 focus:border-primary'}`}
+                        className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.last_name ? "border-red-500 focus:border-red-500" : "border-border/50 focus:border-primary"}`}
                       />
                       <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                     </div>
@@ -220,9 +224,7 @@ export const Register = (): JSX.Element => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    {t("register.email")}
-                  </label>
+                  <label className="block text-sm font-medium text-foreground mb-2">{t("register.email")}</label>
                   <div className="relative">
                     <Input
                       name="email"
@@ -230,7 +232,7 @@ export const Register = (): JSX.Element => {
                       onChange={handleChange}
                       type="email"
                       placeholder="john@example.com"
-                      className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.email ? 'border-red-500 focus:border-red-500' : 'border-border/50 focus:border-primary'}`}
+                      className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.email ? "border-red-500 focus:border-red-500" : "border-border/50 focus:border-primary"}`}
                     />
                     <MailIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   </div>
@@ -238,9 +240,7 @@ export const Register = (): JSX.Element => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    {t("register.phone")}
-                  </label>
+                  <label className="block text-sm font-medium text-foreground mb-2">{t("register.phone")}</label>
                   <div className="flex">
                     <select
                       name="countryCode"
@@ -258,7 +258,7 @@ export const Register = (): JSX.Element => {
                       onChange={handleChange}
                       type="tel"
                       placeholder="(555) 000-0000"
-                      className={`h-12 rounded-l-none rounded-r-xl bg-muted/50 border focus:bg-background transition-colors ${errors.phone_number ? 'border-red-500 focus:border-red-500' : 'border-border/50 focus:border-primary'}`}
+                      className={`h-12 rounded-l-none rounded-r-xl bg-muted/50 border focus:bg-background transition-colors ${errors.phone_number ? "border-red-500 focus:border-red-500" : "border-border/50 focus:border-primary"}`}
                     />
                   </div>
                   <InputError message={errors.phone_number} />
@@ -277,17 +277,15 @@ export const Register = (): JSX.Element => {
             {step === 2 && (
               <div className="space-y-4 animate-fade-in">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    {t("register.legalName")}
-                  </label>
+                  <label className="block text-sm font-medium text-foreground mb-2">{t("register.legalName")}</label>
                   <div className="relative">
                     <Input
                       name="legal_name"
                       value={formData.legal_name}
                       onChange={handleChange}
                       type="text"
-                      placeholder="Legal Company Name LLC"
-                      className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.legal_name ? 'border-red-500 focus:border-red-500' : 'border-border/50 focus:border-primary'}`}
+                      placeholder="Legal Company Name"
+                      className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.legal_name ? "border-red-500 focus:border-red-500" : "border-border/50 focus:border-primary"}`}
                     />
                     <BuildingIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   </div>
@@ -295,9 +293,7 @@ export const Register = (): JSX.Element => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    {t("register.taxId")}
-                  </label>
+                  <label className="block text-sm font-medium text-foreground mb-2">{t("register.taxId")}</label>
                   <div className="relative">
                     <Input
                       name="itn"
@@ -305,7 +301,7 @@ export const Register = (): JSX.Element => {
                       onChange={handleChange}
                       type="text"
                       placeholder="123456789"
-                      className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.itn ? 'border-red-500 focus:border-red-500' : 'border-border/50 focus:border-primary'}`}
+                      className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.itn ? "border-red-500 focus:border-red-500" : "border-border/50 focus:border-primary"}`}
                     />
                     <FileTextIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   </div>
@@ -313,9 +309,7 @@ export const Register = (): JSX.Element => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    {t("register.city")}
-                  </label>
+                  <label className="block text-sm font-medium text-foreground mb-2">{t("register.city")}</label>
                   <div className="relative">
                     <Input
                       name="city"
@@ -323,7 +317,7 @@ export const Register = (): JSX.Element => {
                       onChange={handleChange}
                       type="text"
                       placeholder="New York"
-                      className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.city ? 'border-red-500 focus:border-red-500' : 'border-border/50 focus:border-primary'}`}
+                      className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.city ? "border-red-500 focus:border-red-500" : "border-border/50 focus:border-primary"}`}
                     />
                     <MapPinIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   </div>
@@ -331,9 +325,7 @@ export const Register = (): JSX.Element => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    {t("register.legalAddress")}
-                  </label>
+                  <label className="block text-sm font-medium text-foreground mb-2">{t("register.legalAddress")}</label>
                   <div className="relative">
                     <Input
                       name="address"
@@ -341,14 +333,16 @@ export const Register = (): JSX.Element => {
                       onChange={handleChange}
                       type="text"
                       placeholder="123 Business Street, Suite 100"
-                      className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.address ? 'border-red-500 focus:border-red-500' : 'border-border/50 focus:border-primary'}`}
+                      className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.address ? "border-red-500 focus:border-red-500" : "border-border/50 focus:border-primary"}`}
                     />
                     <MapPinIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   </div>
                   <InputError message={errors.address} />
                 </div>
 
-                <div className={`flex items-start gap-3 p-4 rounded-xl border ${errors.actual_address_matches ? 'bg-red-50/50 border-red-200' : 'bg-muted/30 border-border/30'}`}>
+                <div
+                  className={`flex items-start gap-3 p-4 rounded-xl border ${errors.actual_address_matches ? "bg-red-50/50 border-red-200" : "bg-muted/30 border-border/30"}`}
+                >
                   <input
                     name="actual_address_matches"
                     type="checkbox"
@@ -357,16 +351,12 @@ export const Register = (): JSX.Element => {
                     className="mt-0.5 h-4 w-4 cursor-pointer rounded border-border text-primary focus:ring-primary"
                   />
                   <div>
-                    <label className="text-sm text-muted-foreground leading-relaxed">
-                      {t("register.franchise")}
-                    </label>
+                    <label className="text-sm text-muted-foreground leading-relaxed">{t("register.franchise")}</label>
                     <InputError message={errors.actual_address_matches} />
                   </div>
                 </div>
 
-                <p className="text-xs text-muted-foreground text-center">
-                  {t("register.termsNotice")}
-                </p>
+                <p className="text-xs text-muted-foreground text-center">{t("register.termsNotice")}</p>
 
                 <div className="flex gap-4">
                   <Button
@@ -400,19 +390,13 @@ export const Register = (): JSX.Element => {
           {/* Footer */}
           <div className="mt-8 text-center space-y-2">
             <p className="text-sm text-muted-foreground">
-              {t("register.alreadyHaveAccount")}{' '}
-              <Link 
-                to="/auth/login" 
-                className="text-primary hover:text-primary/80 font-medium transition-colors"
-              >
+              {t("register.alreadyHaveAccount")}{" "}
+              <Link to="/auth/login" className="text-primary hover:text-primary/80 font-medium transition-colors">
                 {t("register.signIn")}
               </Link>
             </p>
             <p className="text-sm text-muted-foreground">
-              <Link 
-                to="/" 
-                className="text-primary hover:text-primary/80 font-medium transition-colors"
-              >
+              <Link to="/" className="text-primary hover:text-primary/80 font-medium transition-colors">
                 ← {t("register.backToHome") || "Back to Home"}
               </Link>
             </p>
