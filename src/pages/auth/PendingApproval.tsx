@@ -1,71 +1,134 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
-import { ClockIcon, MailIcon, CheckCircleIcon, XCircleIcon, Loader2, RefreshCwIcon, UserIcon, BuildingIcon, ArrowLeftIcon } from "lucide-react";
-import { API_BASE_URL } from "@/config/api";
+import { 
+  ClockIcon, 
+  CheckCircleIcon, 
+  XCircleIcon, 
+  ArrowLeftIcon, 
+  RefreshCwIcon,
+  MailIcon,
+  Loader2,
+  UserIcon,
+  BuildingIcon
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/hooks/useLanguage";
+import type { Database } from "@/integrations/supabase/types";
+
+type ApprovalStatus = Database["public"]["Enums"]["approval_status"];
 
 interface UserStatus {
-  email: string;
-  status: 'pending' | 'approved' | 'rejected';
-  email_Verification: 'verified' | 'unverified';
-  first_name: string;
-  last_name: string;
+  email: string | null;
+  status: ApprovalStatus;
+  first_name: string | null;
+  last_name: string | null;
 }
 
 export const PendingApproval = (): JSX.Element => {
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const [userStatus, setUserStatus] = useState<UserStatus | null>(null);
   const [isChecking, setIsChecking] = useState(true);
-  const [userEmail, setUserEmail] = useState("");
+  const [userEmail, setUserEmail] = useState<string>("");
 
-  useEffect(() => {
-    const pendingEmail = localStorage.getItem('pendingVerificationEmail');
-    const storedUserEmail = localStorage.getItem('userEmail');
-    const email = pendingEmail || storedUserEmail;
-    
-    if (!email) {
-      navigate('/auth/login');
-      return;
-    }
-
-    setUserEmail(email);
-    checkUserStatus(email);
-    
-    const interval = setInterval(() => {
-      checkUserStatus(email);
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [navigate]);
-
-  const checkUserStatus = async (email: string) => {
+  const checkUserStatus = async () => {
+    setIsChecking(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/user/status/${email}`);
-      const data = await response.json();
+      // Get current session
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (data.success && data.data) {
-        const user = data.data;
-        setUserStatus(user);
-        
-        if (user.status === 'approved') {
-          localStorage.removeItem('pendingVerificationEmail');
-          navigate('/auth/login', { 
-            state: { 
-              message: t("approval.approved.message"),
-              approvedEmail: email 
-            }
-          });
+      if (session?.user) {
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("email, status, first_name, last_name")
+          .eq("id", session.user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Error fetching profile:", error);
+          setIsChecking(false);
+          return;
         }
+
+        if (profile) {
+          setUserStatus(profile);
+          setUserEmail(profile.email || session.user.email || "");
+
+          if (profile.status === "approved") {
+            navigate("/auth/login", {
+              state: { 
+                message: t("approval.approved.message"),
+                approvedEmail: profile.email || session.user.email
+              }
+            });
+          }
+        }
+      } else if (location.state?.email) {
+        // User was redirected from login without session
+        setUserEmail(location.state.email);
       }
     } catch (error) {
-      console.error("Error checking user status:", error);
+      console.error("Error checking status:", error);
     } finally {
       setIsChecking(false);
     }
   };
+
+  useEffect(() => {
+    // Initial check
+    checkUserStatus();
+
+    // Set up realtime subscription
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const setupRealtime = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        channel = supabase
+          .channel("profile-status-changes")
+          .on(
+            "postgres_changes",
+            {
+              event: "UPDATE",
+              schema: "public",
+              table: "profiles",
+              filter: `id=eq.${session.user.id}`,
+            },
+            (payload) => {
+              const newProfile = payload.new as UserStatus;
+              setUserStatus(newProfile);
+              
+              if (newProfile.status === "approved") {
+                navigate("/auth/login", {
+                  state: { 
+                    message: t("approval.approved.message"),
+                    approvedEmail: newProfile.email
+                  }
+                });
+              }
+            }
+          )
+          .subscribe();
+      }
+    };
+
+    setupRealtime();
+
+    // Fallback polling every 30 seconds
+    const interval = setInterval(checkUserStatus, 30000);
+
+    return () => {
+      clearInterval(interval);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [navigate, t]);
 
   const getStatusConfig = () => {
     if (!userStatus) {
@@ -79,7 +142,7 @@ export const PendingApproval = (): JSX.Element => {
     }
 
     switch (userStatus.status) {
-      case 'approved':
+      case "approved":
         return {
           icon: CheckCircleIcon,
           iconBg: "bg-green-100",
@@ -87,7 +150,7 @@ export const PendingApproval = (): JSX.Element => {
           title: t("approval.approved.title"),
           subtitle: t("approval.approved.subtitle")
         };
-      case 'rejected':
+      case "rejected":
         return {
           icon: XCircleIcon,
           iconBg: "bg-red-100",
@@ -101,16 +164,16 @@ export const PendingApproval = (): JSX.Element => {
           iconBg: "bg-yellow-100",
           iconColor: "text-yellow-600",
           title: t("approval.pending.title"),
-          subtitle: t("approval.pending.subtitle").replace("{name}", userStatus.first_name)
+          subtitle: t("approval.pending.subtitle").replace("{name}", userStatus.first_name || "")
         };
     }
   };
 
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (status: ApprovalStatus) => {
     switch (status) {
-      case 'approved':
+      case "approved":
         return t("approval.statusApproved");
-      case 'rejected':
+      case "rejected":
         return t("approval.statusRejected");
       default:
         return t("approval.statusPending");
@@ -128,9 +191,7 @@ export const PendingApproval = (): JSX.Element => {
       </div>
 
       {/* Left side - Decorative */}
-      <div
-        className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary/90 to-accent relative overflow-hidden"
-      >
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary/90 to-accent relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/90 via-primary/70 to-transparent" />
         <div className="relative z-10 flex flex-col justify-center p-16 text-primary-foreground">
           <h2 className="font-heading text-5xl mb-6 leading-tight">
@@ -173,11 +234,15 @@ export const PendingApproval = (): JSX.Element => {
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">{t("approval.name")}</span>
-                  <span className="text-foreground font-medium">{userStatus.first_name} {userStatus.last_name}</span>
+                  <span className="text-foreground font-medium">
+                    {userStatus.first_name} {userStatus.last_name}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">{t("approval.email")}</span>
-                  <span className="text-foreground font-medium truncate ml-4">{userStatus.email}</span>
+                  <span className="text-foreground font-medium truncate ml-4">
+                    {userStatus.email || userEmail}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">{t("approval.status")}</span>
@@ -189,28 +254,12 @@ export const PendingApproval = (): JSX.Element => {
                     {getStatusLabel(userStatus.status)}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">{t("approval.emailVerified")}</span>
-                  <span className={`flex items-center gap-1 ${userStatus.email_Verification === 'verified' ? 'text-green-600' : 'text-red-600'}`}>
-                    {userStatus.email_Verification === 'verified' ? (
-                      <>
-                        <CheckCircleIcon className="w-4 h-4" />
-                        <span className="text-xs font-medium">{t("approval.verified")}</span>
-                      </>
-                    ) : (
-                      <>
-                        <XCircleIcon className="w-4 h-4" />
-                        <span className="text-xs font-medium">{t("approval.notVerified")}</span>
-                      </>
-                    )}
-                  </span>
-                </div>
               </div>
             </div>
           )}
 
           {/* What happens next */}
-          {userStatus?.status === 'pending' && (
+          {(!userStatus || userStatus.status === 'pending') && (
             <div className="bg-accent/10 rounded-2xl p-6 mb-6 border border-accent/20">
               <div className="flex items-start gap-3">
                 <MailIcon className="w-5 h-5 text-accent mt-0.5" />
@@ -236,13 +285,10 @@ export const PendingApproval = (): JSX.Element => {
           )}
 
           {/* Actions */}
-          {(userStatus?.status === 'pending' || userStatus?.status === 'rejected') && (
+          {(!userStatus || userStatus.status === 'pending' || userStatus.status === 'rejected') && (
             <div className="flex gap-3">
               <Button
-                onClick={() => {
-                  setIsChecking(true);
-                  checkUserStatus(userEmail);
-                }}
+                onClick={checkUserStatus}
                 variant="outline"
                 className="flex-1 h-12 rounded-xl border-border/50 hover:bg-muted/50"
                 disabled={isChecking}
@@ -257,7 +303,7 @@ export const PendingApproval = (): JSX.Element => {
                 )}
               </Button>
               <Button
-                onClick={() => navigate('/')}
+                onClick={() => window.location.href = "mailto:support@bookingja.com"}
                 className="flex-1 h-12 rounded-xl shadow-lg shadow-primary/20"
               >
                 <BuildingIcon className="w-4 h-4 mr-2" />
