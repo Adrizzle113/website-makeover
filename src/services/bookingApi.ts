@@ -1161,6 +1161,117 @@ class BookingApiService {
     link.click();
     document.body.removeChild(link);
   }
+
+  // ============================================
+  // DIRECT WORLDOTA API OPERATIONS (via Edge Functions)
+  // ============================================
+
+  /**
+   * Get Supabase Edge Function URL
+   */
+  private getSupabaseEdgeFunctionUrl(functionName: string): string {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    if (!supabaseUrl) {
+      throw new Error("VITE_SUPABASE_URL not configured");
+    }
+    return `${supabaseUrl}/functions/v1/${functionName}`;
+  }
+
+  /**
+   * Get Supabase anon key for Edge Function calls
+   */
+  private getSupabaseAnonKey(): string {
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    if (!anonKey) {
+      throw new Error("VITE_SUPABASE_PUBLISHABLE_KEY not configured");
+    }
+    return anonKey;
+  }
+
+  /**
+   * Get order info directly from WorldOTA API via Edge Function
+   * @param orderId - The order ID to fetch (ETG order ID, e.g., "419656729")
+   * @param language - Language code (default: "en")
+   */
+  async getOrderInfoDirect(orderId: string, language: string = "en"): Promise<OrderInfoResponse> {
+    // Return mock response for demo orders
+    if (isDemoOrder(orderId)) {
+      console.log("📋 Get demo order info (mock):", { orderId });
+      return MOCK_API_RESPONSES.orderInfo(orderId);
+    }
+
+    const url = this.getSupabaseEdgeFunctionUrl("worldota-order-info");
+    const anonKey = this.getSupabaseAnonKey();
+
+    console.log("📋 Get order info direct (WorldOTA):", { orderId, language });
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": anonKey,
+        "Authorization": `Bearer ${anonKey}`,
+      },
+      body: JSON.stringify({
+        order_id: orderId,
+        language,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("❌ WorldOTA order info error:", data);
+      throw new Error(data?.error?.message || "Failed to fetch order info");
+    }
+
+    console.log("📋 WorldOTA order info response:", data);
+    return data;
+  }
+
+  /**
+   * Cancel a booking directly via WorldOTA API Edge Function
+   * This bypasses the Render backend proxy and goes directly to WorldOTA
+   * @param orderId - The order ID to cancel
+   * @param reason - Optional cancellation reason
+   * @param language - Language code (default: "en")
+   */
+  async cancelBookingDirect(orderId: string, reason?: string, language: string = "en"): Promise<CancellationResponse> {
+    // Return mock response for demo orders
+    if (isDemoOrder(orderId)) {
+      console.log("🚫 Cancel demo booking direct (mock):", { orderId });
+      return MOCK_API_RESPONSES.cancellation(orderId);
+    }
+
+    const url = this.getSupabaseEdgeFunctionUrl("worldota-order-cancel");
+    const anonKey = this.getSupabaseAnonKey();
+
+    console.log("🚫 Cancel booking direct (WorldOTA):", { orderId, reason, language });
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": anonKey,
+        "Authorization": `Bearer ${anonKey}`,
+      },
+      body: JSON.stringify({
+        order_id: orderId,
+        reason,
+        language,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("❌ WorldOTA cancel error:", data);
+      throw new Error(data?.error?.message || "Failed to cancel booking");
+    }
+
+    console.log("🚫 WorldOTA cancel response:", data);
+    return data;
+  }
 }
 
 export const bookingApi = new BookingApiService();

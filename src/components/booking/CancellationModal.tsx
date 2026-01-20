@@ -110,7 +110,8 @@ export function CancellationModal({
     setState("processing");
 
     try {
-      const response = await bookingApi.cancelBooking(orderId, reason || undefined);
+      // Use direct WorldOTA cancellation for better reliability
+      const response = await bookingApi.cancelBookingDirect(orderId, reason || undefined);
 
       // Handle new response format from backend mock
       const isSuccess = response.status === "ok" || 

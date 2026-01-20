@@ -1,5 +1,5 @@
 // Centralized mock booking data for demo orders
-import type { PendingBookingData } from "@/types/etgBooking";
+import type { PendingBookingData, OrderStatus, PaymentType, OrderInfoResponse } from "@/types/etgBooking";
 
 /**
  * Generate a unique demo order ID
@@ -193,12 +193,12 @@ export const MOCK_API_RESPONSES = {
     issue_date: new Date().toISOString(),
   }),
   
-  orderInfo: (orderId: string) => ({
-    status: "ok" as const,
+  orderInfo: (orderId: string): OrderInfoResponse => ({
+    status: "ok",
     data: {
       order_id: orderId,
       order_group_id: `grp-${orderId}`,
-      status: "confirmed",
+      status: "confirmed" as OrderStatus,
       confirmation_number: `ETG-${orderId.slice(-8)}`,
       hotel: {
         id: MOCK_BOOKING_DATA.hotel.id,
@@ -208,7 +208,6 @@ export const MOCK_API_RESPONSES = {
         country: MOCK_BOOKING_DATA.hotel.country,
         star_rating: MOCK_BOOKING_DATA.hotel.starRating,
         phone: MOCK_BOOKING_DATA.hotel.phone,
-        image: MOCK_BOOKING_DATA.hotel.mainImage,
       },
       dates: {
         check_in: MOCK_BOOKING_DATA.dates.checkIn,
@@ -234,8 +233,8 @@ export const MOCK_API_RESPONSES = {
         currency_code: MOCK_BOOKING_DATA.pricing.currency,
       },
       payment: {
-        type: MOCK_BOOKING_DATA.payment.method,
-        status: MOCK_BOOKING_DATA.payment.status,
+        type: "deposit" as PaymentType,
+        status: "paid" as "paid" | "pending" | "refunded",
       },
       cancellation_policy: MOCK_BOOKING_DATA.cancellation.isCancellable ? "Free cancellation available" : "Non-refundable",
       created_at: new Date().toISOString(),
