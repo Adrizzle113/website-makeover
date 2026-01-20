@@ -32,6 +32,97 @@ const validatePhoneByCountry = (phone: string, countryCode: string): boolean => 
   return digitsOnly.length >= 7 && digitsOnly.length <= 15;
 };
 
+// CPF/CNPJ validation and formatting functions
+const formatCPF = (value: string): string => {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+};
+
+const formatCNPJ = (value: string): string => {
+  const digits = value.replace(/\D/g, "").slice(0, 14);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+  if (digits.length <= 8) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
+  if (digits.length <= 12) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+};
+
+const formatCPFOrCNPJ = (value: string): string => {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length <= 11) {
+    return formatCPF(value);
+  }
+  return formatCNPJ(value);
+};
+
+const validateCPF = (cpf: string): boolean => {
+  const digits = cpf.replace(/\D/g, "");
+  if (digits.length !== 11) return false;
+  
+  // Check for known invalid patterns
+  if (/^(\d)\1+$/.test(digits)) return false;
+  
+  // Validate first check digit
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += parseInt(digits[i]) * (10 - i);
+  }
+  let remainder = (sum * 10) % 11;
+  if (remainder === 10 || remainder === 11) remainder = 0;
+  if (remainder !== parseInt(digits[9])) return false;
+  
+  // Validate second check digit
+  sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += parseInt(digits[i]) * (11 - i);
+  }
+  remainder = (sum * 10) % 11;
+  if (remainder === 10 || remainder === 11) remainder = 0;
+  if (remainder !== parseInt(digits[10])) return false;
+  
+  return true;
+};
+
+const validateCNPJ = (cnpj: string): boolean => {
+  const digits = cnpj.replace(/\D/g, "");
+  if (digits.length !== 14) return false;
+  
+  // Check for known invalid patterns
+  if (/^(\d)\1+$/.test(digits)) return false;
+  
+  // Validate first check digit
+  const weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  let sum = 0;
+  for (let i = 0; i < 12; i++) {
+    sum += parseInt(digits[i]) * weights1[i];
+  }
+  let remainder = sum % 11;
+  const firstCheck = remainder < 2 ? 0 : 11 - remainder;
+  if (firstCheck !== parseInt(digits[12])) return false;
+  
+  // Validate second check digit
+  const weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  sum = 0;
+  for (let i = 0; i < 13; i++) {
+    sum += parseInt(digits[i]) * weights2[i];
+  }
+  remainder = sum % 11;
+  const secondCheck = remainder < 2 ? 0 : 11 - remainder;
+  if (secondCheck !== parseInt(digits[13])) return false;
+  
+  return true;
+};
+
+const validateCPFOrCNPJ = (value: string): boolean => {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 11) return validateCPF(value);
+  if (digits.length === 14) return validateCNPJ(value);
+  return false;
+};
+
 const createStep1Schema = (countryCode: string) => z.object({
   first_name: z.string().trim().min(1, "First name is required").max(50, "First name must be less than 50 characters"),
   last_name: z.string().trim().min(1, "Last name is required").max(50, "Last name must be less than 50 characters"),
@@ -52,13 +143,15 @@ const createStep1Schema = (countryCode: string) => z.object({
   ),
 });
 
-const step2Schema = z.object({
+const createStep2Schema = (countryCode: string) => z.object({
   legal_name: z
     .string()
     .trim()
     .min(1, "Legal entity name is required")
     .max(100, "Legal name must be less than 100 characters"),
-  itn: z.string().trim().min(1, "Tax ID is required").max(20, "Tax ID must be less than 20 characters"),
+  itn: countryCode === "+55" 
+    ? z.string().trim().refine(validateCPFOrCNPJ, { message: "Please enter a valid CPF or CNPJ" })
+    : z.string().trim().min(1, "Tax ID is required").max(20, "Tax ID must be less than 20 characters"),
   city: z.string().trim().min(1, "City is required").max(100, "City must be less than 100 characters"),
   address: z.string().trim().min(1, "Address is required").max(200, "Address must be less than 200 characters"),
   actual_address_matches: z.literal(true, { errorMap: () => ({ message: "You must accept this agreement" }) }),
@@ -88,9 +181,16 @@ export const Register = (): JSX.Element => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
+    
+    // Apply CPF/CNPJ formatting for Brazilian users
+    let processedValue = value;
+    if (name === "itn" && countryCode === "+55") {
+      processedValue = formatCPFOrCNPJ(value);
+    }
+    
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: type === "checkbox" ? checked : processedValue,
     }));
     // Clear error when user starts typing
     if (errors[name]) {
@@ -128,13 +228,26 @@ export const Register = (): JSX.Element => {
     return true;
   };
 
+  const getTaxIdErrorMessage = (): string => {
+    if (countryCode === "+55") {
+      return t("register.error.cpfCnpj");
+    }
+    return t("register.error.taxId");
+  };
+
   const validateStep2 = (): boolean => {
+    const step2Schema = createStep2Schema(countryCode);
     const result = step2Schema.safeParse(formData);
     if (!result.success) {
       const fieldErrors: FieldErrors = {};
       result.error.errors.forEach((err) => {
         const field = err.path[0] as string;
-        fieldErrors[field] = err.message;
+        // Use localized error messages
+        if (field === "itn") {
+          fieldErrors[field] = getTaxIdErrorMessage();
+        } else {
+          fieldErrors[field] = err.message;
+        }
       });
       setErrors(fieldErrors);
       return false;
@@ -352,18 +465,26 @@ export const Register = (): JSX.Element => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">{t("register.taxId")}</label>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    {countryCode === "+55" ? t("register.taxIdBrazil") : t("register.taxId")}
+                  </label>
                   <div className="relative">
                     <Input
                       name="itn"
                       value={formData.itn}
                       onChange={handleChange}
                       type="text"
-                      placeholder="123456789"
+                      placeholder={countryCode === "+55" ? "000.000.000-00 ou 00.000.000/0000-00" : "123456789"}
+                      maxLength={countryCode === "+55" ? 18 : 20}
                       className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.itn ? "border-red-500 focus:border-red-500" : "border-border/50 focus:border-primary"}`}
                     />
                     <FileTextIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   </div>
+                  {countryCode === "+55" && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t("register.taxIdHintBrazil")}
+                    </p>
+                  )}
                   <InputError message={errors.itn} />
                 </div>
 
