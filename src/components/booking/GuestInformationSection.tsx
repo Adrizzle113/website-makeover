@@ -324,33 +324,60 @@ export function GuestInformationSection({
     return countries.find(c => c.code === citizenship)?.name || "Select citizenship";
   }, [citizenship]);
   
-  // Initialize guests based on rooms
+  // Initialize guests based on search params (adults + children from search)
   const initializeGuests = useCallback(() => {
     const initialGuests: Guest[] = [];
     let guestIndex = 0;
     
-    rooms.forEach((room, roomIndex) => {
-      for (let i = 0; i < room.quantity; i++) {
-        // Add 2 adults per room as default
-        for (let adultNum = 0; adultNum < 2; adultNum++) {
-          initialGuests.push({
-            id: `room-${roomIndex}-guest-${guestIndex}`,
-            firstName: "",
-            lastName: "",
-            email: guestIndex === 0 ? "" : undefined, // Only lead guest has email
-            type: "adult",
-            isLead: guestIndex === 0,
-            roomIndex,
-          });
-          guestIndex++;
-        }
-      }
+    // CRITICAL: Use search params as source of truth for guest composition
+    // This ensures prebook/finish requests match the original search
+    const totalGuestsFromParams = searchParams?.guests || 2;
+    const childrenAgesFromParams = searchParams?.childrenAges || [];
+    const numChildren = childrenAgesFromParams.length;
+    const numAdults = Math.max(1, totalGuestsFromParams - numChildren);
+    
+    console.log("👥 Initializing guests from search params:", {
+      totalGuestsFromParams,
+      childrenAgesFromParams,
+      numAdults,
+      numChildren,
     });
+    
+    // For single room: add adults first, then children with ages pre-filled
+    const roomIndex = 0;
+    
+    // Add adults
+    for (let adultNum = 0; adultNum < numAdults; adultNum++) {
+      initialGuests.push({
+        id: `room-${roomIndex}-adult-${adultNum}`,
+        firstName: "",
+        lastName: "",
+        email: guestIndex === 0 ? "" : undefined, // Only lead guest has email
+        type: "adult",
+        isLead: guestIndex === 0,
+        roomIndex,
+      });
+      guestIndex++;
+    }
+    
+    // Add children with ages from search params
+    for (let childNum = 0; childNum < numChildren; childNum++) {
+      initialGuests.push({
+        id: `room-${roomIndex}-child-${childNum}`,
+        firstName: "",
+        lastName: "",
+        type: "child",
+        age: childrenAgesFromParams[childNum], // Pre-fill age from search
+        isLead: false,
+        roomIndex,
+      });
+      guestIndex++;
+    }
     
     return initialGuests.length > 0 ? initialGuests : [
       { id: "1", firstName: "", lastName: "", email: "", type: "adult" as const, isLead: true, roomIndex: 0 },
     ];
-  }, [rooms]);
+  }, [searchParams?.guests, searchParams?.childrenAges]);
 
   const [guests, setGuests] = useState<Guest[]>(initializeGuests);
 
