@@ -155,12 +155,16 @@ const translations: Record<Language, Record<string, string>> = {
     "register.error.lastName": "Last name is required",
     "register.error.email": "Please enter a valid email address",
     "register.error.phone": "Please enter a valid phone number",
+    "register.error.phoneBrazil": "Brazilian phone must have 10-11 digits (e.g., 11987654321)",
+    "register.error.phoneUS": "US phone must have 10 digits (e.g., 5551234567)",
     "register.error.legalName": "Legal entity name is required",
     "register.error.taxId": "Tax ID is required",
     "register.error.city": "City is required",
     "register.error.address": "Address is required",
     "register.error.terms": "You must accept this agreement",
     "register.backToHome": "Back to Home",
+    "register.phoneHintBrazil": "10-11 digits with area code (e.g., 11987654321)",
+    "register.phoneHintUS": "10 digits (e.g., 5551234567)",
     
     // Login Page
     "login.heroTitle1": "Discover Your",
@@ -388,12 +392,16 @@ const translations: Record<Language, Record<string, string>> = {
     "register.error.lastName": "Sobrenome é obrigatório",
     "register.error.email": "Por favor, insira um e-mail válido",
     "register.error.phone": "Por favor, insira um número de telefone válido",
+    "register.error.phoneBrazil": "Telefone brasileiro deve ter 10-11 dígitos (ex: 11987654321)",
+    "register.error.phoneUS": "Telefone EUA deve ter 10 dígitos (ex: 5551234567)",
     "register.error.legalName": "Razão social é obrigatória",
     "register.error.taxId": "CNPJ é obrigatório",
     "register.error.city": "Cidade é obrigatória",
     "register.error.address": "Endereço é obrigatório",
     "register.error.terms": "Você deve aceitar este contrato",
     "register.backToHome": "Voltar ao Início",
+    "register.phoneHintBrazil": "10-11 dígitos com DDD (ex: 11987654321)",
+    "register.phoneHintUS": "10 dígitos (ex: 5551234567)",
     
     // Login Page
     "login.heroTitle1": "Descubra Sua",

@@ -8,7 +8,31 @@ import { API_BASE_URL } from "@/config/api";
 import { z } from "zod";
 import { useLanguage } from "@/hooks/useLanguage";
 
-const step1Schema = z.object({
+// Phone validation functions for Brazil and US
+const validateBrazilPhone = (phone: string): boolean => {
+  // Brazil: 10-11 digits (with area code). Mobile: 11 digits, Landline: 10 digits
+  const digitsOnly = phone.replace(/\D/g, "");
+  return digitsOnly.length >= 10 && digitsOnly.length <= 11;
+};
+
+const validateUSPhone = (phone: string): boolean => {
+  // US: exactly 10 digits
+  const digitsOnly = phone.replace(/\D/g, "");
+  return digitsOnly.length === 10;
+};
+
+const validatePhoneByCountry = (phone: string, countryCode: string): boolean => {
+  if (countryCode === "+55") {
+    return validateBrazilPhone(phone);
+  } else if (countryCode === "+1") {
+    return validateUSPhone(phone);
+  }
+  // For other countries, just check minimum length
+  const digitsOnly = phone.replace(/\D/g, "");
+  return digitsOnly.length >= 7 && digitsOnly.length <= 15;
+};
+
+const createStep1Schema = (countryCode: string) => z.object({
   first_name: z.string().trim().min(1, "First name is required").max(50, "First name must be less than 50 characters"),
   last_name: z.string().trim().min(1, "Last name is required").max(50, "Last name must be less than 50 characters"),
   email: z
@@ -16,7 +40,16 @@ const step1Schema = z.object({
     .trim()
     .email("Please enter a valid email address")
     .max(255, "Email must be less than 255 characters"),
-  phone_number: z.string().trim().min(7, "Please enter a valid phone number").max(20, "Phone number is too long"),
+  phone_number: z.string().trim().refine(
+    (val) => validatePhoneByCountry(val, countryCode),
+    {
+      message: countryCode === "+55" 
+        ? "Brazilian phone must have 10-11 digits (e.g., 11987654321)"
+        : countryCode === "+1"
+        ? "US phone must have 10 digits (e.g., 5551234567)"
+        : "Please enter a valid phone number"
+    }
+  ),
 });
 
 const step2Schema = z.object({
@@ -39,6 +72,7 @@ export const Register = (): JSX.Element => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [countryCode, setCountryCode] = useState("+55");
   const [formData, setFormData] = useState({
     email: "",
     first_name: "",
@@ -64,13 +98,28 @@ export const Register = (): JSX.Element => {
     }
   };
 
+  const getPhoneErrorMessage = (): string => {
+    if (countryCode === "+55") {
+      return t("register.error.phoneBrazil");
+    } else if (countryCode === "+1") {
+      return t("register.error.phoneUS");
+    }
+    return t("register.error.phone");
+  };
+
   const validateStep1 = (): boolean => {
+    const step1Schema = createStep1Schema(countryCode);
     const result = step1Schema.safeParse(formData);
     if (!result.success) {
       const fieldErrors: FieldErrors = {};
       result.error.errors.forEach((err) => {
         const field = err.path[0] as string;
-        fieldErrors[field] = err.message;
+        // Use localized error messages
+        if (field === "phone_number") {
+          fieldErrors[field] = getPhoneErrorMessage();
+        } else {
+          fieldErrors[field] = err.message;
+        }
       });
       setErrors(fieldErrors);
       return false;
@@ -244,7 +293,14 @@ export const Register = (): JSX.Element => {
                   <div className="flex">
                     <select
                       name="countryCode"
-                      onChange={handleChange}
+                      value={countryCode}
+                      onChange={(e) => {
+                        setCountryCode(e.target.value);
+                        // Clear phone error when country changes
+                        if (errors.phone_number) {
+                          setErrors((prev) => ({ ...prev, phone_number: "" }));
+                        }
+                      }}
                       className="h-12 px-3 bg-muted/50 border border-border/50 border-r-0 rounded-l-xl text-sm text-foreground focus:outline-none focus:border-primary transition-colors"
                     >
                       <option value="+55">🇧🇷 +55</option>
@@ -257,10 +313,13 @@ export const Register = (): JSX.Element => {
                       value={formData.phone_number}
                       onChange={handleChange}
                       type="tel"
-                      placeholder="(555) 000-0000"
+                      placeholder={countryCode === "+55" ? "11987654321" : countryCode === "+1" ? "5551234567" : "(555) 000-0000"}
                       className={`h-12 rounded-l-none rounded-r-xl bg-muted/50 border focus:bg-background transition-colors ${errors.phone_number ? "border-red-500 focus:border-red-500" : "border-border/50 focus:border-primary"}`}
                     />
                   </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {countryCode === "+55" ? t("register.phoneHintBrazil") : countryCode === "+1" ? t("register.phoneHintUS") : ""}
+                  </p>
                   <InputError message={errors.phone_number} />
                 </div>
 
