@@ -174,6 +174,7 @@ export const Register = (): JSX.Element => {
     phone_number: "",
     legal_name: "",
     city: "",
+    country: countryCode === "+55" ? "BR" : "US",
     address: "",
     actual_address_matches: false,
     itn: "",
@@ -508,6 +509,22 @@ export const Register = (): JSX.Element => {
                     <MapPinIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   </div>
                   <InputError message={errors.city} />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">{t("register.country")}</label>
+                  <div className="relative">
+                    <select
+                      name="country"
+                      value={formData.country}
+                      onChange={handleChange}
+                      className="w-full h-12 pl-12 pr-4 rounded-xl bg-muted/50 border border-border/50 text-foreground focus:outline-none focus:border-primary focus:bg-background transition-colors appearance-none cursor-pointer"
+                    >
+                      <option value="BR">🇧🇷 {t("register.country.brazil")}</option>
+                      <option value="US">🇺🇸 {t("register.country.us")}</option>
+                    </select>
+                    <MapPinIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5 pointer-events-none" />
+                  </div>
                 </div>
 
                 <div>
