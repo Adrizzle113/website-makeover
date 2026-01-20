@@ -669,15 +669,20 @@ class RateHawkApiService {
       : rawDestination;
 
     // Format guests as array of room objects (required by backend)
-    const guestsPerRoom = Math.max(1, Math.floor(params.guests / params.rooms));
-    const guests = Array.from({ length: params.rooms }, (_, index) => {
-      const baseAdults = guestsPerRoom;
-      const extraAdult = index < params.guests % params.rooms ? 1 : 0;
-      return {
-        adults: baseAdults + extraAdult,
-        children: params.childrenAges || [],
-      };
-    });
+    const childrenAges = params.childrenAges || [];
+    const totalChildren = childrenAges.length;
+    let totalAdults = Math.max(1, params.guests - totalChildren);
+    if (totalAdults < params.rooms) {
+      console.warn(`⚠️ Adjusting adults to match rooms: adults=${totalAdults}, rooms=${params.rooms}`);
+      totalAdults = params.rooms;
+    }
+    const adultsPerRoom = Math.floor(totalAdults / params.rooms);
+    const extraAdults = totalAdults % params.rooms;
+    const guests = Array.from({ length: params.rooms }, (_, index) => ({
+      adults: Math.max(1, adultsPerRoom + (index < extraAdults ? 1 : 0)),
+      // Keep children in the first room to match URL/search param semantics
+      children: index === 0 ? childrenAges : [],
+    }));
 
     // Base request body (shared across attempts)
     const residency = filters?.residency?.toLowerCase() || "us";
