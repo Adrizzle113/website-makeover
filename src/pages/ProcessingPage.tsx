@@ -277,8 +277,14 @@ export default function ProcessingPage() {
   };
 
   const handleViewConfirmation = () => {
-    const orderIdForConfirmation = etgOrderId || partnerOrderId;
-    navigate(`/orders/${orderIdForConfirmation}/confirmation`);
+    const orderIdForView = etgOrderId || partnerOrderId;
+    // Real bookings go to order details, demo bookings go to confirmation page
+    const isDemo = orderIdForView.startsWith("demo-") || orderIdForView.startsWith("DEMO-");
+    if (isDemo) {
+      navigate(`/orders/${orderIdForView}/confirmation`);
+    } else {
+      navigate(`/orders/${orderIdForView}`);
+    }
   };
 
   const handleGoToDashboard = () => {
