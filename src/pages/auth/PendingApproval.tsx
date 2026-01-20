@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ClockIcon, MailIcon, CheckCircleIcon, XCircleIcon, Loader2, RefreshCwIcon, UserIcon, BuildingIcon, ArrowLeftIcon } from "lucide-react";
 import { API_BASE_URL } from "@/config/api";
+import { useLanguage } from "@/hooks/useLanguage";
 
 interface UserStatus {
   email: string;
@@ -13,6 +14,7 @@ interface UserStatus {
 }
 
 export const PendingApproval = (): JSX.Element => {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [userStatus, setUserStatus] = useState<UserStatus | null>(null);
   const [isChecking, setIsChecking] = useState(true);
@@ -51,7 +53,7 @@ export const PendingApproval = (): JSX.Element => {
           localStorage.removeItem('pendingVerificationEmail');
           navigate('/auth/login', { 
             state: { 
-              message: "Your account has been approved! Please login to access your dashboard.",
+              message: t("approval.approved.message"),
               approvedEmail: email 
             }
           });
@@ -70,8 +72,8 @@ export const PendingApproval = (): JSX.Element => {
         icon: ClockIcon,
         iconBg: "bg-yellow-100",
         iconColor: "text-yellow-600",
-        title: "Checking Status...",
-        subtitle: "Please wait while we verify your account status."
+        title: t("approval.checkingStatus"),
+        subtitle: t("approval.checkingSubtitle")
       };
     }
 
@@ -81,25 +83,36 @@ export const PendingApproval = (): JSX.Element => {
           icon: CheckCircleIcon,
           iconBg: "bg-green-100",
           iconColor: "text-green-600",
-          title: "Account Approved!",
-          subtitle: "Your account has been approved. Redirecting to login..."
+          title: t("approval.approved.title"),
+          subtitle: t("approval.approved.subtitle")
         };
       case 'rejected':
         return {
           icon: XCircleIcon,
           iconBg: "bg-red-100",
           iconColor: "text-red-600",
-          title: "Application Not Approved",
-          subtitle: "Unfortunately, your application was not approved. Please contact support for more information."
+          title: t("approval.rejected.title"),
+          subtitle: t("approval.rejected.subtitle")
         };
       default:
         return {
           icon: ClockIcon,
           iconBg: "bg-yellow-100",
           iconColor: "text-yellow-600",
-          title: "Account Under Review",
-          subtitle: `Hi ${userStatus.first_name}! Your account is being reviewed by our team.`
+          title: t("approval.pending.title"),
+          subtitle: t("approval.pending.subtitle").replace("{name}", userStatus.first_name)
         };
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return t("approval.statusApproved");
+      case 'rejected':
+        return t("approval.statusRejected");
+      default:
+        return t("approval.statusPending");
     }
   };
 
@@ -115,10 +128,10 @@ export const PendingApproval = (): JSX.Element => {
         <div className="absolute inset-0 bg-gradient-to-br from-primary/90 via-primary/70 to-transparent" />
         <div className="relative z-10 flex flex-col justify-center p-16 text-primary-foreground">
           <h2 className="font-heading text-5xl mb-6 leading-tight">
-            Your Journey<br />Awaits
+            {t("approval.heroTitle1")}<br />{t("approval.heroTitle2")}
           </h2>
           <p className="text-primary-foreground/80 text-lg max-w-md leading-relaxed">
-            We're reviewing your application to ensure the best experience for all our travel partners.
+            {t("approval.heroDescription")}
           </p>
         </div>
       </div>
@@ -132,7 +145,7 @@ export const PendingApproval = (): JSX.Element => {
             className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-8"
           >
             <ArrowLeftIcon className="w-4 h-4" />
-            <span className="text-sm">Back to login</span>
+            <span className="text-sm">{t("approval.backToLogin")}</span>
           </Link>
 
           {/* Header */}
@@ -149,39 +162,39 @@ export const PendingApproval = (): JSX.Element => {
             <div className="bg-muted/50 rounded-2xl p-6 mb-6 border border-border/50">
               <h3 className="font-medium text-foreground mb-4 flex items-center gap-2">
                 <UserIcon className="w-4 h-4 text-muted-foreground" />
-                Account Details
+                {t("approval.accountDetails")}
               </h3>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Name</span>
+                  <span className="text-muted-foreground">{t("approval.name")}</span>
                   <span className="text-foreground font-medium">{userStatus.first_name} {userStatus.last_name}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Email</span>
+                  <span className="text-muted-foreground">{t("approval.email")}</span>
                   <span className="text-foreground font-medium truncate ml-4">{userStatus.email}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Status</span>
+                  <span className="text-muted-foreground">{t("approval.status")}</span>
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                     userStatus.status === 'approved' ? 'bg-green-100 text-green-700' :
                     userStatus.status === 'rejected' ? 'bg-red-100 text-red-700' :
                     'bg-yellow-100 text-yellow-700'
                   }`}>
-                    {userStatus.status.charAt(0).toUpperCase() + userStatus.status.slice(1)}
+                    {getStatusLabel(userStatus.status)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Email Verified</span>
+                  <span className="text-muted-foreground">{t("approval.emailVerified")}</span>
                   <span className={`flex items-center gap-1 ${userStatus.email_Verification === 'verified' ? 'text-green-600' : 'text-red-600'}`}>
                     {userStatus.email_Verification === 'verified' ? (
                       <>
                         <CheckCircleIcon className="w-4 h-4" />
-                        <span className="text-xs font-medium">Verified</span>
+                        <span className="text-xs font-medium">{t("approval.verified")}</span>
                       </>
                     ) : (
                       <>
                         <XCircleIcon className="w-4 h-4" />
-                        <span className="text-xs font-medium">Not Verified</span>
+                        <span className="text-xs font-medium">{t("approval.notVerified")}</span>
                       </>
                     )}
                   </span>
@@ -196,19 +209,19 @@ export const PendingApproval = (): JSX.Element => {
               <div className="flex items-start gap-3">
                 <MailIcon className="w-5 h-5 text-accent mt-0.5" />
                 <div>
-                  <h4 className="font-medium text-foreground mb-2">What happens next?</h4>
+                  <h4 className="font-medium text-foreground mb-2">{t("approval.whatNext")}</h4>
                   <ul className="text-sm text-muted-foreground space-y-2">
                     <li className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-accent" />
-                      Our team is reviewing your application
+                      {t("approval.step1")}
                     </li>
                     <li className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-accent" />
-                      You'll receive an email once approved
+                      {t("approval.step2")}
                     </li>
                     <li className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-accent" />
-                      This page updates automatically
+                      {t("approval.step3")}
                     </li>
                   </ul>
                 </div>
@@ -233,7 +246,7 @@ export const PendingApproval = (): JSX.Element => {
                 ) : (
                   <>
                     <RefreshCwIcon className="w-4 h-4 mr-2" />
-                    Refresh Status
+                    {t("approval.refreshStatus")}
                   </>
                 )}
               </Button>
@@ -242,7 +255,7 @@ export const PendingApproval = (): JSX.Element => {
                 className="flex-1 h-12 rounded-xl shadow-lg shadow-primary/20"
               >
                 <BuildingIcon className="w-4 h-4 mr-2" />
-                Contact Support
+                {t("approval.contactSupport")}
               </Button>
             </div>
           )}
@@ -251,19 +264,19 @@ export const PendingApproval = (): JSX.Element => {
           <div className="mt-8 text-center">
             <div className="inline-flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 px-4 py-2 rounded-full">
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              Auto-refreshing every 30 seconds
+              {t("approval.autoRefresh")}
             </div>
           </div>
 
           {/* Help */}
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
-              Questions?{' '}
+              {t("approval.questions")}{' '}
               <Link 
                 to="/" 
                 className="text-primary hover:text-primary/80 font-medium transition-colors"
               >
-                Get in touch
+                {t("approval.getInTouch")}
               </Link>
             </p>
           </div>
