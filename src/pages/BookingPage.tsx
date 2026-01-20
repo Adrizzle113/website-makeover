@@ -291,11 +291,23 @@ const BookingPage = () => {
 
     console.log("📤 Single room prebook with book_hash:", bookHash);
 
+    const adultGuests = guests.filter(g => g.type === "adult").length;
+    const childAges = guests
+      .filter(g => g.type === "child" && typeof g.age === "number")
+      .map(g => g.age as number);
+    const adultsCount = adultGuests > 0 ? adultGuests : (searchParams?.guests || 2);
+    const fallbackChildrenAges = childAges.length > 0 ? childAges : (searchParams?.childrenAges || []);
+
     const response = await bookingApi.prebook({
       book_hash: bookHash,
       residency: residency || "US",
       currency: selectedHotel?.currency || "USD",
       price_increase_percent: 20,
+      guests: [{
+        adults: adultsCount,
+        children: fallbackChildrenAges.map(age => ({ age })),
+      }],
+      language: "en",
     });
 
     if (response.error) {
