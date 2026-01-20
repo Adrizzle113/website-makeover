@@ -1,10 +1,9 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, LogOut } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { useLanguage } from "@/hooks/useLanguage";
-import { useAuth } from "@/hooks/useAuth";
 
 interface HeaderProps {
   variant?: "light" | "dark" | "auto";
@@ -14,8 +13,6 @@ export function Header({ variant = "auto" }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { t } = useLanguage();
-  const { session, signOut } = useAuth();
-  const navigate = useNavigate();
   
   useEffect(() => {
     const handleScroll = () => {
@@ -23,17 +20,15 @@ export function Header({ variant = "auto" }: HeaderProps) {
     };
     
     window.addEventListener("scroll", handleScroll);
-    handleScroll(); // Check initial state
+    handleScroll();
     
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
   
-  // Determine effective variant: auto mode switches based on scroll
   const effectiveVariant = variant === "auto" 
     ? (scrolled ? "light" : "dark") 
     : variant;
   
-  // Light variant = light background, use dark text; Dark variant = dark background, use white text
   const textColor = effectiveVariant === "light" ? "text-foreground" : "text-white";
   const textColorMuted = effectiveVariant === "light" ? "text-muted-foreground" : "text-white/80";
   const hoverColor = effectiveVariant === "light" ? "hover:text-primary" : "hover:text-white";
@@ -44,12 +39,6 @@ export function Header({ variant = "auto" }: HeaderProps) {
     section?.scrollIntoView({
       behavior: "smooth"
     });
-    setIsMenuOpen(false);
-  };
-
-  const handleLogout = async () => {
-    await signOut();
-    navigate("/auth/login");
     setIsMenuOpen(false);
   };
 
@@ -80,29 +69,11 @@ export function Header({ variant = "auto" }: HeaderProps) {
           {/* CTA Button & Language Toggle */}
           <div className="hidden lg:flex items-center gap-4">
             <LanguageToggle />
-            {session ? (
-              <>
-                <Link to="/dashboard">
-                  <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-6">
-                    {t("nav.dashboard")}
-                  </Button>
-                </Link>
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  onClick={handleLogout}
-                  className={`${textColorMuted} ${hoverColor}`}
-                >
-                  <LogOut className="h-5 w-5" />
-                </Button>
-              </>
-            ) : (
-              <Link to="/auth/login">
-                <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-6">
-                  {t("nav.login")}
-                </Button>
-              </Link>
-            )}
+            <Link to="/dashboard">
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-6">
+                {t("nav.dashboard")}
+              </Button>
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -127,30 +98,12 @@ export function Header({ variant = "auto" }: HeaderProps) {
               <Link to="/contact" onClick={() => setIsMenuOpen(false)} className="text-white hover:text-cream transition-colors py-2 text-body-md text-left">
                 Demo
               </Link>
-              <div className="pt-4 border-t border-white/20 flex flex-col gap-2">
-                {session ? (
-                  <>
-                    <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
-                      <Button className="w-full bg-cream text-primary hover:bg-cream/90 rounded-full">
-                        Dashboard
-                      </Button>
-                    </Link>
-                    <Button 
-                      variant="ghost" 
-                      onClick={handleLogout}
-                      className="w-full text-white hover:text-cream"
-                    >
-                      <LogOut className="h-4 w-4 mr-2" />
-                      {t("nav.logout")}
-                    </Button>
-                  </>
-                ) : (
-                  <Link to="/auth/login" onClick={() => setIsMenuOpen(false)}>
-                    <Button className="w-full bg-cream text-primary hover:bg-cream/90 rounded-full">
-                      {t("nav.login")}
-                    </Button>
-                  </Link>
-                )}
+              <div className="pt-4 border-t border-white/20">
+                <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
+                  <Button className="w-full bg-cream text-primary hover:bg-cream/90 rounded-full">
+                    {t("nav.dashboard")}
+                  </Button>
+                </Link>
               </div>
             </nav>
           </div>

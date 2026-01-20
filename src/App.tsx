@@ -36,8 +36,6 @@ import {
 import { SettingsPage } from "./pages/settings";
 
 import NotFound from "./pages/NotFound";
-import { Login, Register, EmailVerification, PendingApproval } from "./pages/auth";
-import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const queryClient = new QueryClient();
@@ -98,11 +96,7 @@ const App = () => (
             <Route path="/settings" element={<SettingsPage />} />
             {/* Admin */}
             <Route path="/admin/contract" element={<Navigate to="/settings" replace />} />
-            {/* Auth */}
-            <Route path="/auth/login" element={<Login />} />
-            <Route path="/auth/register" element={<Register />} />
-            <Route path="/auth/email-verification" element={<EmailVerification />} />
-            <Route path="/auth/pending-approval" element={<PendingApproval />} />
+            {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
