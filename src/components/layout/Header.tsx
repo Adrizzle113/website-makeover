@@ -1,9 +1,10 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
+import { Menu, X, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useAuth } from "@/hooks/useAuth";
 
 interface HeaderProps {
   variant?: "light" | "dark" | "auto";
@@ -13,6 +14,8 @@ export function Header({ variant = "auto" }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { t } = useLanguage();
+  const { session, signOut } = useAuth();
+  const navigate = useNavigate();
   
   useEffect(() => {
     const handleScroll = () => {
@@ -44,6 +47,12 @@ export function Header({ variant = "auto" }: HeaderProps) {
     setIsMenuOpen(false);
   };
 
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/auth/login");
+    setIsMenuOpen(false);
+  };
+
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 mt-4 md:mt-8 mx-[21px] md:mx-[37px] rounded-2xl ${bgClass}`}>
       <div className="container py-4 md:py-6">
@@ -71,11 +80,29 @@ export function Header({ variant = "auto" }: HeaderProps) {
           {/* CTA Button & Language Toggle */}
           <div className="hidden lg:flex items-center gap-4">
             <LanguageToggle />
-            <Link to="/dashboard">
-              <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-6">
-                {t("nav.dashboard")}
-              </Button>
-            </Link>
+            {session ? (
+              <>
+                <Link to="/dashboard">
+                  <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-6">
+                    {t("nav.dashboard")}
+                  </Button>
+                </Link>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={handleLogout}
+                  className={`${textColorMuted} ${hoverColor}`}
+                >
+                  <LogOut className="h-5 w-5" />
+                </Button>
+              </>
+            ) : (
+              <Link to="/auth/login">
+                <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-6">
+                  {t("nav.login")}
+                </Button>
+              </Link>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -101,11 +128,29 @@ export function Header({ variant = "auto" }: HeaderProps) {
                 Demo
               </Link>
               <div className="pt-4 border-t border-white/20 flex flex-col gap-2">
-                <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
-                  <Button className="w-full bg-cream text-primary hover:bg-cream/90 rounded-full">
-                    Dashboard
-                  </Button>
-                </Link>
+                {session ? (
+                  <>
+                    <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
+                      <Button className="w-full bg-cream text-primary hover:bg-cream/90 rounded-full">
+                        Dashboard
+                      </Button>
+                    </Link>
+                    <Button 
+                      variant="ghost" 
+                      onClick={handleLogout}
+                      className="w-full text-white hover:text-cream"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      {t("nav.logout")}
+                    </Button>
+                  </>
+                ) : (
+                  <Link to="/auth/login" onClick={() => setIsMenuOpen(false)}>
+                    <Button className="w-full bg-cream text-primary hover:bg-cream/90 rounded-full">
+                      {t("nav.login")}
+                    </Button>
+                  </Link>
+                )}
               </div>
             </nav>
           </div>

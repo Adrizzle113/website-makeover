@@ -5,8 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { EyeIcon, EyeOffIcon, MailIcon, LockIcon, CheckCircleIcon, AlertCircleIcon, Loader2 } from "lucide-react";
-import { API_BASE_URL } from "@/config/api";
+import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/hooks/useLanguage";
+
 export const Login = (): JSX.Element => {
   const { t } = useLanguage();
   const [email, setEmail] = useState("");
@@ -17,6 +18,7 @@ export const Login = (): JSX.Element => {
   const [success, setSuccess] = useState<boolean | string>(false);
   const navigate = useNavigate();
   const location = useLocation();
+
   useEffect(() => {
     if (location.state?.message) {
       setSuccess(location.state.message);
@@ -29,9 +31,7 @@ export const Login = (): JSX.Element => {
       setEmail(location.state.approvedEmail);
     }
   }, [location.state]);
-  const generateUserIdFromEmail = (email: string): string => {
-    return email.replace('@', '_').replace(/\./g, '_');
-  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
@@ -41,31 +41,41 @@ export const Login = (): JSX.Element => {
     setLoading(true);
     setError("");
     setSuccess(false);
+
     try {
-      const userId = generateUserIdFromEmail(email);
-      const response = await fetch(`${API_BASE_URL}/api/ratehawk/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          userId,
-          email,
-          password
-        })
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-      const data = await response.json();
-      if (data.success) {
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('ratehawkSessionId', data.sessionId);
-        localStorage.setItem('ratehawkLoginUrl', data.loginUrl || '');
-        localStorage.setItem('userId', userId);
-        localStorage.setItem('userEmail', email);
-        localStorage.setItem('ratehawkAuthTimestamp', new Date().toISOString());
+
+      if (authError) {
+        setError(authError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        // Check profile status
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("status")
+          .eq("id", data.user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          console.error("Error fetching profile:", profileError);
+        }
+
+        if (profile?.status !== "approved") {
+          // User not approved, sign out and redirect to pending
+          await supabase.auth.signOut();
+          navigate("/auth/pending-approval", { state: { email } });
+          return;
+        }
+
+        // User is approved
         setSuccess(true);
         setTimeout(() => navigate("/dashboard"), 2000);
-      } else {
-        setError(data.error || "RateHawk authentication failed. Please verify your credentials.");
       }
     } catch (err: any) {
       setError(t("login.error.connection").replace("{message}", err.message));
@@ -73,6 +83,7 @@ export const Login = (): JSX.Element => {
       setLoading(false);
     }
   };
+
   if (success === true) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/10 p-8">
