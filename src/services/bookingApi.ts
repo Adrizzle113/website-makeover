@@ -167,6 +167,8 @@ class BookingApiService {
         residency: params.residency,
         currency: params.currency || "USD",
         price_increase_percent: params.price_increase_percent ?? 20,
+        ...(params.guests && { guests: params.guests }),
+        language: params.language || "en",
       }),
     };
 
@@ -261,7 +263,7 @@ class BookingApiService {
 
     const requestBody = {
       userId,
-      book_hash: "h-a57beff4-52e0-509d-bc8e-c15d834ebb19",
+      book_hash: bookHash,
       partner_order_id: partnerOrderId,
       language: "en",
       user_ip: userIp,

@@ -24,6 +24,8 @@ export interface PrebookParams {
   residency: string;
   currency?: string;
   price_increase_percent?: number; // Default 20, allows finding alternative rates within tolerance
+  guests?: MultiroomGuests[]; // Single-room guest counts (adults/children) for prebook
+  language?: string;
 }
 
 // Prebook error codes from WorldOTA API
