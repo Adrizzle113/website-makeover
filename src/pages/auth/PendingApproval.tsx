@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { ClockIcon, MailIcon, CheckCircleIcon, XCircleIcon, Loader2, RefreshCwIcon, UserIcon, BuildingIcon, ArrowLeftIcon } from "lucide-react";
 import { API_BASE_URL } from "@/config/api";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -120,9 +121,14 @@ export const PendingApproval = (): JSX.Element => {
   const StatusIcon = statusConfig.icon;
 
   return (
-    <main className="flex min-h-screen">
+    <main className="flex min-h-screen relative">
+      {/* Language Toggle - Top Right */}
+      <div className="absolute top-4 right-4 z-50">
+        <LanguageToggle />
+      </div>
+
       {/* Left side - Decorative */}
-      <div 
+      <div
         className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary/90 to-accent relative overflow-hidden"
       >
         <div className="absolute inset-0 bg-gradient-to-br from-primary/90 via-primary/70 to-transparent" />
