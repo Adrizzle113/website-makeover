@@ -11,6 +11,7 @@ import type {
   UpsellsState,
 } from "@/types/booking";
 import { DEFAULT_FILTERS, DEFAULT_UPSELLS_STATE } from "@/types/booking";
+import { validateAndRefreshDates } from "@/lib/dateValidation";
 import type { 
   OrderStatus, 
   PaymentType,
@@ -537,7 +538,7 @@ export const useBookingStore = create<BookingStore>()(
     }),
     {
       name: "booking-storage",
-      version: 2, // Increment version to trigger migration
+      version: 3, // Increment version to trigger migration for date validation
       partialize: (state) => ({
         searchParams: state.searchParams,
         searchType: state.searchType,
@@ -547,9 +548,25 @@ export const useBookingStore = create<BookingStore>()(
         residency: state.residency,
         upsellsPreferences: state.upsellsPreferences,
       }),
-      // Migrate old persisted state to ensure all filter fields exist
+      // Migrate old persisted state to ensure all filter fields exist and dates are valid
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as Partial<BookingStore>;
+        
+        // Always validate and refresh stale dates on rehydration
+        if (state.searchParams?.checkIn && state.searchParams?.checkOut) {
+          const { checkIn, checkOut, wasRefreshed } = validateAndRefreshDates(
+            state.searchParams.checkIn,
+            state.searchParams.checkOut
+          );
+          if (wasRefreshed) {
+            state.searchParams = {
+              ...state.searchParams,
+              checkIn,
+              checkOut,
+            };
+          }
+        }
+        
         if (version < 2) {
           // Merge old filters with DEFAULT_FILTERS to add any missing fields
           return {

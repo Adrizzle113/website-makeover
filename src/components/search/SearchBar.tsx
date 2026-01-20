@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { format, addDays, differenceInDays, parseISO } from "date-fns";
+import { format, addDays, differenceInDays, parseISO, startOfDay, isBefore } from "date-fns";
 import { CalendarIcon, Search, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -22,6 +22,7 @@ import { ratehawkApi } from "@/services/ratehawkApi";
 import { toast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { SearchType } from "@/types/booking";
+import { validateAndRefreshDates, isCheckInInPast } from "@/lib/dateValidation";
 
 interface Room {
   adults: number;
@@ -38,7 +39,10 @@ export function SearchBar() {
   const { setSearchParams, setRawSearchResults, setLoading, setError, filters, searchParams, searchType, setSearchType } = useBookingStore();
   const isMobile = useIsMobile();
 
-  // Parse URL params for initial state
+  // Track if dates were refreshed for toast notification
+  const datesRefreshedRef = useRef<string | null>(null);
+
+  // Parse URL params for initial state with date validation
   const getInitialState = () => {
     // First check URL params
     const urlDest = urlSearchParams.get("dest");
@@ -52,8 +56,20 @@ export function SearchBar() {
 
     // If URL has params, use them (destId is optional - can search by name)
     if (urlDest && urlCheckIn && urlCheckOut) {
-      const checkIn = parseISO(urlCheckIn);
-      const checkOut = parseISO(urlCheckOut);
+      const rawCheckIn = parseISO(urlCheckIn);
+      const rawCheckOut = parseISO(urlCheckOut);
+      
+      // Validate and refresh dates if stale
+      const { checkIn, checkOut, wasRefreshed, message } = validateAndRefreshDates(
+        rawCheckIn, 
+        rawCheckOut, 
+        MAX_STAY_NIGHTS
+      );
+      
+      if (wasRefreshed && message) {
+        datesRefreshedRef.current = message;
+      }
+      
       const guests = parseInt(urlGuests || "2", 10);
       const rooms = parseInt(urlRooms || "1", 10);
       const children = parseInt(urlChildren || "0", 10);
@@ -76,14 +92,24 @@ export function SearchBar() {
       };
     }
 
-    // Fall back to store params
+    // Fall back to store params with date validation
     if (searchParams) {
+      const { checkIn, checkOut, wasRefreshed, message } = validateAndRefreshDates(
+        searchParams.checkIn,
+        searchParams.checkOut,
+        MAX_STAY_NIGHTS
+      );
+      
+      if (wasRefreshed && message) {
+        datesRefreshedRef.current = message;
+      }
+      
       return {
         destination: searchParams.destination || "",
         destinationId: searchParams.destinationId,
         isDestinationSelected: !!searchParams.destinationId,
-        checkIn: searchParams.checkIn ? new Date(searchParams.checkIn) : addDays(new Date(), 1),
-        checkOut: searchParams.checkOut ? new Date(searchParams.checkOut) : addDays(new Date(), 3),
+        checkIn,
+        checkOut,
         rooms: searchParams.rooms 
           ? Array.from({ length: searchParams.rooms }, (_, i) => ({
               adults: i === 0 ? (searchParams.guests - (searchParams.children || 0)) / searchParams.rooms : 2,
@@ -93,7 +119,7 @@ export function SearchBar() {
       };
     }
 
-    // Default state
+    // Default state (already valid dates)
     return {
       destination: "",
       destinationId: undefined,
@@ -190,8 +216,24 @@ export function SearchBar() {
     setIsDestinationSelected(id !== undefined);
   };
 
+  // Show toast when dates were auto-refreshed
+  useEffect(() => {
+    if (datesRefreshedRef.current) {
+      toast({
+        title: "Dates Updated",
+        description: datesRefreshedRef.current,
+      });
+      datesRefreshedRef.current = null;
+    }
+  }, []);
+
   const getValidationErrors = (): string[] => {
     const errors: string[] = [];
+    
+    // Check for past dates first
+    if (isCheckInInPast(checkIn)) {
+      errors.push("Check-in date cannot be in the past");
+    }
     
     switch (searchType) {
       case "region":
@@ -216,6 +258,16 @@ export function SearchBar() {
 
   const handleSearch = async () => {
     setShowValidation(true);
+
+    // Explicit check for past dates before API call
+    if (isCheckInInPast(checkIn)) {
+      toast({
+        title: "Invalid Dates",
+        description: "Check-in date cannot be in the past. Please select a valid date.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (!isFormValid) {
       const errors = getValidationErrors();
