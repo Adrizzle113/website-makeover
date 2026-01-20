@@ -168,6 +168,12 @@ const translations: Record<Language, Record<string, string>> = {
     "register.backToHome": "Back to Home",
     "register.phoneHintBrazil": "10-11 digits with area code (e.g., 11987654321)",
     "register.phoneHintUS": "10 digits (e.g., 5551234567)",
+    "register.placeholder.firstName": "John",
+    "register.placeholder.lastName": "Doe",
+    "register.placeholder.email": "john@example.com",
+    "register.placeholder.legalName": "Legal Company Name",
+    "register.placeholder.city": "New York",
+    "register.placeholder.address": "123 Business Street, Suite 100",
     
     // Login Page
     "login.heroTitle1": "Discover Your",
@@ -408,6 +414,12 @@ const translations: Record<Language, Record<string, string>> = {
     "register.backToHome": "Voltar ao Início",
     "register.phoneHintBrazil": "10-11 dígitos com DDD (ex: 11987654321)",
     "register.phoneHintUS": "10 dígitos (ex: 5551234567)",
+    "register.placeholder.firstName": "João",
+    "register.placeholder.lastName": "Silva",
+    "register.placeholder.email": "joao@exemplo.com.br",
+    "register.placeholder.legalName": "Nome da Empresa Ltda",
+    "register.placeholder.city": "São Paulo",
+    "register.placeholder.address": "Rua das Flores, 123, Sala 100",
     
     // Login Page
     "login.heroTitle1": "Descubra Sua",

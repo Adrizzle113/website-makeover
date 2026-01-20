@@ -361,7 +361,7 @@ export const Register = (): JSX.Element => {
                         value={formData.first_name}
                         onChange={handleChange}
                         type="text"
-                        placeholder="John"
+                        placeholder={t("register.placeholder.firstName")}
                         className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.first_name ? "border-red-500 focus:border-red-500" : "border-border/50 focus:border-primary"}`}
                       />
                       <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
@@ -376,7 +376,7 @@ export const Register = (): JSX.Element => {
                         value={formData.last_name}
                         onChange={handleChange}
                         type="text"
-                        placeholder="Doe"
+                        placeholder={t("register.placeholder.lastName")}
                         className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.last_name ? "border-red-500 focus:border-red-500" : "border-border/50 focus:border-primary"}`}
                       />
                       <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
@@ -393,7 +393,7 @@ export const Register = (): JSX.Element => {
                       value={formData.email}
                       onChange={handleChange}
                       type="email"
-                      placeholder="john@example.com"
+                      placeholder={t("register.placeholder.email")}
                       className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.email ? "border-red-500 focus:border-red-500" : "border-border/50 focus:border-primary"}`}
                     />
                     <MailIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
@@ -456,7 +456,7 @@ export const Register = (): JSX.Element => {
                       value={formData.legal_name}
                       onChange={handleChange}
                       type="text"
-                      placeholder="Legal Company Name"
+                      placeholder={t("register.placeholder.legalName")}
                       className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.legal_name ? "border-red-500 focus:border-red-500" : "border-border/50 focus:border-primary"}`}
                     />
                     <BuildingIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
@@ -496,7 +496,7 @@ export const Register = (): JSX.Element => {
                       value={formData.city}
                       onChange={handleChange}
                       type="text"
-                      placeholder="New York"
+                      placeholder={t("register.placeholder.city")}
                       className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.city ? "border-red-500 focus:border-red-500" : "border-border/50 focus:border-primary"}`}
                     />
                     <MapPinIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
@@ -512,7 +512,7 @@ export const Register = (): JSX.Element => {
                       value={formData.address}
                       onChange={handleChange}
                       type="text"
-                      placeholder="123 Business Street, Suite 100"
+                      placeholder={t("register.placeholder.address")}
                       className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.address ? "border-red-500 focus:border-red-500" : "border-border/50 focus:border-primary"}`}
                     />
                     <MapPinIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
