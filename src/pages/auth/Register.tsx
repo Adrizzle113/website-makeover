@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MailIcon, UserIcon, BriefcaseIcon, Loader2, BuildingIcon, MapPinIcon, FileTextIcon, AlertCircleIcon } from "lucide-react";
+import { MailIcon, UserIcon, Loader2, BuildingIcon, MapPinIcon, FileTextIcon, AlertCircleIcon } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/config/api";
 import { z } from "zod";
@@ -12,7 +12,6 @@ const step1Schema = z.object({
   last_name: z.string().trim().min(1, "Last name is required").max(50, "Last name must be less than 50 characters"),
   email: z.string().trim().email("Please enter a valid email address").max(255, "Email must be less than 255 characters"),
   phone_number: z.string().trim().min(7, "Please enter a valid phone number").max(20, "Phone number is too long"),
-  agency_name: z.string().trim().min(1, "Business name is required").max(100, "Business name must be less than 100 characters"),
 });
 
 const step2Schema = z.object({
@@ -35,7 +34,6 @@ export const Register = (): JSX.Element => {
     first_name: "",
     last_name: "",
     phone_number: "",
-    agency_name: "",
     legal_name: "",
     city: "",
     address: "",
@@ -262,24 +260,6 @@ export const Register = (): JSX.Element => {
                     />
                   </div>
                   <InputError message={errors.phone_number} />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Business Name
-                  </label>
-                  <div className="relative">
-                    <Input
-                      name="agency_name"
-                      value={formData.agency_name}
-                      onChange={handleChange}
-                      type="text"
-                      placeholder="Your Travel Agency"
-                      className={`pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border focus:bg-background transition-colors ${errors.agency_name ? 'border-red-500 focus:border-red-500' : 'border-border/50 focus:border-primary'}`}
-                    />
-                    <BriefcaseIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
-                  </div>
-                  <InputError message={errors.agency_name} />
                 </div>
 
                 <Button
