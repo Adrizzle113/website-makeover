@@ -5,7 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { EyeIcon, EyeOffIcon, MailIcon, LockIcon, CheckCircleIcon, AlertCircleIcon, Loader2 } from "lucide-react";
 import { API_BASE_URL } from "@/config/api";
+import { useLanguage } from "@/hooks/useLanguage";
 export const Login = (): JSX.Element => {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -32,7 +34,7 @@ export const Login = (): JSX.Element => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      setError("Please enter both email and password");
+      setError(t("login.error.required"));
       return;
     }
     setLoading(true);
@@ -65,7 +67,7 @@ export const Login = (): JSX.Element => {
         setError(data.error || "RateHawk authentication failed. Please verify your credentials.");
       }
     } catch (err: any) {
-      setError(`Connection error: ${err.message}. Please ensure the backend server is running.`);
+      setError(t("login.error.connection").replace("{message}", err.message));
     } finally {
       setLoading(false);
     }
@@ -79,14 +81,14 @@ export const Login = (): JSX.Element => {
               <CheckCircleIcon className="w-10 h-10 text-green-600" />
             </div>
             <h1 className="font-heading text-2xl text-foreground mb-3">
-              Welcome Back!
+              {t("login.success.title")}
             </h1>
             <p className="text-muted-foreground text-sm mb-6">
-              Authentication successful. Redirecting you now...
+              {t("login.success.message")}
             </p>
             <div className="flex items-center justify-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin text-primary" />
-              <span className="text-muted-foreground text-xs">Please wait...</span>
+              <span className="text-muted-foreground text-xs">{t("login.success.wait")}</span>
             </div>
           </CardContent>
         </Card>
@@ -103,10 +105,10 @@ export const Login = (): JSX.Element => {
         <div className="absolute inset-0 bg-gradient-to-br from-primary/90 via-primary/70 to-transparent" />
         <div className="relative z-10 flex flex-col justify-center p-16 text-primary-foreground">
           <h2 className="font-heading text-5xl mb-6 leading-tight">
-            Discover Your<br />Perfect Stay
+            {t("login.heroTitle1")}<br />{t("login.heroTitle2")}
           </h2>
           <p className="text-primary-foreground/80 text-lg max-w-md leading-relaxed">
-            Access exclusive hotel deals and manage your bookings with ease. Your journey begins here.
+            {t("login.heroDescription")}
           </p>
         </div>
       </div>
@@ -119,9 +121,9 @@ export const Login = (): JSX.Element => {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-6">
               <span className="font-heading text-2xl text-primary">T</span>
             </div>
-            <h1 className="font-heading text-3xl text-foreground mb-2">Welcome Back</h1>
+            <h1 className="font-heading text-3xl text-foreground mb-2">{t("login.welcomeBack")}</h1>
             <p className="text-muted-foreground">
-              Sign in to continue to your account
+              {t("login.subtitle")}
             </p>
           </div>
 
@@ -138,12 +140,12 @@ export const Login = (): JSX.Element => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
-                  Email Address
+                  {t("login.email")}
                 </label>
                 <div className="relative">
                   <Input
                     type="email"
-                    placeholder="Enter your email"
+                    placeholder={t("login.emailPlaceholder")}
                     className="pl-12 pr-4 py-3 h-12 rounded-xl bg-muted/50 border border-border/50 focus:border-primary focus:bg-background transition-colors"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
@@ -157,12 +159,12 @@ export const Login = (): JSX.Element => {
 
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
-                  Password
+                  {t("login.password")}
                 </label>
                 <div className="relative">
                   <Input
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
+                    placeholder={t("login.passwordPlaceholder")}
                     className="pl-12 pr-12 py-3 h-12 rounded-xl bg-muted/50 border border-border/50 focus:border-primary focus:bg-background transition-colors"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
@@ -199,10 +201,10 @@ export const Login = (): JSX.Element => {
               {loading ? (
                 <div className="flex items-center gap-2">
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Signing in...</span>
+                  <span>{t("login.signingIn")}</span>
                 </div>
               ) : (
-                <span>Sign In</span>
+                <span>{t("login.signIn")}</span>
               )}
             </Button>
           </form>
@@ -210,12 +212,12 @@ export const Login = (): JSX.Element => {
           {/* Footer */}
           <div className="mt-8 text-center">
             <p className="text-sm text-muted-foreground">
-              Don't have an account?{' '}
+              {t("login.noAccount")}{' '}
               <Link 
                 to="/auth/register" 
                 className="text-primary hover:text-primary/80 font-medium transition-colors"
               >
-                Create Account
+                {t("login.createAccount")}
               </Link>
             </p>
           </div>
