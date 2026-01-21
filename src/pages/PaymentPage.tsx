@@ -159,6 +159,30 @@ const PaymentPage = () => {
           cancellationPolicy: r.cancellationPolicy,
         })));
         
+        // 🔐 Log composition signature for debugging
+        console.log('🔐 [PaymentPage] Composition signature from booking:', parsed.compositionSignature);
+        
+        // CRITICAL: Validate composition signature matches guest list
+        // This catches cases where guests were modified after prebook
+        if (parsed.compositionSignature) {
+          const guestList = parsed.guests || [];
+          const adults = guestList.filter((g: any) => g.type === 'adult').length;
+          const childAges = guestList
+            .filter((g: any) => g.type === 'child')
+            .map((g: any) => g.age || 0)
+            .sort((a: number, b: number) => a - b);
+          const currentSignature = `adults:${adults},children:${childAges.join(',')}`;
+          
+          if (currentSignature !== parsed.compositionSignature) {
+            console.error('❌ [PaymentPage] Composition mismatch!');
+            console.error(`   Expected: ${parsed.compositionSignature}`);
+            console.error(`   Current:  ${currentSignature}`);
+            // Allow proceeding but log the mismatch for debugging
+          } else {
+            console.log('✅ [PaymentPage] Composition signature validated');
+          }
+        }
+        
         setOriginalPrice(parsed.totalPrice || 0);
         setIsLoading(false);
 

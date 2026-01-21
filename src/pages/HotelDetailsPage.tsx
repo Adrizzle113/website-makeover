@@ -97,8 +97,12 @@ interface SearchContext {
   destinationId?: string;
   checkin: string | Date;
   checkout: string | Date;
-  guests: number | Array<{ adults: number }>;
-  formattedGuests?: Array<{ adults: number }>;
+  guests: number | Array<{ adults: number; children?: number[] }>;
+  formattedGuests?: Array<{ adults: number; children?: number[] }>;
+  // CRITICAL: Children ages for proper rate fetching
+  childrenAges?: number[];
+  guestsBreakdown?: Array<{ adults: number; children: number[] }>;
+  rooms?: number;
   totalHotels?: number;
   availableHotels?: number;
   searchTimestamp?: string;
@@ -635,8 +639,32 @@ const HotelDetailsPage = () => {
         return String(date);
       };
 
-      // Format guests helper
+      // Format guests helper - CRITICAL: must include children ages for proper rate fetching
+      // Without children ages, rates are fetched for "adults only" causing incorrect_children_data
       const formatGuests = (guests: any): Array<{ adults: number; children: number[] }> => {
+        // Priority 1: Use pre-computed guestsBreakdown if available (from HotelCard)
+        if (context?.guestsBreakdown && Array.isArray(context.guestsBreakdown)) {
+          console.log("📊 formatGuests: Using guestsBreakdown from context:", context.guestsBreakdown);
+          return context.guestsBreakdown;
+        }
+        
+        // Priority 2: Build from searchParams in store (most reliable source)
+        if (searchParams?.childrenAges && searchParams.childrenAges.length > 0) {
+          const totalGuests = searchParams.guests || 1;
+          const adults = Math.max(1, totalGuests - searchParams.childrenAges.length);
+          console.log("📊 formatGuests: Built from store searchParams:", { adults, children: searchParams.childrenAges });
+          return [{ adults, children: searchParams.childrenAges }];
+        }
+        
+        // Priority 3: Use childrenAges from context if available
+        if (context?.childrenAges && Array.isArray(context.childrenAges) && context.childrenAges.length > 0) {
+          const totalGuests = typeof guests === "number" ? guests : (context.guests as number) || 1;
+          const adults = Math.max(1, totalGuests - context.childrenAges.length);
+          console.log("📊 formatGuests: Built from context.childrenAges:", { adults, children: context.childrenAges });
+          return [{ adults, children: context.childrenAges }];
+        }
+        
+        // Priority 4: Handle array format (legacy or already formatted)
         if (Array.isArray(guests)) {
           return guests.map((g) => {
             const adults = typeof g === "object" ? g.adults || 2 : g || 2;
@@ -644,9 +672,13 @@ const HotelDetailsPage = () => {
             return { adults, children };
           });
         }
+        
+        // Priority 5: Fallback to number as all adults (no children)
         if (typeof guests === "number") {
+          console.log("📊 formatGuests: Using number as adults (no children):", guests);
           return [{ adults: Math.max(1, guests), children: [] }];
         }
+        
         return [{ adults: 2, children: [] }];
       };
 

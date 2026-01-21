@@ -552,6 +552,17 @@ const BookingPage = () => {
     const leadGuest = guests.find(g => g.isLead);
     const guestResidency = (leadGuest as Guest & { citizenship?: string })?.citizenship || residency || "US";
     
+    // CRITICAL: Build composition signature for integrity validation
+    // This signature captures the exact guest composition used for prebook
+    // PaymentPage will verify this matches before calling finish
+    const childrenAges = searchParams?.childrenAges || [];
+    const totalGuests = searchParams?.guests || 1;
+    const adultsCount = Math.max(1, totalGuests - childrenAges.length);
+    const sortedChildrenAges = [...childrenAges].sort((a, b) => a - b);
+    const compositionSignature = `adults:${adultsCount},children:${sortedChildrenAges.join(',')}`;
+    
+    console.log('🔐 [navigateToPayment] Composition signature:', compositionSignature);
+    
     // Build base pending booking data
     const basePendingBooking: PendingBookingData = {
       bookingId,
@@ -597,6 +608,8 @@ const BookingPage = () => {
         roomId: u.roomId,
         newTime: u.newTime,
       })),
+      // CRITICAL: Include composition signature for PaymentPage integrity validation
+      compositionSignature,
     };
 
     // 📦 DEBUG: Log what's being stored in session
@@ -761,6 +774,15 @@ const BookingPage = () => {
     
     // CRITICAL: Also clear booking attempt state to prevent stale hashes from being reused
     clearBookingAttemptState();
+    
+    // CRITICAL: Clear localStorage selectedHotel to force HotelDetailsPage to use
+    // the updated searchParams from store (with correct children ages)
+    try {
+      localStorage.removeItem("selectedHotel");
+      console.log("🗑️ Cleared localStorage selectedHotel to force fresh rate fetch with new guest composition");
+    } catch (e) {
+      console.warn("Failed to clear selectedHotel from localStorage:", e);
+    }
     
     // Navigate back to hotel details to re-select room with new rates
     if (selectedHotel) {

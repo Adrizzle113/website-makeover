@@ -132,6 +132,9 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
       } : undefined,
     };
     
+    // CRITICAL: Include full guest breakdown with children ages for rate fetching
+    // Without childrenAges, rates will be fetched for "adults only" which causes
+    // incorrect_children_data errors at booking/finish
     const hotelDataPackage = {
       hotel: optimizedHotel,
       searchContext: searchParams
@@ -141,6 +144,15 @@ export const HotelCard = forwardRef<HTMLDivElement, HotelCardProps>(function Hot
             checkout: searchParams.checkOut,
             guests: searchParams.guests,
             rooms: searchParams.rooms,
+            // CRITICAL: Include children ages for proper rate fetching
+            childrenAges: searchParams.childrenAges || [],
+            // Also include structured guest breakdown for rate APIs
+            guestsBreakdown: (() => {
+              const childrenAges = searchParams.childrenAges || [];
+              const totalGuests = searchParams.guests || 1;
+              const adults = Math.max(1, totalGuests - childrenAges.length);
+              return [{ adults, children: childrenAges }];
+            })(),
           }
         : null,
       timestamp: new Date().toISOString(),
