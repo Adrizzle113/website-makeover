@@ -67,8 +67,11 @@ import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function SettingsPage() {
+  const { user, profile: authProfile } = useAuth();
   const [profile, setProfile] = useState({
     firstName: "John",
     lastName: "Doe",
@@ -177,7 +180,26 @@ export default function SettingsPage() {
     { id: "3", device: "Firefox on Windows", location: "Boston, US", lastActive: "1 day ago", current: false, type: "desktop" },
   ]);
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
+    if (!user) {
+      toast.error("Please log in to update your profile.");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        first_name: profile.firstName || null,
+        last_name: profile.lastName || null,
+        email: profile.email || null,
+      })
+      .eq("id", user.id);
+
+    if (error) {
+      toast.error(error.message || "Failed to update profile");
+      return;
+    }
+
     toast.success("Profile updated successfully");
   };
 
@@ -200,6 +222,20 @@ export default function SettingsPage() {
       timezone: storedTimezone 
     }));
   }, [storedLanguage, storedClockFormat, storedTimezone]);
+
+  useEffect(() => {
+    if (!authProfile && !user) {
+      return;
+    }
+
+    setProfile(prev => ({
+      ...prev,
+      firstName: authProfile?.first_name || "",
+      lastName: authProfile?.last_name || "",
+      email: authProfile?.email || user?.email || "",
+      role: authProfile?.role || prev.role,
+    }));
+  }, [authProfile, user]);
 
   const handleSavePreferences = () => {
     saveLanguage(preferences.language as "en" | "pt-BR");

@@ -13,14 +13,28 @@ export const Register = (): JSX.Element => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    if (!firstName) {
+      setError(t("register.error.firstName"));
+      return;
+    }
+    if (!lastName) {
+      setError(t("register.error.lastName"));
+      return;
+    }
+    if (!email) {
       setError(t("register.error.email"));
+      return;
+    }
+    if (!password) {
+      setError(t("register.error.password"));
       return;
     }
 
@@ -38,6 +52,21 @@ export const Register = (): JSX.Element => {
 
       if (signUpError) {
         throw signUpError;
+      }
+
+      if (data.user) {
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update({
+            first_name: firstName,
+            last_name: lastName,
+            email,
+          })
+          .eq("id", data.user.id);
+
+        if (profileError) {
+          console.error("Profile update error:", profileError);
+        }
       }
 
       if (data.session) {
@@ -88,6 +117,38 @@ export const Register = (): JSX.Element => {
 
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  {t("register.firstName")}
+                </label>
+                <Input
+                  type="text"
+                  placeholder={t("register.placeholder.firstName")}
+                  className="py-3 h-12 rounded-xl bg-muted/50 border border-border/50 focus:border-primary focus:bg-background transition-colors"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  autoComplete="given-name"
+                  required
+                  disabled={loading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  {t("register.lastName")}
+                </label>
+                <Input
+                  type="text"
+                  placeholder={t("register.placeholder.lastName")}
+                  className="py-3 h-12 rounded-xl bg-muted/50 border border-border/50 focus:border-primary focus:bg-background transition-colors"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  autoComplete="family-name"
+                  required
+                  disabled={loading}
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   {t("register.email")}
