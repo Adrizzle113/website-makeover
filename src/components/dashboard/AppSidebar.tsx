@@ -1,4 +1,4 @@
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboardIcon,
   SearchIcon,
@@ -11,6 +11,7 @@ import {
   FolderOpenIcon,
   PanelLeftIcon,
   PanelRightIcon,
+  LogOutIcon,
 } from "lucide-react";
 import {
   Sidebar,
@@ -29,6 +30,8 @@ import { NavLink } from "@/components/NavLink";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/hooks/use-toast";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboardIcon },
@@ -47,10 +50,21 @@ const secondaryNavItems = [
 
 export function AppSidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { state, toggleSidebar } = useSidebar();
+  const { signOut } = useAuth();
   const collapsed = state === "collapsed";
 
   const isActive = (url: string) => location.pathname === url;
+
+  const handleLogout = async () => {
+    await signOut();
+    toast({
+      title: "Signed out",
+      description: "You have been successfully signed out.",
+    });
+    navigate("/auth/login");
+  };
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border bg-background overflow-hidden">
@@ -188,6 +202,31 @@ export function AppSidebar() {
         {!collapsed && (
           <div className="mb-3 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         )}
+
+        {/* Logout button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className={`
+                w-full flex items-center gap-2 px-3 py-2 rounded-lg
+                text-muted-foreground hover:text-destructive hover:bg-destructive/10
+                transition-all duration-200
+                ${collapsed ? 'justify-center' : 'justify-start'}
+              `}
+            >
+              <LogOutIcon className="w-4 h-4" />
+              {!collapsed && <span className="text-sm">Logout</span>}
+            </Button>
+          </TooltipTrigger>
+          {collapsed && (
+            <TooltipContent side="right">
+              <p>Logout</p>
+            </TooltipContent>
+          )}
+        </Tooltip>
         
         {/* Collapse toggle button */}
         <Tooltip>
