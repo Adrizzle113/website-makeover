@@ -456,6 +456,10 @@ export interface PendingBookingData {
   residency: string;
   paymentType?: PaymentType;
   upsells?: BookingUpsell[];
+  // CRITICAL: Composition signature for integrity validation
+  // Format: "adults:{N},children:{age1},{age2},..." (sorted ages)
+  // Used to verify guest composition hasn't drifted between prebook and finish
+  compositionSignature?: string;
 }
 
 // ============================================
