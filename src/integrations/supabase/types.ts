@@ -28,6 +28,7 @@ export type Database = {
           last_name: string | null
           legal_name: string | null
           phone_number: string | null
+          role: "admin" | "user"
           status: Database["public"]["Enums"]["approval_status"] | null
           updated_at: string | null
         }
@@ -44,6 +45,7 @@ export type Database = {
           last_name?: string | null
           legal_name?: string | null
           phone_number?: string | null
+          role?: "admin" | "user"
           status?: Database["public"]["Enums"]["approval_status"] | null
           updated_at?: string | null
         }
@@ -60,6 +62,7 @@ export type Database = {
           last_name?: string | null
           legal_name?: string | null
           phone_number?: string | null
+          role?: "admin" | "user"
           status?: Database["public"]["Enums"]["approval_status"] | null
           updated_at?: string | null
         }

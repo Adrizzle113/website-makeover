@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Footer } from "@/components/layout/Footer";
 import { bookingApi } from "@/services/bookingApi";
+import { useAuth } from "@/hooks/useAuth";
 import { useBookingStore } from "@/stores/bookingStore";
 import { toast } from "@/hooks/use-toast";
 import type { BookingStatusValue } from "@/types/etgBooking";
@@ -94,6 +95,7 @@ export default function ProcessingPage() {
   const [urlSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { setOrderId, setOrderStatus } = useBookingStore();
+  const { session } = useAuth();
 
   // Extract ETG order_id from query params (for confirmation page navigation)
   const etgOrderId = urlSearchParams.get("order_id");
@@ -291,6 +293,35 @@ export default function ProcessingPage() {
     navigate("/dashboard");
   };
 
+  const handleLogin = () => {
+    navigate("/auth/login");
+  };
+
+  const handleSignup = () => {
+    navigate("/auth/register");
+  };
+
+  const renderAuthActions = (variant: "outline" | "ghost" = "outline") => {
+    if (session) {
+      return (
+        <Button variant={variant} onClick={handleGoToDashboard} className="w-full">
+          Go to Dashboard
+        </Button>
+      );
+    }
+
+    return (
+      <>
+        <Button onClick={handleLogin} className="w-full">
+          Log In
+        </Button>
+        <Button variant={variant} onClick={handleSignup} className="w-full">
+          Sign Up
+        </Button>
+      </>
+    );
+  };
+
   const handleContactSupport = () => {
     window.location.href = `mailto:support@travelhub.com?subject=Booking Issue - Order ${partnerOrderId}`;
   };
@@ -381,9 +412,7 @@ export default function ProcessingPage() {
                   <Button onClick={handleViewConfirmation} className="w-full">
                     View Confirmation Details
                   </Button>
-                  <Button variant="outline" onClick={handleGoToDashboard} className="w-full">
-                    Go to Dashboard
-                  </Button>
+                  {renderAuthActions("outline")}
                 </div>
               </div>
             )}
@@ -408,9 +437,7 @@ export default function ProcessingPage() {
                   <Button variant="outline" onClick={handleContactSupport} className="w-full">
                     Contact Support
                   </Button>
-                  <Button variant="ghost" onClick={handleGoToDashboard} className="w-full">
-                    Back to Dashboard
-                  </Button>
+                  {renderAuthActions("ghost")}
                 </div>
 
                 {partnerOrderId && (
@@ -445,9 +472,7 @@ export default function ProcessingPage() {
                   <Button onClick={handleRetry} className="w-full">
                     Check Status Again
                   </Button>
-                  <Button variant="outline" onClick={handleGoToDashboard} className="w-full">
-                    Go to Dashboard
-                  </Button>
+                  {renderAuthActions("outline")}
                 </div>
 
                 {partnerOrderId && (

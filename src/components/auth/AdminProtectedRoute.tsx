@@ -8,7 +8,7 @@ interface AdminProtectedRouteProps {
 
 export const AdminProtectedRoute = ({ children }: AdminProtectedRouteProps) => {
   const location = useLocation();
-  const { session, isApproved, isLoading, hasRole } = useAuth();
+  const { session, isLoading, hasRole } = useAuth();
 
   if (isLoading) {
     return (
@@ -23,10 +23,6 @@ export const AdminProtectedRoute = ({ children }: AdminProtectedRouteProps) => {
 
   if (!session) {
     return <Navigate to="/auth/login" state={{ from: location }} replace />;
-  }
-
-  if (!isApproved) {
-    return <Navigate to="/auth/pending-approval" replace />;
   }
 
   if (!hasRole("admin")) {
