@@ -55,10 +55,9 @@ export const Login = (): JSX.Element => {
       }
 
       if (data.user) {
-        // Check profile status
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
-          .select("status")
+          .select("role")
           .eq("id", data.user.id)
           .maybeSingle();
 
@@ -66,16 +65,9 @@ export const Login = (): JSX.Element => {
           console.error("Error fetching profile:", profileError);
         }
 
-        if (profile?.status !== "approved") {
-          // User not approved, sign out and redirect to pending
-          await supabase.auth.signOut();
-          navigate("/auth/pending-approval", { state: { email } });
-          return;
-        }
-
-        // User is approved
+        const redirectTo = profile?.role === "admin" ? "/admin" : "/dashboard";
         setSuccess(true);
-        setTimeout(() => navigate("/dashboard"), 2000);
+        setTimeout(() => navigate(redirectTo), 1500);
       }
     } catch (err: any) {
       setError(t("login.error.connection").replace("{message}", err.message));

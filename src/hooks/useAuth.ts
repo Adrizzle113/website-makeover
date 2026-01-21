@@ -4,14 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
-type AppRole = Database["public"]["Enums"]["app_role"];
+type AppRole = "admin" | "user";
 
 interface AuthState {
   session: Session | null;
   user: User | null;
   profile: Profile | null;
-  roles: AppRole[];
-  isApproved: boolean;
+  role: AppRole | null;
   isLoading: boolean;
 }
 
@@ -20,8 +19,7 @@ export function useAuth() {
     session: null,
     user: null,
     profile: null,
-    roles: [],
-    isApproved: false,
+    role: null,
     isLoading: true,
   });
 
@@ -34,20 +32,12 @@ export function useAuth() {
         .eq("id", userId)
         .maybeSingle();
 
-      // Fetch roles
-      const { data: userRoles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId);
-
-      const roles = userRoles?.map((r) => r.role) || [];
-      const isApproved = profile?.status === "approved";
+      const role = profile?.role ?? "user";
 
       setAuthState((prev) => ({
         ...prev,
         profile,
-        roles,
-        isApproved,
+        role,
         isLoading: false,
       }));
     } catch (error) {
@@ -73,8 +63,7 @@ export function useAuth() {
           setAuthState((prev) => ({
             ...prev,
             profile: null,
-            roles: [],
-            isApproved: false,
+            role: null,
             isLoading: false,
           }));
         }
@@ -107,15 +96,14 @@ export function useAuth() {
       session: null,
       user: null,
       profile: null,
-      roles: [],
-      isApproved: false,
+      role: null,
       isLoading: false,
     });
   }, []);
 
   const hasRole = useCallback(
-    (role: AppRole) => authState.roles.includes(role),
-    [authState.roles]
+    (role: AppRole) => authState.role === role,
+    [authState.role]
   );
 
   return {
