@@ -1077,14 +1077,36 @@ const PaymentPage = () => {
       paymentType: apiPaymentType,
     });
 
-    // ✅ VALIDATION: Block deposit payment if free_cancellation_before is missing but required
-    if (apiPaymentType === 'deposit' && bookingData!.rooms[0]?.hasFreeCancellationBefore && !freeCancellationBefore) {
-      console.error('❌ CRITICAL: Deposit payment requires free_cancellation_before but it is missing!', {
-        room: bookingData!.rooms[0],
-        hasFreeCancellationBefore: bookingData!.rooms[0]?.hasFreeCancellationBefore,
-      });
-      throw new Error('Cancellation data missing for deposit payment. Please go back and reselect the room.');
+    // ✅ VALIDATION: For deposit payment, we need a cancellation deadline (from free_cancellation_before OR policies)
+    // The room must be refundable (cancellationType === 'free_cancellation' or hasFreeCancellationBefore === true)
+    const room = bookingData!.rooms[0];
+    const isRefundable = room?.hasFreeCancellationBefore || room?.cancellationType === 'free_cancellation';
+    
+    if (apiPaymentType === 'deposit') {
+      if (!isRefundable) {
+        console.error('❌ CRITICAL: Deposit payment not allowed for non-refundable rooms!', {
+          room,
+          hasFreeCancellationBefore: room?.hasFreeCancellationBefore,
+          cancellationType: room?.cancellationType,
+        });
+        throw new Error('This rate does not support "Book Now, Pay Later". Please select Pay at Property or use card payment.');
+      }
+      
+      if (!freeCancellationBefore) {
+        console.error('❌ CRITICAL: Deposit payment requires cancellation deadline but it is missing!', {
+          room,
+          hasFreeCancellationBefore: room?.hasFreeCancellationBefore,
+          cancellationType: room?.cancellationType,
+        });
+        throw new Error('Cancellation deadline missing for deposit payment. Please go back and reselect the room.');
+      }
     }
+    
+    console.log('✅ Deposit payment validation passed:', {
+      isRefundable,
+      freeCancellationBefore,
+      apiPaymentType,
+    });
 
     // ✅ VALIDATION: Block if selectedPayment is missing (would result in 0.00 payment)
     if (!selectedPayment) {
@@ -1533,6 +1555,11 @@ const PaymentPage = () => {
                   availableMethods={availablePaymentMethods}
                   recommendedType={recommendedPaymentType?.type}
                   isProcessing={isProcessing || isVerifyingPrice}
+                  // Determine if rate is refundable (has free cancellation before deadline)
+                  isRefundable={
+                    bookingData?.rooms?.[0]?.hasFreeCancellationBefore ||
+                    bookingData?.rooms?.[0]?.cancellationType === 'free_cancellation'
+                  }
                   cardNumber={cardNumber}
                   onCardNumberChange={setCardNumber}
                   cardholderName={cardholderName}

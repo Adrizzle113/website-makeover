@@ -564,13 +564,14 @@ class BookingApiService {
       ...(params.free_cancellation_before && { free_cancellation_before: params.free_cancellation_before }),
     }];
 
-    // ✅ DEBUG: Log what's being sent to the API
+    // ✅ DEBUG: Log exactly what's being sent to the API for deposit payments
     console.log('📤 finishBooking payload - free_cancellation_before check:', {
+      paymentType: params.payment_type,
       hasField: !!params.free_cancellation_before,
       value: params.free_cancellation_before,
-      willIncludeInGuests: !!(params.free_cancellation_before && guestsPayload[0]),
-      willIncludeAtRoot: !!params.free_cancellation_before,
-      guestsPayloadHasField: !!guestsPayload[0]?.free_cancellation_before,
+      valueIncludedInGuests: guestsPayload[0]?.free_cancellation_before,
+      // Highlight if deposit payment is missing the critical field
+      DEPOSIT_WILL_FAIL: params.payment_type === 'deposit' && !params.free_cancellation_before,
     });
 
     const response = await this.fetchWithError<OrderFinishResponse>(url, {
