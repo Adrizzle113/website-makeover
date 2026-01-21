@@ -759,6 +759,9 @@ const BookingPage = () => {
     // Clear room selection since rates are now stale
     clearRoomSelection();
     
+    // CRITICAL: Also clear booking attempt state to prevent stale hashes from being reused
+    clearBookingAttemptState();
+    
     // Navigate back to hotel details to re-select room with new rates
     if (selectedHotel) {
       toast({

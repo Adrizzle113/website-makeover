@@ -261,9 +261,17 @@ class BookingApiService {
       throw new Error("Missing required fields: book_hash or partner_order_id");
     }
 
+    // CRITICAL: Validate that we're using a prebooked hash (p-...) not a rate hash (h-...)
+    // Using an h-... hash here creates an order with the wrong guest composition
+    if (!bookHash.startsWith('p-')) {
+      console.warn(`⚠️ getOrderForm called with non-prebook hash: ${bookHash.substring(0, 10)}...`);
+      console.warn(`   Expected p-... (from prebook), got ${bookHash.substring(0, 2)}-...`);
+      console.warn(`   This may cause incorrect_children_data errors later`);
+    }
+
     const requestBody = {
       userId,
-      book_hash: "h-a57beff4-52e0-509d-bc8e-c15d834ebb19",
+      book_hash: bookHash,  // Use the actual bookHash parameter, NOT hardcoded!
       partner_order_id: partnerOrderId,
       language: "en",
       user_ip: userIp,
@@ -548,7 +556,9 @@ class BookingApiService {
         first_name: g.first_name,
         last_name: g.last_name,
         is_child: g.is_child || false,
-        ...(g.is_child && g.age ? { age: g.age } : {}),
+        // CRITICAL: Include age for children even if age=0 (infants)
+        // Using typeof check instead of truthy to avoid dropping age=0
+        ...(g.is_child && typeof g.age === 'number' ? { age: g.age } : {}),
       })),
       // Include free_cancellation_before for refundable rates (prevents insufficient_b2b_balance)
       ...(params.free_cancellation_before && { free_cancellation_before: params.free_cancellation_before }),

@@ -197,6 +197,25 @@ const PaymentPage = () => {
       return;
     }
 
+    // CRITICAL: Validate that bookingHash is a prebooked hash (p-...)
+    // If it's not, the order form will be created with wrong guest composition
+    if (!data.bookingHash.startsWith('p-')) {
+      console.error(`❌ Invalid bookingHash format: ${data.bookingHash.substring(0, 10)}...`);
+      console.error(`   Expected p-... (from prebook), got ${data.bookingHash.substring(0, 2)}-...`);
+      console.error(`   This will cause incorrect_children_data errors. Blocking payment.`);
+      
+      // Clear stale session and show error
+      sessionStorage.removeItem("pending_booking");
+      setFormDataLoaded(true);
+      
+      toast({
+        title: "Booking Session Invalid",
+        description: "Your booking session is stale. Please go back to the hotel and select a room again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Skip if already loaded or loading (prevents duplicate calls on refresh/StrictMode)
     if (formDataLoaded || isLoadingForm) {
       console.log("⏭️ Order form already loaded or loading, skipping API call");
