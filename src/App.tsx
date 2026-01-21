@@ -34,6 +34,14 @@ import {
   ActivityPage,
 } from "./pages/clients";
 import { SettingsPage } from "./pages/settings";
+import {
+  AdminDashboard,
+  AdminSearchPage,
+  AdminReportsPage,
+  AgentsPage,
+  AdminSettingsPage,
+} from "./pages/admin";
+import { AdminProtectedRoute } from "@/components/auth/AdminProtectedRoute";
 
 import NotFound from "./pages/NotFound";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -95,6 +103,11 @@ const App = () => (
             {/* Settings */}
             <Route path="/settings" element={<SettingsPage />} />
             {/* Admin */}
+            <Route path="/admin" element={<AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>} />
+            <Route path="/admin/search" element={<AdminProtectedRoute><AdminSearchPage /></AdminProtectedRoute>} />
+            <Route path="/admin/reports" element={<AdminProtectedRoute><AdminReportsPage /></AdminProtectedRoute>} />
+            <Route path="/admin/agents" element={<AdminProtectedRoute><AgentsPage /></AdminProtectedRoute>} />
+            <Route path="/admin/settings" element={<AdminProtectedRoute><AdminSettingsPage /></AdminProtectedRoute>} />
             <Route path="/admin/contract" element={<Navigate to="/settings" replace />} />
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
