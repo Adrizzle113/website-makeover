@@ -42,6 +42,7 @@ import {
   AdminSettingsPage,
 } from "./pages/admin";
 import { AdminProtectedRoute } from "@/components/auth/AdminProtectedRoute";
+import { Login, Register, EmailVerification, PendingApproval } from "./pages/auth";
 
 import NotFound from "./pages/NotFound";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -56,6 +57,12 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
+            {/* Auth Routes */}
+            <Route path="/auth/login" element={<Login />} />
+            <Route path="/auth/register" element={<Register />} />
+            <Route path="/auth/verify-email" element={<EmailVerification />} />
+            <Route path="/auth/pending-approval" element={<PendingApproval />} />
+            {/* Public Routes */}
             <Route path="/" element={<SearchPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/calculator" element={<CalculatorPage />} />
