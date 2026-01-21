@@ -30,6 +30,8 @@ interface PaymentFormPanelProps {
   availableMethods?: PaymentType[];
   recommendedType?: PaymentType;
   isProcessing?: boolean;
+  // Whether the rate is refundable (determines if deposit payment is allowed)
+  isRefundable?: boolean;
   // Card state
   cardNumber: string;
   onCardNumberChange: (value: string) => void;
@@ -118,6 +120,7 @@ export function PaymentFormPanel({
   onPaymentTypeChange,
   availableMethods = ["deposit", "hotel"],
   isProcessing = false,
+  isRefundable = true, // Default to true for backward compatibility
   cardNumber,
   onCardNumberChange,
   cardholderName,
@@ -137,9 +140,17 @@ export function PaymentFormPanel({
 }: PaymentFormPanelProps) {
   const cardType = useMemo(() => detectCardType(cardNumber), [cardNumber]);
   
+  // Filter methods and disable deposit for non-refundable rates
   const filteredMethods = PAYMENT_METHODS.filter((method) =>
     availableMethods.includes(method.value)
-  );
+  ).map(method => ({
+    ...method,
+    // Disable deposit for non-refundable rates
+    disabled: method.value === "deposit" && !isRefundable,
+    disabledReason: method.value === "deposit" && !isRefundable 
+      ? "Not available for non-refundable rates" 
+      : undefined,
+  }));
 
   const handleCardNumberInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, "");
@@ -185,29 +196,39 @@ export function PaymentFormPanel({
           {filteredMethods.map((method) => {
             const Icon = method.icon;
             const isSelected = paymentType === method.value;
+            const isMethodDisabled = method.disabled || isProcessing;
 
             return (
               <div key={method.value} className="flex items-center gap-2">
                 <Label
                   htmlFor={`payment-${method.value}`}
                   className={cn(
-                    "flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer flex-1",
+                    "flex items-center gap-3 p-3 rounded-xl border-2 flex-1",
                     "transition-all duration-200",
-                    isSelected
+                    isMethodDisabled 
+                      ? "opacity-50 cursor-not-allowed bg-muted/20"
+                      : "cursor-pointer",
+                    isSelected && !isMethodDisabled
                       ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/50 hover:bg-muted/30",
-                    isProcessing && "opacity-50 cursor-not-allowed"
+                      : "border-border",
+                    !isMethodDisabled && !isSelected && "hover:border-primary/50 hover:bg-muted/30"
                   )}
+                  onClick={(e) => {
+                    if (isMethodDisabled) {
+                      e.preventDefault();
+                    }
+                  }}
                 >
                   <RadioGroupItem
                     value={method.value}
                     id={`payment-${method.value}`}
                     className="sr-only"
+                    disabled={isMethodDisabled}
                   />
                   <div
                     className={cn(
                       "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200",
-                      isSelected 
+                      isSelected && !isMethodDisabled
                         ? "bg-primary text-primary-foreground" 
                         : "bg-muted text-muted-foreground"
                     )}
@@ -215,9 +236,17 @@ export function PaymentFormPanel({
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-sm text-foreground">{method.label}</p>
-                      {method.value === recommendedType && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className={cn(
+                        "font-medium text-sm",
+                        isMethodDisabled ? "text-muted-foreground" : "text-foreground"
+                      )}>{method.label}</p>
+                      {method.disabled && method.disabledReason && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700">
+                          {method.disabledReason}
+                        </span>
+                      )}
+                      {!method.disabled && method.value === recommendedType && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">
                           Recommended
                         </span>

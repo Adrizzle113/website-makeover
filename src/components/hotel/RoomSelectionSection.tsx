@@ -344,20 +344,34 @@ const extractCancellation = (rate: RateHawkRate): {
       }
     }
     
-    // policies-only fallback - NOT a true free_cancellation_before
+    // policies-only fallback - Use policy end_at as free_cancellation_before for deposit payments
+    // RateHawk API accepts policy dates for refundable bookings even without explicit free_cancellation_before
     if (result.policies?.length) {
       const policy = result.policies[0];
-      const formatted = formatCancellationDateWithTz(policy.end_at || policy.start_at || "");
+      const policyDate = policy.end_at || policy.start_at || "";
+      const formatted = formatCancellationDateWithTz(policyDate);
       const fee = policy.amount_show?.replace(/[^0-9.]/g, '') || undefined;
       if (formatted) {
+        // IMPORTANT: Use policy end_at as the cancellation deadline for API calls
+        // Even without explicit free_cancellation_before, we can still pass the date for deposit payment
+        const isFreeBeforeDeadline = !fee || parseFloat(fee) === 0;
+        
+        console.log('📅 [extractCancellation] Using policy date as fallback:', {
+          source: 'payment_type.cancellation_penalties.policies',
+          policyDate,
+          rawDate: formatted.rawDate,
+          isFreeBeforeDeadline,
+        });
+        
         return { 
-          cancellation: fee && parseFloat(fee) > 0 ? "partial_refund" : "free_cancellation", 
+          cancellation: isFreeBeforeDeadline ? "free_cancellation" : "partial_refund", 
           cancellationDeadline: formatted.deadline,
           cancellationTime: formatted.time,
           cancellationTimezone: formatted.timezone,
-          cancellationRawDate: formatted.rawDate,
+          cancellationRawDate: formatted.rawDate,  // CRITICAL: This is the date we'll send to API
           cancellationFee: fee,
-          hasFreeCancellationBefore: false, // Only policies, no actual free_cancellation_before
+          // Mark as true if it's free before the deadline - the date is valid for deposit payment
+          hasFreeCancellationBefore: isFreeBeforeDeadline,
         };
       }
     }
@@ -397,20 +411,31 @@ const extractCancellation = (rate: RateHawkRate): {
     }
   }
   
-  // policies-only fallback at root level - NOT a true free_cancellation_before
+  // policies-only fallback at root level - Use policy date for deposit payment if free before deadline
   if (rootResult.policies?.length) {
     const policy = rootResult.policies[0];
-    const formatted = formatCancellationDateWithTz(policy.end_at || policy.start_at || "");
+    const policyDate = policy.end_at || policy.start_at || "";
+    const formatted = formatCancellationDateWithTz(policyDate);
     const fee = policy.amount_show?.replace(/[^0-9.]/g, '') || undefined;
     if (formatted) {
+      const isFreeBeforeDeadline = !fee || parseFloat(fee) === 0;
+      
+      console.log('📅 [extractCancellation] Using root policy date as fallback:', {
+        source: 'root.cancellation_penalties.policies',
+        policyDate,
+        rawDate: formatted.rawDate,
+        isFreeBeforeDeadline,
+      });
+      
       return { 
-        cancellation: fee && parseFloat(fee) > 0 ? "partial_refund" : "free_cancellation", 
+        cancellation: isFreeBeforeDeadline ? "free_cancellation" : "partial_refund", 
         cancellationDeadline: formatted.deadline,
         cancellationTime: formatted.time,
         cancellationTimezone: formatted.timezone,
-        cancellationRawDate: formatted.rawDate,
+        cancellationRawDate: formatted.rawDate,  // CRITICAL: This is the date we'll send to API
         cancellationFee: fee,
-        hasFreeCancellationBefore: false, // Only policies, no actual free_cancellation_before
+        // Mark as true if it's free before the deadline - the date is valid for deposit payment
+        hasFreeCancellationBefore: isFreeBeforeDeadline,
       };
     }
   }
