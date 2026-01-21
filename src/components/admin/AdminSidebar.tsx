@@ -1,4 +1,4 @@
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Search,
@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
+  LogOut,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -28,6 +29,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/hooks/use-toast";
 
 const adminNavItems = [
   {
@@ -59,7 +62,9 @@ const adminNavItems = [
 
 export function AdminSidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { state, toggleSidebar } = useSidebar();
+  const { signOut } = useAuth();
   const isCollapsed = state === "collapsed";
 
   const isActive = (path: string) => {
@@ -67,6 +72,15 @@ export function AdminSidebar() {
       return location.pathname === "/admin";
     }
     return location.pathname.startsWith(path);
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    toast({
+      title: "Signed out",
+      description: "You have been successfully signed out.",
+    });
+    navigate("/auth/login");
   };
 
   return (
@@ -117,32 +131,62 @@ export function AdminSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-border p-2">
-        {isCollapsed ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleSidebar}
-                className="h-8 w-8"
-              >
+      <SidebarFooter className="border-t border-border p-2 space-y-1">
+        {/* Logout button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className={`
+                w-full flex items-center gap-2 px-3 py-2 rounded-lg
+                text-muted-foreground hover:text-destructive hover:bg-destructive/10
+                transition-all duration-200
+                ${isCollapsed ? 'justify-center' : 'justify-start'}
+              `}
+            >
+              <LogOut className="h-4 w-4" />
+              {!isCollapsed && <span className="text-sm">Logout</span>}
+            </Button>
+          </TooltipTrigger>
+          {isCollapsed && (
+            <TooltipContent side="right">
+              <p>Logout</p>
+            </TooltipContent>
+          )}
+        </Tooltip>
+
+        {/* Collapse toggle */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleSidebar}
+              className={`
+                w-full flex items-center gap-2 px-3 py-2 rounded-lg
+                text-muted-foreground hover:text-foreground hover:bg-muted
+                transition-all duration-200
+                ${isCollapsed ? 'justify-center' : 'justify-start'}
+              `}
+            >
+              {isCollapsed ? (
                 <ChevronRight className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">Expand sidebar</TooltipContent>
-          </Tooltip>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleSidebar}
-            className="w-full justify-start gap-2"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            <span>Collapse</span>
-          </Button>
-        )}
+              ) : (
+                <>
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="text-sm">Collapse</span>
+                </>
+              )}
+            </Button>
+          </TooltipTrigger>
+          {isCollapsed && (
+            <TooltipContent side="right">
+              <p>Expand sidebar</p>
+            </TooltipContent>
+          )}
+        </Tooltip>
       </SidebarFooter>
     </Sidebar>
   );
