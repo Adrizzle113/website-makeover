@@ -25,14 +25,14 @@ const PAYMENT_METHODS: Array<{
     label: "Book Now, Pay Later",
     description: "Create an invoice and pay via bank transfer, card, or payment link from your account",
     icon: Wallet,
-    note: "Most flexible option",
+    note: "Requires pre-funded agency balance",
   },
   {
     value: "now_net",
     label: "Pay Now (NET Price)",
     description: "Your card will be charged the NET rate immediately upon booking",
     icon: CreditCard,
-    note: "Best for direct payments",
+    note: "Recommended for most bookings",
   },
   {
     value: "now_gross",

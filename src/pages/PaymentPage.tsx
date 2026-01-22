@@ -78,6 +78,9 @@ const PaymentPage = () => {
   // Payment error state
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
+  // Track if payment was attempted - prevents order form reload after payment failure
+  const [paymentAttempted, setPaymentAttempted] = useState(false);
+
   // Debug mode (enabled by ?debug=1)
   const isDebugMode = searchParams.get("debug") === "1";
   const [copiedDebug, setCopiedDebug] = useState(false);
@@ -241,8 +244,14 @@ const PaymentPage = () => {
     }
 
     // Skip if already loaded or loading (prevents duplicate calls on refresh/StrictMode)
+    // Also skip if payment was already attempted - order form data is still valid
     if (formDataLoaded || isLoadingForm) {
       console.log("⏭️ Order form already loaded or loading, skipping API call");
+      return;
+    }
+    
+    if (paymentAttempted && orderId && itemId) {
+      console.log("⏭️ Payment already attempted with valid order data - skipping reload");
       return;
     }
 
@@ -281,9 +290,10 @@ const PaymentPage = () => {
           setRecommendedPaymentType(cachedData.recommendedPaymentType);
         }
         
-        // Set default payment type
-        const defaultType = paymentMethods.includes("hotel") ? "hotel" : 
-                            paymentMethods.includes("now_net") ? "now_net" : 
+        // Set default payment type - prefer card/hotel over deposit (deposit requires agency balance)
+        const defaultType = paymentMethods.includes("now_net") ? "now_net" : 
+                            paymentMethods.includes("now_gross") ? "now_gross" :
+                            paymentMethods.includes("hotel") ? "hotel" : 
                             paymentMethods[0] || "deposit";
         const selectedType = cachedData.selectedPaymentType || defaultType;
         setPaymentType(selectedType);
@@ -402,9 +412,10 @@ const PaymentPage = () => {
         setPaymentType(uiPaymentType);
         console.log("💡 Auto-selected payment type:", uiPaymentType, "(recommended:", recommended.type, ")");
       } else {
-        // No recommendation - default to hotel or now_net
-        const defaultType = paymentMethods.includes("hotel") ? "hotel" : 
-                            paymentMethods.includes("now_net") ? "now_net" : 
+        // No recommendation - default to card payment or hotel (deposit requires agency balance)
+        const defaultType = paymentMethods.includes("now_net") ? "now_net" : 
+                            paymentMethods.includes("now_gross") ? "now_gross" :
+                            paymentMethods.includes("hotel") ? "hotel" : 
                             paymentMethods[0] || "deposit";
         setPaymentType(defaultType);
         console.log("💡 No recommended payment type - defaulting to:", defaultType);
@@ -831,6 +842,7 @@ const PaymentPage = () => {
 
     setIsProcessing(true);
     setPaymentError(null);
+    setPaymentAttempted(true); // Prevent order form reload after payment attempt
 
     try {
       const leadGuest = bookingData!.guests.find((g) => g.isLead);
