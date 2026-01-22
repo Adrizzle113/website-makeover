@@ -296,15 +296,56 @@ export default function MyBookingsPage() {
     setIsRefreshing(false);
   }, [fetchBookingFromApi]);
 
-  // Initial load
+  // Initial load - fetch from database first, then localStorage fallback
   useEffect(() => {
-    const savedOrderIds = getSavedOrderIds();
-    fetchAllBookings(savedOrderIds);
+    const loadBookings = async () => {
+      setIsLoading(true);
+      
+      // Check if user is authenticated
+      const authenticated = await isUserAuthenticated();
+      
+      if (authenticated) {
+        // Fetch from database first
+        const dbBookings = await getUserBookings();
+        
+        if (dbBookings.length > 0) {
+          setBookings(dbBookings);
+          setIsLoading(false);
+          return;
+        }
+      }
+      
+      // Fall back to localStorage order IDs (for backward compatibility or when not authenticated)
+      const savedOrderIds = getSavedOrderIds();
+      if (savedOrderIds.length > 0) {
+        await fetchAllBookings(savedOrderIds);
+      } else {
+        setBookings([]);
+        setIsLoading(false);
+      }
+    };
+    
+    loadBookings();
   }, [fetchAllBookings]);
 
   // Refresh handler
   const handleRefresh = async () => {
     setIsRefreshing(true);
+    
+    // Try to sync from database first if authenticated
+    const authenticated = await isUserAuthenticated();
+    
+    if (authenticated) {
+      const dbBookings = await getUserBookings();
+      if (dbBookings.length > 0) {
+        setBookings(dbBookings);
+        setIsRefreshing(false);
+        toast.success("Bookings refreshed");
+        return;
+      }
+    }
+    
+    // Fall back to localStorage
     const savedOrderIds = getSavedOrderIds();
     await fetchAllBookings(savedOrderIds);
     toast.success("Bookings refreshed");

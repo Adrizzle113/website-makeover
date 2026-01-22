@@ -55,17 +55,18 @@ export const Login = (): JSX.Element => {
       }
 
       if (data.user) {
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
+        // Fetch role from user_roles table
+        const { data: userRole, error: roleError } = await supabase
+          .from("user_roles")
           .select("role")
-          .eq("id", data.user.id)
+          .eq("user_id", data.user.id)
           .maybeSingle();
 
-        if (profileError) {
-          console.error("Error fetching profile:", profileError);
+        if (roleError) {
+          console.error("Error fetching role:", roleError);
         }
 
-        const redirectTo = profile?.role === "admin" ? "/admin" : "/dashboard";
+        const redirectTo = userRole?.role === "admin" ? "/admin" : "/dashboard";
         setSuccess(true);
         setTimeout(() => navigate(redirectTo), 1500);
       }

@@ -71,7 +71,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function SettingsPage() {
-  const { user, profile: authProfile } = useAuth();
+  const { user, profile: authProfile, role: authRole } = useAuth();
   const [profile, setProfile] = useState({
     firstName: "John",
     lastName: "Doe",
@@ -233,9 +233,9 @@ export default function SettingsPage() {
       firstName: authProfile?.first_name || "",
       lastName: authProfile?.last_name || "",
       email: authProfile?.email || user?.email || "",
-      role: authProfile?.role || prev.role,
+      role: authRole || prev.role,
     }));
-  }, [authProfile, user]);
+  }, [authProfile, user, authRole]);
 
   const handleSavePreferences = () => {
     saveLanguage(preferences.language as "en" | "pt-BR");
