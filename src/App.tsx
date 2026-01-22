@@ -43,7 +43,7 @@ import {
 } from "./pages/admin";
 import { AdminProtectedRoute } from "@/components/auth/AdminProtectedRoute";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { Login, Register, EmailVerification, PendingApproval } from "./pages/auth";
+import { Login, Register, EmailVerification, PendingApproval, ForgotPassword, ResetPassword } from "./pages/auth";
 
 import NotFound from "./pages/NotFound";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -63,6 +63,8 @@ const App = () => (
             <Route path="/auth/register" element={<Register />} />
             <Route path="/auth/verify-email" element={<EmailVerification />} />
             <Route path="/auth/pending-approval" element={<PendingApproval />} />
+            <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+            <Route path="/auth/reset-password" element={<ResetPassword />} />
             {/* Public Routes */}
             <Route path="/" element={<SearchPage />} />
             <Route path="/contact" element={<ContactPage />} />
