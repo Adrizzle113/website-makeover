@@ -242,6 +242,8 @@ const translations: Record<Language, Record<string, string>> = {
     "resetPassword.error.passwordLength": "Password must be at least 6 characters",
     "resetPassword.error.passwordMismatch": "Passwords do not match",
     "resetPassword.error.failed": "Failed to update password. Please try again.",
+    "resetPassword.error.invalidLink": "This password reset link is invalid or has expired. Please request a new one.",
+    "resetPassword.verifying": "Verifying reset link...",
     
     // Email Verification Page
     "verify.heroTitle1": "Almost",
@@ -536,6 +538,8 @@ const translations: Record<Language, Record<string, string>> = {
     "resetPassword.error.passwordLength": "A senha deve ter pelo menos 6 caracteres",
     "resetPassword.error.passwordMismatch": "As senhas não coincidem",
     "resetPassword.error.failed": "Falha ao atualizar senha. Por favor, tente novamente.",
+    "resetPassword.error.invalidLink": "Este link de redefinição é inválido ou expirou. Por favor, solicite um novo.",
+    "resetPassword.verifying": "Verificando link de redefinição...",
     
     // Email Verification Page
     "verify.heroTitle1": "Quase",
