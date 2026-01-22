@@ -28,7 +28,6 @@ export type Database = {
           last_name: string | null
           legal_name: string | null
           phone_number: string | null
-          role: "admin" | "user"
           status: Database["public"]["Enums"]["approval_status"] | null
           updated_at: string | null
         }
@@ -45,7 +44,6 @@ export type Database = {
           last_name?: string | null
           legal_name?: string | null
           phone_number?: string | null
-          role?: "admin" | "user"
           status?: Database["public"]["Enums"]["approval_status"] | null
           updated_at?: string | null
         }
@@ -62,9 +60,125 @@ export type Database = {
           last_name?: string | null
           legal_name?: string | null
           phone_number?: string | null
-          role?: "admin" | "user"
           status?: Database["public"]["Enums"]["approval_status"] | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      user_bookings: {
+        Row: {
+          amount: string | null
+          amount_refunded: string | null
+          cancellation_policies: Json | null
+          cancelled_at: string | null
+          check_in_date: string
+          check_out_date: string
+          confirmation_number: string | null
+          created_at: string | null
+          currency_code: string | null
+          free_cancellation_before: string | null
+          guests_data: Json | null
+          hotel_address: string | null
+          hotel_city: string | null
+          hotel_country: string | null
+          hotel_id: string | null
+          hotel_image: string | null
+          hotel_name: string | null
+          hotel_phone: string | null
+          hotel_star_rating: number | null
+          id: string
+          is_cancellable: boolean | null
+          last_synced_at: string | null
+          lead_guest_email: string | null
+          lead_guest_name: string | null
+          nights: number | null
+          order_group_id: string | null
+          order_id: string
+          partner_order_id: string | null
+          payment_status: string | null
+          payment_type: string | null
+          raw_api_response: Json | null
+          rooms_data: Json | null
+          status: string
+          taxes: Json | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          amount?: string | null
+          amount_refunded?: string | null
+          cancellation_policies?: Json | null
+          cancelled_at?: string | null
+          check_in_date: string
+          check_out_date: string
+          confirmation_number?: string | null
+          created_at?: string | null
+          currency_code?: string | null
+          free_cancellation_before?: string | null
+          guests_data?: Json | null
+          hotel_address?: string | null
+          hotel_city?: string | null
+          hotel_country?: string | null
+          hotel_id?: string | null
+          hotel_image?: string | null
+          hotel_name?: string | null
+          hotel_phone?: string | null
+          hotel_star_rating?: number | null
+          id?: string
+          is_cancellable?: boolean | null
+          last_synced_at?: string | null
+          lead_guest_email?: string | null
+          lead_guest_name?: string | null
+          nights?: number | null
+          order_group_id?: string | null
+          order_id: string
+          partner_order_id?: string | null
+          payment_status?: string | null
+          payment_type?: string | null
+          raw_api_response?: Json | null
+          rooms_data?: Json | null
+          status?: string
+          taxes?: Json | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: string | null
+          amount_refunded?: string | null
+          cancellation_policies?: Json | null
+          cancelled_at?: string | null
+          check_in_date?: string
+          check_out_date?: string
+          confirmation_number?: string | null
+          created_at?: string | null
+          currency_code?: string | null
+          free_cancellation_before?: string | null
+          guests_data?: Json | null
+          hotel_address?: string | null
+          hotel_city?: string | null
+          hotel_country?: string | null
+          hotel_id?: string | null
+          hotel_image?: string | null
+          hotel_name?: string | null
+          hotel_phone?: string | null
+          hotel_star_rating?: number | null
+          id?: string
+          is_cancellable?: boolean | null
+          last_synced_at?: string | null
+          lead_guest_email?: string | null
+          lead_guest_name?: string | null
+          nights?: number | null
+          order_group_id?: string | null
+          order_id?: string
+          partner_order_id?: string | null
+          payment_status?: string | null
+          payment_type?: string | null
+          raw_api_response?: Json | null
+          rooms_data?: Json | null
+          status?: string
+          taxes?: Json | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }

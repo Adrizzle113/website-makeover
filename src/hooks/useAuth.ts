@@ -25,14 +25,21 @@ export function useAuth() {
 
   const fetchUserData = useCallback(async (userId: string) => {
     try {
-      // Fetch profile
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
+      // Fetch profile and role in parallel
+      const [{ data: profile }, { data: userRole }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", userId)
+          .maybeSingle(),
+        supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .maybeSingle(),
+      ]);
 
-      const role = profile?.role ?? "user";
+      const role = (userRole?.role as AppRole) ?? "user";
 
       setAuthState((prev) => ({
         ...prev,
