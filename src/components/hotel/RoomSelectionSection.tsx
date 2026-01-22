@@ -1,3 +1,4 @@
+import * as React from "react";
 import { useState, useMemo } from "react";
 import { Plus, Minus, Bed, Check, X, Users, Maximize, Wifi, Bath, Wind, Tv, Crown, Home, Star, Coffee, ChevronDown, ChevronUp } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -842,13 +843,14 @@ interface RoomSelectionSectionExtendedProps extends RoomSelectionSectionProps {
   onRefreshRates?: () => void;
 }
 
-export function RoomSelectionSection({ 
-  hotel, 
-  isLoading = false,
-  checkInTime,
-  checkOutTime,
-  onRefreshRates,
-}: RoomSelectionSectionExtendedProps) {
+export const RoomSelectionSection = React.forwardRef<HTMLElement, RoomSelectionSectionExtendedProps>(
+  function RoomSelectionSection({ 
+    hotel, 
+    isLoading = false,
+    checkInTime,
+    checkOutTime,
+    onRefreshRates,
+  }, ref) {
   const { selectedRooms, addRoom, updateRoomQuantity, searchParams, upsellsPreferences, resetUpsellsPreferences } = useBookingStore();
   const [displayedRooms, setDisplayedRooms] = useState(6);
   const [selectedRates, setSelectedRates] = useState<Record<string, string>>({});
@@ -993,7 +995,7 @@ export function RoomSelectionSection({
 
   if (isLoading) {
     return (
-      <section className="py-8 bg-app-white-smoke">
+      <section ref={ref} className="py-8 bg-app-white-smoke">
         <div className="container">
           <h2 className="font-heading text-heading-standard text-foreground mb-6">
             Select Your Rooms
@@ -1027,7 +1029,7 @@ export function RoomSelectionSection({
 
   if (sortedRooms.length === 0) {
     return (
-      <section className="py-8 bg-app-white-smoke">
+      <section ref={ref} className="py-8 bg-app-white-smoke">
         <div className="container">
           <div className="text-center max-w-md mx-auto">
             <h2 className="font-heading text-heading-standard text-foreground mb-4">
@@ -1061,7 +1063,7 @@ export function RoomSelectionSection({
   }
 
   return (
-    <section className="py-8 bg-app-white-smoke">
+    <section ref={ref} className="py-8 bg-app-white-smoke">
       <div className="container">
         <div className="mb-6">
           <h2 className="font-heading text-heading-standard text-foreground mb-2">
@@ -1235,4 +1237,4 @@ export function RoomSelectionSection({
       </div>
     </section>
   );
-}
+});
