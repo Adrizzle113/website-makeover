@@ -1020,13 +1020,38 @@ const PaymentPage = () => {
       if (isB2BBalanceError) {
         console.log("⚠️ B2B balance error - showing payment options");
         
+        // Check what alternative payment methods are available
+        const hasHotelPayment = availablePaymentMethods.includes("hotel");
+        const hasCardPayment = availablePaymentMethods.some(m => m === "now" || m === "now_net" || m === "now_gross");
+        
+        let alternativeMessage = "";
+        if (hasCardPayment) {
+          alternativeMessage = "Please pay with a credit card instead.";
+        } else if (hasHotelPayment) {
+          alternativeMessage = "Please select 'Pay at Property' instead.";
+        } else {
+          alternativeMessage = "Please try a different payment method or contact support.";
+        }
+        
         toast({
-          title: "Deposit Payment Failed",
-          description: "Insufficient account balance. Please choose a different payment method.",
+          title: "Deposit Payment Unavailable",
+          description: `Agency balance insufficient for "Book Now, Pay Later". ${alternativeMessage}`,
           variant: "destructive",
         });
         
-        setPaymentError("Insufficient account balance for deposit payment. Try 'Pay at Property' or card payment.");
+        // If card payment is available, suggest switching to it
+        if (hasCardPayment) {
+          const cardMethod = availablePaymentMethods.find(m => m === "now_net" || m === "now_gross" || m === "now");
+          if (cardMethod) {
+            setPaymentType(cardMethod);
+          }
+          setPaymentError(`"Book Now, Pay Later" requires agency balance. Please complete payment with your credit card.`);
+        } else if (hasHotelPayment) {
+          setPaymentType("hotel");
+          setPaymentError(`"Book Now, Pay Later" requires agency balance. Please use "Pay at Property" option.`);
+        } else {
+          setPaymentError("Deposit payment unavailable. Please contact support for assistance.");
+        }
         return;
       }
       
