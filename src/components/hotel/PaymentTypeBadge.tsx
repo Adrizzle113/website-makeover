@@ -1,3 +1,4 @@
+import * as React from "react";
 import { CreditCard, Building } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -54,17 +55,20 @@ export const normalizePaymentType = (type: string): PaymentTypeCode => {
   return "deposit";
 };
 
-export function PaymentTypeBadge({ paymentType, className, showLabel = true }: PaymentTypeBadgeProps) {
-  const normalizedType = normalizePaymentType(paymentType);
-  const config = paymentConfig[normalizedType] || paymentConfig.hotel;
+export const PaymentTypeBadge = React.forwardRef<HTMLDivElement, PaymentTypeBadgeProps>(
+  function PaymentTypeBadge({ paymentType, className, showLabel = true }, ref) {
+    const normalizedType = normalizePaymentType(paymentType);
+    const config = paymentConfig[normalizedType] || paymentConfig.hotel;
 
-  return (
-    <Badge 
-      variant="outline" 
-      className={cn("flex items-center gap-1", config.className, className)}
-    >
-      {config.icon}
-      {showLabel && <span>{config.label}</span>}
-    </Badge>
-  );
-}
+    return (
+      <Badge 
+        ref={ref}
+        variant="outline" 
+        className={cn("flex items-center gap-1", config.className, className)}
+      >
+        {config.icon}
+        {showLabel && <span>{config.label}</span>}
+      </Badge>
+    );
+  }
+);
