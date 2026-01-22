@@ -16,20 +16,58 @@ export const ResetPassword = (): JSX.Element => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    // Check if user has a valid recovery session
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        // No recovery session, redirect to forgot password
-        navigate("/auth/forgot-password");
+    // Handle the auth callback from the email link
+    const handleAuthCallback = async () => {
+      try {
+        // Check for hash parameters (Supabase sends tokens in URL hash)
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token");
+        const type = hashParams.get("type");
+
+        if (accessToken && type === "recovery") {
+          // Set the session from the recovery tokens
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || "",
+          });
+
+          if (sessionError) {
+            console.error("Session error:", sessionError);
+            setError(t("resetPassword.error.invalidLink"));
+            setInitializing(false);
+            return;
+          }
+
+          // Clear the hash from URL for cleaner appearance
+          window.history.replaceState(null, "", window.location.pathname);
+          setInitializing(false);
+          return;
+        }
+
+        // Check if user has an existing valid session
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          // No valid session, redirect to forgot password
+          navigate("/auth/forgot-password");
+          return;
+        }
+
+        setInitializing(false);
+      } catch (err) {
+        console.error("Auth callback error:", err);
+        setError(t("resetPassword.error.invalidLink"));
+        setInitializing(false);
       }
     };
-    checkSession();
-  }, [navigate]);
+
+    handleAuthCallback();
+  }, [navigate, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,6 +115,23 @@ export const ResetPassword = (): JSX.Element => {
       setLoading(false);
     }
   };
+
+  // Show loading while initializing
+  if (initializing) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/10 p-8">
+        <div className="absolute top-4 right-4 z-50">
+          <LanguageToggle />
+        </div>
+        <Card className="w-full max-w-md border-none shadow-2xl bg-card/80 backdrop-blur-sm">
+          <CardContent className="p-10 text-center">
+            <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">{t("resetPassword.verifying")}</p>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
 
   if (success) {
     return (
