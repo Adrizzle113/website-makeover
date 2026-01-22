@@ -844,13 +844,16 @@ interface RoomSelectionSectionExtendedProps extends RoomSelectionSectionProps {
 }
 
 export const RoomSelectionSection = React.forwardRef<HTMLElement, RoomSelectionSectionExtendedProps>(
-  function RoomSelectionSection({ 
-    hotel, 
-    isLoading = false,
-    checkInTime,
-    checkOutTime,
-    onRefreshRates,
-  }, ref) {
+  function RoomSelectionSection(
+    { 
+      hotel, 
+      isLoading = false,
+      checkInTime,
+      checkOutTime,
+      onRefreshRates,
+    },
+    ref
+  ) {
   const { selectedRooms, addRoom, updateRoomQuantity, searchParams, upsellsPreferences, resetUpsellsPreferences } = useBookingStore();
   const [displayedRooms, setDisplayedRooms] = useState(6);
   const [selectedRates, setSelectedRates] = useState<Record<string, string>>({});
