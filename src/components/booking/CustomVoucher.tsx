@@ -125,6 +125,19 @@ function formatBedding(bedding?: string | string[]): string {
   return String(bedding);
 }
 
+/**
+ * Format fee name to be human-readable (handle underscore-separated names)
+ */
+function formatFeeName(name: string): string {
+  if (!name) return 'Fee';
+  // Replace underscores with spaces and capitalize each word
+  return name
+    .replace(/_/g, ' ')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
 export function generateCustomVoucherHTML(data: VoucherData): string {
   const checkInDateFormatted = formatDateShort(data.checkIn);
   const checkOutDateFormatted = formatDateShort(data.checkOut);
@@ -143,9 +156,11 @@ export function generateCustomVoucherHTML(data: VoucherData): string {
   // Bedding formatted
   const beddingText = formatBedding(data.bedding);
 
-  // Build included fees list
-  const includedFees = data.includedFees || data.fees?.filter(f => f.includedBySupplier) || [];
-  const notIncludedFees = data.notIncludedFees || data.fees?.filter(f => !f.includedBySupplier) || [];
+  // Build included fees list and format names
+  const includedFees = (data.includedFees || data.fees?.filter(f => f.includedBySupplier) || [])
+    .map(f => ({ ...f, name: formatFeeName(f.name) }));
+  const notIncludedFees = (data.notIncludedFees || data.fees?.filter(f => !f.includedBySupplier) || [])
+    .map(f => ({ ...f, name: formatFeeName(f.name) }));
   
   // Build deposits list
   const depositsList = data.deposits || (data.depositInfo ? [data.depositInfo] : []);
