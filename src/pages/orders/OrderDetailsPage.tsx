@@ -100,6 +100,7 @@ interface ExtendedOrder extends Order {
     childrenCount?: number;
     latitude?: number;
     longitude?: number;
+    hotelPhone?: string;
   };
 }
 
@@ -329,8 +330,12 @@ export default function OrderDetailsPage() {
         console.log('Could not fetch hotel image:', imgErr);
       }
 
-      // Fetch hotel info for deposits and policies
+      // Fetch hotel info for name, address, deposits and policies
       const hotelHid = apiData._raw?.hotel_data?.hid;
+      let hotelName: string | undefined;
+      let hotelAddress: string | undefined;
+      let hotelCity: string | undefined;
+      let hotelCountry: string | undefined;
       let hotelDeposits: string[] = [];
       let hotelPhone: string | undefined;
       let hotelCheckInTime: string | undefined;
@@ -345,15 +350,39 @@ export default function OrderDetailsPage() {
           
           if (hotelInfoResponse.data?.success) {
             const hotelData = hotelInfoResponse.data.hotel;
+            hotelName = hotelData.name;
+            hotelAddress = hotelData.address;
             hotelDeposits = hotelData.deposits || [];
             hotelPhone = hotelData.phone;
             hotelCheckInTime = hotelData.check_in_time;
             hotelCheckOutTime = hotelData.check_out_time;
-            console.log(`✅ Hotel info fetched: ${hotelDeposits.length} deposits found`);
+            
+            // Parse city/country from address if available
+            if (hotelData.raw_data?.region) {
+              const region = hotelData.raw_data.region;
+              hotelCity = region.name;
+              hotelCountry = region.country_name;
+            }
+            
+            console.log(`✅ Hotel info fetched: ${hotelName}, ${hotelDeposits.length} deposits found`);
           }
         } catch (hotelErr) {
           console.log('Could not fetch hotel info:', hotelErr);
         }
+      }
+
+      // Merge hotel info into orderData (prefer API values over null from order info)
+      if (hotelName && !orderData.hotelName) {
+        orderData.hotelName = hotelName;
+      }
+      if (hotelAddress && !orderData.hotelAddress) {
+        orderData.hotelAddress = hotelAddress;
+      }
+      if (hotelCity && !orderData.city) {
+        orderData.city = hotelCity;
+      }
+      if (hotelCountry && !orderData.country) {
+        orderData.country = hotelCountry;
       }
 
       // Update order with hotel info data
@@ -362,6 +391,7 @@ export default function OrderDetailsPage() {
         deposits: hotelDeposits.length > 0 ? hotelDeposits : orderData.voucherData?.deposits,
         checkInTime: hotelCheckInTime || orderData.voucherData?.checkInTime,
         checkOutTime: hotelCheckOutTime || orderData.voucherData?.checkOutTime,
+        hotelPhone: hotelPhone,
       };
 
       setOrder(orderData);
@@ -540,7 +570,7 @@ export default function OrderDetailsPage() {
       hotelAddress: order.hotelAddress,
       hotelCity: order.city,
       hotelCountry: order.country,
-      hotelPhone: undefined,
+      hotelPhone: order.voucherData?.hotelPhone,
       hotelImage: hotelImage || undefined,
       checkIn: order.checkIn,
       checkOut: order.checkOut,
