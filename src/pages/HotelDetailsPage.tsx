@@ -838,10 +838,18 @@ const HotelDetailsPage = () => {
       const existingMainImage = typeof (data.hotel as any)?.mainImage === "string" ? (data.hotel as any).mainImage : undefined;
       const existingLegacyImage = typeof data.hotel.image === "string" ? data.hotel.image : undefined;
       const existingFirstImage = getFirstImageUrl(existingImages);
+      
+      // Prioritize static info images (real WorldOTA CDN) over WorldOTA edge function (Hotellook fallback)
+      const staticFirstImage = staticImages.length > 0 
+        ? (typeof staticImages[0] === 'string' 
+          ? staticImages[0].replace('{size}', '1024x768')
+          : ((staticImages[0] as any).url || (staticImages[0] as any).tmpl || '').replace('{size}', '1024x768'))
+        : undefined;
       const worldotaFirstImage = worldotaImages.length > 0 ? worldotaImages[0].url : undefined;
 
       const pickedMainImageRaw =
-        worldotaFirstImage ||
+        staticFirstImage ||  // Real WorldOTA CDN image takes priority
+        worldotaFirstImage ||  // Then WorldOTA edge function (may be fallback)
         (existingMainImage && !isPlaceholderImage(existingMainImage) ? existingMainImage : undefined) ||
         (existingLegacyImage && !isPlaceholderImage(existingLegacyImage) ? existingLegacyImage : undefined) ||
         existingFirstImage;
