@@ -170,7 +170,7 @@ export function transformBookingRow(row: UserBookingRow): UserBooking {
     partnerOrderId: row.partner_order_id || undefined,
     hotelName: row.hotel_name || "Unknown Hotel",
     hotelImage: row.hotel_image || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400",
-    hotelStars: row.hotel_star_rating || 4,
+    hotelStars: row.hotel_star_rating ?? 0,
     city: row.hotel_city || "",
     country: row.hotel_country || "",
     address: row.hotel_address || "",
