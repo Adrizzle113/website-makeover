@@ -8,12 +8,14 @@ import {
   Columns3Icon,
   CheckIcon,
   FileDownIcon,
-  Trash2Icon
+  Trash2Icon,
+  Loader2Icon
 } from "lucide-react";
 import { ReportingLayout, ReportingFilterToolbar, BookingDrawer, StatusBadge } from "@/components/reporting";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -41,6 +43,7 @@ import {
 } from "@/components/ui/pagination";
 import { ReportingFilters, ReportingBooking, SavedView } from "@/types/reporting";
 import { toast } from "@/hooks/use-toast";
+import { useReportingBookings } from "@/hooks/useReportingBookings";
 
 // Column definition type
 interface ColumnDef {
@@ -86,221 +89,7 @@ const defaultVisibleColumns = ["bookingId", "etgOrderId", "status", "guest", "ho
 const COLUMN_VISIBILITY_KEY = "bookings-report-columns";
 const ITEMS_PER_PAGE_KEY = "bookings-report-items-per-page";
 
-// Mock data
-const mockBookings: ReportingBooking[] = [
-  {
-    id: "BK-2025-001",
-    etgOrderId: "ETG-789456123",
-    status: "confirmed",
-    leadGuest: "John Smith",
-    guestEmail: "john.smith@email.com",
-    hotel: "Grand Hyatt Tokyo",
-    city: "Tokyo",
-    country: "Japan",
-    checkIn: "2025-02-15",
-    checkOut: "2025-02-18",
-    nights: 3,
-    roomType: "Deluxe King Room",
-    clientTotal: 1850,
-    supplierTotal: 1480,
-    margin: 370,
-    marginPercent: 20,
-    currency: "USD",
-    paymentType: "now_net",
-    paymentStatus: "collected",
-    agentName: "Sarah Johnson",
-    groupName: "Acme Travel Corp",
-    cancellationPolicy: "Free cancellation until Feb 13, 2025",
-    cancellationDeadline: "2025-02-13T18:00:00Z",
-    createdAt: "2025-01-10T14:30:00Z",
-    confirmedAt: "2025-01-10T14:35:00Z",
-  },
-  {
-    id: "BK-2025-002",
-    etgOrderId: "ETG-456789123",
-    status: "processing",
-    leadGuest: "Emma Wilson",
-    guestEmail: "emma.wilson@email.com",
-    hotel: "The Ritz Paris",
-    city: "Paris",
-    country: "France",
-    checkIn: "2025-03-01",
-    checkOut: "2025-03-05",
-    nights: 4,
-    roomType: "Superior Suite",
-    clientTotal: 4200,
-    supplierTotal: 3360,
-    margin: 840,
-    marginPercent: 20,
-    currency: "EUR",
-    paymentType: "deposit",
-    paymentStatus: "not_collected",
-    agentName: "Michael Chen",
-    groupName: "Global Adventures",
-    cancellationPolicy: "Non-refundable",
-    createdAt: "2025-01-12T09:15:00Z",
-  },
-  {
-    id: "BK-2025-003",
-    etgOrderId: "ETG-321654987",
-    status: "cancelled",
-    leadGuest: "David Brown",
-    guestEmail: "david.brown@email.com",
-    hotel: "Marina Bay Sands",
-    city: "Singapore",
-    country: "Singapore",
-    checkIn: "2025-02-20",
-    checkOut: "2025-02-23",
-    nights: 3,
-    roomType: "Premier Room",
-    clientTotal: 2100,
-    supplierTotal: 1680,
-    margin: 420,
-    marginPercent: 20,
-    currency: "SGD",
-    paymentType: "now_gross",
-    paymentStatus: "collected",
-    agentName: "Sarah Johnson",
-    groupName: "Sunshine Holidays",
-    cancellationPolicy: "Free cancellation until Feb 18, 2025",
-    cancellationDeadline: "2025-02-18T18:00:00Z",
-    createdAt: "2025-01-08T16:45:00Z",
-    confirmedAt: "2025-01-08T16:50:00Z",
-  },
-  {
-    id: "BK-2025-004",
-    etgOrderId: "ETG-654987321",
-    status: "confirmed",
-    leadGuest: "Sophie Taylor",
-    guestEmail: "sophie.taylor@email.com",
-    hotel: "Four Seasons New York",
-    city: "New York",
-    country: "USA",
-    checkIn: "2025-02-28",
-    checkOut: "2025-03-02",
-    nights: 2,
-    roomType: "Park View Room",
-    clientTotal: 1600,
-    supplierTotal: 1280,
-    margin: 320,
-    marginPercent: 20,
-    currency: "USD",
-    paymentType: "hotel",
-    paymentStatus: "pay_at_property",
-    agentName: "John Smith",
-    groupName: "Acme Travel Corp",
-    cancellationPolicy: "Free cancellation until Feb 26, 2025",
-    cancellationDeadline: "2025-02-26T18:00:00Z",
-    createdAt: "2025-01-14T11:20:00Z",
-    confirmedAt: "2025-01-14T11:25:00Z",
-  },
-  {
-    id: "BK-2025-005",
-    etgOrderId: "ETG-987321654",
-    status: "failed",
-    leadGuest: "James Anderson",
-    guestEmail: "james.anderson@email.com",
-    hotel: "Burj Al Arab",
-    city: "Dubai",
-    country: "UAE",
-    checkIn: "2025-03-10",
-    checkOut: "2025-03-14",
-    nights: 4,
-    roomType: "Deluxe Suite",
-    clientTotal: 8500,
-    supplierTotal: 6800,
-    margin: 1700,
-    marginPercent: 20,
-    currency: "AED",
-    paymentType: "now_net",
-    paymentStatus: "not_collected",
-    agentName: "Michael Chen",
-    groupName: "Global Adventures",
-    cancellationPolicy: "Free cancellation until Mar 8, 2025",
-    cancellationDeadline: "2025-03-08T18:00:00Z",
-    createdAt: "2025-01-15T08:00:00Z",
-  },
-  // Additional mock data for pagination testing
-  {
-    id: "BK-2025-006",
-    etgOrderId: "ETG-111222333",
-    status: "confirmed",
-    leadGuest: "Alice Cooper",
-    guestEmail: "alice.cooper@email.com",
-    hotel: "The Peninsula Hong Kong",
-    city: "Hong Kong",
-    country: "China",
-    checkIn: "2025-03-20",
-    checkOut: "2025-03-25",
-    nights: 5,
-    roomType: "Grand Deluxe Suite",
-    clientTotal: 5200,
-    supplierTotal: 4160,
-    margin: 1040,
-    marginPercent: 20,
-    currency: "HKD",
-    paymentType: "now_net",
-    paymentStatus: "collected",
-    agentName: "Sarah Johnson",
-    groupName: "Luxury Escapes",
-    cancellationPolicy: "Free cancellation until Mar 18, 2025",
-    cancellationDeadline: "2025-03-18T18:00:00Z",
-    createdAt: "2025-01-16T10:00:00Z",
-    confirmedAt: "2025-01-16T10:05:00Z",
-  },
-  {
-    id: "BK-2025-007",
-    etgOrderId: "ETG-444555666",
-    status: "confirmed",
-    leadGuest: "Robert Martinez",
-    guestEmail: "robert.martinez@email.com",
-    hotel: "Aman Tokyo",
-    city: "Tokyo",
-    country: "Japan",
-    checkIn: "2025-04-01",
-    checkOut: "2025-04-05",
-    nights: 4,
-    roomType: "Deluxe Room",
-    clientTotal: 3600,
-    supplierTotal: 2880,
-    margin: 720,
-    marginPercent: 20,
-    currency: "JPY",
-    paymentType: "deposit",
-    paymentStatus: "not_collected",
-    agentName: "Michael Chen",
-    groupName: "Elite Tours",
-    cancellationPolicy: "Free cancellation until Mar 30, 2025",
-    cancellationDeadline: "2025-03-30T18:00:00Z",
-    createdAt: "2025-01-17T14:30:00Z",
-  },
-  {
-    id: "BK-2025-008",
-    etgOrderId: "ETG-777888999",
-    status: "processing",
-    leadGuest: "Linda Chen",
-    guestEmail: "linda.chen@email.com",
-    hotel: "Mandarin Oriental Bangkok",
-    city: "Bangkok",
-    country: "Thailand",
-    checkIn: "2025-04-10",
-    checkOut: "2025-04-15",
-    nights: 5,
-    roomType: "Authors' Suite",
-    clientTotal: 2800,
-    supplierTotal: 2240,
-    margin: 560,
-    marginPercent: 20,
-    currency: "THB",
-    paymentType: "now_gross",
-    paymentStatus: "collected",
-    agentName: "John Smith",
-    groupName: "Global Adventures",
-    cancellationPolicy: "Non-refundable",
-    createdAt: "2025-01-18T09:00:00Z",
-  },
-];
-
+// Saved views (could be persisted to database in the future)
 const mockSavedViews: SavedView[] = [
   { id: "1", name: "This Month", filters: {}, createdAt: "2025-01-01", isDefault: true },
   { id: "2", name: "Unpaid Bookings", filters: { paymentStatus: ["not_collected"] as any }, createdAt: "2025-01-01" },
@@ -311,6 +100,9 @@ export function BookingsReportPage() {
   const [filters, setFilters] = useState<ReportingFilters>({});
   const [selectedBooking, setSelectedBooking] = useState<ReportingBooking | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  
+  // Fetch real bookings from database
+  const { bookings: filteredBookings, isLoading, error, refetch } = useReportingBookings(filters);
   
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -337,25 +129,6 @@ export function BookingsReportPage() {
   useEffect(() => {
     localStorage.setItem(ITEMS_PER_PAGE_KEY, itemsPerPage.toString());
   }, [itemsPerPage]);
-
-  // Filter bookings based on current filters
-  const filteredBookings = useMemo(() => {
-    return mockBookings.filter((booking) => {
-      if (filters.search) {
-        const search = filters.search.toLowerCase();
-        const matchesSearch = 
-          booking.id.toLowerCase().includes(search) ||
-          booking.etgOrderId.toLowerCase().includes(search) ||
-          booking.leadGuest.toLowerCase().includes(search) ||
-          booking.hotel.toLowerCase().includes(search) ||
-          booking.city.toLowerCase().includes(search);
-        if (!matchesSearch) return false;
-      }
-      if (filters.status?.length && !filters.status.includes(booking.status)) return false;
-      if (filters.paymentType?.length && !filters.paymentType.includes(booking.paymentType)) return false;
-      return true;
-    });
-  }, [filters]);
 
   // Pagination calculations
   const totalItems = filteredBookings.length;
@@ -596,90 +369,116 @@ export function BookingsReportPage() {
         </div>
       </div>
 
-      <div className="mt-2 border rounded-lg bg-card overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead className="w-12">
-                <Checkbox
-                  checked={isAllSelected}
-                  onCheckedChange={handleSelectAll}
-                  aria-label="Select all"
-                  className={isSomeSelected && !isAllSelected ? "opacity-50" : ""}
-                />
-              </TableHead>
-              {visibleColumnDefs.map((col) => (
-                <TableHead 
-                  key={col.id} 
-                  className={`font-semibold ${col.align === "right" ? "text-right" : ""}`}
-                >
-                  {col.label}
-                </TableHead>
-              ))}
-              <TableHead className="w-12"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedBookings.map((booking) => (
-              <TableRow
-                key={booking.id}
-                className={`cursor-pointer ${selectedIds.has(booking.id) ? "bg-primary/5" : ""}`}
-                onClick={() => handleRowClick(booking)}
-              >
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  <Checkbox
-                    checked={selectedIds.has(booking.id)}
-                    onCheckedChange={(checked) => handleSelectOne(booking.id, !!checked)}
-                    aria-label={`Select ${booking.id}`}
-                  />
-                </TableCell>
-                {visibleColumnDefs.map((col) => (
-                  <TableCell 
-                    key={col.id} 
-                    className={`${col.className || ""} ${col.align === "right" ? "text-right" : ""}`}
-                  >
-                    {col.render ? col.render(booking) : col.accessor(booking)}
-                  </TableCell>
-                ))}
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontalIcon className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-popover">
-                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRowClick(booking); }}>
-                        <EyeIcon className="w-4 h-4 mr-2" />
-                        View Details
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
-                        <DownloadIcon className="w-4 h-4 mr-2" />
-                        Download Confirmation
-                      </DropdownMenuItem>
-                      {booking.status !== "cancelled" && (
-                        <DropdownMenuItem 
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-destructive"
-                        >
-                          <XCircleIcon className="w-4 h-4 mr-2" />
-                          Cancel Booking
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-
-        {filteredBookings.length === 0 && (
-          <div className="py-12 text-center text-muted-foreground">
-            No bookings found matching your filters.
+      {/* Loading State */}
+      {isLoading && (
+        <div className="mt-2 border rounded-lg bg-card p-8">
+          <div className="flex items-center justify-center gap-3">
+            <Loader2Icon className="w-5 h-5 animate-spin text-primary" />
+            <span className="text-muted-foreground">Loading bookings...</span>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && !isLoading && (
+        <div className="mt-2 border border-destructive/20 rounded-lg bg-destructive/5 p-8">
+          <div className="text-center">
+            <p className="text-destructive font-medium">Failed to load bookings</p>
+            <p className="text-sm text-muted-foreground mt-1">{error}</p>
+            <Button variant="outline" size="sm" className="mt-4" onClick={() => refetch()}>
+              Try Again
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Table */}
+      {!isLoading && !error && (
+        <div className="mt-2 border rounded-lg bg-card overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={isAllSelected}
+                    onCheckedChange={handleSelectAll}
+                    aria-label="Select all"
+                    className={isSomeSelected && !isAllSelected ? "opacity-50" : ""}
+                  />
+                </TableHead>
+                {visibleColumnDefs.map((col) => (
+                  <TableHead 
+                    key={col.id} 
+                    className={`font-semibold ${col.align === "right" ? "text-right" : ""}`}
+                  >
+                    {col.label}
+                  </TableHead>
+                ))}
+                <TableHead className="w-12"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedBookings.map((booking) => (
+                <TableRow
+                  key={booking.id}
+                  className={`cursor-pointer ${selectedIds.has(booking.id) ? "bg-primary/5" : ""}`}
+                  onClick={() => handleRowClick(booking)}
+                >
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedIds.has(booking.id)}
+                      onCheckedChange={(checked) => handleSelectOne(booking.id, !!checked)}
+                      aria-label={`Select ${booking.id}`}
+                    />
+                  </TableCell>
+                  {visibleColumnDefs.map((col) => (
+                    <TableCell 
+                      key={col.id} 
+                      className={`${col.className || ""} ${col.align === "right" ? "text-right" : ""}`}
+                    >
+                      {col.render ? col.render(booking) : col.accessor(booking)}
+                    </TableCell>
+                  ))}
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontalIcon className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-popover">
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRowClick(booking); }}>
+                          <EyeIcon className="w-4 h-4 mr-2" />
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                          <DownloadIcon className="w-4 h-4 mr-2" />
+                          Download Confirmation
+                        </DropdownMenuItem>
+                        {booking.status !== "cancelled" && (
+                          <DropdownMenuItem 
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-destructive"
+                          >
+                            <XCircleIcon className="w-4 h-4 mr-2" />
+                            Cancel Booking
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          {filteredBookings.length === 0 && (
+            <div className="py-12 text-center text-muted-foreground">
+              No bookings found matching your filters.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (
