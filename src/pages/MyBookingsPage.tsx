@@ -772,12 +772,16 @@ export default function MyBookingsPage() {
                             <span>
                               {booking.city}, {booking.country}
                             </span>
-                            <span className="text-muted-foreground/50 mx-1">•</span>
-                            <span className="flex items-center gap-0.5">
-                              {Array.from({ length: booking.hotelStars }).map((_, i) => (
-                                <span key={i} className="text-amber-400">★</span>
-                              ))}
-                            </span>
+                            {booking.hotelStars > 0 && (
+                              <>
+                                <span className="text-muted-foreground/50 mx-1">•</span>
+                                <span className="flex items-center gap-0.5">
+                                  {Array.from({ length: booking.hotelStars }).map((_, i) => (
+                                    <span key={i} className="text-amber-400">★</span>
+                                  ))}
+                                </span>
+                              </>
+                            )}
                           </div>
 
                           <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
