@@ -77,17 +77,27 @@ interface ExtendedOrder extends Order {
   };
   // Additional voucher data extracted from API
   voucherData?: {
-    fees?: Array<{
+    includedFees?: Array<{
       name: string;
       amount: string;
       currency?: string;
-      includedBySupplier?: boolean;
     }>;
+    notIncludedFees?: Array<{
+      name: string;
+      amount: string;
+      currency?: string;
+    }>;
+    deposits?: string[];
     depositInfo?: string;
     cancellationPolicyText?: string;
     freeCancellationBefore?: string;
     checkInTime?: string;
     checkOutTime?: string;
+    bedding?: string;
+    hasBreakfast?: boolean;
+    noChildMeal?: boolean;
+    adultsCount?: number;
+    childrenCount?: number;
     latitude?: number;
     longitude?: number;
   };
@@ -231,15 +241,27 @@ export default function OrderDetailsPage() {
         documents: [],
         // Store voucher-specific data from API
         voucherData: {
-          fees: apiData.fees?.map((f: any) => ({
+          includedFees: apiData.taxes_included?.map((f: any) => ({
             name: f.name,
             amount: String(f.amount),
             currency: f.currency,
-            includedBySupplier: f.included_by_supplier,
           })),
+          notIncludedFees: apiData.taxes_not_included?.map((f: any) => ({
+            name: f.name,
+            amount: String(f.amount),
+            currency: f.currency,
+          })),
+          deposits: apiData.deposits,
           depositInfo: apiData.deposit_info,
           cancellationPolicyText: apiData.cancellation_policy_text,
           freeCancellationBefore: apiData.free_cancellation_before,
+          checkInTime: apiData.hotel?.check_in_time,
+          checkOutTime: apiData.hotel?.check_out_time,
+          bedding: apiData.room?.bedding_name,
+          hasBreakfast: apiData.room?.has_breakfast,
+          noChildMeal: apiData.room?.no_child_meal,
+          adultsCount: apiData.guest_counts?.adults,
+          childrenCount: apiData.guest_counts?.children,
           latitude: apiData.hotel?.latitude,
           longitude: apiData.hotel?.longitude,
         },
@@ -488,12 +510,27 @@ export default function OrderDetailsPage() {
       roomType: order.roomType,
       mealPlan: order.mealPlan,
       guests,
-      fees: order.voucherData?.fees,
+      // Guest counts
+      adultsCount: order.voucherData?.adultsCount || order.occupancy?.adults,
+      childrenCount: order.voucherData?.childrenCount || order.occupancy?.children,
+      // Bedding
+      bedding: order.voucherData?.bedding,
+      // Fees separated
+      includedFees: order.voucherData?.includedFees,
+      notIncludedFees: order.voucherData?.notIncludedFees,
+      // Deposits
+      deposits: order.voucherData?.deposits,
       depositInfo: order.voucherData?.depositInfo,
+      // Meal details
+      hasBreakfast: order.voucherData?.hasBreakfast,
+      noChildMeal: order.voucherData?.noChildMeal,
+      // Cancellation
       cancellationPolicy: order.voucherData?.cancellationPolicyText || order.cancellationPolicy,
+      freeCancellationBefore: order.voucherData?.freeCancellationBefore,
+      // Other
       specialRequests: order.specialRequests?.join(', '),
       latitude: order.voucherData?.latitude,
-      longitude: order.voucherData?.longitude
+      longitude: order.voucherData?.longitude,
     };
 
     openCustomVoucher(voucherData);

@@ -7,6 +7,13 @@ interface VoucherGuest {
   age?: number;
 }
 
+interface VoucherFee {
+  name: string;
+  amount: string;
+  currency?: string;
+  includedBySupplier?: boolean;
+}
+
 interface VoucherData {
   orderId: string;
   partnerOrderId?: string;
@@ -25,69 +32,127 @@ interface VoucherData {
   roomType: string;
   mealPlan?: string;
   guests: VoucherGuest[];
-  fees?: Array<{
-    name: string;
-    amount: string;
-    currency?: string;
-    includedBySupplier?: boolean;
-  }>;
-  depositInfo?: string;
+  // Guest counts
+  adultsCount?: number;
+  childrenCount?: number;
+  // Bedding
+  bedding?: string;
+  // Fees separated
+  includedFees?: VoucherFee[];
+  notIncludedFees?: VoucherFee[];
+  // Legacy fees field (fallback)
+  fees?: VoucherFee[];
+  // Deposits as array of strings
+  deposits?: string[];
+  depositInfo?: string; // Legacy single deposit
+  // Meal details
+  hasBreakfast?: boolean;
+  noChildMeal?: boolean;
+  // Cancellation
   cancellationPolicy?: string;
+  freeCancellationBefore?: string;
+  // Other
   specialRequests?: string;
   latitude?: number;
   longitude?: number;
+  // Agency branding
+  agencyName?: string;
+  agencyPhone?: string;
+  agencyEmail?: string;
+  agencyWebsite?: string;
 }
 
-function formatDate(dateStr: string): string {
+function formatDateShort(dateStr: string): string {
   try {
     const date = parseISO(dateStr);
-    return format(date, 'EEEE, MMMM d, yyyy');
+    return format(date, 'MM.dd.yy');
   } catch {
     return dateStr;
   }
 }
 
-function formatTime(timeStr?: string): string {
+function formatTime24(timeStr?: string): string {
   if (!timeStr) return '';
-  if (timeStr.includes(':')) {
-    const [hours, minutes] = timeStr.split(':');
-    const hour = parseInt(hours, 10);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
+  // If already in HH:mm:ss format, return as-is
+  if (timeStr.match(/^\d{2}:\d{2}:\d{2}$/)) {
+    return timeStr;
+  }
+  // If in HH:mm format, add seconds
+  if (timeStr.match(/^\d{2}:\d{2}$/)) {
+    return `${timeStr}:00`;
   }
   return timeStr;
 }
 
+function formatGuestOccupancy(adults?: number, children?: number): string {
+  const parts: string[] = [];
+  if (adults && adults > 0) {
+    parts.push(`${adults} adult${adults > 1 ? 's' : ''}`);
+  }
+  if (children && children > 0) {
+    parts.push(`${children} child${children > 1 ? 'ren' : ''}`);
+  }
+  return parts.length > 0 ? `for ${parts.join(', ')}` : '';
+}
+
+function formatBedding(bedding?: string): string {
+  if (!bedding) return '';
+  // Handle array-like bedding strings
+  if (bedding.startsWith('[')) {
+    try {
+      const arr = JSON.parse(bedding);
+      return arr.map((b: string) => b.charAt(0).toUpperCase() + b.slice(1) + ' bed').join(', ');
+    } catch {
+      return bedding;
+    }
+  }
+  // Capitalize and add "bed" suffix if not present
+  const formatted = bedding.charAt(0).toUpperCase() + bedding.slice(1);
+  return formatted.toLowerCase().includes('bed') ? formatted : `${formatted} bed`;
+}
+
 export function generateCustomVoucherHTML(data: VoucherData): string {
-  const checkInFormatted = formatDate(data.checkIn);
-  const checkOutFormatted = formatDate(data.checkOut);
-  const checkInTime = formatTime(data.checkInTime) || '3:00 PM';
-  const checkOutTime = formatTime(data.checkOutTime) || '11:00 AM';
+  const checkInDateFormatted = formatDateShort(data.checkIn);
+  const checkOutDateFormatted = formatDateShort(data.checkOut);
+  const checkInTime = formatTime24(data.checkInTime) || '14:00:00';
+  const checkOutTime = formatTime24(data.checkOutTime) || '12:00:00';
+  const createdAtFormatted = data.createdAt ? formatDateShort(data.createdAt) : '';
   
   // Build guest list
   const guestList = data.guests
-    .map((g, i) => `${g.first_name} ${g.last_name}${i === 0 ? ' (Lead Guest)' : ''}${g.is_child ? ` (Child${g.age ? `, ${g.age}y` : ''})` : ''}`)
+    .map(g => `${g.first_name} ${g.last_name}`)
     .join(', ');
 
-  // Build included items
-  const includedItems: string[] = [];
-  if (data.mealPlan && data.mealPlan.toLowerCase() !== 'nomeal' && data.mealPlan.toLowerCase() !== 'room only') {
-    includedItems.push(data.mealPlan);
-  }
+  // Guest occupancy text
+  const occupancyText = formatGuestOccupancy(data.adultsCount, data.childrenCount);
   
-  // Build not included items (fees to pay at hotel)
-  const notIncludedItems: string[] = [];
-  if (data.fees && data.fees.length > 0) {
-    data.fees.forEach(fee => {
-      if (!fee.includedBySupplier) {
-        notIncludedItems.push(`${fee.name}: ${fee.amount}${fee.currency ? ` ${fee.currency}` : ''}`);
-      }
-    });
+  // Bedding formatted
+  const beddingText = formatBedding(data.bedding);
+
+  // Build included fees list
+  const includedFees = data.includedFees || data.fees?.filter(f => f.includedBySupplier) || [];
+  const notIncludedFees = data.notIncludedFees || data.fees?.filter(f => !f.includedBySupplier) || [];
+  
+  // Build deposits list
+  const depositsList = data.deposits || (data.depositInfo ? [data.depositInfo] : []);
+
+  // Meal type text
+  let mealTypeText = 'No meals included';
+  if (data.mealPlan && data.mealPlan.toLowerCase() !== 'nomeal' && data.mealPlan.toLowerCase() !== 'room only') {
+    mealTypeText = data.mealPlan;
+  }
+  if (data.noChildMeal) {
+    mealTypeText += ', no meals for children included';
   }
 
   // Use a placeholder if no hotel image
   const heroImage = data.hotelImage || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&h=400&fit=crop';
+
+  // Agency branding with defaults
+  const agencyName = data.agencyName || 'BookingJa';
+  const agencyPhone = data.agencyPhone || '888-269-6087';
+  const agencyEmail = data.agencyEmail || 'hello@bookingja.com';
+  const agencyWebsite = data.agencyWebsite || 'bookingja.com';
 
   return `
 <!DOCTYPE html>
@@ -125,9 +190,16 @@ export function generateCustomVoucherHTML(data: VoucherData): string {
       display: block;
     }
     
-    .brand-header {
-      text-align: center;
-      padding: 32px 40px 24px;
+    .header-section {
+      padding: 24px 40px;
+      border-bottom: 1px solid #E8E4DE;
+    }
+    
+    .brand-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
     }
     
     .brand-name {
@@ -139,24 +211,29 @@ export function generateCustomVoucherHTML(data: VoucherData): string {
       letter-spacing: 0.02em;
     }
     
-    .content-wrapper {
-      padding: 0 40px 40px;
-    }
-    
-    .content-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 48px;
-    }
-    
-    .section-title {
-      font-family: 'Inter', sans-serif;
-      font-weight: 600;
-      font-size: 13px;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
+    .agency-phone {
+      font-size: 14px;
       color: #8B8579;
-      margin-bottom: 20px;
+    }
+    
+    .reservation-info {
+      font-size: 13px;
+      color: #8B8579;
+    }
+    
+    .partner-notice {
+      margin-top: 16px;
+      font-size: 13px;
+      color: #8B8579;
+      font-style: italic;
+    }
+    
+    .content-wrapper {
+      padding: 32px 40px 40px;
+    }
+    
+    .hotel-section {
+      margin-bottom: 32px;
     }
     
     .hotel-name {
@@ -168,100 +245,124 @@ export function generateCustomVoucherHTML(data: VoucherData): string {
       line-height: 1.3;
     }
     
-    .hotel-address {
+    .hotel-details {
       font-size: 14px;
       color: #8B8579;
+    }
+    
+    .hotel-address {
       margin-bottom: 4px;
     }
     
-    .hotel-phone {
-      font-size: 14px;
-      color: #8B8579;
+    .stay-section {
+      margin-bottom: 32px;
     }
     
-    .stay-details {
+    .stay-line {
+      font-size: 14px;
+      color: #5D5548;
+      margin-bottom: 8px;
+    }
+    
+    .stay-line strong {
+      font-weight: 600;
+    }
+    
+    .room-info {
+      margin-top: 16px;
+    }
+    
+    .bedding-line {
+      font-size: 14px;
+      color: #8B8579;
+      margin-top: 4px;
+    }
+    
+    .guests-line {
+      font-size: 14px;
+      color: #8B8579;
+      margin-top: 8px;
+    }
+    
+    .section-title {
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      font-size: 15px;
+      color: #5D5548;
+      margin-bottom: 12px;
       margin-top: 32px;
     }
     
-    .detail-row {
-      display: flex;
-      margin-bottom: 12px;
-    }
-    
-    .detail-label {
-      font-weight: 500;
+    .important-notice {
+      background: #FFFDF5;
+      border-left: 3px solid #D4A574;
+      padding: 16px 20px;
+      margin: 24px 0;
+      font-size: 13px;
       color: #5D5548;
-      min-width: 90px;
+      line-height: 1.7;
     }
     
-    .detail-value {
-      color: #5D5548;
+    .important-notice strong {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
     }
     
-    .detail-time {
+    .policy-section {
+      margin: 24px 0;
+      padding: 16px 0;
+      border-top: 1px solid #E8E4DE;
+    }
+    
+    .policy-text {
       font-size: 13px;
       color: #8B8579;
-      margin-left: 8px;
+      line-height: 1.7;
     }
     
-    .guests-section {
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
       margin-top: 24px;
     }
     
-    .guests-label {
-      font-weight: 500;
+    .info-block h4 {
+      font-weight: 600;
+      font-size: 14px;
       color: #5D5548;
-      margin-bottom: 4px;
-    }
-    
-    .guests-list {
-      color: #5D5548;
-    }
-    
-    .right-column {
-      padding-left: 24px;
-      border-left: 1px solid #E8E4DE;
+      margin-bottom: 8px;
     }
     
     .info-list {
       list-style: none;
-      counter-reset: item;
+      font-size: 13px;
+      color: #8B8579;
     }
     
-    .info-item {
-      position: relative;
-      padding-left: 28px;
-      margin-bottom: 20px;
-    }
-    
-    .info-item::before {
-      content: counter(item) ".";
-      counter-increment: item;
-      position: absolute;
-      left: 0;
-      font-weight: 600;
-      color: #5D5548;
-    }
-    
-    .info-item-title {
-      font-weight: 600;
-      color: #5D5548;
+    .info-list li {
       margin-bottom: 4px;
     }
     
-    .info-item-content {
-      color: #8B8579;
+    .deposit-section {
+      margin-top: 24px;
+      padding: 16px 20px;
+      background: #F9F7F4;
+      border-radius: 4px;
+    }
+    
+    .deposit-section h4 {
+      font-weight: 600;
+      font-size: 14px;
+      color: #5D5548;
+      margin-bottom: 8px;
+    }
+    
+    .deposit-list {
       font-size: 13px;
-    }
-    
-    .info-item-content ul {
-      list-style: disc;
-      margin-left: 16px;
-      margin-top: 4px;
-    }
-    
-    .info-item-content li {
-      margin-bottom: 2px;
+      color: #8B8579;
+      line-height: 1.7;
     }
     
     .footer {
@@ -279,17 +380,6 @@ export function generateCustomVoucherHTML(data: VoucherData): string {
       text-align: center;
     }
     
-    .confirmation-badge {
-      background: #5D5548;
-      color: #F5F3EE;
-      padding: 8px 16px;
-      font-size: 12px;
-      font-weight: 500;
-      letter-spacing: 0.05em;
-      display: inline-block;
-      margin-top: 8px;
-    }
-    
     @media print {
       body {
         -webkit-print-color-adjust: exact;
@@ -301,29 +391,27 @@ export function generateCustomVoucherHTML(data: VoucherData): string {
       }
       
       .hero-image {
-        height: 250px;
+        height: 200px;
       }
     }
     
     @media (max-width: 640px) {
-      .content-grid {
+      .info-grid {
         grid-template-columns: 1fr;
-        gap: 32px;
-      }
-      
-      .right-column {
-        padding-left: 0;
-        border-left: none;
-        padding-top: 24px;
-        border-top: 1px solid #E8E4DE;
+        gap: 24px;
       }
       
       .content-wrapper {
-        padding: 0 24px 32px;
+        padding: 24px;
       }
       
-      .brand-header {
-        padding: 24px 24px 20px;
+      .header-section {
+        padding: 20px 24px;
+      }
+      
+      .brand-row {
+        flex-direction: column;
+        gap: 8px;
       }
     }
   </style>
@@ -332,96 +420,110 @@ export function generateCustomVoucherHTML(data: VoucherData): string {
   <div class="voucher-container">
     <img src="${heroImage}" alt="${data.hotelName}" class="hero-image" />
     
-    <div class="brand-header">
-      <h1 class="brand-name">BookingJa</h1>
-      <div class="confirmation-badge">Confirmation #${data.confirmationNumber || data.orderId}</div>
+    <div class="header-section">
+      <div class="brand-row">
+        <h1 class="brand-name">${agencyName}</h1>
+        <span class="agency-phone">${agencyPhone}</span>
+      </div>
+      <p class="reservation-info">
+        Reservation ${data.orderId} made on ${createdAtFormatted}
+      </p>
+      <p class="partner-notice">This accommodation is booked by our partner</p>
     </div>
     
     <div class="content-wrapper">
-      <div class="content-grid">
-        <div class="left-column">
-          <h2 class="section-title">Trip details</h2>
-          
-          <h3 class="hotel-name">${data.hotelName}</h3>
-          ${data.hotelAddress ? `<p class="hotel-address">${data.hotelAddress}${data.hotelCity ? `, ${data.hotelCity}` : ''}${data.hotelCountry ? `, ${data.hotelCountry}` : ''}</p>` : ''}
-          ${data.hotelPhone ? `<p class="hotel-phone">${data.hotelPhone}</p>` : ''}
-          
-          <div class="stay-details">
-            <h2 class="section-title">Stay details</h2>
-            
-            <div class="detail-row">
-              <span class="detail-label">Check-in</span>
-              <span class="detail-value">${checkInFormatted}<span class="detail-time">${checkInTime}</span></span>
-            </div>
-            
-            <div class="detail-row">
-              <span class="detail-label">Check-out</span>
-              <span class="detail-value">${checkOutFormatted}<span class="detail-time">${checkOutTime}</span></span>
-            </div>
-            
-            <div class="detail-row">
-              <span class="detail-label">Room</span>
-              <span class="detail-value">${data.roomType}</span>
-            </div>
-          </div>
-          
-          <div class="guests-section">
-            <p class="guests-label">Guests</p>
-            <p class="guests-list">${guestList}</p>
-          </div>
-        </div>
-        
-        <div class="right-column">
-          <h2 class="section-title">What's included vs not</h2>
-          
-          <ol class="info-list">
-            <li class="info-item">
-              <p class="info-item-title">Included</p>
-              <div class="info-item-content">
-                ${includedItems.length > 0 
-                  ? `<ul>${includedItems.map(item => `<li>${item}</li>`).join('')}</ul>` 
-                  : 'Room only (no meals included)'}
-              </div>
-            </li>
-            
-            <li class="info-item">
-              <p class="info-item-title">Not included (pay at hotel)</p>
-              <div class="info-item-content">
-                ${notIncludedItems.length > 0 
-                  ? `<ul>${notIncludedItems.map(item => `<li>${item}</li>`).join('')}</ul>` 
-                  : 'No additional fees'}
-              </div>
-            </li>
-            
-            <li class="info-item">
-              <p class="info-item-title">Deposits</p>
-              <div class="info-item-content">
-                ${data.depositInfo || 'No deposit required'}
-              </div>
-            </li>
-            
-            <li class="info-item">
-              <p class="info-item-title">Cancellation</p>
-              <div class="info-item-content">
-                ${data.cancellationPolicy || 'Please refer to your booking confirmation for cancellation terms.'}
-              </div>
-            </li>
-          </ol>
+      <div class="hotel-section">
+        <h2 class="hotel-name">${data.hotelName}</h2>
+        <div class="hotel-details">
+          ${data.hotelAddress ? `<p class="hotel-address">${data.hotelAddress}${data.hotelCity ? `, ${data.hotelCity}` : ''}</p>` : ''}
+          ${data.hotelPhone ? `<p>${data.hotelPhone}</p>` : ''}
         </div>
       </div>
       
+      <div class="stay-section">
+        <p class="stay-line"><strong>Check-in</strong> ${checkInDateFormatted}, from ${checkInTime}</p>
+        <p class="stay-line"><strong>Check-out:</strong> ${checkOutDateFormatted}, until ${checkOutTime}</p>
+        
+        <div class="room-info">
+          <p class="stay-line">${data.roomType}${occupancyText ? `, ${occupancyText}` : ''}</p>
+          ${beddingText ? `<p class="bedding-line">Bedding: ${beddingText}</p>` : ''}
+          <p class="guests-line">Guests: ${guestList}</p>
+        </div>
+      </div>
+      
+      <div class="important-notice">
+        <strong>Important. Please Note</strong>
+        Hotels may charge additional mandatory fees payable by the guest directly at the property, 
+        including but not exclusively: resort fee, facility fee, city tax, fee for the stay of foreign citizens. 
+        The guest can be also asked to provide a credit card or cash deposit as a guarantee of payment 
+        for additional services such as: mini-bar, payTV, etc. Agency is not responsible for the quality 
+        of services provided by the hotel. Client can contact administration of hotel directly to claim 
+        on volume and quality of provided services. In case of any issues during check-in or check-out, 
+        please contact the Agency.
+      </div>
+      
+      <div class="policy-section">
+        <h3 class="section-title">Amendment & Cancellation Policy</h3>
+        <p class="policy-text">
+          An alteration of Reservation by the Customer is considered as a cancellation of Reservation 
+          and making new Reservation. We'll try to negotiate the order amendment with the supplier 
+          but we cannot guarantee it will be approved. Cancellation of reservation or no-show may 
+          result in penalties, according to rate and contract terms.
+          ${data.cancellationPolicy ? `<br><br>${data.cancellationPolicy}` : ''}
+          ${data.freeCancellationBefore ? `<br><br>Free cancellation before: ${formatDateShort(data.freeCancellationBefore)}` : ''}
+        </p>
+        <p class="policy-text" style="margin-top: 12px; font-style: italic;">
+          Please notify in advance if you expect to check-in after 6 pm. Hotel may cancel the 
+          reservation and charge the no-show fee in case you don't show up by that time.
+        </p>
+      </div>
+      
+      <h3 class="section-title">Meal type</h3>
+      <p class="policy-text">${mealTypeText}</p>
+      
+      <div class="info-grid">
+        <div class="info-block">
+          <h4>Included in the price</h4>
+          <ul class="info-list">
+            ${includedFees.length > 0 
+              ? includedFees.map(fee => `<li>${fee.name}: ${fee.amount} ${fee.currency || ''}</li>`).join('')
+              : '<li>No additional fees included</li>'}
+          </ul>
+        </div>
+        
+        <div class="info-block">
+          <h4>Not included</h4>
+          <ul class="info-list">
+            ${notIncludedFees.length > 0 
+              ? notIncludedFees.map(fee => `<li>${fee.name}: ${fee.amount} ${fee.currency || ''}</li>`).join('')
+              : '<li>No additional fees to pay at hotel</li>'}
+          </ul>
+        </div>
+      </div>
+      
+      ${depositsList.length > 0 ? `
+      <div class="deposit-section">
+        <h4>Deposit</h4>
+        <div class="deposit-list">
+          ${depositsList.map(d => `<p>${d}</p>`).join('')}
+        </div>
+      </div>
+      ` : ''}
+      
       ${data.specialRequests ? `
-      <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #E8E4DE;">
-        <h2 class="section-title">Special Requests</h2>
-        <p style="color: #8B8579; font-size: 13px;">${data.specialRequests}</p>
-        <p style="color: #8B8579; font-size: 12px; margin-top: 8px; font-style: italic;">Note: Special requests are subject to availability and cannot be guaranteed.</p>
+      <div class="policy-section">
+        <h3 class="section-title">Special Requests</h3>
+        <p class="policy-text">${data.specialRequests}</p>
+        <p class="policy-text" style="margin-top: 8px; font-style: italic;">
+          Note: Special requests are subject to availability and cannot be guaranteed.
+        </p>
       </div>
       ` : ''}
       
       <div class="footer">
-        <div class="footer-item">hello@bookingja.com</div>
-        <div class="footer-item">bookingja.com</div>
-        <div class="footer-item">+1 (876) 555-0123</div>
+        <div class="footer-item">${agencyEmail}</div>
+        <div class="footer-item">${agencyWebsite}</div>
+        <div class="footer-item">${agencyPhone}</div>
       </div>
     </div>
   </div>
@@ -452,4 +554,4 @@ export function downloadCustomVoucher(data: VoucherData): void {
   URL.revokeObjectURL(url);
 }
 
-export type { VoucherData, VoucherGuest };
+export type { VoucherData, VoucherGuest, VoucherFee };
