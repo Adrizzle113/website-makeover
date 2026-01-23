@@ -4,12 +4,12 @@ import { Loader2, CheckCircle, XCircle, Clock, AlertTriangle, CreditCard } from 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Footer } from "@/components/layout/Footer";
 import { bookingApi } from "@/services/bookingApi";
 import { useAuth } from "@/hooks/useAuth";
 import { useBookingStore } from "@/stores/bookingStore";
 import { toast } from "@/hooks/use-toast";
-import type { BookingStatusValue } from "@/types/etgBooking";
+import { saveBookingToDatabase, isUserAuthenticated } from "@/lib/bookingStorage";
+import type { BookingStatusValue, PendingBookingData } from "@/types/etgBooking";
 
 const MAX_POLL_ATTEMPTS = 60; // 5 minutes at 5s intervals
 const POLL_INTERVAL_MS = 5000; // 5 seconds per API recommendation
@@ -164,8 +164,31 @@ export default function ProcessingPage() {
           setOrderId(etgOrderId || partnerOrderId);
           setOrderStatus("confirmed");
           
-          // Clear pending booking from session
-          sessionStorage.removeItem("pending_booking");
+          // ✅ Save booking to database BEFORE clearing pending data
+          const orderIdToSave = etgOrderId || partnerOrderId;
+          const pendingBookingStr = sessionStorage.getItem("pending_booking");
+          const pendingBooking: PendingBookingData | undefined = pendingBookingStr 
+            ? JSON.parse(pendingBookingStr) 
+            : undefined;
+          
+          // Save async but don't block UI
+          (async () => {
+            const isAuth = await isUserAuthenticated();
+            if (isAuth) {
+              try {
+                const result = await saveBookingToDatabase(orderIdToSave, pendingBooking);
+                if (result.success) {
+                  console.log("✅ Booking saved to database:", orderIdToSave);
+                } else {
+                  console.warn("⚠️ Failed to save booking:", result.error);
+                }
+              } catch (err) {
+                console.error("Error saving booking:", err);
+              }
+            }
+            // Clear pending booking AFTER save attempt
+            sessionStorage.removeItem("pending_booking");
+          })();
           
           toast({
             title: "Booking Confirmed!",
@@ -485,8 +508,6 @@ export default function ProcessingPage() {
           </CardContent>
         </Card>
       </main>
-
-      <Footer />
     </div>
   );
 }
