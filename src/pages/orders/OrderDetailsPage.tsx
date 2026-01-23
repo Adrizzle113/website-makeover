@@ -45,6 +45,7 @@ import { toast } from "sonner";
 import { bookingApi } from "@/services/bookingApi";
 import { CancellationModal } from "@/components/booking/CancellationModal";
 import { Skeleton } from "@/components/ui/skeleton";
+import { saveBookingToDatabase, isUserAuthenticated, getBookingByOrderId } from "@/lib/bookingStorage";
 
 // Extended Order type with additional details
 interface ExtendedOrder extends Order {
@@ -244,6 +245,27 @@ export default function OrderDetailsPage() {
 
       setTimeline(timelineEvents);
       setError(null);
+
+      // ✅ Fallback: Check if booking is in database, if not save it
+      if (orderData.status === "confirmed" || orderData.status === "completed") {
+        (async () => {
+          const isAuth = await isUserAuthenticated();
+          if (!isAuth) return;
+          
+          const existing = await getBookingByOrderId(orderId);
+          if (!existing) {
+            console.log("📦 Booking not in database, saving now...");
+            try {
+              const result = await saveBookingToDatabase(orderId);
+              if (result.success) {
+                console.log("✅ Booking saved to database from OrderDetailsPage");
+              }
+            } catch (err) {
+              console.warn("Could not save booking:", err);
+            }
+          }
+        })();
+      }
 
     } catch (err) {
       console.error("Failed to fetch order:", err);
