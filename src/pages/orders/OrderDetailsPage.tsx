@@ -144,9 +144,11 @@ export default function OrderDetailsPage() {
 
     try {
       // Fetch order info and status in parallel
+      // Use direct WorldOTA call for order info (works with ETG order_id)
+      // Status call may fail for ETG order_id (expects partner_order_id), so we catch it
       const [orderInfoResponse, orderStatusResponse] = await Promise.all([
-        bookingApi.getOrderInfo(orderId),
-        bookingApi.getOrderStatus(orderId)
+        bookingApi.getOrderInfoDirect(orderId),
+        bookingApi.getOrderStatus(orderId).catch(() => ({ status: "error" as const, data: null }))
       ]);
 
       if (orderInfoResponse.status !== "ok" || !orderInfoResponse.data) {
