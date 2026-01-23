@@ -54,6 +54,7 @@ import { CancellationModal } from "@/components/booking/CancellationModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { saveBookingToDatabase, isUserAuthenticated, getBookingByOrderId } from "@/lib/bookingStorage";
 import { openCustomVoucher, VoucherData } from "@/components/booking/CustomVoucher";
+import { supabase } from "@/integrations/supabase/client";
 
 // Extended Order type with additional details
 interface ExtendedOrder extends Order {
@@ -85,6 +86,8 @@ interface ExtendedOrder extends Order {
     depositInfo?: string;
     cancellationPolicyText?: string;
     freeCancellationBefore?: string;
+    checkInTime?: string;
+    checkOutTime?: string;
     latitude?: number;
     longitude?: number;
   };
@@ -156,6 +159,7 @@ export default function OrderDetailsPage() {
   const [showCancellationModal, setShowCancellationModal] = useState(false);
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [hotelImage, setHotelImage] = useState<string | null>(null);
 
   // Fetch order data from API
   const fetchOrderData = useCallback(async () => {
@@ -285,6 +289,21 @@ export default function OrderDetailsPage() {
 
       setTimeline(timelineEvents);
       setError(null);
+
+      // Fetch hotel image from user_bookings
+      try {
+        const { data: bookingData } = await supabase
+          .from('user_bookings')
+          .select('hotel_image')
+          .eq('order_id', orderId)
+          .maybeSingle();
+        
+        if (bookingData?.hotel_image) {
+          setHotelImage(bookingData.hotel_image);
+        }
+      } catch (imgErr) {
+        console.log('Could not fetch hotel image:', imgErr);
+      }
 
       // ✅ Fallback: Check if booking is in database, if not save it
       if (orderData.status === "confirmed" || orderData.status === "completed") {
@@ -440,44 +459,43 @@ export default function OrderDetailsPage() {
   // Handler for custom branded voucher
   const handleDownloadCustomVoucher = () => {
     if (!order) return;
-    
-    // Build voucher data from order
+
+    // Extract guests from room data or lead guest
+    const guests: Array<{ first_name: string; last_name: string; is_child?: boolean; age?: number }> = [];
+    if (order.leadGuest) {
+      guests.push({
+        first_name: order.leadGuest.firstName,
+        last_name: order.leadGuest.lastName,
+        is_child: false,
+      });
+    }
+
     const voucherData: VoucherData = {
       orderId: order.id,
       partnerOrderId: order.partnerOrderId,
-      confirmationNumber: order.confirmationNumber,
+      confirmationNumber: order.confirmationNumber || order.partnerOrderId || order.id,
       createdAt: order.createdAt,
       hotelName: order.hotelName || "Hotel",
       hotelAddress: order.hotelAddress,
       hotelCity: order.city,
       hotelCountry: order.country,
-      hotelPhone: undefined, // Could be added if API returns it
-      hotelStars: order.hotelStars,
+      hotelPhone: undefined,
+      hotelImage: hotelImage || undefined,
       checkIn: order.checkIn,
       checkOut: order.checkOut,
-      nights: order.nights,
-      roomName: order.roomType,
+      checkInTime: order.voucherData?.checkInTime,
+      checkOutTime: order.voucherData?.checkOutTime,
+      roomType: order.roomType,
       mealPlan: order.mealPlan,
-      guests: order.leadGuest ? [{
-        first_name: order.leadGuest.firstName,
-        last_name: order.leadGuest.lastName,
-        is_child: false,
-      }] : [],
-      leadGuest: order.leadGuest ? {
-        firstName: order.leadGuest.firstName,
-        lastName: order.leadGuest.lastName,
-        email: order.leadGuest.email,
-      } : undefined,
-      totalAmount: order.totalAmount,
-      currency: order.currency,
-      cancellationPolicy: order.voucherData?.cancellationPolicyText || order.cancellationPolicy,
-      freeCancellationBefore: order.voucherData?.freeCancellationBefore || order.cancellationDeadline,
+      guests,
       fees: order.voucherData?.fees,
       depositInfo: order.voucherData?.depositInfo,
+      cancellationPolicy: order.voucherData?.cancellationPolicyText || order.cancellationPolicy,
+      specialRequests: order.specialRequests?.join(', '),
       latitude: order.voucherData?.latitude,
-      longitude: order.voucherData?.longitude,
+      longitude: order.voucherData?.longitude
     };
-    
+
     openCustomVoucher(voucherData);
     toast.success("Branded voucher opened in new window");
   };
