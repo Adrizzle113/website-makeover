@@ -447,7 +447,7 @@ export function generateCustomVoucherHTML(data: VoucherData): string {
 </head>
 <body>
   <div class="voucher-container">
-    <img src="${heroImage}" alt="${data.hotelName}" class="hero-image" />
+    <img src="${heroImage}" alt="${data.hotelName}" class="hero-image" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&h=400&fit=crop';" />
     
     <div class="header-section">
       <div class="brand-row">
