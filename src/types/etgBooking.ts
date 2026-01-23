@@ -285,6 +285,8 @@ export interface OrderInfoResponse {
       country: string;
       star_rating: number;
       phone?: string;
+      latitude?: number;
+      longitude?: number;
     };
     room: {
       name: string;
@@ -311,6 +313,16 @@ export interface OrderInfoResponse {
       status: "pending" | "paid" | "refunded";
     };
     cancellation_policy?: string;
+    cancellation_policy_text?: string;
+    free_cancellation_before?: string;
+    fees?: Array<{
+      name: string;
+      amount: string;
+      currency?: string;
+      included_by_supplier?: boolean;
+    }>;
+    deposit_info?: string;
+    special_requests?: string;
     created_at: string;
     updated_at: string;
   };

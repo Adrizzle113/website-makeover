@@ -12,11 +12,87 @@ interface OrderInfoRequest {
 }
 
 /**
+ * Extract fees and taxes from room data
+ */
+function extractFeesAndTaxes(roomsData: any[]): any[] {
+  const fees: any[] = [];
+  
+  for (const room of roomsData || []) {
+    // Check for taxes in the room
+    if (room.taxes) {
+      for (const tax of room.taxes) {
+        fees.push({
+          name: tax.name || 'Tax',
+          amount: tax.amount?.amount || tax.amount,
+          currency: tax.amount?.currency_code || tax.currency_code,
+          included_by_supplier: tax.included_by_supplier ?? false,
+        });
+      }
+    }
+    
+    // Check for extra data fees
+    if (room.extra_data?.fees) {
+      for (const fee of room.extra_data.fees) {
+        fees.push({
+          name: fee.name || 'Fee',
+          amount: fee.amount?.amount || fee.amount,
+          currency: fee.amount?.currency_code || fee.currency_code,
+          included_by_supplier: fee.included_by_supplier ?? false,
+        });
+      }
+    }
+  }
+  
+  return fees;
+}
+
+/**
+ * Extract deposit information from payment data
+ */
+function extractDepositInfo(paymentData: any, hotelData: any): string | null {
+  // Check for deposit requirements
+  if (hotelData?.deposit) {
+    return hotelData.deposit;
+  }
+  
+  if (paymentData?.deposit_required) {
+    const amount = paymentData.deposit_amount?.amount || paymentData.deposit_amount;
+    const currency = paymentData.deposit_amount?.currency_code || paymentData.deposit_currency;
+    if (amount && currency) {
+      return `A deposit of ${amount} ${currency} may be required at check-in.`;
+    }
+    return 'A deposit may be required at check-in.';
+  }
+  
+  return null;
+}
+
+/**
  * Transform WorldOTA batch response format to expected frontend format
  */
 function transformOrderResponse(worldotaOrder: any) {
   const firstRoom = worldotaOrder.rooms_data?.[0];
   const firstGuest = firstRoom?.guest_data?.guests?.[0];
+  
+  // Extract fees and taxes
+  const fees = extractFeesAndTaxes(worldotaOrder.rooms_data);
+  
+  // Extract deposit info
+  const depositInfo = extractDepositInfo(worldotaOrder.payment_data, worldotaOrder.hotel_data);
+  
+  // Build cancellation policy text
+  let cancellationPolicyText = null;
+  if (worldotaOrder.cancellation_info?.penalties) {
+    const penalties = worldotaOrder.cancellation_info.penalties;
+    if (Array.isArray(penalties) && penalties.length > 0) {
+      cancellationPolicyText = penalties.map((p: any) => {
+        const amount = p.amount?.amount || p.amount || 'full booking amount';
+        const currency = p.amount?.currency_code || '';
+        const fromDate = p.from_date ? new Date(p.from_date).toLocaleDateString() : '';
+        return `From ${fromDate}: ${amount} ${currency} penalty`;
+      }).join('; ');
+    }
+  }
   
   return {
     order_id: String(worldotaOrder.order_id),
@@ -44,6 +120,8 @@ function transformOrderResponse(worldotaOrder: any) {
       country: worldotaOrder.hotel_data?.country || null,
       star_rating: worldotaOrder.hotel_data?.star_rating || null,
       phone: worldotaOrder.hotel_data?.phone || null,
+      latitude: worldotaOrder.hotel_data?.latitude || null,
+      longitude: worldotaOrder.hotel_data?.longitude || null,
     },
     
     // Transform room data
@@ -82,7 +160,14 @@ function transformOrderResponse(worldotaOrder: any) {
     
     // Cancellation info
     cancellation_info: worldotaOrder.cancellation_info,
+    cancellation_policy_text: cancellationPolicyText,
     is_cancellable: worldotaOrder.is_cancellable,
+    free_cancellation_before: worldotaOrder.cancellation_info?.free_cancellation_before || null,
+    
+    // Additional extracted data for custom voucher
+    fees: fees,
+    deposit_info: depositInfo,
+    special_requests: worldotaOrder.rooms_data?.[0]?.special_requests || null,
     
     // Include raw data for debugging/fallback
     _raw: worldotaOrder,
