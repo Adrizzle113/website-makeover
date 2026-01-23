@@ -20,10 +20,11 @@ function extractTaxes(orderTaxes: any[]): { included: any[]; notIncluded: any[] 
   const notIncluded: any[] = [];
   
   for (const tax of orderTaxes || []) {
+    // WorldOTA uses amount_tax.amount and amount_tax.currency_code
     const taxInfo = {
       name: tax.name || 'Tax',
-      amount: tax.amount?.amount || tax.amount || '0',
-      currency: tax.amount?.currency_code || tax.currency_code || 'USD',
+      amount: tax.amount_tax?.amount || tax.amount?.amount || tax.amount || '0',
+      currency: tax.amount_tax?.currency_code || tax.amount?.currency_code || tax.currency_code || 'USD',
       included_by_supplier: tax.is_included ?? tax.included_by_supplier ?? false,
     };
     
