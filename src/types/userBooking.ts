@@ -110,6 +110,7 @@ export interface UserBookingInsert {
 export interface UserBooking {
   id: string;
   orderId: string;
+  partnerOrderId?: string;
   hotelName: string;
   hotelImage: string;
   hotelStars: number;
@@ -166,6 +167,7 @@ export function transformBookingRow(row: UserBookingRow): UserBooking {
   return {
     id: row.id,
     orderId: row.order_id,
+    partnerOrderId: row.partner_order_id || undefined,
     hotelName: row.hotel_name || "Unknown Hotel",
     hotelImage: row.hotel_image || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400",
     hotelStars: row.hotel_star_rating || 4,
