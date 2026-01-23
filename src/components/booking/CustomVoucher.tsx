@@ -521,7 +521,7 @@ export function generateCustomVoucherHTML(data: VoucherData): string {
         </div>
         
         <div class="info-block">
-          <h4>Not included</h4>
+          <h4>Not included (payable at property)</h4>
           <ul class="info-list">
             ${notIncludedFees.length > 0 
               ? notIncludedFees.map(fee => `<li>${fee.name}: ${fee.amount} ${fee.currency || ''}</li>`).join('')
@@ -529,6 +529,12 @@ export function generateCustomVoucherHTML(data: VoucherData): string {
           </ul>
         </div>
       </div>
+      
+      <p class="policy-text" style="margin-top: 12px; font-size: 12px; font-style: italic;">
+        Note: Fees are shown in the currency reported by the supplier. Some fees may be collected 
+        in local currency at the property. Final amounts may vary based on exchange rates at 
+        the time of payment.
+      </p>
       
       ${depositsList.length > 0 ? `
       <div class="deposit-section">

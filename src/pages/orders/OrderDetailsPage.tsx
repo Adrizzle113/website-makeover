@@ -313,6 +313,7 @@ export default function OrderDetailsPage() {
       setError(null);
 
       // Fetch hotel image from user_bookings
+      let fetchedHotelImage: string | null = null;
       try {
         const { data: bookingData } = await supabase
           .from('user_bookings')
@@ -321,11 +322,49 @@ export default function OrderDetailsPage() {
           .maybeSingle();
         
         if (bookingData?.hotel_image) {
-          setHotelImage(bookingData.hotel_image);
+          fetchedHotelImage = bookingData.hotel_image;
+          setHotelImage(fetchedHotelImage);
         }
       } catch (imgErr) {
         console.log('Could not fetch hotel image:', imgErr);
       }
+
+      // Fetch hotel info for deposits and policies
+      const hotelHid = apiData._raw?.hotel_data?.hid;
+      let hotelDeposits: string[] = [];
+      let hotelPhone: string | undefined;
+      let hotelCheckInTime: string | undefined;
+      let hotelCheckOutTime: string | undefined;
+      
+      if (hotelHid) {
+        try {
+          console.log(`📚 Fetching hotel info for hid: ${hotelHid}`);
+          const hotelInfoResponse = await supabase.functions.invoke("worldota-hotel-info", {
+            body: { hid: hotelHid, language: "en" }
+          });
+          
+          if (hotelInfoResponse.data?.success) {
+            const hotelData = hotelInfoResponse.data.hotel;
+            hotelDeposits = hotelData.deposits || [];
+            hotelPhone = hotelData.phone;
+            hotelCheckInTime = hotelData.check_in_time;
+            hotelCheckOutTime = hotelData.check_out_time;
+            console.log(`✅ Hotel info fetched: ${hotelDeposits.length} deposits found`);
+          }
+        } catch (hotelErr) {
+          console.log('Could not fetch hotel info:', hotelErr);
+        }
+      }
+
+      // Update order with hotel info data
+      orderData.voucherData = {
+        ...orderData.voucherData,
+        deposits: hotelDeposits.length > 0 ? hotelDeposits : orderData.voucherData?.deposits,
+        checkInTime: hotelCheckInTime || orderData.voucherData?.checkInTime,
+        checkOutTime: hotelCheckOutTime || orderData.voucherData?.checkOutTime,
+      };
+
+      setOrder(orderData);
 
       // ✅ Fallback: Check if booking is in database, if not save it
       if (orderData.status === "confirmed" || orderData.status === "completed") {

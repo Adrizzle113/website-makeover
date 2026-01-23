@@ -85,6 +85,27 @@ Deno.serve(async (req) => {
           })
           .filter((img: NormalizedImage | null): img is NormalizedImage => img !== null);
 
+        // Extract deposits from cached metapolicy_struct
+        const cachedMetapolicy = cachedData.raw_data?.metapolicy_struct;
+        const cachedDeposits: string[] = [];
+        if (cachedMetapolicy?.deposit) {
+          for (const dep of cachedMetapolicy.deposit) {
+            const parts: string[] = [];
+            if (dep.deposit_amount) parts.push(String(dep.deposit_amount));
+            if (dep.currency) parts.push(dep.currency);
+            if (dep.payment_type) parts.push(`in ${dep.payment_type}`);
+            if (dep.availability) parts.push(`per ${dep.availability}`);
+            if (dep.price_unit) parts.push(`for ${dep.price_unit.replace(/_/g, ' ')}`);
+            if (parts.length > 0) {
+              cachedDeposits.push(parts.join(' '));
+            }
+          }
+        }
+
+        // Extract cached check-in/check-out times
+        const cachedCheckInTime = cachedMetapolicy?.check_in_check_out?.check_in_time || cachedData.raw_data?.check_in_time;
+        const cachedCheckOutTime = cachedMetapolicy?.check_in_check_out?.check_out_time || cachedData.raw_data?.check_out_time;
+
         return new Response(
           JSON.stringify({
             success: true,
@@ -94,6 +115,12 @@ Deno.serve(async (req) => {
               description: cachedData.description,
               images: cachedImages,
               raw_data: cachedData.raw_data,
+              phone: cachedData.raw_data?.phone,
+              // Deposit and policy data from cache
+              deposits: cachedDeposits,
+              check_in_time: cachedCheckInTime,
+              check_out_time: cachedCheckOutTime,
+              metapolicy: cachedMetapolicy,
             },
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -238,6 +265,32 @@ Deno.serve(async (req) => {
       console.log("💾 Cached hotel info successfully");
     }
 
+    // Extract metapolicy_struct for deposits and policies
+    const metapolicy = worldotaData.data?.metapolicy_struct;
+    const deposits: string[] = [];
+    
+    // Parse deposit info from metapolicy_struct
+    if (metapolicy?.deposit) {
+      for (const dep of metapolicy.deposit) {
+        // Format: "amount currency per availability_type for price_unit"
+        // Example: "123 EUR in cash per room for the entire stay"
+        const parts: string[] = [];
+        if (dep.deposit_amount) parts.push(String(dep.deposit_amount));
+        if (dep.currency) parts.push(dep.currency);
+        if (dep.payment_type) parts.push(`in ${dep.payment_type}`);
+        if (dep.availability) parts.push(`per ${dep.availability}`);
+        if (dep.price_unit) parts.push(`for ${dep.price_unit.replace(/_/g, ' ')}`);
+        
+        if (parts.length > 0) {
+          deposits.push(parts.join(' '));
+        }
+      }
+    }
+
+    // Extract check-in/check-out times
+    const checkInTime = metapolicy?.check_in_check_out?.check_in_time || worldotaData.data?.check_in_time;
+    const checkOutTime = metapolicy?.check_in_check_out?.check_out_time || worldotaData.data?.check_out_time;
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -250,6 +303,12 @@ Deno.serve(async (req) => {
           name: worldotaData.data?.name,
           address: worldotaData.data?.address,
           amenities: worldotaData.data?.amenity_groups,
+          phone: worldotaData.data?.phone,
+          // Deposit and policy data
+          deposits: deposits,
+          check_in_time: checkInTime,
+          check_out_time: checkOutTime,
+          metapolicy: metapolicy,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
