@@ -8,7 +8,6 @@ import {
   FAQSection,
 } from "@/components/search";
 import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
 
 const SearchPage = () => {
   return (
@@ -23,7 +22,6 @@ const SearchPage = () => {
         <TestimonialSection />
         <FAQSection />
       </main>
-      <Footer />
     </div>
   );
 };
