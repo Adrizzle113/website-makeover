@@ -471,7 +471,9 @@ export default function MyBookingsPage() {
     setDownloadingVoucher(booking.orderId);
     
     try {
-      const response = await bookingApi.downloadVoucher(booking.orderId);
+      // Use partnerOrderId for voucher download (WorldOTA API requires it)
+      const voucherId = booking.partnerOrderId || booking.orderId;
+      const response = await bookingApi.downloadVoucher(voucherId);
       // Handle new response format from backend mock
       const voucherUrl = response.voucher_url || response.data?.url;
       const fileName = `voucher-${response.partner_order_id || booking.orderId}.pdf`;
