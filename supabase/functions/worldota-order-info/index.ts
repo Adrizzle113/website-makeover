@@ -19,11 +19,11 @@ function transformOrderResponse(worldotaOrder: any) {
   const firstGuest = firstRoom?.guest_data?.guests?.[0];
   
   return {
-    order_id: worldotaOrder.order_id,
-    partner_order_id: worldotaOrder.partner_data?.order_id,
-    order_group_id: worldotaOrder.order_group_id,
+    order_id: String(worldotaOrder.order_id),
+    partner_order_id: worldotaOrder.partner_data?.order_id || null,
+    order_group_id: worldotaOrder.order_group_id ? String(worldotaOrder.order_group_id) : null,
     status: worldotaOrder.status,
-    confirmation_number: worldotaOrder.supplier_data?.confirmation_id || worldotaOrder.order_id?.toString(),
+    confirmation_number: worldotaOrder.supplier_data?.confirmation_id || String(worldotaOrder.order_id),
     created_at: worldotaOrder.created_at,
     updated_at: worldotaOrder.modified_at,
     
