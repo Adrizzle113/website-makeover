@@ -241,6 +241,16 @@ Deno.serve(async (req) => {
 
     console.log(`📸 Extracted ${normalizedImages.length} images from WorldOTA response`);
 
+    // Fallback: If no images from API, try direct Hotellook image URL
+    if (normalizedImages.length === 0 && numericHid) {
+      const fallbackImageUrl = `https://photo.hotellook.com/image_v2/limit/h${numericHid}_0/800/520.auto`;
+      normalizedImages.push({
+        url: fallbackImageUrl,
+        alt: "Hotel image"
+      });
+      console.log(`📸 Using fallback image URL: ${fallbackImageUrl}`);
+    }
+
     // Cache the result (expires in 7 days)
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);

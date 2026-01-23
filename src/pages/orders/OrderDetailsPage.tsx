@@ -366,7 +366,12 @@ export default function OrderDetailsPage() {
               hotelCountry = region.country_name;
             }
             
-            console.log(`✅ Hotel info fetched: ${hotelName}, ${hotelDeposits.length} deposits found`);
+            // Capture hotel image if available from hotel info
+            if (hotelData.images?.[0]?.url && !fetchedHotelImage) {
+              setHotelImage(hotelData.images[0].url);
+            }
+            
+            console.log(`✅ Hotel info fetched: ${hotelName}, ${hotelDeposits.length} deposits found, images: ${hotelData.images?.length || 0}`);
           }
         } catch (hotelErr) {
           console.log('Could not fetch hotel info:', hotelErr);
