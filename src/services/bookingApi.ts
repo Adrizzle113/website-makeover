@@ -1056,7 +1056,7 @@ class BookingApiService {
 
   /**
    * Download voucher for an order
-   * Backend mock: POST /api/ratehawk/order/voucher/download
+   * Uses WorldOTA Edge Function directly to get the actual PDF
    * @param partnerOrderId - The partner order ID (booking ID)
    * @param language - Language code (default: "en")
    */
@@ -1067,22 +1067,51 @@ class BookingApiService {
       return MOCK_API_RESPONSES.voucher(partnerOrderId, partnerOrderId);
     }
 
-    const url = `${API_BASE_URL}${BOOKING_ENDPOINTS.VOUCHER_DOWNLOAD}`;
-    const userId = this.getCurrentUserId();
+    console.log("🎫 Download voucher request:", { partnerOrderId, language });
 
-    console.log("🎫 Download voucher request:", { partnerOrderId, language, userId });
-
-    const response = await this.fetchWithError<VoucherDownloadResponse>(url, {
-      method: "POST",
-      body: JSON.stringify({
-        userId,
+    // Use WorldOTA Edge Function directly
+    const { supabase } = await import("@/integrations/supabase/client");
+    
+    const { data, error } = await supabase.functions.invoke("worldota-voucher-download", {
+      body: {
         partner_order_id: partnerOrderId,
         language,
-      }),
+      },
     });
 
-    console.log("🎫 Download voucher response:", response);
-    return response;
+    if (error) {
+      console.error("🎫 Download voucher error:", error);
+      throw new Error(error.message || "Failed to download voucher");
+    }
+
+    if (data.status === "error") {
+      throw new Error(data.error?.message || "Failed to download voucher");
+    }
+
+    console.log("🎫 Download voucher response:", data);
+
+    // If we got base64 PDF data, create a blob URL
+    if (data.data?.pdf_base64) {
+      const binaryString = atob(data.data.pdf_base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      const blobUrl = URL.createObjectURL(blob);
+
+      return {
+        order_id: partnerOrderId,
+        partner_order_id: partnerOrderId,
+        voucher_url: blobUrl,
+        voucher_data: data.data.pdf_base64,
+        language,
+        generated_at: new Date().toISOString(),
+      };
+    }
+
+    // Fallback to old response format
+    return data.data || data;
   }
 
   /**
