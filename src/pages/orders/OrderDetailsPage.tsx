@@ -31,6 +31,7 @@ import {
   ShieldCheckIcon,
   Loader2Icon,
   ReceiptIcon,
+  ChevronDownIcon,
 } from "lucide-react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
@@ -40,12 +41,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Order, OrderStatus, OrderTimelineEvent, OrderEventType, OrderEventSource } from "@/types/trips";
 import { toast } from "sonner";
 import { bookingApi } from "@/services/bookingApi";
 import { CancellationModal } from "@/components/booking/CancellationModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { saveBookingToDatabase, isUserAuthenticated, getBookingByOrderId } from "@/lib/bookingStorage";
+import { openCustomVoucher, VoucherData } from "@/components/booking/CustomVoucher";
 
 // Extended Order type with additional details
 interface ExtendedOrder extends Order {
@@ -65,6 +73,20 @@ interface ExtendedOrder extends Order {
     taxes: number;
     fees: number;
     discount?: number;
+  };
+  // Additional voucher data extracted from API
+  voucherData?: {
+    fees?: Array<{
+      name: string;
+      amount: string;
+      currency?: string;
+      includedBySupplier?: boolean;
+    }>;
+    depositInfo?: string;
+    cancellationPolicyText?: string;
+    freeCancellationBefore?: string;
+    latitude?: number;
+    longitude?: number;
   };
 }
 
@@ -202,7 +224,21 @@ export default function OrderDetailsPage() {
         confirmationNumber: statusData?.confirmation_number || apiData.confirmation_number,
         supplierReference: statusData?.supplier_confirmation,
         mealPlan: apiData.room.meal_plan,
-        documents: []
+        documents: [],
+        // Store voucher-specific data from API
+        voucherData: {
+          fees: apiData.fees?.map((f: any) => ({
+            name: f.name,
+            amount: String(f.amount),
+            currency: f.currency,
+            includedBySupplier: f.included_by_supplier,
+          })),
+          depositInfo: apiData.deposit_info,
+          cancellationPolicyText: apiData.cancellation_policy_text,
+          freeCancellationBefore: apiData.free_cancellation_before,
+          latitude: apiData.hotel?.latitude,
+          longitude: apiData.hotel?.longitude,
+        },
       };
 
       setOrder(orderData);
@@ -399,6 +435,51 @@ export default function OrderDetailsPage() {
     } finally {
       setIsDownloading(null);
     }
+  };
+
+  // Handler for custom branded voucher
+  const handleDownloadCustomVoucher = () => {
+    if (!order) return;
+    
+    // Build voucher data from order
+    const voucherData: VoucherData = {
+      orderId: order.id,
+      partnerOrderId: order.partnerOrderId,
+      confirmationNumber: order.confirmationNumber,
+      createdAt: order.createdAt,
+      hotelName: order.hotelName || "Hotel",
+      hotelAddress: order.hotelAddress,
+      hotelCity: order.city,
+      hotelCountry: order.country,
+      hotelPhone: undefined, // Could be added if API returns it
+      hotelStars: order.hotelStars,
+      checkIn: order.checkIn,
+      checkOut: order.checkOut,
+      nights: order.nights,
+      roomName: order.roomType,
+      mealPlan: order.mealPlan,
+      guests: order.leadGuest ? [{
+        first_name: order.leadGuest.firstName,
+        last_name: order.leadGuest.lastName,
+        is_child: false,
+      }] : [],
+      leadGuest: order.leadGuest ? {
+        firstName: order.leadGuest.firstName,
+        lastName: order.leadGuest.lastName,
+        email: order.leadGuest.email,
+      } : undefined,
+      totalAmount: order.totalAmount,
+      currency: order.currency,
+      cancellationPolicy: order.voucherData?.cancellationPolicyText || order.cancellationPolicy,
+      freeCancellationBefore: order.voucherData?.freeCancellationBefore || order.cancellationDeadline,
+      fees: order.voucherData?.fees,
+      depositInfo: order.voucherData?.depositInfo,
+      latitude: order.voucherData?.latitude,
+      longitude: order.voucherData?.longitude,
+    };
+    
+    openCustomVoucher(voucherData);
+    toast.success("Branded voucher opened in new window");
   };
 
   const handleCancellationComplete = (result: { success: boolean; refundAmount?: number; message?: string }) => {
@@ -990,19 +1071,42 @@ export default function OrderDetailsPage() {
                   <CardTitle className="text-lg">Quick Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start gap-2"
-                    onClick={() => handleDownloadDocument("voucher", "Voucher")}
-                    disabled={isDownloading === "voucher"}
-                  >
-                    {isDownloading === "voucher" ? (
-                      <Loader2Icon className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <DownloadIcon className="w-4 h-4" />
-                    )}
-                    Download Voucher
-                  </Button>
+                  {/* Voucher Dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-between gap-2"
+                        disabled={isDownloading === "voucher"}
+                      >
+                        <span className="flex items-center gap-2">
+                          {isDownloading === "voucher" ? (
+                            <Loader2Icon className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <DownloadIcon className="w-4 h-4" />
+                          )}
+                          Download Voucher
+                        </span>
+                        <ChevronDownIcon className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56">
+                      <DropdownMenuItem 
+                        onClick={() => handleDownloadDocument("voucher", "Voucher")}
+                        className="gap-2"
+                      >
+                        <FileTextIcon className="w-4 h-4" />
+                        Official Supplier Voucher
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={handleDownloadCustomVoucher}
+                        className="gap-2"
+                      >
+                        <SparklesIcon className="w-4 h-4" />
+                        Branded Custom Voucher
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Button 
                     variant="outline" 
                     className="w-full justify-start gap-2"
