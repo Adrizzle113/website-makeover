@@ -12,59 +12,67 @@ interface OrderInfoRequest {
 }
 
 /**
- * Extract fees and taxes from room data
+ * Extract taxes from order-level taxes array (not room data)
+ * Separates included vs not included fees
  */
-function extractFeesAndTaxes(roomsData: any[]): any[] {
-  const fees: any[] = [];
+function extractTaxes(orderTaxes: any[]): { included: any[]; notIncluded: any[] } {
+  const included: any[] = [];
+  const notIncluded: any[] = [];
   
-  for (const room of roomsData || []) {
-    // Check for taxes in the room
-    if (room.taxes) {
-      for (const tax of room.taxes) {
-        fees.push({
-          name: tax.name || 'Tax',
-          amount: tax.amount?.amount || tax.amount,
-          currency: tax.amount?.currency_code || tax.currency_code,
-          included_by_supplier: tax.included_by_supplier ?? false,
-        });
-      }
-    }
+  for (const tax of orderTaxes || []) {
+    const taxInfo = {
+      name: tax.name || 'Tax',
+      amount: tax.amount?.amount || tax.amount || '0',
+      currency: tax.amount?.currency_code || tax.currency_code || 'USD',
+      included_by_supplier: tax.is_included ?? tax.included_by_supplier ?? false,
+    };
     
-    // Check for extra data fees
-    if (room.extra_data?.fees) {
-      for (const fee of room.extra_data.fees) {
-        fees.push({
-          name: fee.name || 'Fee',
-          amount: fee.amount?.amount || fee.amount,
-          currency: fee.amount?.currency_code || fee.currency_code,
-          included_by_supplier: fee.included_by_supplier ?? false,
-        });
-      }
+    if (taxInfo.included_by_supplier) {
+      included.push(taxInfo);
+    } else {
+      notIncluded.push(taxInfo);
     }
   }
   
-  return fees;
+  return { included, notIncluded };
 }
 
 /**
- * Extract deposit information from payment data
+ * Extract deposit information from hotel/room data
  */
-function extractDepositInfo(paymentData: any, hotelData: any): string | null {
-  // Check for deposit requirements
+function extractDepositInfo(hotelData: any, roomsData: any[]): string[] {
+  const deposits: string[] = [];
+  
+  // Check for deposit in hotel data
   if (hotelData?.deposit) {
-    return hotelData.deposit;
-  }
-  
-  if (paymentData?.deposit_required) {
-    const amount = paymentData.deposit_amount?.amount || paymentData.deposit_amount;
-    const currency = paymentData.deposit_amount?.currency_code || paymentData.deposit_currency;
-    if (amount && currency) {
-      return `A deposit of ${amount} ${currency} may be required at check-in.`;
+    if (typeof hotelData.deposit === 'string') {
+      deposits.push(hotelData.deposit);
+    } else if (Array.isArray(hotelData.deposit)) {
+      deposits.push(...hotelData.deposit);
     }
-    return 'A deposit may be required at check-in.';
   }
   
-  return null;
+  // Check room-level deposit info
+  for (const room of roomsData || []) {
+    if (room.deposit) {
+      deposits.push(room.deposit);
+    }
+  }
+  
+  return deposits;
+}
+
+/**
+ * Extract guest count from room data
+ */
+function extractGuestCounts(roomsData: any[]): { adults: number; children: number } {
+  const firstRoom = roomsData?.[0];
+  const guestData = firstRoom?.guest_data;
+  
+  return {
+    adults: guestData?.adults_number || guestData?.guests?.filter((g: any) => !g.is_child).length || 0,
+    children: guestData?.children_number || guestData?.guests?.filter((g: any) => g.is_child).length || 0,
+  };
 }
 
 /**
@@ -74,11 +82,14 @@ function transformOrderResponse(worldotaOrder: any) {
   const firstRoom = worldotaOrder.rooms_data?.[0];
   const firstGuest = firstRoom?.guest_data?.guests?.[0];
   
-  // Extract fees and taxes
-  const fees = extractFeesAndTaxes(worldotaOrder.rooms_data);
+  // Extract taxes from order-level (not room-level)
+  const taxes = extractTaxes(worldotaOrder.taxes);
   
   // Extract deposit info
-  const depositInfo = extractDepositInfo(worldotaOrder.payment_data, worldotaOrder.hotel_data);
+  const deposits = extractDepositInfo(worldotaOrder.hotel_data, worldotaOrder.rooms_data);
+  
+  // Extract guest counts
+  const guestCounts = extractGuestCounts(worldotaOrder.rooms_data);
   
   // Build cancellation policy text
   let cancellationPolicyText = null;
@@ -93,6 +104,9 @@ function transformOrderResponse(worldotaOrder: any) {
       }).join('; ');
     }
   }
+  
+  // Extract bedding from first room
+  const bedding = firstRoom?.bedding_name;
   
   return {
     order_id: String(worldotaOrder.order_id),
@@ -122,13 +136,19 @@ function transformOrderResponse(worldotaOrder: any) {
       phone: worldotaOrder.hotel_data?.phone || null,
       latitude: worldotaOrder.hotel_data?.latitude || null,
       longitude: worldotaOrder.hotel_data?.longitude || null,
+      check_in_time: worldotaOrder.hotel_data?.check_in_time || "14:00:00",
+      check_out_time: worldotaOrder.hotel_data?.check_out_time || "12:00:00",
     },
     
     // Transform room data
     room: firstRoom ? {
       name: firstRoom.room_name,
       meal_plan: firstRoom.meal_name,
-      bedding: firstRoom.bedding_name,
+      meal_name: firstRoom.meal_name,
+      bedding: bedding,
+      bedding_name: bedding,
+      has_breakfast: firstRoom.has_breakfast || false,
+      no_child_meal: firstRoom.no_child_meal || false,
       guests: firstRoom.guest_data?.guests?.map((g: any) => ({
         first_name: g.first_name,
         last_name: g.last_name,
@@ -136,6 +156,9 @@ function transformOrderResponse(worldotaOrder: any) {
         age: g.age,
       })) || [],
     } : null,
+    
+    // Guest counts
+    guest_counts: guestCounts,
     
     // Lead guest from first room's first guest
     lead_guest: firstGuest ? {
@@ -164,10 +187,15 @@ function transformOrderResponse(worldotaOrder: any) {
     is_cancellable: worldotaOrder.is_cancellable,
     free_cancellation_before: worldotaOrder.cancellation_info?.free_cancellation_before || null,
     
-    // Additional extracted data for custom voucher
-    fees: fees,
-    deposit_info: depositInfo,
-    special_requests: worldotaOrder.rooms_data?.[0]?.special_requests || null,
+    // Taxes: separated into included and not included
+    taxes_included: taxes.included,
+    taxes_not_included: taxes.notIncluded,
+    
+    // Deposits array
+    deposits: deposits,
+    
+    // Special requests
+    special_requests: firstRoom?.special_requests || null,
     
     // Include raw data for debugging/fallback
     _raw: worldotaOrder,

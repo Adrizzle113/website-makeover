@@ -287,10 +287,17 @@ export interface OrderInfoResponse {
       phone?: string;
       latitude?: number;
       longitude?: number;
+      check_in_time?: string;
+      check_out_time?: string;
     };
     room: {
       name: string;
       meal_plan?: string;
+      meal_name?: string;
+      bedding?: string;
+      bedding_name?: string;
+      has_breakfast?: boolean;
+      no_child_meal?: boolean;
       guests: BookingGuest[];
     };
     dates: {
@@ -315,16 +322,37 @@ export interface OrderInfoResponse {
     cancellation_policy?: string;
     cancellation_policy_text?: string;
     free_cancellation_before?: string;
+    // Separated taxes/fees
+    taxes_included?: Array<{
+      name: string;
+      amount: string;
+      currency?: string;
+    }>;
+    taxes_not_included?: Array<{
+      name: string;
+      amount: string;
+      currency?: string;
+    }>;
+    // Legacy fees field
     fees?: Array<{
       name: string;
       amount: string;
       currency?: string;
       included_by_supplier?: boolean;
     }>;
+    // Deposits
+    deposits?: string[];
     deposit_info?: string;
+    // Guest counts
+    guest_counts?: {
+      adults: number;
+      children: number;
+    };
     special_requests?: string;
     created_at: string;
     updated_at: string;
+    // Raw API data for fallback
+    _raw?: any;
   };
   status: string;
   error?: {
