@@ -59,7 +59,7 @@ export async function saveBookingToDatabase(
     }
 
     // Fetch hotel info from worldota-hotel-info if we have a hotel ID but no hotel name
-    let hotelInfo: { name?: string; address?: string; city?: string; country?: string; phone?: string; starRating?: number } | undefined;
+    let hotelInfo: { name?: string; address?: string; city?: string; country?: string; phone?: string; starRating?: number; image?: string } | undefined;
     const hotelHid = (apiResponse?.data as any)?._raw?.hotel_data?.hid || (apiResponse?.data?.hotel as any)?.hid;
     const hasHotelName = pendingData?.hotel?.name || apiResponse?.data?.hotel?.name;
     
@@ -72,6 +72,8 @@ export async function saveBookingToDatabase(
         
         if (hotelInfoResponse.data?.success) {
           const hotelData = hotelInfoResponse.data.hotel;
+          // Get first image if available
+          const firstImage = hotelData.images?.[0];
           hotelInfo = {
             name: hotelData.name,
             address: hotelData.address,
@@ -79,8 +81,9 @@ export async function saveBookingToDatabase(
             country: hotelData.raw_data?.region?.country_name,
             phone: hotelData.phone,
             starRating: hotelData.star_rating,
+            image: firstImage ? `https://photo.hotellook.com/image_v2/limit/${firstImage}/800/520.auto` : undefined,
           };
-          console.log("✅ Hotel info fetched:", hotelInfo.name);
+          console.log("✅ Hotel info fetched:", hotelInfo.name, hotelInfo.image ? "with image" : "no image");
         }
       } catch (err) {
         console.warn("⚠️ Could not fetch hotel info:", err);
@@ -134,7 +137,7 @@ function buildInsertData(
   userId: string,
   pendingData?: PendingBookingData,
   apiResponse?: OrderInfoResponse,
-  hotelInfo?: { name?: string; address?: string; city?: string; country?: string; phone?: string; starRating?: number }
+  hotelInfo?: { name?: string; address?: string; city?: string; country?: string; phone?: string; starRating?: number; image?: string }
 ): UserBookingInsert {
   const apiData = apiResponse?.data;
   
@@ -193,7 +196,7 @@ function buildInsertData(
     hotel_country: pendingData?.hotel?.country || apiData?.hotel?.country || hotelInfo?.country,
     hotel_star_rating: pendingData?.hotel?.starRating || apiData?.hotel?.star_rating || hotelInfo?.starRating,
     hotel_phone: apiData?.hotel?.phone || hotelInfo?.phone,
-    hotel_image: pendingData?.hotel?.mainImage,
+    hotel_image: pendingData?.hotel?.mainImage || hotelInfo?.image,
     check_in_date: checkIn,
     check_out_date: checkOut,
     nights: apiData?.dates?.nights || Math.ceil(
@@ -362,7 +365,7 @@ export async function syncBookingFromApi(orderId: string): Promise<{ success: bo
     const statusData = orderStatus.data;
     
     // Fetch hotel info from worldota-hotel-info if we have a hotel ID
-    let hotelInfo: { name?: string; address?: string; city?: string; country?: string; phone?: string; starRating?: number } | undefined;
+    let hotelInfo: { name?: string; address?: string; city?: string; country?: string; phone?: string; starRating?: number; image?: string } | undefined;
     const hotelHid = (apiData as any)?._raw?.hotel_data?.hid || (apiData?.hotel as any)?.hid;
     
     if (hotelHid) {
@@ -373,6 +376,7 @@ export async function syncBookingFromApi(orderId: string): Promise<{ success: bo
         
         if (hotelInfoResponse.data?.success) {
           const hotelData = hotelInfoResponse.data.hotel;
+          const firstImage = hotelData.images?.[0];
           hotelInfo = {
             name: hotelData.name,
             address: hotelData.address,
@@ -380,6 +384,7 @@ export async function syncBookingFromApi(orderId: string): Promise<{ success: bo
             country: hotelData.raw_data?.region?.country_name,
             phone: hotelData.phone,
             starRating: hotelData.star_rating,
+            image: firstImage ? `https://photo.hotellook.com/image_v2/limit/${firstImage}/800/520.auto` : undefined,
           };
         }
       } catch (err) {
@@ -399,6 +404,7 @@ export async function syncBookingFromApi(orderId: string): Promise<{ success: bo
         hotel_country: apiData.hotel.country || hotelInfo?.country,
         hotel_star_rating: apiData.hotel.star_rating || hotelInfo?.starRating,
         hotel_phone: apiData.hotel.phone || hotelInfo?.phone,
+        hotel_image: hotelInfo?.image,
         amount: apiData.price.amount,
         currency_code: apiData.price.currency_code,
         payment_status: apiData.payment.status,
