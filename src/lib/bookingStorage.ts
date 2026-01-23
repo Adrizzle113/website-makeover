@@ -58,6 +58,35 @@ export async function saveBookingToDatabase(
       }
     }
 
+    // Fetch hotel info from worldota-hotel-info if we have a hotel ID but no hotel name
+    let hotelInfo: { name?: string; address?: string; city?: string; country?: string; phone?: string; starRating?: number } | undefined;
+    const hotelHid = (apiResponse?.data as any)?._raw?.hotel_data?.hid || (apiResponse?.data?.hotel as any)?.hid;
+    const hasHotelName = pendingData?.hotel?.name || apiResponse?.data?.hotel?.name;
+    
+    if (hotelHid && !hasHotelName) {
+      try {
+        console.log("📡 Fetching hotel info from worldota-hotel-info for hid:", hotelHid);
+        const hotelInfoResponse = await supabase.functions.invoke("worldota-hotel-info", {
+          body: { hid: hotelHid, language: "en" }
+        });
+        
+        if (hotelInfoResponse.data?.success) {
+          const hotelData = hotelInfoResponse.data.hotel;
+          hotelInfo = {
+            name: hotelData.name,
+            address: hotelData.address,
+            city: hotelData.raw_data?.region?.name,
+            country: hotelData.raw_data?.region?.country_name,
+            phone: hotelData.phone,
+            starRating: hotelData.star_rating,
+          };
+          console.log("✅ Hotel info fetched:", hotelInfo.name);
+        }
+      } catch (err) {
+        console.warn("⚠️ Could not fetch hotel info:", err);
+      }
+    }
+
     // Check if booking already exists using raw query
     const { data: existing, error: checkError } = await supabase
       .from(TABLE_NAME as any)
@@ -77,7 +106,7 @@ export async function saveBookingToDatabase(
     }
 
     // Build insert data from pending booking and/or API response
-    const insertData = buildInsertData(orderId, userId, pendingData, apiResponse);
+    const insertData = buildInsertData(orderId, userId, pendingData, apiResponse, hotelInfo);
 
     const { error } = await supabase
       .from(TABLE_NAME as any)
@@ -104,7 +133,8 @@ function buildInsertData(
   orderId: string,
   userId: string,
   pendingData?: PendingBookingData,
-  apiResponse?: OrderInfoResponse
+  apiResponse?: OrderInfoResponse,
+  hotelInfo?: { name?: string; address?: string; city?: string; country?: string; phone?: string; starRating?: number }
 ): UserBookingInsert {
   const apiData = apiResponse?.data;
   
@@ -157,12 +187,12 @@ function buildInsertData(
     status: apiData?.status || "confirmed",
     confirmation_number: apiData?.confirmation_number || orderId,
     hotel_id: pendingData?.hotel?.id || apiData?.hotel?.id,
-    hotel_name: pendingData?.hotel?.name || apiData?.hotel?.name,
-    hotel_address: pendingData?.hotel?.address || apiData?.hotel?.address,
-    hotel_city: pendingData?.hotel?.city || apiData?.hotel?.city,
-    hotel_country: pendingData?.hotel?.country || apiData?.hotel?.country,
-    hotel_star_rating: pendingData?.hotel?.starRating || apiData?.hotel?.star_rating,
-    hotel_phone: apiData?.hotel?.phone,
+    hotel_name: pendingData?.hotel?.name || apiData?.hotel?.name || hotelInfo?.name,
+    hotel_address: pendingData?.hotel?.address || apiData?.hotel?.address || hotelInfo?.address,
+    hotel_city: pendingData?.hotel?.city || apiData?.hotel?.city || hotelInfo?.city,
+    hotel_country: pendingData?.hotel?.country || apiData?.hotel?.country || hotelInfo?.country,
+    hotel_star_rating: pendingData?.hotel?.starRating || apiData?.hotel?.star_rating || hotelInfo?.starRating,
+    hotel_phone: apiData?.hotel?.phone || hotelInfo?.phone,
     hotel_image: pendingData?.hotel?.mainImage,
     check_in_date: checkIn,
     check_out_date: checkOut,
@@ -259,6 +289,56 @@ export async function updateBookingStatus(
 }
 
 /**
+ * Update hotel info for a booking from worldota-hotel-info
+ */
+export async function updateBookingHotelInfo(
+  orderId: string,
+  hotelHid: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return { success: false, error: "User not authenticated" };
+    }
+
+    console.log("📡 Fetching hotel info for booking:", orderId, "hid:", hotelHid);
+    const hotelInfoResponse = await supabase.functions.invoke("worldota-hotel-info", {
+      body: { hid: hotelHid, language: "en" }
+    });
+    
+    if (!hotelInfoResponse.data?.success) {
+      return { success: false, error: "Failed to fetch hotel info" };
+    }
+
+    const hotelData = hotelInfoResponse.data.hotel;
+    
+    const { error } = await supabase
+      .from(TABLE_NAME as any)
+      .update({
+        hotel_name: hotelData.name,
+        hotel_address: hotelData.address,
+        hotel_city: hotelData.raw_data?.region?.name,
+        hotel_country: hotelData.raw_data?.region?.country_name,
+        hotel_phone: hotelData.phone,
+        hotel_star_rating: hotelData.star_rating,
+        updated_at: new Date().toISOString(),
+      } as any)
+      .eq("order_id", orderId)
+      .eq("user_id", userId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    console.log("✅ Hotel info updated for booking:", orderId);
+    return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, error: message };
+  }
+}
+
+/**
  * Sync a booking from the API (refresh data)
  */
 export async function syncBookingFromApi(orderId: string): Promise<{ success: boolean; error?: string }> {
@@ -280,6 +360,32 @@ export async function syncBookingFromApi(orderId: string): Promise<{ success: bo
 
     const apiData = orderInfo.data;
     const statusData = orderStatus.data;
+    
+    // Fetch hotel info from worldota-hotel-info if we have a hotel ID
+    let hotelInfo: { name?: string; address?: string; city?: string; country?: string; phone?: string; starRating?: number } | undefined;
+    const hotelHid = (apiData as any)?._raw?.hotel_data?.hid || (apiData?.hotel as any)?.hid;
+    
+    if (hotelHid) {
+      try {
+        const hotelInfoResponse = await supabase.functions.invoke("worldota-hotel-info", {
+          body: { hid: hotelHid, language: "en" }
+        });
+        
+        if (hotelInfoResponse.data?.success) {
+          const hotelData = hotelInfoResponse.data.hotel;
+          hotelInfo = {
+            name: hotelData.name,
+            address: hotelData.address,
+            city: hotelData.raw_data?.region?.name,
+            country: hotelData.raw_data?.region?.country_name,
+            phone: hotelData.phone,
+            starRating: hotelData.star_rating,
+          };
+        }
+      } catch (err) {
+        console.warn("Could not fetch hotel info:", err);
+      }
+    }
 
     // Update the database record
     const { error } = await supabase
@@ -287,12 +393,12 @@ export async function syncBookingFromApi(orderId: string): Promise<{ success: bo
       .update({
         status: apiData.status,
         confirmation_number: apiData.confirmation_number,
-        hotel_name: apiData.hotel.name,
-        hotel_address: apiData.hotel.address,
-        hotel_city: apiData.hotel.city,
-        hotel_country: apiData.hotel.country,
-        hotel_star_rating: apiData.hotel.star_rating,
-        hotel_phone: apiData.hotel.phone,
+        hotel_name: apiData.hotel.name || hotelInfo?.name,
+        hotel_address: apiData.hotel.address || hotelInfo?.address,
+        hotel_city: apiData.hotel.city || hotelInfo?.city,
+        hotel_country: apiData.hotel.country || hotelInfo?.country,
+        hotel_star_rating: apiData.hotel.star_rating || hotelInfo?.starRating,
+        hotel_phone: apiData.hotel.phone || hotelInfo?.phone,
         amount: apiData.price.amount,
         currency_code: apiData.price.currency_code,
         payment_status: apiData.payment.status,
