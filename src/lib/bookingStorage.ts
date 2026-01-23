@@ -1,5 +1,6 @@
 // Booking storage service - saves confirmed bookings to Supabase
 import { supabase } from "@/integrations/supabase/client";
+import { API_BASE_URL } from "@/config/api";
 import { bookingApi } from "@/services/bookingApi";
 import type { 
   UserBookingRow, 
@@ -14,6 +15,44 @@ import { isDemoOrder, getMockPendingBookingData } from "@/lib/mockBookingData";
 
 // Table name constant
 const TABLE_NAME = "user_bookings";
+
+function normalizeImageUrl(url?: string | null): string | undefined {
+  if (!url) return undefined;
+  const s = String(url).trim();
+  if (!s) return undefined;
+  // Expand templated sizes used by WorldOTA CDN
+  return s.replace("{size}", "1024x768");
+}
+
+async function fetchStaticHotelMainImage(hotelId: string): Promise<string | undefined> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/ratehawk/hotel/static-info`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hotelId, language: "en" }),
+    });
+
+    if (!response.ok) return undefined;
+
+    const payload = await response.json();
+    const data = payload?.data;
+    const images = Array.isArray(data?.images) ? data.images : [];
+    const first = images[0];
+
+    const rawUrl =
+      typeof first === "string"
+        ? first
+        : typeof first?.url === "string"
+          ? first.url
+          : typeof first?.tmpl === "string"
+            ? first.tmpl
+            : undefined;
+
+    return normalizeImageUrl(rawUrl);
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * Get the current authenticated user's ID
@@ -58,22 +97,43 @@ export async function saveBookingToDatabase(
       }
     }
 
-    // Fetch hotel info from worldota-hotel-info if we have a hotel ID but no hotel name
-    let hotelInfo: { name?: string; address?: string; city?: string; country?: string; phone?: string; starRating?: number; image?: string } | undefined;
+    // Fetch hotel info (and especially a working hotel image) when it's missing in pending/API data
+    let hotelInfo:
+      | {
+          name?: string;
+          address?: string;
+          city?: string;
+          country?: string;
+          phone?: string;
+          starRating?: number;
+          image?: string;
+        }
+      | undefined;
+
     const hotelHid = (apiResponse?.data as any)?._raw?.hotel_data?.hid || (apiResponse?.data?.hotel as any)?.hid;
-    const hasHotelName = pendingData?.hotel?.name || apiResponse?.data?.hotel?.name;
-    
-    if (hotelHid && !hasHotelName) {
+    const hasHotelName = !!(pendingData?.hotel?.name || apiResponse?.data?.hotel?.name);
+    const pendingMainImage = normalizeImageUrl(pendingData?.hotel?.mainImage);
+    const apiHotelImage = normalizeImageUrl((apiResponse?.data?.hotel as any)?.image);
+    const hasHotelImage = !!(pendingMainImage || apiHotelImage);
+
+    // 1) Try static-info first (best chance for working WorldOTA CDN images)
+    let staticMainImage: string | undefined;
+    if (hotelHid && !hasHotelImage) {
+      staticMainImage = await fetchStaticHotelMainImage(String(hotelHid));
+    }
+
+    // 2) If still missing critical fields, call hotel-info enrichment
+    if (hotelHid && (!hasHotelName || (!hasHotelImage && !staticMainImage))) {
       try {
         console.log("📡 Fetching hotel info from worldota-hotel-info for hid:", hotelHid);
         const hotelInfoResponse = await supabase.functions.invoke("worldota-hotel-info", {
-          body: { hid: hotelHid, language: "en" }
+          body: { hid: hotelHid, language: "en" },
         });
-        
+
         if (hotelInfoResponse.data?.success) {
           const hotelData = hotelInfoResponse.data.hotel;
-          // Get first image if available
-          const firstImage = hotelData.images?.[0];
+          const firstUrl = normalizeImageUrl(hotelData?.images?.[0]?.url);
+
           hotelInfo = {
             name: hotelData.name,
             address: hotelData.address,
@@ -81,13 +141,23 @@ export async function saveBookingToDatabase(
             country: hotelData.raw_data?.region?.country_name,
             phone: hotelData.phone,
             starRating: hotelData.star_rating,
-            image: firstImage ? `https://photo.hotellook.com/image_v2/limit/${firstImage}/800/520.auto` : undefined,
+            image: pendingMainImage || apiHotelImage || staticMainImage || firstUrl,
           };
-          console.log("✅ Hotel info fetched:", hotelInfo.name, hotelInfo.image ? "with image" : "no image");
+
+          console.log(
+            "✅ Hotel info fetched:",
+            hotelInfo.name,
+            hotelInfo.image ? "with image" : "no image"
+          );
         }
       } catch (err) {
         console.warn("⚠️ Could not fetch hotel info:", err);
       }
+    } else if (pendingMainImage || apiHotelImage || staticMainImage) {
+      // Ensure image is carried through even when we don't need other enrichment
+      hotelInfo = {
+        image: pendingMainImage || apiHotelImage || staticMainImage,
+      };
     }
 
     // Check if booking already exists using raw query
@@ -196,7 +266,7 @@ function buildInsertData(
     hotel_country: pendingData?.hotel?.country || apiData?.hotel?.country || hotelInfo?.country,
     hotel_star_rating: pendingData?.hotel?.starRating || apiData?.hotel?.star_rating || hotelInfo?.starRating,
     hotel_phone: apiData?.hotel?.phone || hotelInfo?.phone,
-    hotel_image: pendingData?.hotel?.mainImage || hotelInfo?.image,
+    hotel_image: normalizeImageUrl(pendingData?.hotel?.mainImage) || normalizeImageUrl(hotelInfo?.image),
     check_in_date: checkIn,
     check_out_date: checkOut,
     nights: apiData?.dates?.nights || Math.ceil(
@@ -364,19 +434,36 @@ export async function syncBookingFromApi(orderId: string): Promise<{ success: bo
     const apiData = orderInfo.data;
     const statusData = orderStatus.data;
     
-    // Fetch hotel info from worldota-hotel-info if we have a hotel ID
-    let hotelInfo: { name?: string; address?: string; city?: string; country?: string; phone?: string; starRating?: number; image?: string } | undefined;
+    // Refresh hotel image using static-info first (working CDN), then hotel-info enrichment
+    let hotelInfo:
+      | {
+          name?: string;
+          address?: string;
+          city?: string;
+          country?: string;
+          phone?: string;
+          starRating?: number;
+          image?: string;
+        }
+      | undefined;
+
     const hotelHid = (apiData as any)?._raw?.hotel_data?.hid || (apiData?.hotel as any)?.hid;
-    
+    const apiHotelImage = normalizeImageUrl((apiData?.hotel as any)?.image);
+
+    let staticMainImage: string | undefined;
+    if (hotelHid) {
+      staticMainImage = await fetchStaticHotelMainImage(String(hotelHid));
+    }
+
     if (hotelHid) {
       try {
         const hotelInfoResponse = await supabase.functions.invoke("worldota-hotel-info", {
-          body: { hid: hotelHid, language: "en" }
+          body: { hid: hotelHid, language: "en" },
         });
-        
+
         if (hotelInfoResponse.data?.success) {
           const hotelData = hotelInfoResponse.data.hotel;
-          const firstImage = hotelData.images?.[0];
+          const firstUrl = normalizeImageUrl(hotelData?.images?.[0]?.url);
           hotelInfo = {
             name: hotelData.name,
             address: hotelData.address,
@@ -384,7 +471,7 @@ export async function syncBookingFromApi(orderId: string): Promise<{ success: bo
             country: hotelData.raw_data?.region?.country_name,
             phone: hotelData.phone,
             starRating: hotelData.star_rating,
-            image: firstImage ? `https://photo.hotellook.com/image_v2/limit/${firstImage}/800/520.auto` : undefined,
+            image: staticMainImage || apiHotelImage || firstUrl,
           };
         }
       } catch (err) {
@@ -404,7 +491,7 @@ export async function syncBookingFromApi(orderId: string): Promise<{ success: bo
         hotel_country: apiData.hotel.country || hotelInfo?.country,
         hotel_star_rating: apiData.hotel.star_rating || hotelInfo?.starRating,
         hotel_phone: apiData.hotel.phone || hotelInfo?.phone,
-        hotel_image: hotelInfo?.image,
+        hotel_image: normalizeImageUrl(hotelInfo?.image) || apiHotelImage,
         amount: apiData.price.amount,
         currency_code: apiData.price.currency_code,
         payment_status: apiData.payment.status,
