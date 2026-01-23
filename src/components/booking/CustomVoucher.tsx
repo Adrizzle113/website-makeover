@@ -95,20 +95,34 @@ function formatGuestOccupancy(adults?: number, children?: number): string {
   return parts.length > 0 ? `for ${parts.join(', ')}` : '';
 }
 
-function formatBedding(bedding?: string): string {
+function formatBedding(bedding?: string | string[]): string {
   if (!bedding) return '';
-  // Handle array-like bedding strings
-  if (bedding.startsWith('[')) {
-    try {
-      const arr = JSON.parse(bedding);
-      return arr.map((b: string) => b.charAt(0).toUpperCase() + b.slice(1) + ' bed').join(', ');
-    } catch {
-      return bedding;
-    }
+  
+  // Handle array directly
+  if (Array.isArray(bedding)) {
+    return bedding.map((b: string) => {
+      const formatted = b.charAt(0).toUpperCase() + b.slice(1);
+      return formatted.toLowerCase().includes('bed') ? formatted : `${formatted} bed`;
+    }).join(', ');
   }
-  // Capitalize and add "bed" suffix if not present
-  const formatted = bedding.charAt(0).toUpperCase() + bedding.slice(1);
-  return formatted.toLowerCase().includes('bed') ? formatted : `${formatted} bed`;
+  
+  // Handle string
+  if (typeof bedding === 'string') {
+    // Handle JSON array string
+    if (bedding.startsWith('[')) {
+      try {
+        const arr = JSON.parse(bedding);
+        return formatBedding(arr);
+      } catch {
+        return bedding;
+      }
+    }
+    // Capitalize and add "bed" suffix if not present
+    const formatted = bedding.charAt(0).toUpperCase() + bedding.slice(1);
+    return formatted.toLowerCase().includes('bed') ? formatted : `${formatted} bed`;
+  }
+  
+  return String(bedding);
 }
 
 export function generateCustomVoucherHTML(data: VoucherData): string {
