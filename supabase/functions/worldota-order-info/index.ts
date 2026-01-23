@@ -76,17 +76,42 @@ function extractGuestCounts(roomsData: any[]): { adults: number; children: numbe
 }
 
 /**
+ * Format fee/tax name to be human-readable
+ */
+function formatFeeName(name: string): string {
+  if (!name) return 'Fee';
+  // Replace underscores with spaces and capitalize each word
+  return name
+    .replace(/_/g, ' ')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+/**
  * Transform WorldOTA batch response format to expected frontend format
  */
 function transformOrderResponse(worldotaOrder: any) {
   const firstRoom = worldotaOrder.rooms_data?.[0];
   const firstGuest = firstRoom?.guest_data?.guests?.[0];
   
+  // Log raw taxes for debugging
+  console.log(`[worldota-order-info] Raw taxes:`, JSON.stringify(worldotaOrder.taxes));
+  console.log(`[worldota-order-info] Raw hotel_data:`, JSON.stringify(worldotaOrder.hotel_data));
+  console.log(`[worldota-order-info] Raw rooms_data[0]:`, JSON.stringify(firstRoom));
+  
   // Extract taxes from order-level (not room-level)
   const taxes = extractTaxes(worldotaOrder.taxes);
   
+  // Format the tax names to be human-readable
+  taxes.included = taxes.included.map(t => ({ ...t, name: formatFeeName(t.name) }));
+  taxes.notIncluded = taxes.notIncluded.map(t => ({ ...t, name: formatFeeName(t.name) }));
+  
+  console.log(`[worldota-order-info] Extracted taxes:`, JSON.stringify(taxes));
+  
   // Extract deposit info
   const deposits = extractDepositInfo(worldotaOrder.hotel_data, worldotaOrder.rooms_data);
+  console.log(`[worldota-order-info] Extracted deposits:`, JSON.stringify(deposits));
   
   // Extract guest counts
   const guestCounts = extractGuestCounts(worldotaOrder.rooms_data);
