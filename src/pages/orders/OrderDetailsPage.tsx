@@ -49,6 +49,7 @@ import { saveBookingToDatabase, isUserAuthenticated, getBookingByOrderId } from 
 
 // Extended Order type with additional details
 interface ExtendedOrder extends Order {
+  partnerOrderId?: string; // Our internal booking ID (for voucher download)
   confirmationNumber?: string;
   supplierReference?: string;
   mealPlan?: string;
@@ -166,6 +167,7 @@ export default function OrderDetailsPage() {
       // Build order object from API response
       const orderData: ExtendedOrder = {
         id: apiData.order_id,
+        partnerOrderId: apiData.partner_order_id, // Store partner_order_id for voucher download
         tripId: apiData.order_group_id || apiData.order_id,
         hotelName: apiData.hotel.name,
         hotelAddress: apiData.hotel.address,
@@ -365,7 +367,9 @@ export default function OrderDetailsPage() {
       
       switch (docType) {
         case "voucher": {
-          const response = await bookingApi.downloadVoucher(order.id);
+          // Use partnerOrderId for voucher download (WorldOTA API requires it)
+          const voucherId = order.partnerOrderId || order.id;
+          const response = await bookingApi.downloadVoucher(voucherId);
           downloadUrl = response.voucher_url || response.data?.url;
           fileName = `voucher-${response.partner_order_id || order.id}.pdf`;
           break;

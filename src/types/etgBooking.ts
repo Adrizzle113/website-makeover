@@ -273,6 +273,7 @@ export interface OrderStatusResponse {
 export interface OrderInfoResponse {
   data: {
     order_id: string;
+    partner_order_id?: string; // Our internal booking ID
     order_group_id: string;
     status: OrderStatus;
     confirmation_number: string;
