@@ -101,6 +101,7 @@ interface ExtendedOrder extends Order {
     latitude?: number;
     longitude?: number;
     hotelPhone?: string;
+    guests?: Array<{ first_name: string; last_name: string; is_child?: boolean; age?: number }>;
   };
 }
 
@@ -265,6 +266,7 @@ export default function OrderDetailsPage() {
           childrenCount: apiData.guest_counts?.children,
           latitude: apiData.hotel?.latitude,
           longitude: apiData.hotel?.longitude,
+          guests: apiData.room?.guests || [],
         },
       };
 
@@ -551,9 +553,14 @@ export default function OrderDetailsPage() {
   const handleDownloadCustomVoucher = () => {
     if (!order) return;
 
-    // Extract guests from room data or lead guest
-    const guests: Array<{ first_name: string; last_name: string; is_child?: boolean; age?: number }> = [];
-    if (order.leadGuest) {
+    // Use guests from voucherData (room.guests from API), fallback to lead guest only
+    let guests: Array<{ first_name: string; last_name: string; is_child?: boolean; age?: number }> = [];
+    
+    if (order.voucherData?.guests && order.voucherData.guests.length > 0) {
+      // Use the full guest list from API
+      guests = order.voucherData.guests;
+    } else if (order.leadGuest) {
+      // Fallback to lead guest only
       guests.push({
         first_name: order.leadGuest.firstName,
         last_name: order.leadGuest.lastName,
