@@ -1,69 +1,36 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   CheckCircleIcon, 
   ClockIcon, 
-  AlertCircleIcon,
-  XCircleIcon,
   ArrowRightIcon,
 } from "lucide-react";
+import { useDashboardStats } from "@/hooks/useDashboardStats";
 
-interface PipelineStage {
-  id: string;
-  name: string;
-  count: number;
-  value: number;
-  icon: React.ElementType;
-  color: string;
-  bgColor: string;
-}
-
-const pipelineStages: PipelineStage[] = [
-  {
-    id: "pending",
-    name: "Pending",
-    count: 12,
-    value: 28500,
+const stageConfig = {
+  pending: {
     icon: ClockIcon,
     color: "text-amber-500",
     bgColor: "bg-amber-500/10",
   },
-  {
-    id: "confirmed",
-    name: "Confirmed",
-    count: 45,
-    value: 89200,
+  confirmed: {
     icon: CheckCircleIcon,
     color: "text-emerald-500",
     bgColor: "bg-emerald-500/10",
   },
-  {
-    id: "in_progress",
-    name: "In Progress",
-    count: 8,
-    value: 15800,
+  in_progress: {
     icon: ArrowRightIcon,
     color: "text-blue-500",
     bgColor: "bg-blue-500/10",
   },
-  {
-    id: "completed",
-    name: "Completed",
-    count: 156,
-    value: 312000,
+  completed: {
     icon: CheckCircleIcon,
     color: "text-primary",
     bgColor: "bg-primary/10",
   },
-];
-
-const recentActivity = [
-  { id: "1", action: "New booking", hotel: "The Ritz Paris", time: "2 min ago", type: "new" },
-  { id: "2", action: "Confirmed", hotel: "Marina Bay Sands", time: "15 min ago", type: "confirmed" },
-  { id: "3", action: "Payment received", hotel: "Four Seasons NYC", time: "1 hour ago", type: "payment" },
-  { id: "4", action: "Cancellation", hotel: "Grand Hyatt Tokyo", time: "2 hours ago", type: "cancelled" },
-];
+};
 
 const activityStyles = {
   new: "bg-blue-500",
@@ -73,8 +40,32 @@ const activityStyles = {
 };
 
 export function BookingsPipeline() {
-  const totalBookings = pipelineStages.reduce((sum, stage) => sum + stage.count, 0);
-  const totalValue = pipelineStages.reduce((sum, stage) => sum + stage.value, 0);
+  const { pipelineStages, recentActivity, totalPipelineValue, totalBookingsCount, isLoading } = useDashboardStats();
+
+  if (isLoading) {
+    return (
+      <Card className="border-none shadow-[var(--shadow-card)]">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-5 w-16" />
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-28 rounded-xl" />
+            ))}
+          </div>
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-6" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-none shadow-[var(--shadow-card)]">
@@ -84,7 +75,7 @@ export function BookingsPipeline() {
             Bookings Pipeline
           </CardTitle>
           <Badge variant="secondary" className="text-xs">
-            {totalBookings} total
+            {totalBookingsCount} total
           </Badge>
         </div>
       </CardHeader>
@@ -92,8 +83,9 @@ export function BookingsPipeline() {
         {/* Pipeline Stages */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {pipelineStages.map((stage) => {
-            const Icon = stage.icon;
-            const percentage = (stage.count / totalBookings) * 100;
+            const config = stageConfig[stage.id as keyof typeof stageConfig] || stageConfig.pending;
+            const Icon = config.icon;
+            const percentage = totalBookingsCount > 0 ? (stage.count / totalBookingsCount) * 100 : 0;
 
             return (
               <div
@@ -101,8 +93,8 @@ export function BookingsPipeline() {
                 className="p-4 rounded-xl bg-secondary/50 hover:bg-secondary transition-colors"
               >
                 <div className="flex items-center gap-2 mb-3">
-                  <div className={`p-1.5 rounded-lg ${stage.bgColor}`}>
-                    <Icon className={`w-4 h-4 ${stage.color}`} />
+                  <div className={`p-1.5 rounded-lg ${config.bgColor}`}>
+                    <Icon className={`w-4 h-4 ${config.color}`} />
                   </div>
                   <span className="text-sm font-medium text-foreground">{stage.name}</span>
                 </div>
@@ -123,19 +115,23 @@ export function BookingsPipeline() {
         {/* Recent Activity */}
         <div>
           <h4 className="text-sm font-medium text-muted-foreground mb-3">Recent Activity</h4>
-          <div className="space-y-3">
-            {recentActivity.map((activity) => (
-              <div
-                key={activity.id}
-                className="flex items-center gap-3 text-sm"
-              >
-                <div className={`w-2 h-2 rounded-full ${activityStyles[activity.type as keyof typeof activityStyles]}`} />
-                <span className="text-foreground font-medium">{activity.action}</span>
-                <span className="text-muted-foreground truncate flex-1">{activity.hotel}</span>
-                <span className="text-xs text-muted-foreground/70 shrink-0">{activity.time}</span>
-              </div>
-            ))}
-          </div>
+          {recentActivity.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No recent activity</p>
+          ) : (
+            <div className="space-y-3">
+              {recentActivity.map((activity) => (
+                <div
+                  key={activity.id}
+                  className="flex items-center gap-3 text-sm"
+                >
+                  <div className={`w-2 h-2 rounded-full ${activityStyles[activity.type as keyof typeof activityStyles] || "bg-gray-500"}`} />
+                  <span className="text-foreground font-medium">{activity.action}</span>
+                  <span className="text-muted-foreground truncate flex-1">{activity.hotel}</span>
+                  <span className="text-xs text-muted-foreground/70 shrink-0">{activity.time}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Total Pipeline Value */}
@@ -143,7 +139,7 @@ export function BookingsPipeline() {
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Total Pipeline Value</span>
             <span className="text-xl font-heading text-foreground">
-              ${totalValue.toLocaleString()}
+              ${totalPipelineValue.toLocaleString()}
             </span>
           </div>
         </div>

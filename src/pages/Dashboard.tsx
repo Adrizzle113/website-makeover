@@ -2,6 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Building2Icon,
   CreditCardIcon,
@@ -31,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/hooks/use-toast";
+import { useDashboardStats } from "@/hooks/useDashboardStats";
 
 type DateRange = "today" | "7days" | "30days" | "90days" | "year";
 
@@ -42,78 +44,11 @@ const dateRangeLabels: Record<DateRange, string> = {
   year: "This Year",
 };
 
-const stats = [
-  {
-    label: "Total Bookings",
-    value: "1,888",
-    change: "+12.5%",
-    trend: "up",
-    icon: Building2Icon,
-    color: "bg-primary/10 text-primary",
-  },
-  {
-    label: "Revenue",
-    value: "$462,500",
-    change: "+18.2%",
-    trend: "up",
-    icon: CreditCardIcon,
-    color: "bg-accent/20 text-accent",
-  },
-  {
-    label: "Active Clients",
-    value: "892",
-    change: "+5.1%",
-    trend: "up",
-    icon: UsersIcon,
-    color: "bg-[hsl(43,74%,66%)]/20 text-[hsl(43,74%,66%)]",
-  },
-  {
-    label: "Commission",
-    value: "$92,500",
-    change: "+22.3%",
-    trend: "up",
-    icon: TrendingUpIcon,
-    color: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30",
-  },
-];
-
-const recentBookings = [
-  {
-    id: "BK-2849",
-    destination: "Paris, France",
-    hotel: "The Ritz Paris",
-    guest: "Sarah Mitchell",
-    dates: "Jan 15-20",
-    status: "confirmed",
-    amount: "$4,245",
-  },
-  {
-    id: "BK-2848",
-    destination: "Tokyo, Japan",
-    hotel: "Grand Hyatt Tokyo",
-    guest: "John Anderson",
-    dates: "Jan 18-25",
-    status: "pending",
-    amount: "$3,890",
-  },
-  {
-    id: "BK-2847",
-    destination: "Bali, Indonesia",
-    hotel: "Four Seasons Resort",
-    guest: "Emma Wilson",
-    dates: "Feb 5-12",
-    status: "confirmed",
-    amount: "$5,670",
-  },
-  {
-    id: "BK-2846",
-    destination: "Dubai, UAE",
-    hotel: "Burj Al Arab",
-    guest: "Michael Chen",
-    dates: "Feb 10-15",
-    status: "confirmed",
-    amount: "$8,200",
-  },
+const statIcons = [
+  { icon: Building2Icon, color: "bg-primary/10 text-primary" },
+  { icon: CreditCardIcon, color: "bg-accent/20 text-accent" },
+  { icon: UsersIcon, color: "bg-[hsl(43,74%,66%)]/20 text-[hsl(43,74%,66%)]" },
+  { icon: TrendingUpIcon, color: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30" },
 ];
 
 export const Dashboard = (): JSX.Element => {
@@ -122,6 +57,7 @@ export const Dashboard = (): JSX.Element => {
   const [dateRange, setDateRange] = useState<DateRange>("30days");
   const [isExporting, setIsExporting] = useState(false);
   const navigate = useNavigate();
+  const { stats, recentBookings, isLoading } = useDashboardStats();
 
   useEffect(() => {
     const email = localStorage.getItem("userEmail") || "";
@@ -141,20 +77,15 @@ export const Dashboard = (): JSX.Element => {
   const handleExportDashboard = async () => {
     setIsExporting(true);
     
-    // Simulate export process
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    // Generate CSV with dashboard data
     const csvContent = [
       ["Metric", "Value", "Change", "Period"],
-      ["Total Bookings", "1,888", "+12.5%", dateRangeLabels[dateRange]],
-      ["Revenue", "$462,500", "+18.2%", dateRangeLabels[dateRange]],
-      ["Active Clients", "892", "+5.1%", dateRangeLabels[dateRange]],
-      ["Commission", "$92,500", "+22.3%", dateRangeLabels[dateRange]],
+      ...stats.map(s => [s.title, s.value, s.change, dateRangeLabels[dateRange]]),
       [],
       ["Recent Bookings"],
-      ["ID", "Hotel", "Guest", "Dates", "Status", "Amount"],
-      ...recentBookings.map(b => [b.id, b.hotel, b.guest, b.dates, b.status, b.amount]),
+      ["ID", "Hotel", "Guest", "Check-in", "Status", "Amount"],
+      ...recentBookings.map(b => [b.id, b.hotel, b.guest, b.checkIn, b.status, b.total]),
     ].map(row => row.join(",")).join("\n");
     
     const blob = new Blob([csvContent], { type: "text/csv" });
@@ -254,36 +185,40 @@ export const Dashboard = (): JSX.Element => {
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
-              {stats.map((stat, index) => (
-                <Card 
-                  key={index} 
-                  className="group relative overflow-hidden border-none bg-card/60 backdrop-blur-sm hover:bg-card transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <CardContent className="p-6 relative">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">{stat.label}</p>
-                        <h3 className="text-3xl font-heading text-foreground tracking-tight">{stat.value}</h3>
+              {stats.map((stat, index) => {
+                const iconConfig = statIcons[index] || statIcons[0];
+                const Icon = iconConfig.icon;
+                return (
+                  <Card 
+                    key={index} 
+                    className="group relative overflow-hidden border-none bg-card/60 backdrop-blur-sm hover:bg-card transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <CardContent className="p-6 relative">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <p className="text-sm text-muted-foreground">{stat.title}</p>
+                          <h3 className="text-3xl font-heading text-foreground tracking-tight">{stat.value}</h3>
+                        </div>
+                        <div className={`p-3 rounded-2xl ${iconConfig.color} transition-transform group-hover:scale-110`}>
+                          <Icon className="w-5 h-5" />
+                        </div>
                       </div>
-                      <div className={`p-3 rounded-2xl ${stat.color} transition-transform group-hover:scale-110`}>
-                        <stat.icon className="w-5 h-5" />
+                      <div className={`mt-4 flex items-center text-sm font-medium ${
+                        stat.isPositive ? "text-emerald-600" : "text-red-500"
+                      }`}>
+                        {stat.isPositive ? (
+                          <TrendingUpIcon className="w-4 h-4 mr-1.5" />
+                        ) : (
+                          <TrendingDownIcon className="w-4 h-4 mr-1.5" />
+                        )}
+                        <span>{stat.change}</span>
+                        <span className="text-muted-foreground font-normal ml-1">from last month</span>
                       </div>
-                    </div>
-                    <div className={`mt-4 flex items-center text-sm font-medium ${
-                      stat.trend === "up" ? "text-emerald-600" : "text-red-500"
-                    }`}>
-                      {stat.trend === "up" ? (
-                        <TrendingUpIcon className="w-4 h-4 mr-1.5" />
-                      ) : (
-                        <TrendingDownIcon className="w-4 h-4 mr-1.5" />
-                      )}
-                      <span>{stat.change}</span>
-                      <span className="text-muted-foreground font-normal ml-1">from last month</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
 
             {/* Charts & Alerts Row */}
@@ -394,16 +329,16 @@ export const Dashboard = (): JSX.Element => {
                           <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1.5">
                             <span className="flex items-center gap-1">
                               <MapPinIcon className="w-3 h-3" />
-                              {booking.destination}
+                              {booking.hotel}
                             </span>
                             <span className="w-1 h-1 rounded-full bg-muted-foreground/50" />
                             <span>{booking.guest}</span>
                             <span className="w-1 h-1 rounded-full bg-muted-foreground/50" />
-                            <span>{booking.dates}</span>
+                            <span>{booking.checkIn}</span>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-semibold text-foreground">{booking.amount}</p>
+                          <p className="text-sm font-semibold text-foreground">{booking.total}</p>
                           <p className="text-xs text-muted-foreground">{booking.id}</p>
                         </div>
                       </div>
