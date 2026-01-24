@@ -318,8 +318,12 @@ const PaymentPage = () => {
         throw new Error(formResponse.error.message);
       }
 
-      setOrderId(formResponse.data.order_id);
-      setItemId(formResponse.data.item_id);
+      const roomsFromResponse = (formResponse.data as any).rooms || [];
+      const primaryRoomFromResponse = roomsFromResponse[0] as any;
+      const resolvedOrderId = formResponse.data.order_id ?? primaryRoomFromResponse?.order_id;
+      const resolvedItemId = formResponse.data.item_id ?? primaryRoomFromResponse?.item_id;
+      setOrderId(resolvedOrderId);
+      setItemId(resolvedItemId);
       setFormDataLoaded(true);
 
       // Handle recovered orders (from double_booking_form recovery)
