@@ -318,8 +318,12 @@ const PaymentPage = () => {
         throw new Error(formResponse.error.message);
       }
 
-      setOrderId(formResponse.data.order_id);
-      setItemId(formResponse.data.item_id);
+      const roomsFromResponse = formResponse.data.rooms || [];
+      const primaryRoomFromResponse = roomsFromResponse[0];
+      const resolvedOrderId = formResponse.data.order_id ?? primaryRoomFromResponse?.order_id;
+      const resolvedItemId = formResponse.data.item_id ?? primaryRoomFromResponse?.item_id;
+      setOrderId(resolvedOrderId);
+      setItemId(resolvedItemId);
       setFormDataLoaded(true);
 
       // Handle recovered orders (from double_booking_form recovery)
@@ -332,7 +336,8 @@ const PaymentPage = () => {
       }
 
       // Store full payment types data with amounts
-      const paymentTypesArray = formResponse.data.payment_types || [];
+      const paymentTypesArray = formResponse.data.payment_types || 
+        roomsFromResponse.flatMap((room: any) => room.payment_types || []);
       if (paymentTypesArray.length > 0) {
         setPaymentTypesData(paymentTypesArray);
       }
@@ -389,8 +394,10 @@ const PaymentPage = () => {
       setAvailablePaymentMethods(paymentMethods);
 
       // Store and auto-select recommended payment type (only if it's actually available)
-      if (formResponse.data.recommended_payment_type) {
-        const recommended = formResponse.data.recommended_payment_type;
+      const recommendedPaymentType = formResponse.data.recommended_payment_type || 
+        primaryRoomFromResponse?.recommended_payment_type;
+      if (recommendedPaymentType) {
+        const recommended = recommendedPaymentType;
         setRecommendedPaymentType(recommended);
         
         // Map API type to UI type (e.g., "now" might need to map to "now_net")
@@ -422,20 +429,20 @@ const PaymentPage = () => {
       }
 
       console.log("📋 Single room order form loaded:", {
-        orderId: formResponse.data.order_id,
+        orderId: resolvedOrderId,
         paymentTypes: paymentMethods,
-        paymentTypesData: formResponse.data.payment_types,
-        recommendedPaymentType: formResponse.data.recommended_payment_type?.type,
+        paymentTypesData: paymentTypesArray,
+        recommendedPaymentType: recommendedPaymentType?.type,
       });
 
       // Persist order form data to survive page refresh
       const updatedData = { 
         ...data, 
-        orderId: formResponse.data.order_id,
-        itemId: formResponse.data.item_id,
+        orderId: resolvedOrderId,
+        itemId: resolvedItemId,
         // Cache payment types data for session recovery
-        paymentTypesData: formResponse.data.payment_types || [],
-        recommendedPaymentType: formResponse.data.recommended_payment_type || null,
+        paymentTypesData: paymentTypesArray,
+        recommendedPaymentType: recommendedPaymentType || null,
         selectedPaymentType: paymentType,
       };
       setBookingData(updatedData);
@@ -580,6 +587,11 @@ const PaymentPage = () => {
         const firstRoomFromResponse = formResponse.data.rooms[0];
         if (firstRoomFromResponse?.payment_types_detail) {
           setPaymentTypesData(firstRoomFromResponse.payment_types_detail);
+        } else {
+          const flatPaymentTypes = formResponse.data.rooms.flatMap((room: any) => room.payment_types || []);
+          if (flatPaymentTypes.length > 0) {
+            setPaymentTypesData(flatPaymentTypes);
+          }
         }
         
       }
