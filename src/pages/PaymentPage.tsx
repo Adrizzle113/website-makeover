@@ -562,15 +562,21 @@ const PaymentPage = () => {
       }
 
       // Store order forms for each room
-      const orderForms: OrderFormData[] = formResponse.data.rooms.map(room => ({
-        roomIndex: room.roomIndex,
-        order_id: String(room.order_id),
-        item_id: String(room.item_id),
-        booking_hash: room.booking_hash,
-        payment_types: room.payment_types,
-        is_need_credit_card_data: room.is_need_credit_card_data,
-        is_need_cvc: room.is_need_cvc,
-      }));
+      const orderForms: OrderFormData[] = formResponse.data.rooms.map(room => {
+        const roomPaymentTypes = (room.payment_types || [])
+          .map((pt: any) => (typeof pt === "string" ? pt : pt.type))
+          .filter(Boolean);
+
+        return {
+          roomIndex: room.roomIndex,
+          order_id: String(room.order_id),
+          item_id: String(room.item_id),
+          booking_hash: room.booking_hash,
+          payment_types: roomPaymentTypes,
+          is_need_credit_card_data: room.is_need_credit_card_data,
+          is_need_cvc: room.is_need_cvc,
+        };
+      });
 
       setMultiroomOrderForms(orderForms);
       setFormDataLoaded(true);
@@ -588,7 +594,9 @@ const PaymentPage = () => {
         if (firstRoomFromResponse?.payment_types_detail) {
           setPaymentTypesData(firstRoomFromResponse.payment_types_detail);
         } else {
-          const flatPaymentTypes = formResponse.data.rooms.flatMap((room: any) => room.payment_types || []);
+          const flatPaymentTypes = formResponse.data.rooms
+            .flatMap((room: any) => room.payment_types || [])
+            .filter((pt: any) => typeof pt === "object");
           if (flatPaymentTypes.length > 0) {
             setPaymentTypesData(flatPaymentTypes);
           }
