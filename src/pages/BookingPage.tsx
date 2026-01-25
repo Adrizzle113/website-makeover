@@ -391,15 +391,15 @@ const BookingPage = () => {
 
       // For each quantity, add a separate room entry
       for (let i = 0; i < room.quantity; i++) {
-        // CRITICAL: Calculate adults correctly by subtracting children from total guests
-        const totalGuestsFromParams = searchParams?.guests || 2;
-        const childrenFromParams = searchParams?.childrenAges || [];
-        const adultsCount = Math.max(1, totalGuestsFromParams - childrenFromParams.length);
+        // Get per-room config if available, otherwise use global counts
+        const roomConfig = searchParams?.roomConfigs?.[roomIndex];
+        const adultsCount = roomConfig?.adults ?? Math.max(1, (searchParams?.guests || 2) - (searchParams?.childrenAges?.length || 0));
+        const childrenAges = roomConfig?.childrenAges ?? searchParams?.childrenAges ?? [];
         
         console.log("📤 Multiroom prebook guest data for room", roomIndex, ":", {
-          totalGuestsFromParams,
-          childrenFromParams,
           adultsCount,
+          childrenAges,
+          usingRoomConfig: !!roomConfig,
         });
         
         rooms.push({
@@ -407,7 +407,7 @@ const BookingPage = () => {
           match_hash: bookHash.startsWith('m-') ? bookHash : undefined,
           guests: [{
             adults: adultsCount,
-            children: childrenFromParams.map(age => ({ age })),
+            children: childrenAges.map(age => ({ age })),
           }],
           residency: residency || "US",
           price_increase_percent: 20,

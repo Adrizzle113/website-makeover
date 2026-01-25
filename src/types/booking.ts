@@ -1,3 +1,9 @@
+// Per-room guest configuration for multi-room bookings
+export interface RoomConfig {
+  adults: number;
+  childrenAges: number[];
+}
+
 export interface SearchParams {
   destination: string;
   destinationId?: string;
@@ -7,6 +13,8 @@ export interface SearchParams {
   rooms: number;
   children?: number;
   childrenAges?: number[];
+  // Per-room breakdown for multi-room bookings
+  roomConfigs?: RoomConfig[];
 }
 
 export interface Destination {

@@ -297,6 +297,7 @@ export function SearchBar() {
       }));
 
       // CRITICAL: Store search params for ALL search types to ensure children ages flow through to booking
+      // Store per-room breakdown for multi-room bookings
       const searchParamsData = {
         destination: searchType === "region" ? destination : 
                      searchType === "poi" ? poiName :
@@ -309,6 +310,11 @@ export function SearchBar() {
         rooms: rooms.length,
         children: totalChildren,
         childrenAges: allChildrenAges,
+        // NEW: Per-room breakdown for correct guest distribution across rooms
+        roomConfigs: rooms.map(room => ({
+          adults: room.adults,
+          childrenAges: room.childrenAges,
+        })),
       };
       setSearchParams(searchParamsData);
       
