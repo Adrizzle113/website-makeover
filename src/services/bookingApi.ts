@@ -444,7 +444,39 @@ class BookingApiService {
         if (response.error?.code) {
           const errorCode = response.error.code.toLowerCase();
           
-          if (["contract_mismatch", "double_booking_form", "duplicate_reservation", 
+          // Handle double_booking_form by attempting recovery
+          if (errorCode === "double_booking_form") {
+            console.warn("⚠️ double_booking_form in multiroom - attempting recovery");
+            const recovered = await this.recoverOrderByPartnerOrderId(partnerOrderId);
+            if (recovered) {
+              console.log("✅ Multiroom order recovered:", recovered.order_id);
+              // Return a simulated multiroom response with recovered data
+              return {
+                success: true,
+                status: "ok",
+                data: {
+                  total_rooms: prebookedRooms.length,
+                  successful_rooms: prebookedRooms.length,
+                  failed_rooms: 0,
+                  rooms: prebookedRooms.map((room, index) => ({
+                    roomIndex: index,
+                    order_id: recovered.order_id,
+                    item_id: recovered.item_id,
+                    booking_hash: room.book_hash,
+                    payment_types: recovered.payment_types,
+                    is_need_credit_card_data: false,
+                    is_need_cvc: true,
+                  })),
+                  payment_types_available: recovered.payment_types.map((pt: any) => pt.type || pt),
+                  _recovered: true,
+                },
+              } as unknown as MultiroomOrderFormResponse;
+            }
+            throw new Error("Booking session expired. Please return to hotel details and start a new booking.");
+          }
+          
+          // Other non-retryable errors - fail immediately
+          if (["contract_mismatch", "duplicate_reservation", 
                "hotel_not_found", "insufficient_b2b_balance", "reservation_is_not_allowed",
                "rate_not_found"].includes(errorCode)) {
             console.error(`❌ Multiroom order form non-retryable error: ${errorCode}`);
@@ -469,6 +501,39 @@ class BookingApiService {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         const errorMsg = lastError.message.toLowerCase();
+        
+        // Check for double_booking_form or "booking form already exists" in error message - attempt recovery
+        if (errorMsg.includes("double_booking_form") || 
+            errorMsg.includes("double booking form") ||
+            errorMsg.includes("booking form already exists") ||
+            errorMsg.includes("already exists for this book_hash")) {
+          console.warn("⚠️ Duplicate multiroom booking form detected in error message - attempting recovery");
+          const recovered = await this.recoverOrderByPartnerOrderId(partnerOrderId);
+          if (recovered) {
+            console.log("✅ Multiroom order recovered from catch block:", recovered.order_id);
+            return {
+              success: true,
+              status: "ok",
+              data: {
+                total_rooms: prebookedRooms.length,
+                successful_rooms: prebookedRooms.length,
+                failed_rooms: 0,
+                rooms: prebookedRooms.map((room, index) => ({
+                  roomIndex: index,
+                  order_id: recovered.order_id,
+                  item_id: recovered.item_id,
+                  booking_hash: room.book_hash,
+                  payment_types: recovered.payment_types,
+                  is_need_credit_card_data: false,
+                  is_need_cvc: true,
+                })),
+                payment_types_available: recovered.payment_types.map((pt: any) => pt.type || pt),
+                _recovered: true,
+              },
+            } as unknown as MultiroomOrderFormResponse;
+          }
+          throw new Error("Booking session expired. Please return to hotel details and start a new booking.");
+        }
         
         const is5xxError = errorMsg.includes("5") && errorMsg.includes("http");
         const isNetworkError = errorMsg.includes("network") || errorMsg.includes("fetch");

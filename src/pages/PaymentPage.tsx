@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2, ArrowLeft, AlertCircle, Lock, Bug, Copy, Check } from "lucide-react";
+import { Loader2, ArrowLeft, AlertCircle, Lock, Bug, Copy, Check, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BookingProgressIndicator } from "@/components/booking/BookingProgressIndicator";
@@ -80,6 +80,9 @@ const PaymentPage = () => {
 
   // Track if payment was attempted - prevents order form reload after payment failure
   const [paymentAttempted, setPaymentAttempted] = useState(false);
+
+  // Session expired state - for recovery UI
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   // Debug mode (enabled by ?debug=1)
   const isDebugMode = searchParams.get("debug") === "1";
@@ -457,19 +460,17 @@ const PaymentPage = () => {
                                   errorMessage.toLowerCase().includes("already exists for this book_hash");
       const isSessionExpired = errorMessage.toLowerCase().includes("booking session expired");
       
-      // If recovery was attempted but failed (session expired), show a softer message
-      // but DON'T immediately redirect - let user retry or continue
+      // If recovery was attempted but failed (session expired), show recovery UI
       if (isRecoverableError || isSessionExpired) {
-        console.log("⚠️ Order form issue detected - attempting to continue without immediate redirect");
+        console.log("⚠️ Order form issue detected - showing session expired UI");
+        setSessionExpired(true);
         
         toast({
-          title: "Booking Form Issue",
-          description: "There was an issue loading the booking form. You can try refreshing or start a new booking.",
+          title: "Booking Session Issue",
+          description: "Your booking session has a conflict. Please start a fresh booking.",
           variant: "default",
         });
         
-        // Don't clear session storage immediately - let user decide
-        // They can refresh or navigate away manually
         setFormDataLoaded(true);
         return;
       }
@@ -680,18 +681,17 @@ const PaymentPage = () => {
                                   errorMessage.toLowerCase().includes("already exists for this book_hash");
       const isSessionExpired = errorMessage.toLowerCase().includes("booking session expired");
       
-      // If recovery was attempted but failed, show a softer message
-      // but DON'T immediately redirect - let user retry or continue
+      // If recovery was attempted but failed, show session expired UI
       if (isRecoverableError || isSessionExpired) {
-        console.log("⚠️ Multiroom order form issue detected - attempting to continue without immediate redirect");
+        console.log("⚠️ Multiroom order form issue detected - showing session expired UI");
+        setSessionExpired(true);
         
         toast({
-          title: "Booking Form Issue",
-          description: "There was an issue loading the booking forms. You can try refreshing or start a new booking.",
+          title: "Booking Session Issue",
+          description: "Your booking session has a conflict. Please start a fresh booking.",
           variant: "default",
         });
         
-        // Don't clear session storage immediately - let user decide
         setFormDataLoaded(true);
         return;
       }
@@ -1597,6 +1597,65 @@ const PaymentPage = () => {
                   >
                     Dismiss
                   </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Session Expired / Conflict Alert */}
+          {sessionExpired && (
+            <div className="mb-8 bg-amber-500/10 border border-amber-500/20 rounded-2xl p-6 animate-fade-in">
+              <div className="flex items-start gap-4">
+                <RefreshCw className="h-6 w-6 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-heading text-lg font-semibold text-amber-600">Booking Session Conflict</p>
+                  <p className="text-body-md text-muted-foreground mt-1">
+                    There was a conflict with your booking session. This can happen if you refreshed the page 
+                    or if the booking form was already created in a previous attempt.
+                  </p>
+                  <div className="flex flex-wrap gap-3 mt-4">
+                    <Button 
+                      onClick={() => {
+                        // Clear session storage and navigate to hotel details
+                        sessionStorage.removeItem("pending_booking");
+                        if (bookingData?.hotel?.id) {
+                          navigate(`/hotel/${bookingData.hotel.id}`);
+                        } else {
+                          navigate("/dashboard/search");
+                        }
+                      }}
+                      className="gap-2"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Start Fresh Booking
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        // Try to retry with a new partner_order_id
+                        const timestamp = Date.now();
+                        const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+                        const newBookingId = `BK-${timestamp}-${random}`;
+                        
+                        if (bookingData) {
+                          const updatedData = { ...bookingData, bookingId: newBookingId };
+                          sessionStorage.setItem("pending_booking", JSON.stringify(updatedData));
+                          
+                          // Reload page with new booking ID
+                          navigate(`/payment?booking_id=${newBookingId}`, { replace: true });
+                          window.location.reload();
+                        }
+                      }}
+                    >
+                      Retry with New Session
+                    </Button>
+                    <Button 
+                      variant="ghost"
+                      onClick={() => setSessionExpired(false)}
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
