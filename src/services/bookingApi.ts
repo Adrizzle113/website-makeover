@@ -590,6 +590,8 @@ class BookingApiService {
             guests: room.guests,
             // Include free_cancellation_before for refundable rates (prevents insufficient_b2b_balance)
             ...(room.free_cancellation_before && { free_cancellation_before: room.free_cancellation_before }),
+            // Include room-specific partner order ID for finish step (prevents order_not_found)
+            ...(room.room_partner_order_id && { room_partner_order_id: room.room_partner_order_id }),
           })),
           payment_type: params.payment_type,
           payment_amount: params.payment_amount,
