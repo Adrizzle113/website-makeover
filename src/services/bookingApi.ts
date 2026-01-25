@@ -594,8 +594,10 @@ class BookingApiService {
           payment_type: params.payment_type,
           payment_amount: params.payment_amount,
           payment_currency_code: params.payment_currency_code,
-          email: params.email,
-          phone: params.phone,
+          user: {
+            email: params.email,
+            phone: params.phone,
+          },
           partner_order_id: params.partner_order_id,
           language: params.language || "en",
           upsell_data: params.upsell_data,
@@ -658,8 +660,10 @@ class BookingApiService {
         payment_amount: params.payment_amount,
         payment_currency_code: params.payment_currency_code,
         guests: guestsPayload,
-        email: params.email,
-        phone: params.phone,
+        user: {
+          email: params.email,
+          phone: params.phone,
+        },
         user_ip: params.user_ip,
         language: params.language || "en",
         // Include UUIDs for card payments (at root level for backend)
