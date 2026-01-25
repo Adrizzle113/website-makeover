@@ -597,7 +597,9 @@ const BookingPage = () => {
         currency: selectedHotel.currency,
         mainImage: selectedHotel.mainImage,
       },
-      rooms: selectedRooms,
+      // CRITICAL: Use flattenedRooms so each room instance has its own entry with cancellation data
+      // This ensures PaymentPage can access bookingData.rooms[roomIndex] for every room
+      rooms: flattenedRooms,
       guests: guests.map(g => ({
         id: g.id,
         firstName: g.firstName,
@@ -632,8 +634,8 @@ const BookingPage = () => {
       compositionSignature,
     };
 
-    // 📦 DEBUG: Log what's being stored in session
-    console.log('📦 [navigateToPayment] selectedRooms cancellation data:', selectedRooms.map(r => ({
+    // 📦 DEBUG: Log what's being stored in session (flattenedRooms)
+    console.log('📦 [navigateToPayment] flattenedRooms cancellation data:', flattenedRooms.map(r => ({
       roomId: r.roomId,
       roomName: r.roomName,
       cancellationDeadline: r.cancellationDeadline,
