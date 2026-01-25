@@ -271,7 +271,7 @@ class BookingApiService {
 
     const requestBody = {
       userId,
-      book_hash: "h-42b9e3b8-25f0-5339-a3ed-8a2e4b6eb19f",  // Use the actual bookHash parameter, NOT hardcoded!
+      book_hash: bookHash,
       partner_order_id: partnerOrderId,
       language: "en",
       user_ip: userIp,
