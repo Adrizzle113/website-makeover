@@ -7,7 +7,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ArrowLeft, CheckCircle } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle, RefreshCw, AlertCircle } from "lucide-react";
 import type { MultiroomFailedRoom } from "@/types/etgBooking";
 
 interface PartialRoomFailureModalProps {
@@ -19,12 +19,13 @@ interface PartialRoomFailureModalProps {
   roomNames?: Map<number, string>;
   onContinue: () => void;
   onGoBack: () => void;
+  onRetryWithNewSession?: () => void;
 }
 
 // Map error codes to user-friendly messages
 function getErrorMessage(code: string): string {
   const errorMessages: Record<string, string> = {
-    double_booking_form: "This room is already being booked",
+    double_booking_form: "Session conflict - please try again",
     rate_not_found: "Rate no longer available",
     soldout: "Room is sold out",
     timeout: "Booking system timed out",
@@ -37,6 +38,16 @@ function getErrorMessage(code: string): string {
   return errorMessages[code] || "Unable to process this room";
 }
 
+// Check if any failed room is due to a session conflict (double_booking_form)
+function hasSessionConflict(failedRooms: MultiroomFailedRoom[]): boolean {
+  return failedRooms.some(room => room.code === "double_booking_form");
+}
+
+// Check if all failures are due to session conflicts
+function allAreSessionConflicts(failedRooms: MultiroomFailedRoom[]): boolean {
+  return failedRooms.length > 0 && failedRooms.every(room => room.code === "double_booking_form");
+}
+
 export function PartialRoomFailureModal({
   open,
   onOpenChange,
@@ -46,19 +57,36 @@ export function PartialRoomFailureModal({
   roomNames,
   onContinue,
   onGoBack,
+  onRetryWithNewSession,
 }: PartialRoomFailureModalProps) {
+  const isSessionConflict = hasSessionConflict(failedRooms);
+  const isAllSessionConflicts = allAreSessionConflicts(failedRooms);
+  
+  // If ALL rooms failed due to session conflicts, show different messaging
+  const title = isAllSessionConflicts 
+    ? "Booking Session Conflict" 
+    : "Room Availability Issue";
+    
+  const description = isAllSessionConflicts
+    ? "Your booking session has expired or was interrupted. Please start a fresh booking."
+    : `${failedRooms.length} of ${totalRooms} room${totalRooms > 1 ? "s" : ""} could not be processed`;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
-            <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+          <div className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${isAllSessionConflicts ? 'bg-destructive/10' : 'bg-amber-100 dark:bg-amber-900/30'}`}>
+            {isAllSessionConflicts ? (
+              <AlertCircle className="h-6 w-6 text-destructive" />
+            ) : (
+              <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+            )}
           </div>
           <DialogTitle className="text-center text-xl">
-            Room Availability Issue
+            {title}
           </DialogTitle>
           <DialogDescription className="text-center">
-            {failedRooms.length} of {totalRooms} room{totalRooms > 1 ? "s" : ""} could not be processed
+            {description}
           </DialogDescription>
         </DialogHeader>
 
@@ -67,10 +95,20 @@ export function PartialRoomFailureModal({
           {failedRooms.map((room) => (
             <div
               key={room.roomIndex}
-              className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3"
+              className={`flex items-start gap-3 rounded-lg border p-3 ${
+                room.code === "double_booking_form" 
+                  ? "border-amber-500/30 bg-amber-500/5"
+                  : "border-destructive/30 bg-destructive/5"
+              }`}
             >
-              <div className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive/20">
-                <span className="text-xs font-medium text-destructive">✕</span>
+              <div className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-full ${
+                room.code === "double_booking_form" 
+                  ? "bg-amber-500/20"
+                  : "bg-destructive/20"
+              }`}>
+                <span className={`text-xs font-medium ${
+                  room.code === "double_booking_form" ? "text-amber-600" : "text-destructive"
+                }`}>✕</span>
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium">
@@ -84,7 +122,7 @@ export function PartialRoomFailureModal({
           ))}
 
           {/* Successful rooms indicator */}
-          {successfulRooms > 0 && (
+          {successfulRooms > 0 && !isAllSessionConflicts && (
             <div className="flex items-start gap-3 rounded-lg border border-green-500/30 bg-green-500/5 p-3">
               <div className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-green-500/20">
                 <CheckCircle className="h-3 w-3 text-green-600" />
@@ -99,10 +137,21 @@ export function PartialRoomFailureModal({
               </div>
             </div>
           )}
+          
+          {/* Session conflict explanation */}
+          {isSessionConflict && (
+            <div className="mt-2 p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">
+                💡 <strong>Tip:</strong> This usually happens when the page was refreshed or the booking was interrupted. 
+                Starting a fresh booking will get you new, valid room rates.
+              </p>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="flex-col gap-2 sm:flex-col">
-          {successfulRooms > 0 && (
+          {/* Continue with successful rooms - only if some rooms succeeded AND not all are session conflicts */}
+          {successfulRooms > 0 && !isAllSessionConflicts && (
             <Button
               onClick={onContinue}
               className="w-full"
@@ -110,13 +159,26 @@ export function PartialRoomFailureModal({
               Continue with {successfulRooms} Room{successfulRooms > 1 ? "s" : ""}
             </Button>
           )}
+          
+          {/* Retry with new session - shown for session conflicts */}
+          {isSessionConflict && onRetryWithNewSession && (
+            <Button
+              variant="outline"
+              onClick={onRetryWithNewSession}
+              className="w-full gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry with New Session
+            </Button>
+          )}
+          
           <Button
-            variant="outline"
+            variant={isAllSessionConflicts ? "default" : "outline"}
             onClick={onGoBack}
             className="w-full gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
-            Select Different Rooms
+            {isAllSessionConflicts ? "Start Fresh Booking" : "Select Different Rooms"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1850,12 +1850,43 @@ const PaymentPage = () => {
           // Continue with successful rooms - form is already loaded
         }}
         onGoBack={() => {
+          // Clear locks and session, then go back to hotel
+          if (bookingData?.bookingId) {
+            clearLock(bookingData.bookingId);
+          }
+          clearAllLocks();
           sessionStorage.removeItem("pending_booking");
           const hotelId = bookingData?.hotel?.id;
           if (hotelId) {
             navigate(`/hotel/${hotelId}`);
           } else {
             navigate("/dashboard/search");
+          }
+        }}
+        onRetryWithNewSession={() => {
+          // Generate new partner_order_id and retry
+          if (bookingData?.bookingId) {
+            clearLock(bookingData.bookingId);
+          }
+          
+          const timestamp = Date.now();
+          const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+          const newBookingId = `BK-${timestamp}-${random}`;
+          
+          if (bookingData) {
+            // Update booking data with new ID
+            const updatedData = { 
+              ...bookingData, 
+              bookingId: newBookingId,
+              // Clear cached order forms to force re-fetch
+              multiroomOrderForms: undefined,
+              orderForms: undefined,
+            };
+            sessionStorage.setItem("pending_booking", JSON.stringify(updatedData));
+            
+            // Navigate to payment with new booking ID and reload
+            navigate(`/payment?booking_id=${newBookingId}`, { replace: true });
+            window.location.reload();
           }
         }}
       />
