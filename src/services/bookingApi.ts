@@ -232,8 +232,16 @@ class BookingApiService {
           console.log(`⏳ Order not found yet, waiting ${delay}ms before retry...`);
           await new Promise(r => setTimeout(r, delay));
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error(`❌ Recovery attempt ${attempt} failed:`, error);
+        
+        // If backend is returning 500 errors, don't keep retrying - it's a server bug
+        const errorMsg = error?.message || String(error) || '';
+        if (errorMsg.includes('500') || errorMsg.includes('Internal Server Error') || errorMsg.includes('server_error')) {
+          console.warn('⚠️ Backend 500 error during recovery - stopping retry loop immediately');
+          return null;
+        }
+        
         if (attempt < MAX_RECOVERY_ATTEMPTS) {
           const delay = INITIAL_DELAY_MS * Math.pow(1.5, attempt - 1);
           await new Promise(r => setTimeout(r, delay));
