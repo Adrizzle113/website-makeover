@@ -588,6 +588,8 @@ export interface MultiroomOrderFormRoom {
   init_uuid?: string;
   is_need_credit_card_data?: boolean;
   is_need_cvc?: boolean;
+  // Room-specific partner order ID from backend (e.g., BK-xxx-R0)
+  room_partner_order_id?: string;
 }
 
 // Multiroom Order Form Response
@@ -625,6 +627,8 @@ export interface MultiroomOrderFinishRoom {
   guests: OrderFinishGuest[] | MultiroomGuests[];
   // For refundable rates - prevents insufficient_b2b_balance errors
   free_cancellation_before?: string;
+  // Room-specific partner order ID (e.g., BK-xxx-R0) - required for finish to match order form
+  room_partner_order_id?: string;
 }
 
 // Multiroom Order Finish Request
@@ -707,6 +711,8 @@ export interface OrderFormData {
   init_uuid?: string;
   is_need_credit_card_data?: boolean;
   is_need_cvc?: boolean;
+  // Room-specific partner order ID from backend (e.g., BK-xxx-R0)
+  room_partner_order_id?: string;
 }
 
 // Multiroom booking status tracking

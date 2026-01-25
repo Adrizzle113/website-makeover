@@ -713,6 +713,8 @@ const PaymentPage = () => {
           payment_types: roomPaymentTypes,
           is_need_credit_card_data: room.is_need_credit_card_data,
           is_need_cvc: room.is_need_cvc,
+          // Capture room-specific partner order ID for finish step
+          room_partner_order_id: room.room_partner_order_id,
         };
       });
 
@@ -1601,6 +1603,8 @@ const PaymentPage = () => {
         guests: guestsToSend,
         // Include free_cancellation_before for this room (prevents insufficient_b2b_balance)
         free_cancellation_before: roomData?.cancellationDeadline,
+        // Include room-specific partner order ID to match order form
+        room_partner_order_id: form.room_partner_order_id,
       };
     });
 
