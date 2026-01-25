@@ -96,18 +96,30 @@ const BookingPage = () => {
   // Calculate if this is a multiroom booking
   const isMultiroom = useMemo(() => isMultiroomBooking(), [selectedRooms]);
 
+  // Flatten rooms so each room instance is displayed separately
+  // e.g., 1 entry with quantity:2 becomes 2 separate entries with quantity:1
+  const flattenedRooms = useMemo(() => {
+    const result: typeof selectedRooms = [];
+    selectedRooms.forEach((room, originalIndex) => {
+      for (let i = 0; i < room.quantity; i++) {
+        result.push({
+          ...room,
+          roomId: room.quantity > 1 ? `${room.roomId}-instance-${i}` : room.roomId,
+          quantity: 1, // Each is now individual
+        });
+      }
+    });
+    return result;
+  }, [selectedRooms]);
+
   // Build room names map for multiroom modal
   const roomNamesMap = useMemo(() => {
     const map = new Map<number, string>();
-    let roomIndex = 0;
-    selectedRooms.forEach((room) => {
-      for (let i = 0; i < room.quantity; i++) {
-        map.set(roomIndex, room.roomName || `Room ${roomIndex + 1}`);
-        roomIndex++;
-      }
+    flattenedRooms.forEach((room, roomIndex) => {
+      map.set(roomIndex, room.roomName || `Room ${roomIndex + 1}`);
     });
     return map;
-  }, [selectedRooms]);
+  }, [flattenedRooms]);
 
   // Clear stale booking state on mount and generate fresh partner_order_id
   useEffect(() => {
@@ -890,7 +902,7 @@ const BookingPage = () => {
               <div className="lg:col-span-2 space-y-8">
                 <div className="bg-card rounded-2xl shadow-card p-6 lg:p-8 opacity-0 animate-fade-in" style={{ animationDelay: "0.1s" }}>
                   <GuestInformationSection 
-                    rooms={selectedRooms}
+                    rooms={flattenedRooms}
                     hotel={selectedHotel}
                     onGuestsChange={setGuests}
                     onCompositionChangeConfirmed={handleCompositionChangeConfirmed}
