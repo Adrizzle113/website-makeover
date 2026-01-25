@@ -544,7 +544,7 @@ const PaymentPage = () => {
       return;
     }
 
-    // When forceRefresh is true (e.g., during retry), skip all caching guards
+    // If not forcing refresh, allow using cached results (fast path)
     if (!forceRefresh) {
       // CROSS-MOUNT RECOVERY: Check for cached order forms from lock (survives StrictMode remount)
       const cachedFromLock = getCachedOrderForms(data.bookingId);
@@ -563,55 +563,58 @@ const PaymentPage = () => {
         }
         return;
       }
-
-      // CROSS-MOUNT LOCK: Prevent duplicate API calls from StrictMode double-mounting
-      if (!acquireLock(data.bookingId)) {
-        console.log("⏭️ Order form request already in flight (cross-mount lock), skipping duplicate call");
-        return;
-      }
-
-      // Skip if already loaded or loading (React state guard - may not survive remount)
-      if (formDataLoaded || isLoadingForm) {
-        console.log("⏭️ Multiroom order form already loaded or loading, skipping API call");
-        releaseLock(data.bookingId); // Release lock since we're not making the call
-        return;
-      }
     } else {
-      console.log("🔄 Force refresh enabled - bypassing all caching guards");
+      console.log("🔄 Force refresh enabled - bypassing cache/state guards");
     }
 
-    // Check if we already have cached multiroom order form data in session storage
-    const cachedData = data as any;
-    if (cachedData.multiroomOrderForms && Array.isArray(cachedData.multiroomOrderForms) && cachedData.multiroomOrderForms.length > 0) {
-      console.log("📦 Using cached multiroom order form data from session storage");
-      setMultiroomOrderForms(cachedData.multiroomOrderForms);
-      setFormDataLoaded(true);
-      
-      // Cache in lock for future cross-mount recovery
-      releaseLock(data.bookingId, cachedData.multiroomOrderForms);
-      
-      // Restore first room's data for card payment config
-      const firstRoom = cachedData.multiroomOrderForms[0];
-      if (firstRoom) {
-        setOrderId(firstRoom.order_id);
-        setItemId(firstRoom.item_id);
-        setIsNeedCreditCardData(firstRoom.is_need_credit_card_data || false);
-        setIsNeedCvc(firstRoom.is_need_cvc ?? true);
-        
-        // Restore payment methods if cached
-        if (cachedData.availablePaymentMethods) {
-          setAvailablePaymentMethods(cachedData.availablePaymentMethods);
-        }
-        if (cachedData.selectedPaymentType) {
-          setPaymentType(cachedData.selectedPaymentType);
-        }
-      }
-      
-      toast({
-        title: "Session Restored",
-        description: "Your booking session was restored successfully.",
-      });
+    // ALWAYS use the cross-mount lock to avoid duplicate /order/form calls,
+    // which can trigger "booking form already exists" errors.
+    if (!acquireLock(data.bookingId)) {
+      console.log("⏭️ Order form request already in flight (cross-mount lock), skipping duplicate call");
       return;
+    }
+
+    // Skip if already loaded or loading (unless forcing refresh)
+    if (!forceRefresh && (formDataLoaded || isLoadingForm)) {
+      console.log("⏭️ Multiroom order form already loaded or loading, skipping API call");
+      releaseLock(data.bookingId); // Release lock since we're not making the call
+      return;
+    }
+
+    // Check if we already have cached multiroom order form data in session storage (unless forcing refresh)
+    if (!forceRefresh) {
+      const cachedData = data as any;
+      if (cachedData.multiroomOrderForms && Array.isArray(cachedData.multiroomOrderForms) && cachedData.multiroomOrderForms.length > 0) {
+        console.log("📦 Using cached multiroom order form data from session storage");
+        setMultiroomOrderForms(cachedData.multiroomOrderForms);
+        setFormDataLoaded(true);
+
+        // Cache in lock for future cross-mount recovery
+        releaseLock(data.bookingId, cachedData.multiroomOrderForms);
+
+        // Restore first room's data for card payment config
+        const firstRoom = cachedData.multiroomOrderForms[0];
+        if (firstRoom) {
+          setOrderId(firstRoom.order_id);
+          setItemId(firstRoom.item_id);
+          setIsNeedCreditCardData(firstRoom.is_need_credit_card_data || false);
+          setIsNeedCvc(firstRoom.is_need_cvc ?? true);
+
+          // Restore payment methods if cached
+          if (cachedData.availablePaymentMethods) {
+            setAvailablePaymentMethods(cachedData.availablePaymentMethods);
+          }
+          if (cachedData.selectedPaymentType) {
+            setPaymentType(cachedData.selectedPaymentType);
+          }
+        }
+
+        toast({
+          title: "Session Restored",
+          description: "Your booking session was restored successfully.",
+        });
+        return;
+      }
     }
 
     setIsLoadingForm(true);
