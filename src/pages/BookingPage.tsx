@@ -29,6 +29,7 @@ import {
 import { bookingApi } from "@/services/bookingApi";
 import { toast } from "@/hooks/use-toast";
 import { differenceInDays } from "date-fns";
+import { clearAllLocks } from "@/lib/orderFormLock";
 import type { 
   PendingBookingData, 
   MultiroomPrebookResponse,
@@ -112,6 +113,9 @@ const BookingPage = () => {
   useEffect(() => {
     // Always clear previous booking attempt data to prevent double_booking_form errors
     clearBookingAttemptState();
+    
+    // Clear any stale order form locks from previous booking attempts
+    clearAllLocks();
     
     // Short delay to allow store to hydrate from persistence
     const timer = setTimeout(() => {

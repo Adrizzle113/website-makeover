@@ -18,6 +18,13 @@ import {
 } from "@/lib/cardValidation";
 import { getMockPendingBookingData } from "@/lib/mockBookingData";
 import { sanitizeGuestName } from "@/lib/guestValidation";
+import { 
+  acquireLock, 
+  releaseLock, 
+  getCachedOrderForms, 
+  clearLock, 
+  clearAllLocks 
+} from "@/lib/orderFormLock";
 import type { 
   PendingBookingData, 
   PaymentType,
@@ -252,15 +259,37 @@ const PaymentPage = () => {
       return;
     }
 
-    // Skip if already loaded or loading (prevents duplicate calls on refresh/StrictMode)
-    // Also skip if payment was already attempted - order form data is still valid
+    // CROSS-MOUNT RECOVERY: Check for cached order forms from lock (survives StrictMode remount)
+    const cachedFromLock = getCachedOrderForms(data.bookingId);
+    if (cachedFromLock && cachedFromLock.length > 0) {
+      console.log("📦 Using cached order form from lock storage (cross-mount recovery)");
+      const firstRoom = cachedFromLock[0];
+      if (firstRoom) {
+        setOrderId(firstRoom.order_id);
+        setItemId(firstRoom.item_id);
+        setIsNeedCreditCardData(firstRoom.is_need_credit_card_data || false);
+        setIsNeedCvc(firstRoom.is_need_cvc ?? true);
+      }
+      setFormDataLoaded(true);
+      return;
+    }
+
+    // CROSS-MOUNT LOCK: Prevent duplicate API calls from StrictMode double-mounting
+    if (!acquireLock(data.bookingId)) {
+      console.log("⏭️ Order form request already in flight (cross-mount lock), skipping duplicate call");
+      return;
+    }
+
+    // Skip if already loaded or loading (React state guard - may not survive remount)
     if (formDataLoaded || isLoadingForm) {
       console.log("⏭️ Order form already loaded or loading, skipping API call");
+      releaseLock(data.bookingId); // Release lock since we're not making the call
       return;
     }
     
     if (paymentAttempted && orderId && itemId) {
       console.log("⏭️ Payment already attempted with valid order data - skipping reload");
+      releaseLock(data.bookingId);
       return;
     }
 
@@ -334,6 +363,14 @@ const PaymentPage = () => {
       setOrderId(resolvedOrderId);
       setItemId(resolvedItemId);
       setFormDataLoaded(true);
+
+      // Cache in lock storage for cross-mount recovery
+      releaseLock(data.bookingId, [{
+        order_id: resolvedOrderId,
+        item_id: resolvedItemId,
+        is_need_credit_card_data: false, // Will be updated below
+        is_need_cvc: true,
+      }]);
 
       // Handle recovered orders (from double_booking_form recovery)
       if ((formResponse.data as any)._recovered) {
@@ -458,6 +495,9 @@ const PaymentPage = () => {
       sessionStorage.setItem("pending_booking", JSON.stringify(updatedData));
 
     } catch (error) {
+      // Release lock on failure (allows retry)
+      releaseLock(data.bookingId);
+      
       console.error("Failed to load order form:", error);
       
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -501,18 +541,46 @@ const PaymentPage = () => {
       return;
     }
 
-    // Skip if already loaded or loading (prevents duplicate calls on refresh/StrictMode)
-    if (formDataLoaded || isLoadingForm) {
-      console.log("⏭️ Multiroom order form already loaded or loading, skipping API call");
+    // CROSS-MOUNT RECOVERY: Check for cached order forms from lock (survives StrictMode remount)
+    const cachedFromLock = getCachedOrderForms(data.bookingId);
+    if (cachedFromLock && cachedFromLock.length > 0) {
+      console.log("📦 Using cached order forms from lock storage (cross-mount recovery)");
+      setMultiroomOrderForms(cachedFromLock);
+      setFormDataLoaded(true);
+
+      // Restore first room's data for card payment config
+      const firstRoom = cachedFromLock[0];
+      if (firstRoom) {
+        setOrderId(firstRoom.order_id);
+        setItemId(firstRoom.item_id);
+        setIsNeedCreditCardData(firstRoom.is_need_credit_card_data || false);
+        setIsNeedCvc(firstRoom.is_need_cvc ?? true);
+      }
       return;
     }
 
-    // Check if we already have cached multiroom order form data
+    // CROSS-MOUNT LOCK: Prevent duplicate API calls from StrictMode double-mounting
+    if (!acquireLock(data.bookingId)) {
+      console.log("⏭️ Order form request already in flight (cross-mount lock), skipping duplicate call");
+      return;
+    }
+
+    // Skip if already loaded or loading (React state guard - may not survive remount)
+    if (formDataLoaded || isLoadingForm) {
+      console.log("⏭️ Multiroom order form already loaded or loading, skipping API call");
+      releaseLock(data.bookingId); // Release lock since we're not making the call
+      return;
+    }
+
+    // Check if we already have cached multiroom order form data in session storage
     const cachedData = data as any;
     if (cachedData.multiroomOrderForms && Array.isArray(cachedData.multiroomOrderForms) && cachedData.multiroomOrderForms.length > 0) {
       console.log("📦 Using cached multiroom order form data from session storage");
       setMultiroomOrderForms(cachedData.multiroomOrderForms);
       setFormDataLoaded(true);
+      
+      // Cache in lock for future cross-mount recovery
+      releaseLock(data.bookingId, cachedData.multiroomOrderForms);
       
       // Restore first room's data for card payment config
       const firstRoom = cachedData.multiroomOrderForms[0];
@@ -601,6 +669,9 @@ const PaymentPage = () => {
           is_need_cvc: room.is_need_cvc,
         };
       });
+
+      // Cache order forms in lock storage for cross-mount recovery
+      releaseLock(data.bookingId, orderForms);
 
       setMultiroomOrderForms(orderForms);
       setFormDataLoaded(true);
@@ -696,6 +767,9 @@ const PaymentPage = () => {
       sessionStorage.setItem("pending_booking", JSON.stringify(updatedData));
 
     } catch (error) {
+      // Release lock on failure (allows retry)
+      releaseLock(data.bookingId);
+      
       console.error("Failed to load multiroom order form:", error);
       
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -1648,6 +1722,11 @@ const PaymentPage = () => {
                     <div className="flex flex-wrap gap-3 mt-4">
                       <Button 
                         onClick={() => {
+                          // Clear lock for current booking
+                          if (bookingData?.bookingId) {
+                            clearLock(bookingData.bookingId);
+                          }
+                          clearAllLocks();
                           sessionStorage.removeItem("pending_booking");
                           if (bookingData?.hotel?.id) {
                             navigate(`/hotel/${bookingData.hotel.id}`);
@@ -1664,6 +1743,11 @@ const PaymentPage = () => {
                         variant="outline"
                         className="border-amber-500 text-amber-700 hover:bg-amber-100"
                         onClick={() => {
+                          // Clear lock for old booking ID
+                          if (bookingData?.bookingId) {
+                            clearLock(bookingData.bookingId);
+                          }
+                          
                           const timestamp = Date.now();
                           const random = Math.random().toString(36).substring(2, 8).toUpperCase();
                           const newBookingId = `BK-${timestamp}-${random}`;
