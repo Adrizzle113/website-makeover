@@ -170,6 +170,25 @@ const PaymentPage = () => {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isRetryInProgress]);
+
+  // Safety timeout - if retry overlay is shown for more than 30 seconds, reset it
+  useEffect(() => {
+    if (isRetryInProgress) {
+      const timeout = setTimeout(() => {
+        console.warn("⚠️ Retry timeout - resetting loading state after 30 seconds");
+        setIsRetryInProgress(false);
+        setIsRetrying(false);
+        toast({
+          title: "Session Refresh Timeout",
+          description: "The booking session refresh took too long. Please try again or start a fresh booking.",
+          variant: "destructive",
+        });
+      }, 30000);
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [isRetryInProgress]);
+
   useEffect(() => {
     const loadAndVerify = async () => {
       const storedData = sessionStorage.getItem("pending_booking");
@@ -805,6 +824,14 @@ const PaymentPage = () => {
                                   errorMessage.toLowerCase().includes("already exists for this book_hash");
       const isSessionExpiredError = errorMessage.toLowerCase().includes("booking session expired");
       
+      // CRITICAL: If this is a forceRefresh (called from handleRetryWithNewSession), 
+      // always reset retry progress to prevent stuck overlay
+      if (forceRefresh) {
+        console.log("⚠️ forceRefresh failed - resetting retry progress");
+        setIsRetryInProgress(false);
+        setIsRetrying(false);
+      }
+      
       // AUTO-RECOVERY: If this is a stale session conflict and we haven't tried auto-recovery yet,
       // automatically generate a new booking ID and re-prebook (same as "Retry with New Session")
       if ((isRecoverableError || isSessionExpiredError) && !autoRecoveryAttemptedRef.current && !forceRefresh) {
@@ -815,11 +842,13 @@ const PaymentPage = () => {
         try {
           // Wait a tick to ensure state updates are processed
           await new Promise(resolve => setTimeout(resolve, 50));
-          await handleRetryWithNewSession();
+          // Pass current bookingData directly to avoid state timing issues
+          await handleRetryWithNewSession(data as MultiroomPendingBookingData);
           return; // handleRetryWithNewSession will reload the forms
         } catch (retryError) {
           console.error("❌ Auto-recovery failed:", retryError);
           setIsRetryInProgress(false);
+          setIsRetrying(false);
           // Fall through to show the manual recovery modal
         }
       }
@@ -857,11 +886,19 @@ const PaymentPage = () => {
    * 
    * ETG API: "does not support different room types at one rate" + booking_hash is single-use.
    */
-  const handleRetryWithNewSession = async () => {
-    if (!bookingData) return;
+  const handleRetryWithNewSession = async (dataOverride?: MultiroomPendingBookingData) => {
+    // Use passed data (for auto-recovery) or current state
+    const data = dataOverride || bookingData;
     
-    // Reset auto-recovery flag so this fresh attempt is tracked correctly
-    autoRecoveryAttemptedRef.current = false;
+    if (!data) {
+      console.error("❌ handleRetryWithNewSession: No booking data available");
+      setIsRetryInProgress(false);
+      setIsRetrying(false);
+      return;
+    }
+    
+    // DON'T reset autoRecoveryAttemptedRef here - that causes infinite loops
+    // It's reset when user manually clicks retry (via the button handler)
     
     setIsRetrying(true);
     setIsRetryInProgress(true); // Block UI with overlay
@@ -870,8 +907,8 @@ const PaymentPage = () => {
     
     try {
       // 1. Clear all existing locks
-      if (bookingData.bookingId) {
-        clearLock(bookingData.bookingId);
+      if (data.bookingId) {
+        clearLock(data.bookingId);
       }
       clearAllLocks();
       
@@ -880,15 +917,15 @@ const PaymentPage = () => {
       const random = Math.random().toString(36).substring(2, 8).toUpperCase();
       const newBookingId = `BK-${timestamp}-${random}`;
       
-      console.log(`🔄 Retry with new session: ${bookingData.bookingId} → ${newBookingId}`);
+      console.log(`🔄 Retry with new session: ${data.bookingId} → ${newBookingId}`);
       
       // 3. For multiroom bookings, we need to re-prebook to get fresh booking_hash values
-      const multiroomData = bookingData as MultiroomPendingBookingData;
+      const multiroomData = data as MultiroomPendingBookingData;
       const prebookedRooms = multiroomData.prebookedRooms;
       
       // Check if we have the original book_hash values to re-prebook
       // They could be in prebookedRooms (from previous prebook) or in the raw session data
-      const rawData = bookingData as any;
+      const rawData = data as any;
       const hasOriginalHashes = prebookedRooms?.some((r) => r.book_hash) || 
                                  rawData.selectedRooms?.some((r: any) => r.book_hash);
       
@@ -899,7 +936,7 @@ const PaymentPage = () => {
         // CRITICAL: Use original_book_hash (never overwritten) to ensure we use h-... not p-...
         const prebookRoomsPayload = prebookedRooms.map((room) => {
           // Prefer original_book_hash, fall back to book_hash, then try selectedRooms
-          const rawSelectedRooms = (bookingData as any).selectedRooms;
+          const rawSelectedRooms = (data as any).selectedRooms;
           const originalHash = room.original_book_hash || 
                                (room.book_hash?.startsWith('h-') ? room.book_hash : null) ||
                                rawSelectedRooms?.find((r: any) => r.roomId === room.originalRoomId)?.book_hash;
@@ -912,8 +949,8 @@ const PaymentPage = () => {
           return {
             book_hash: originalHash, // MUST be h-... hash from rate selection
             guests: [{
-              adults: bookingData.searchParams.guests || 2,
-              children: (bookingData.searchParams.childrenAges || []).map((age: number) => ({ age })),
+              adults: data.searchParams.guests || 2,
+              children: (data.searchParams.childrenAges || []).map((age: number) => ({ age })),
             }],
             residency: multiroomData.residency || "US",
             price_increase_percent: 20,
@@ -926,7 +963,7 @@ const PaymentPage = () => {
         const prebookResponse = await bookingApi.prebook({
           rooms: prebookRoomsPayload,
           language: "en",
-          currency: bookingData.hotel?.currency || "USD",
+          currency: data.hotel?.currency || "USD",
         });
         
         if (prebookResponse.error || !prebookResponse.data?.rooms) {
@@ -953,7 +990,7 @@ const PaymentPage = () => {
               price_changed: room.price_changed,
               new_price: room.new_price,
               original_price: room.original_price,
-              currency: room.currency || bookingData.hotel?.currency || "USD",
+              currency: room.currency || data.hotel?.currency || "USD",
             };
           }),
           // Clear cached order forms - will be populated by loadMultiroomOrderForm
@@ -985,7 +1022,7 @@ const PaymentPage = () => {
       } else {
         // Single room booking - just update booking ID and reload
         const updatedData = { 
-          ...bookingData, 
+          ...data, 
           bookingId: newBookingId,
           orderId: undefined,
           itemId: undefined,
@@ -1017,15 +1054,20 @@ const PaymentPage = () => {
         variant: "destructive",
       });
       
+      // Reset loading state before navigating
+      setIsRetrying(false);
+      setIsRetryInProgress(false);
+      
       // Fallback: navigate to hotel page
-      if (bookingData?.hotel?.id) {
-        navigate(`/hotel/${bookingData.hotel.id}`);
+      if (data?.hotel?.id) {
+        navigate(`/hotel/${data.hotel.id}`);
       } else {
         navigate("/dashboard/search");
       }
     } finally {
+      // ALWAYS reset loading states, even if navigation happened in catch block
       setIsRetrying(false);
-      setIsRetryInProgress(false); // Unblock UI
+      setIsRetryInProgress(false);
     }
   };
 
@@ -1987,7 +2029,11 @@ const PaymentPage = () => {
                         variant="outline"
                         className="border-amber-500 text-amber-700 hover:bg-amber-100 gap-2"
                         disabled={isRetrying}
-                        onClick={handleRetryWithNewSession}
+                        onClick={() => {
+                          // Reset auto-recovery flag for manual retry
+                          autoRecoveryAttemptedRef.current = false;
+                          handleRetryWithNewSession();
+                        }}
                       >
                         {isRetrying && <Loader2 className="h-4 w-4 animate-spin" />}
                         Retry with New Session
