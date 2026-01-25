@@ -672,8 +672,9 @@ export function isMultiroomOrderFinishParams(params: OrderFinishParams | Multiro
 export interface PrebookedRoom {
   roomIndex: number;
   originalRoomId: string;  // From selectedRooms
-  booking_hash: string;    // p-... hash from prebook
-  book_hash: string;       // Original h-... or m-... hash
+  booking_hash: string;    // p-... hash from prebook (use for order form)
+  book_hash: string;       // May be overwritten by API response
+  original_book_hash: string; // CRITICAL: Original h-... or m-... hash from rate selection (never overwrite!)
   price_changed: boolean;
   new_price?: number;
   original_price?: number;

@@ -848,17 +848,32 @@ const PaymentPage = () => {
       if (multiroomData.isMultiroom && hasOriginalHashes && prebookedRooms && prebookedRooms.length > 0) {
         console.log(`🔄 Re-prebooking ${prebookedRooms.length} rooms...`);
         
-        // Build prebook request using original book_hash values from prebookedRooms
-        // Each prebookedRoom stores both book_hash (original) and booking_hash (prebooked p-...)
-        const prebookRoomsPayload = prebookedRooms.map((room) => ({
-          book_hash: room.book_hash, // Original h-... hash from rate selection
-          guests: [{
-            adults: bookingData.searchParams.guests || 2,
-            children: (bookingData.searchParams.childrenAges || []).map((age: number) => ({ age })),
-          }],
-          residency: multiroomData.residency || "US",
-          price_increase_percent: 20,
-        }));
+        // Build prebook request using ORIGINAL book_hash values
+        // CRITICAL: Use original_book_hash (never overwritten) to ensure we use h-... not p-...
+        const prebookRoomsPayload = prebookedRooms.map((room) => {
+          // Prefer original_book_hash, fall back to book_hash, then try selectedRooms
+          const rawSelectedRooms = (bookingData as any).selectedRooms;
+          const originalHash = room.original_book_hash || 
+                               (room.book_hash?.startsWith('h-') ? room.book_hash : null) ||
+                               rawSelectedRooms?.find((r: any) => r.roomId === room.originalRoomId)?.book_hash;
+          
+          if (!originalHash || !originalHash.startsWith('h-')) {
+            console.error(`❌ Invalid hash for room ${room.roomIndex}: ${originalHash}`);
+            throw new Error(`Cannot retry: missing original rate hash for room ${room.roomIndex + 1}`);
+          }
+          
+          return {
+            book_hash: originalHash, // MUST be h-... hash from rate selection
+            guests: [{
+              adults: bookingData.searchParams.guests || 2,
+              children: (bookingData.searchParams.childrenAges || []).map((age: number) => ({ age })),
+            }],
+            residency: multiroomData.residency || "US",
+            price_increase_percent: 20,
+          };
+        });
+        
+        console.log(`📤 Re-prebook payload hashes:`, prebookRoomsPayload.map(r => r.book_hash));
         
         // Call prebook API
         const prebookResponse = await bookingApi.prebook({
@@ -874,19 +889,25 @@ const PaymentPage = () => {
         console.log(`✅ Re-prebook successful: ${prebookResponse.data.successful_rooms}/${prebookResponse.data.total_rooms} rooms`);
         
         // 4. Update booking data with fresh prebook results
+        // CRITICAL: Preserve original_book_hash so future retries also work
         const updatedData: MultiroomPendingBookingData = {
           ...multiroomData,
           bookingId: newBookingId,
-          prebookedRooms: prebookResponse.data.rooms.map((room: any, index: number) => ({
-            roomIndex: room.roomIndex ?? index,
-            originalRoomId: prebookedRooms[index]?.originalRoomId || `room-${index}`,
-            booking_hash: room.booking_hash,
-            book_hash: prebookedRooms[index]?.book_hash || room.book_hash,
-            price_changed: room.price_changed,
-            new_price: room.new_price,
-            original_price: room.original_price,
-            currency: room.currency || bookingData.hotel?.currency || "USD",
-          })),
+          prebookedRooms: prebookResponse.data.rooms.map((room: any, index: number) => {
+            const originalHash = prebookedRooms[index]?.original_book_hash || 
+                                 prebookedRooms[index]?.book_hash;
+            return {
+              roomIndex: room.roomIndex ?? index,
+              originalRoomId: prebookedRooms[index]?.originalRoomId || `room-${index}`,
+              booking_hash: room.booking_hash,        // Fresh p-... from new prebook
+              book_hash: originalHash,                // Keep original h-...
+              original_book_hash: originalHash,       // BACKUP: Never overwrite
+              price_changed: room.price_changed,
+              new_price: room.new_price,
+              original_price: room.original_price,
+              currency: room.currency || bookingData.hotel?.currency || "USD",
+            };
+          }),
           // Clear cached order forms
           multiroomOrderForms: undefined,
           orderForms: undefined,

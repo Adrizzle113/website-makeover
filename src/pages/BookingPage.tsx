@@ -422,13 +422,17 @@ const BookingPage = () => {
     const anyPriceChanged = data.rooms.some(r => r.price_changed);
 
     // Convert to PrebookedRoom format and store
+    // CRITICAL: Store original h-... hash from selectedRooms, NOT from API response
+    // The API returns book_hash as alias for booking_hash (p-...), which breaks retry
     const prebookedRoomsData: PrebookedRoom[] = data.rooms.map((room, idx) => {
       const originalRoom = selectedRooms[Math.floor(idx / (selectedRooms[0]?.quantity || 1))];
+      const originalBookHash = originalRoom?.book_hash || "";
       return {
         roomIndex: room.roomIndex,
         originalRoomId: originalRoom?.roomId || "",
-        booking_hash: room.booking_hash,
-        book_hash: room.book_hash,
+        booking_hash: room.booking_hash,    // p-... from prebook (for order form)
+        book_hash: originalBookHash,        // Keep original h-... 
+        original_book_hash: originalBookHash, // BACKUP: Never overwritten
         price_changed: room.price_changed,
         new_price: room.new_price,
         original_price: room.original_price,
