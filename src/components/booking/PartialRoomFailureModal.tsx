@@ -62,21 +62,21 @@ export function PartialRoomFailureModal({
   const isSessionConflict = hasSessionConflict(failedRooms);
   const isAllSessionConflicts = allAreSessionConflicts(failedRooms);
   
-  // If ALL rooms failed due to session conflicts, show different messaging
-  const title = isAllSessionConflicts 
+  // If ANY room failed due to session conflict, show conflict messaging and block partial continue
+  const title = isSessionConflict 
     ? "Booking Session Conflict" 
     : "Room Availability Issue";
     
-  const description = isAllSessionConflicts
-    ? "Your booking session has expired or was interrupted. Please start a fresh booking."
+  const description = isSessionConflict
+    ? "Your booking session has been interrupted. You'll need to start a fresh booking to ensure all rooms are available."
     : `${failedRooms.length} of ${totalRooms} room${totalRooms > 1 ? "s" : ""} could not be processed`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <div className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${isAllSessionConflicts ? 'bg-destructive/10' : 'bg-amber-100 dark:bg-amber-900/30'}`}>
-            {isAllSessionConflicts ? (
+          <div className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${isSessionConflict ? 'bg-destructive/10' : 'bg-amber-100 dark:bg-amber-900/30'}`}>
+            {isSessionConflict ? (
               <AlertCircle className="h-6 w-6 text-destructive" />
             ) : (
               <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
@@ -121,8 +121,8 @@ export function PartialRoomFailureModal({
             </div>
           ))}
 
-          {/* Successful rooms indicator */}
-          {successfulRooms > 0 && !isAllSessionConflicts && (
+          {/* Successful rooms indicator - hidden when any session conflict exists */}
+          {successfulRooms > 0 && !isSessionConflict && (
             <div className="flex items-start gap-3 rounded-lg border border-green-500/30 bg-green-500/5 p-3">
               <div className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-green-500/20">
                 <CheckCircle className="h-3 w-3 text-green-600" />
@@ -150,8 +150,8 @@ export function PartialRoomFailureModal({
         </div>
 
         <DialogFooter className="flex-col gap-2 sm:flex-col">
-          {/* Continue with successful rooms - only if some rooms succeeded AND not all are session conflicts */}
-          {successfulRooms > 0 && !isAllSessionConflicts && (
+          {/* Continue with successful rooms - blocked when ANY session conflict exists */}
+          {successfulRooms > 0 && !isSessionConflict && (
             <Button
               onClick={onContinue}
               className="w-full"
@@ -173,12 +173,12 @@ export function PartialRoomFailureModal({
           )}
           
           <Button
-            variant={isAllSessionConflicts ? "default" : "outline"}
+            variant={isSessionConflict ? "default" : "outline"}
             onClick={onGoBack}
             className="w-full gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
-            {isAllSessionConflicts ? "Start Fresh Booking" : "Select Different Rooms"}
+            {isSessionConflict ? "Start Fresh Booking" : "Select Different Rooms"}
           </Button>
         </DialogFooter>
       </DialogContent>
