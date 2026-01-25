@@ -99,6 +99,7 @@ const PaymentPage = () => {
   
   // Retry state
   const [isRetrying, setIsRetrying] = useState(false);
+  const [isRetryInProgress, setIsRetryInProgress] = useState(false);
 
   // Debug mode (enabled by ?debug=1)
   const isDebugMode = searchParams.get("debug") === "1";
@@ -153,7 +154,19 @@ const PaymentPage = () => {
     }
   }, [availablePaymentMethods, paymentType]);
 
-  // Load booking data and verify price on mount
+  // Warn user if they try to navigate away during retry
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isRetryInProgress) {
+        e.preventDefault();
+        e.returnValue = "Your booking session is being refreshed. Are you sure you want to leave?";
+        return e.returnValue;
+      }
+    };
+    
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isRetryInProgress]);
   useEffect(() => {
     const loadAndVerify = async () => {
       const storedData = sessionStorage.getItem("pending_booking");
@@ -826,6 +839,7 @@ const PaymentPage = () => {
     if (!bookingData) return;
     
     setIsRetrying(true);
+    setIsRetryInProgress(true); // Block UI with overlay
     setShowPartialFailureModal(false);
     setSessionExpired(false);
     
@@ -896,8 +910,9 @@ const PaymentPage = () => {
         
         console.log(`✅ Re-prebook successful: ${prebookResponse.data.successful_rooms}/${prebookResponse.data.total_rooms} rooms`);
         
-        // 4. Update booking data with fresh prebook results
+        // 4. Build updated data with fresh prebook results
         // CRITICAL: Preserve original_book_hash so future retries also work
+        // NOTE: Don't save to sessionStorage yet - wait until order forms load
         const updatedData: MultiroomPendingBookingData = {
           ...multiroomData,
           bookingId: newBookingId,
@@ -916,18 +931,31 @@ const PaymentPage = () => {
               currency: room.currency || bookingData.hotel?.currency || "USD",
             };
           }),
-          // Clear cached order forms
+          // Clear cached order forms - will be populated by loadMultiroomOrderForm
           multiroomOrderForms: undefined,
           orderForms: undefined,
         } as any;
         
-        sessionStorage.setItem("pending_booking", JSON.stringify(updatedData));
+        // Update React state first (but NOT sessionStorage - that happens after API succeeds)
         setBookingData(updatedData);
         setFormDataLoaded(false);
         setMultiroomOrderForms([]);
         
-        // 5. Reload order forms with new prebook data (force refresh to bypass caching)
+        // 5. Load order forms with new prebook data (force refresh to bypass caching)
+        // This function will update sessionStorage after successful API response
         await loadMultiroomOrderForm(updatedData, true);
+        
+        // 6. NOW save to sessionStorage - order forms are loaded and cached
+        // This ensures we never save incomplete/undefined data
+        const savedData = sessionStorage.getItem("pending_booking");
+        if (savedData) {
+          const parsedData = JSON.parse(savedData);
+          if (parsedData.multiroomOrderForms && parsedData.multiroomOrderForms.length > 0) {
+            console.log("✅ Session storage has valid order forms after retry");
+          } else {
+            console.warn("⚠️ Order forms not saved to session storage - will retry on next load");
+          }
+        }
         
       } else {
         // Single room booking - just update booking ID and reload
@@ -972,6 +1000,7 @@ const PaymentPage = () => {
       }
     } finally {
       setIsRetrying(false);
+      setIsRetryInProgress(false); // Unblock UI
     }
   };
 
@@ -1636,6 +1665,21 @@ const PaymentPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      {/* Full-screen blocking overlay during retry - prevents interaction and refresh */}
+      {isRetryInProgress && (
+        <div className="fixed inset-0 z-[100] bg-background/90 backdrop-blur-sm flex items-center justify-center">
+          <div className="text-center space-y-4 animate-fade-in">
+            <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
+            <p className="text-lg font-heading font-medium text-foreground">
+              Refreshing your booking session...
+            </p>
+            <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+              Please wait, do not refresh the page.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Price Confirmation Modal */}
       <PriceConfirmationModal
         open={priceModalOpen}
