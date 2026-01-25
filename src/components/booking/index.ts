@@ -11,6 +11,7 @@ export { PriceChangeModal } from "./PriceChangeModal";
 export { AgentPricingSection } from "./AgentPricingSection";
 export type { PricingSnapshot } from "./AgentPricingSection";
 export { BookingProgressIndicator } from "./BookingProgressIndicator";
+export { RoomTypeConflictModal } from "./RoomTypeConflictModal";
 export { ArrivalTimeSection } from "./ArrivalTimeSection";
 export { TermsAndConditionsSection } from "./TermsAndConditionsSection";
 export type { TermsState } from "./TermsAndConditionsSection";
