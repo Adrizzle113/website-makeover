@@ -26,7 +26,9 @@ import type {
   OrderFormData,
   MultiroomOrderFinishParams,
   MultiroomGuests,
+  MultiroomFailedRoom,
 } from "@/types/etgBooking";
+import { PartialRoomFailureModal } from "@/components/booking/PartialRoomFailureModal";
 
 const PaymentPage = () => {
   const navigate = useNavigate();
@@ -83,6 +85,10 @@ const PaymentPage = () => {
 
   // Session expired state - for recovery UI
   const [sessionExpired, setSessionExpired] = useState(false);
+
+  // Partial room failure state - for multiroom bookings
+  const [failedRooms, setFailedRooms] = useState<MultiroomFailedRoom[]>([]);
+  const [showPartialFailureModal, setShowPartialFailureModal] = useState(false);
 
   // Debug mode (enabled by ?debug=1)
   const isDebugMode = searchParams.get("debug") === "1";
@@ -555,11 +561,28 @@ const PaymentPage = () => {
       // Check for partial failures
       if (formResponse.data.failed_rooms > 0) {
         console.warn(`⚠️ ${formResponse.data.failed_rooms} room(s) failed to get order form`);
-        toast({
-          title: "Some Rooms Unavailable",
-          description: `${formResponse.data.failed_rooms} room(s) could not be processed.`,
-          variant: "default",
-        });
+        
+        // Log detailed error info for debugging
+        if (formResponse.data.failed && formResponse.data.failed.length > 0) {
+          formResponse.data.failed.forEach((failedRoom) => {
+            console.error(`Room ${failedRoom.roomIndex + 1} failed:`, {
+              error: failedRoom.error,
+              code: failedRoom.code,
+              book_hash: failedRoom.book_hash,
+            });
+          });
+          
+          // Store failed rooms for modal display
+          setFailedRooms(formResponse.data.failed);
+          setShowPartialFailureModal(true);
+        } else {
+          // Fallback to toast if no detailed failure info
+          toast({
+            title: "Some Rooms Unavailable",
+            description: `${formResponse.data.failed_rooms} room(s) could not be processed.`,
+            variant: "default",
+          });
+        }
       }
 
       // Store order forms for each room
@@ -1724,6 +1747,34 @@ const PaymentPage = () => {
           </div>
         </div>
       </main>
+
+      {/* Partial Room Failure Modal for Multiroom Bookings */}
+      <PartialRoomFailureModal
+        open={showPartialFailureModal}
+        onOpenChange={setShowPartialFailureModal}
+        failedRooms={failedRooms}
+        successfulRooms={multiroomOrderForms.length}
+        totalRooms={(bookingData as any)?.prebookedRooms?.length || bookingData?.rooms?.length || 0}
+        roomNames={new Map(
+          ((bookingData as any)?.selectedRooms || bookingData?.rooms || []).map((r: any, i: number) => [
+            i,
+            r.roomName || r.name || `Room ${i + 1}`,
+          ])
+        )}
+        onContinue={() => {
+          setShowPartialFailureModal(false);
+          // Continue with successful rooms - form is already loaded
+        }}
+        onGoBack={() => {
+          sessionStorage.removeItem("pending_booking");
+          const hotelId = bookingData?.hotel?.id;
+          if (hotelId) {
+            navigate(`/hotel/${hotelId}`);
+          } else {
+            navigate("/dashboard/search");
+          }
+        }}
+      />
     </div>
   );
 };
