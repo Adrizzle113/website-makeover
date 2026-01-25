@@ -1573,16 +1573,24 @@ const PaymentPage = () => {
     // CRITICAL: Use form.roomIndex to correctly align with bookingData.rooms
     // This ensures we get the right cancellationDeadline even when some rooms failed
     const rooms: MultiroomOrderFinishParams["rooms"] = multiroomOrderForms.map((form) => {
-      // Build guests for this room
-      // For simplicity, use same guests for all rooms (can be enhanced later)
-      const searchParamsData = bookingData!.searchParams;
-      const adultsCount = searchParamsData?.guests || 2;
-      const childrenAges = searchParamsData?.childrenAges || [];
+      // Build guests for this room using INDIVIDUAL guest details (names), not composition counts
+      // Filter guests by their roomIndex to get guests assigned to this specific room
+      const roomGuests = bookingData!.guests
+        .filter(g => g.roomIndex === form.roomIndex)
+        .map(g => ({
+          first_name: sanitizeGuestName(g.firstName),
+          last_name: sanitizeGuestName(g.lastName),
+          is_child: g.type === "child",
+          ...(g.type === "child" && typeof g.age === "number" ? { age: g.age } : {}),
+        }));
       
-      const guestsForRoom: MultiroomGuests[] = [{
-        adults: adultsCount,
-        children: childrenAges.map(age => ({ age })),
-      }];
+      // Fallback: if no guests assigned to this room (legacy data), use all guests
+      const guestsToSend = roomGuests.length > 0 ? roomGuests : bookingData!.guests.map(g => ({
+        first_name: sanitizeGuestName(g.firstName),
+        last_name: sanitizeGuestName(g.lastName),
+        is_child: g.type === "child",
+        ...(g.type === "child" && typeof g.age === "number" ? { age: g.age } : {}),
+      }));
 
       // Use form.roomIndex to get correct room data (not array index!)
       const roomData = bookingData!.rooms[form.roomIndex];
@@ -1590,7 +1598,7 @@ const PaymentPage = () => {
       return {
         order_id: form.order_id,
         item_id: form.item_id,
-        guests: guestsForRoom,
+        guests: guestsToSend,
         // Include free_cancellation_before for this room (prevents insufficient_b2b_balance)
         free_cancellation_before: roomData?.cancellationDeadline,
       };

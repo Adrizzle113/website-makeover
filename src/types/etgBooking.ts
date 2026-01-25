@@ -471,6 +471,7 @@ export interface PendingBookingData {
     age?: number;
     isLead: boolean;
     citizenship?: string;
+    roomIndex?: number; // Room assignment for multi-room bookings
   }>;
   bookingDetails: {
     countryCode: string;
@@ -486,6 +487,11 @@ export interface PendingBookingData {
     rooms: number;
     children?: number;
     childrenAges?: number[];
+    // Per-room breakdown for multi-room bookings
+    roomConfigs?: Array<{
+      adults: number;
+      childrenAges: number[];
+    }>;
   };
   pricingSnapshot?: {
     netPrice: number;
@@ -603,11 +609,20 @@ export interface MultiroomOrderFormResponse {
   };
 }
 
+// Individual guest detail for order finish
+export interface OrderFinishGuest {
+  first_name: string;
+  last_name: string;
+  is_child?: boolean;
+  age?: number;
+}
+
 // Single room for multiroom order finish request
 export interface MultiroomOrderFinishRoom {
   order_id: number | string;
   item_id: number | string;
-  guests: MultiroomGuests[];
+  // Accept either individual guests (names) for finish, or composition (counts) for prebook
+  guests: OrderFinishGuest[] | MultiroomGuests[];
   // For refundable rates - prevents insufficient_b2b_balance errors
   free_cancellation_before?: string;
 }
