@@ -1321,7 +1321,8 @@ const PaymentPage = () => {
   };
 
   // Loading state
-  if (isLoading) {
+  // Show loading spinner ONLY if session is not expired - otherwise show the recovery UI
+  if (isLoading && !sessionExpired) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center animate-fade-in">
@@ -1604,61 +1605,68 @@ const PaymentPage = () => {
 
           {/* Session Expired / Conflict Alert */}
           {sessionExpired && (
-            <div className="mb-8 bg-amber-500/10 border border-amber-500/20 rounded-2xl p-6 animate-fade-in">
-              <div className="flex items-start gap-4">
-                <RefreshCw className="h-6 w-6 text-amber-500 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="font-heading text-lg font-semibold text-amber-600">Booking Session Conflict</p>
-                  <p className="text-body-md text-muted-foreground mt-1">
-                    There was a conflict with your booking session. This can happen if you refreshed the page 
-                    or if the booking form was already created in a previous attempt.
-                  </p>
-                  <div className="flex flex-wrap gap-3 mt-4">
-                    <Button 
-                      onClick={() => {
-                        // Clear session storage and navigate to hotel details
-                        sessionStorage.removeItem("pending_booking");
-                        if (bookingData?.hotel?.id) {
-                          navigate(`/hotel/${bookingData.hotel.id}`);
-                        } else {
-                          navigate("/dashboard/search");
-                        }
-                      }}
-                      className="gap-2"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                      Start Fresh Booking
-                    </Button>
-                    <Button 
-                      variant="outline"
-                      onClick={() => {
-                        // Try to retry with a new partner_order_id
-                        const timestamp = Date.now();
-                        const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-                        const newBookingId = `BK-${timestamp}-${random}`;
-                        
-                        if (bookingData) {
-                          const updatedData = { ...bookingData, bookingId: newBookingId };
-                          sessionStorage.setItem("pending_booking", JSON.stringify(updatedData));
+            <Card className="mb-8 border-amber-500 bg-amber-50 dark:bg-amber-900/20 shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="bg-amber-100 dark:bg-amber-800/30 rounded-full p-3 flex-shrink-0">
+                    <AlertCircle className="h-8 w-8 text-amber-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-heading text-xl font-bold text-amber-700 dark:text-amber-400">
+                      Booking Session Conflict
+                    </h3>
+                    <p className="text-body-md text-amber-600/90 dark:text-amber-300/80 mt-2">
+                      Your previous booking attempt created a reservation that couldn't be recovered. 
+                      This happens when the booking session expires or the system was temporarily unavailable.
+                    </p>
+                    <p className="text-body-sm text-amber-600/70 dark:text-amber-300/60 mt-2">
+                      <strong>Recommended:</strong> Click "Start Fresh Booking" to return to the hotel and select your room again.
+                    </p>
+                    <div className="flex flex-wrap gap-3 mt-4">
+                      <Button 
+                        onClick={() => {
+                          sessionStorage.removeItem("pending_booking");
+                          if (bookingData?.hotel?.id) {
+                            navigate(`/hotel/${bookingData.hotel.id}`);
+                          } else {
+                            navigate("/dashboard/search");
+                          }
+                        }}
+                        className="gap-2 bg-amber-600 hover:bg-amber-700 text-white"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Start Fresh Booking
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        className="border-amber-500 text-amber-700 hover:bg-amber-100"
+                        onClick={() => {
+                          const timestamp = Date.now();
+                          const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+                          const newBookingId = `BK-${timestamp}-${random}`;
                           
-                          // Reload page with new booking ID
-                          navigate(`/payment?booking_id=${newBookingId}`, { replace: true });
-                          window.location.reload();
-                        }
-                      }}
-                    >
-                      Retry with New Session
-                    </Button>
-                    <Button 
-                      variant="ghost"
-                      onClick={() => setSessionExpired(false)}
-                    >
-                      Dismiss
-                    </Button>
+                          if (bookingData) {
+                            const updatedData = { ...bookingData, bookingId: newBookingId };
+                            sessionStorage.setItem("pending_booking", JSON.stringify(updatedData));
+                            navigate(`/payment?booking_id=${newBookingId}`, { replace: true });
+                            window.location.reload();
+                          }
+                        }}
+                      >
+                        Retry with New Session
+                      </Button>
+                      <Button 
+                        variant="ghost"
+                        className="text-amber-600 hover:text-amber-700"
+                        onClick={() => setSessionExpired(false)}
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-stretch">
