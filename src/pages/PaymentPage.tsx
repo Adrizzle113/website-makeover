@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, ArrowLeft, AlertCircle, Lock, Bug, Copy, Check, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -100,6 +100,9 @@ const PaymentPage = () => {
   // Retry state
   const [isRetrying, setIsRetrying] = useState(false);
   const [isRetryInProgress, setIsRetryInProgress] = useState(false);
+  
+  // Auto-recovery ref - prevents infinite loops when auto-retrying on stale sessions
+  const autoRecoveryAttemptedRef = useRef(false);
 
   // Debug mode (enabled by ?debug=1)
   const isDebugMode = searchParams.get("debug") === "1";
@@ -800,10 +803,29 @@ const PaymentPage = () => {
       const isRecoverableError = errorMessage.toLowerCase().includes("double_booking_form") || 
                                   errorMessage.toLowerCase().includes("booking form already exists") ||
                                   errorMessage.toLowerCase().includes("already exists for this book_hash");
-      const isSessionExpired = errorMessage.toLowerCase().includes("booking session expired");
+      const isSessionExpiredError = errorMessage.toLowerCase().includes("booking session expired");
       
-      // If recovery was attempted but failed, show session expired UI
-      if (isRecoverableError || isSessionExpired) {
+      // AUTO-RECOVERY: If this is a stale session conflict and we haven't tried auto-recovery yet,
+      // automatically generate a new booking ID and re-prebook (same as "Retry with New Session")
+      if ((isRecoverableError || isSessionExpiredError) && !autoRecoveryAttemptedRef.current && !forceRefresh) {
+        console.log("🔄 Auto-recovery: Detected stale booking session, generating new booking ID...");
+        autoRecoveryAttemptedRef.current = true;
+        setIsRetryInProgress(true); // Show loading overlay
+        
+        try {
+          // Wait a tick to ensure state updates are processed
+          await new Promise(resolve => setTimeout(resolve, 50));
+          await handleRetryWithNewSession();
+          return; // handleRetryWithNewSession will reload the forms
+        } catch (retryError) {
+          console.error("❌ Auto-recovery failed:", retryError);
+          setIsRetryInProgress(false);
+          // Fall through to show the manual recovery modal
+        }
+      }
+      
+      // If recovery was attempted (manual or auto) but failed, show session expired UI
+      if (isRecoverableError || isSessionExpiredError) {
         console.log("⚠️ Multiroom order form issue detected - showing session expired UI");
         setSessionExpired(true);
         
@@ -837,6 +859,9 @@ const PaymentPage = () => {
    */
   const handleRetryWithNewSession = async () => {
     if (!bookingData) return;
+    
+    // Reset auto-recovery flag so this fresh attempt is tracked correctly
+    autoRecoveryAttemptedRef.current = false;
     
     setIsRetrying(true);
     setIsRetryInProgress(true); // Block UI with overlay
