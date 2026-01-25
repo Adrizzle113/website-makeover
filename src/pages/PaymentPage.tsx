@@ -96,6 +96,9 @@ const PaymentPage = () => {
   // Partial room failure state - for multiroom bookings
   const [failedRooms, setFailedRooms] = useState<MultiroomFailedRoom[]>([]);
   const [showPartialFailureModal, setShowPartialFailureModal] = useState(false);
+  
+  // Retry state
+  const [isRetrying, setIsRetrying] = useState(false);
 
   // Debug mode (enabled by ?debug=1)
   const isDebugMode = searchParams.get("debug") === "1";
@@ -805,6 +808,144 @@ const PaymentPage = () => {
     }
   };
 
+  /**
+   * Retry with new session - clears locks, generates new booking ID, re-prebooks (for multiroom),
+   * and reloads order forms. This properly refreshes `booking_hash` values which are one-time tokens.
+   * 
+   * ETG API: "does not support different room types at one rate" + booking_hash is single-use.
+   */
+  const handleRetryWithNewSession = async () => {
+    if (!bookingData) return;
+    
+    setIsRetrying(true);
+    setShowPartialFailureModal(false);
+    setSessionExpired(false);
+    
+    try {
+      // 1. Clear all existing locks
+      if (bookingData.bookingId) {
+        clearLock(bookingData.bookingId);
+      }
+      clearAllLocks();
+      
+      // 2. Generate new booking ID
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const newBookingId = `BK-${timestamp}-${random}`;
+      
+      console.log(`🔄 Retry with new session: ${bookingData.bookingId} → ${newBookingId}`);
+      
+      // 3. For multiroom bookings, we need to re-prebook to get fresh booking_hash values
+      const multiroomData = bookingData as MultiroomPendingBookingData;
+      const prebookedRooms = multiroomData.prebookedRooms;
+      
+      // Check if we have the original book_hash values to re-prebook
+      // They could be in prebookedRooms (from previous prebook) or in the raw session data
+      const rawData = bookingData as any;
+      const hasOriginalHashes = prebookedRooms?.some((r) => r.book_hash) || 
+                                 rawData.selectedRooms?.some((r: any) => r.book_hash);
+      
+      if (multiroomData.isMultiroom && hasOriginalHashes && prebookedRooms && prebookedRooms.length > 0) {
+        console.log(`🔄 Re-prebooking ${prebookedRooms.length} rooms...`);
+        
+        // Build prebook request using original book_hash values from prebookedRooms
+        // Each prebookedRoom stores both book_hash (original) and booking_hash (prebooked p-...)
+        const prebookRoomsPayload = prebookedRooms.map((room) => ({
+          book_hash: room.book_hash, // Original h-... hash from rate selection
+          guests: [{
+            adults: bookingData.searchParams.guests || 2,
+            children: (bookingData.searchParams.childrenAges || []).map((age: number) => ({ age })),
+          }],
+          residency: multiroomData.residency || "US",
+          price_increase_percent: 20,
+        }));
+        
+        // Call prebook API
+        const prebookResponse = await bookingApi.prebook({
+          rooms: prebookRoomsPayload,
+          language: "en",
+          currency: bookingData.hotel?.currency || "USD",
+        });
+        
+        if (prebookResponse.error || !prebookResponse.data?.rooms) {
+          throw new Error(prebookResponse.error?.message || "Failed to re-prebook rooms");
+        }
+        
+        console.log(`✅ Re-prebook successful: ${prebookResponse.data.successful_rooms}/${prebookResponse.data.total_rooms} rooms`);
+        
+        // 4. Update booking data with fresh prebook results
+        const updatedData: MultiroomPendingBookingData = {
+          ...multiroomData,
+          bookingId: newBookingId,
+          prebookedRooms: prebookResponse.data.rooms.map((room: any, index: number) => ({
+            roomIndex: room.roomIndex ?? index,
+            originalRoomId: prebookedRooms[index]?.originalRoomId || `room-${index}`,
+            booking_hash: room.booking_hash,
+            book_hash: prebookedRooms[index]?.book_hash || room.book_hash,
+            price_changed: room.price_changed,
+            new_price: room.new_price,
+            original_price: room.original_price,
+            currency: room.currency || bookingData.hotel?.currency || "USD",
+          })),
+          // Clear cached order forms
+          multiroomOrderForms: undefined,
+          orderForms: undefined,
+        } as any;
+        
+        sessionStorage.setItem("pending_booking", JSON.stringify(updatedData));
+        setBookingData(updatedData);
+        setFormDataLoaded(false);
+        setMultiroomOrderForms([]);
+        
+        // 5. Reload order forms with new prebook data
+        await loadMultiroomOrderForm(updatedData);
+        
+      } else {
+        // Single room booking - just update booking ID and reload
+        const updatedData = { 
+          ...bookingData, 
+          bookingId: newBookingId,
+          orderId: undefined,
+          itemId: undefined,
+        };
+        sessionStorage.setItem("pending_booking", JSON.stringify(updatedData));
+        
+        // Navigate and reload for single room (simpler flow)
+        navigate(`/payment?booking_id=${newBookingId}`, { replace: true });
+        window.location.reload();
+        return;
+      }
+      
+      // 6. Update URL without reload (for multiroom)
+      navigate(`/payment?booking_id=${newBookingId}`, { replace: true });
+      
+      toast({
+        title: "Session Refreshed",
+        description: "Your booking session has been renewed. You can proceed with payment.",
+      });
+      
+    } catch (error) {
+      console.error("Failed to retry with new session:", error);
+      
+      const errorMessage = error instanceof Error ? error.message : "Failed to refresh booking session";
+      
+      toast({
+        title: "Retry Failed",
+        description: `${errorMessage}. Please go back and select your rooms again.`,
+        variant: "destructive",
+      });
+      
+      // Fallback: navigate to hotel page
+      if (bookingData?.hotel?.id) {
+        navigate(`/hotel/${bookingData.hotel.id}`);
+      } else {
+        navigate("/dashboard/search");
+      }
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
   const verifyPrice = async (data: PendingBookingData) => {
     setPriceVerified(true);
     setVerifiedPrice(data.totalPrice || 0);
@@ -1304,7 +1445,9 @@ const PaymentPage = () => {
   // Multiroom finish
   const handleMultiroomFinish = async (leadGuest: PendingBookingData["guests"][number] | undefined) => {
     // Build rooms array for multiroom finish
-    const rooms: MultiroomOrderFinishParams["rooms"] = multiroomOrderForms.map((form, index) => {
+    // CRITICAL: Use form.roomIndex to correctly align with bookingData.rooms
+    // This ensures we get the right cancellationDeadline even when some rooms failed
+    const rooms: MultiroomOrderFinishParams["rooms"] = multiroomOrderForms.map((form) => {
       // Build guests for this room
       // For simplicity, use same guests for all rooms (can be enhanced later)
       const searchParamsData = bookingData!.searchParams;
@@ -1316,12 +1459,15 @@ const PaymentPage = () => {
         children: childrenAges.map(age => ({ age })),
       }];
 
+      // Use form.roomIndex to get correct room data (not array index!)
+      const roomData = bookingData!.rooms[form.roomIndex];
+      
       return {
         order_id: form.order_id,
         item_id: form.item_id,
         guests: guestsForRoom,
         // Include free_cancellation_before for this room (prevents insufficient_b2b_balance)
-        free_cancellation_before: bookingData!.rooms[index]?.cancellationDeadline,
+        free_cancellation_before: roomData?.cancellationDeadline,
       };
     });
 
@@ -1741,25 +1887,11 @@ const PaymentPage = () => {
                       </Button>
                       <Button 
                         variant="outline"
-                        className="border-amber-500 text-amber-700 hover:bg-amber-100"
-                        onClick={() => {
-                          // Clear lock for old booking ID
-                          if (bookingData?.bookingId) {
-                            clearLock(bookingData.bookingId);
-                          }
-                          
-                          const timestamp = Date.now();
-                          const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-                          const newBookingId = `BK-${timestamp}-${random}`;
-                          
-                          if (bookingData) {
-                            const updatedData = { ...bookingData, bookingId: newBookingId };
-                            sessionStorage.setItem("pending_booking", JSON.stringify(updatedData));
-                            navigate(`/payment?booking_id=${newBookingId}`, { replace: true });
-                            window.location.reload();
-                          }
-                        }}
+                        className="border-amber-500 text-amber-700 hover:bg-amber-100 gap-2"
+                        disabled={isRetrying}
+                        onClick={handleRetryWithNewSession}
                       >
+                        {isRetrying && <Loader2 className="h-4 w-4 animate-spin" />}
                         Retry with New Session
                       </Button>
                       <Button 
@@ -1863,32 +1995,7 @@ const PaymentPage = () => {
             navigate("/dashboard/search");
           }
         }}
-        onRetryWithNewSession={() => {
-          // Generate new partner_order_id and retry
-          if (bookingData?.bookingId) {
-            clearLock(bookingData.bookingId);
-          }
-          
-          const timestamp = Date.now();
-          const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-          const newBookingId = `BK-${timestamp}-${random}`;
-          
-          if (bookingData) {
-            // Update booking data with new ID
-            const updatedData = { 
-              ...bookingData, 
-              bookingId: newBookingId,
-              // Clear cached order forms to force re-fetch
-              multiroomOrderForms: undefined,
-              orderForms: undefined,
-            };
-            sessionStorage.setItem("pending_booking", JSON.stringify(updatedData));
-            
-            // Navigate to payment with new booking ID and reload
-            navigate(`/payment?booking_id=${newBookingId}`, { replace: true });
-            window.location.reload();
-          }
-        }}
+        onRetryWithNewSession={handleRetryWithNewSession}
       />
     </div>
   );

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Plus, Minus, Bed, Check, X, Users, Maximize, Wifi, Bath, Wind, Tv, Crown, Home, Star, Coffee, ChevronDown, ChevronUp } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { useBookingStore } from "@/stores/bookingStore";
 import { RoomUpsells } from "./RoomUpsells";
 import { PaymentTypeBadge, normalizePaymentType, getPaymentTypeLabel } from "./PaymentTypeBadge";
 import { RateOptionsList, type RateOption } from "./RateOptionsList";
+import { RoomTypeConflictModal } from "@/components/booking/RoomTypeConflictModal";
 import { differenceInDays } from "date-fns";
 import { formatDateTimeWithPreference } from "@/hooks/useTimezone";
 
@@ -854,9 +855,17 @@ export const RoomSelectionSection = React.forwardRef<HTMLElement, RoomSelectionS
     },
     ref
   ) {
-  const { selectedRooms, addRoom, updateRoomQuantity, searchParams, upsellsPreferences, resetUpsellsPreferences } = useBookingStore();
+  const { selectedRooms, addRoom, updateRoomQuantity, clearRoomSelection, searchParams, upsellsPreferences, resetUpsellsPreferences } = useBookingStore();
   const [displayedRooms, setDisplayedRooms] = useState(6);
   const [selectedRates, setSelectedRates] = useState<Record<string, string>>({});
+  
+  // Room type conflict modal state (ETG API: "does not support different room types at one rate")
+  const [conflictModalOpen, setConflictModalOpen] = useState(false);
+  const [conflictData, setConflictData] = useState<{
+    currentRoomName: string;
+    newRoom: ProcessedRoom;
+    newRoomRate: RateOption;
+  } | null>(null);
 
   // Calculate number of nights from search params
   const nights = useMemo(() => {
@@ -937,49 +946,91 @@ export const RoomSelectionSection = React.forwardRef<HTMLElement, RoomSelectionS
     }
   };
 
+  // Helper to add a room with the active rate
+  const addRoomWithRate = useCallback((room: ProcessedRoom, activeRate: RateOption, quantity: number = 1) => {
+    let cancellationType: "free_cancellation" | "partial_refund" | "non_refundable" = "non_refundable";
+    if (activeRate.cancellation === "free_cancellation" || activeRate.cancellation?.toLowerCase().includes("free")) {
+      cancellationType = "free_cancellation";
+    } else if (activeRate.cancellation?.toLowerCase().includes("partial")) {
+      cancellationType = "partial_refund";
+    }
+
+    console.log('🏨 [addRoomWithRate] Adding room:', {
+      roomId: room.id,
+      roomName: room.name,
+      rateId: activeRate.id?.substring(0, 30),
+      quantity,
+      cancellationType,
+      hasFreeCancellationBefore: activeRate.hasFreeCancellationBefore,
+    });
+
+    addRoom({
+      roomId: room.id,
+      roomName: room.name,
+      quantity,
+      pricePerRoom: activeRate.price,
+      totalPrice: activeRate.price * quantity,
+      currency: activeRate.currency,
+      match_hash: activeRate.matchHash,
+      book_hash: activeRate.bookHash,
+      earlyCheckin: activeRate.earlyCheckin,
+      lateCheckout: activeRate.lateCheckout,
+      taxes: activeRate.taxes,
+      cancellationType,
+      cancellationDeadline: activeRate.cancellationRawDate,
+      cancellationPolicy: activeRate.cancellation,
+      hasFreeCancellationBefore: activeRate.hasFreeCancellationBefore || false,
+    });
+  }, [addRoom]);
+
+  // Handle room type conflict resolution
+  const handleReplaceSelection = useCallback(() => {
+    if (!conflictData) return;
+    
+    // Clear all existing room selections
+    clearRoomSelection();
+    
+    // Add the new room
+    addRoomWithRate(conflictData.newRoom, conflictData.newRoomRate);
+    
+    // Close modal and clear conflict data
+    setConflictModalOpen(false);
+    setConflictData(null);
+  }, [conflictData, clearRoomSelection, addRoomWithRate]);
+
   const handleIncrease = (room: ProcessedRoom) => {
     const activeRate = getActiveRate(room);
     const currentQty = getSelectedQuantity(room.id);
-    if (currentQty === 0) {
-      // Determine cancellation type from the rate
-      let cancellationType: "free_cancellation" | "partial_refund" | "non_refundable" = "non_refundable";
-      if (activeRate.cancellation === "free_cancellation" || activeRate.cancellation?.toLowerCase().includes("free")) {
-        cancellationType = "free_cancellation";
-      } else if (activeRate.cancellation?.toLowerCase().includes("partial")) {
-        cancellationType = "partial_refund";
+    
+    // If adding a NEW room type when other rooms are already selected
+    // ETG API: "does not support different room types at one rate"
+    if (currentQty === 0 && selectedRooms.length > 0) {
+      const existingRoomId = selectedRooms[0].roomId;
+      
+      // Check if this is a different room type
+      if (existingRoomId !== room.id) {
+        const existingRoomName = selectedRooms[0].roomName || "Selected room";
+        
+        console.log('⚠️ Room type conflict detected:', {
+          existing: existingRoomId,
+          existingName: existingRoomName,
+          new: room.id,
+          newName: room.name,
+        });
+        
+        // Show conflict modal
+        setConflictData({
+          currentRoomName: existingRoomName,
+          newRoom: room,
+          newRoomRate: activeRate,
+        });
+        setConflictModalOpen(true);
+        return;
       }
-
-      console.log('🏨 [handleIncrease] Active rate full data:', {
-        roomId: room.id,
-        rateId: activeRate.id?.substring(0, 30),
-        cancellation: activeRate.cancellation,
-        cancellationRawDate: activeRate.cancellationRawDate,
-        cancellationDeadline: activeRate.cancellationDeadline,
-        hasFreeCancellationBefore: activeRate.hasFreeCancellationBefore,
-        cancellationType,
-        price: activeRate.price,
-        bookHash: activeRate.bookHash?.substring(0, 30),
-      });
-
-      addRoom({
-        roomId: room.id,
-        roomName: room.name,
-        quantity: 1,
-        pricePerRoom: activeRate.price,
-        totalPrice: activeRate.price,
-        currency: activeRate.currency,
-        match_hash: activeRate.matchHash,
-        book_hash: activeRate.bookHash,
-        earlyCheckin: activeRate.earlyCheckin,
-        lateCheckout: activeRate.lateCheckout,
-        taxes: activeRate.taxes,
-        // Include cancellation metadata for sandbox validation
-        cancellationType,
-        cancellationDeadline: activeRate.cancellationRawDate,
-        cancellationPolicy: activeRate.cancellation,
-        // CRITICAL: RateHawk sandbox requires actual free_cancellation_before field
-        hasFreeCancellationBefore: activeRate.hasFreeCancellationBefore || false,
-      });
+    }
+    
+    if (currentQty === 0) {
+      addRoomWithRate(room, activeRate);
     } else {
       updateRoomQuantity(room.id, currentQty + 1);
     }
@@ -1237,6 +1288,19 @@ export const RoomSelectionSection = React.forwardRef<HTMLElement, RoomSelectionS
             </Button>
           </div>
         )}
+
+        {/* Room Type Conflict Modal - ETG API: "does not support different room types at one rate" */}
+        <RoomTypeConflictModal
+          open={conflictModalOpen}
+          onOpenChange={setConflictModalOpen}
+          currentRoomName={conflictData?.currentRoomName || ""}
+          newRoomName={conflictData?.newRoom?.name || ""}
+          onReplaceSelection={handleReplaceSelection}
+          onCancel={() => {
+            setConflictModalOpen(false);
+            setConflictData(null);
+          }}
+        />
       </div>
     </section>
   );
