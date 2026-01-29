@@ -249,14 +249,57 @@ export function SearchResultsSection() {
     };
   }, [searchResults]);
 
+  const testHotel = useMemo<Hotel>(() => ({
+    id: "test_hotel_do_not_book",
+    name: "Test Hotel (Do Not Book)",
+    description: "Test listing for QA. Do not book.",
+    address: "Test Address",
+    city: searchParams?.destination || "Test City",
+    country: "Test Country",
+    starRating: 4,
+    reviewScore: 4.2,
+    reviewCount: 12,
+    images: [],
+    mainImage: "/placeholder.svg",
+    amenities: [
+      { id: "wifi", name: "Free Wi-Fi" },
+      { id: "test", name: "Test Amenity" },
+    ],
+    priceFrom: 99,
+    currency: "USD",
+    ratehawk_data: {
+      hid: 8473727,
+      id: "test_hotel_do_not_book",
+      hotel_id: "test_hotel_do_not_book",
+      requested_hotel_id: "test_hotel_do_not_book",
+    },
+  }), [searchParams?.destination]);
+
   // Create rows that include both raw and enriched data
   const rows = useMemo(() => {
-    return searchResults.map((rawHotel, originalIndex) => ({
+    const baseRows = searchResults.map((rawHotel, originalIndex) => ({
       raw: rawHotel,
       enriched: enrichedHotels.get(rawHotel.id),
       originalIndex,
     }));
-  }, [searchResults, enrichedHotels]);
+
+    const shouldIncludeTestHotel =
+      !!searchParams && (searchResults.length > 0 || rawSearchResults.length > 0);
+    const hasTestHotel = baseRows.some((row) => row.raw.id === testHotel.id);
+
+    if (shouldIncludeTestHotel && !hasTestHotel) {
+      return [
+        {
+          raw: testHotel,
+          enriched: enrichedHotels.get(testHotel.id),
+          originalIndex: -1,
+        },
+        ...baseRows,
+      ];
+    }
+
+    return baseRows;
+  }, [searchResults, enrichedHotels, rawSearchResults.length, searchParams, testHotel]);
 
   // Apply filtering and sorting on the rows
   const filteredRows = useMemo(() => {
