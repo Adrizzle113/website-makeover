@@ -403,11 +403,11 @@ class BookingApiService {
 
   /**
    * Step 3b: Get Multiroom Order Form - Retrieve order forms for multiple rooms
-   * @param prebookedRooms - Array of booking_hash from multiroom prebook response
+   * @param prebookedRooms - Array of book_hash to use for order form
    * @param partnerOrderId - Required unique partner order ID (same for all rooms)
    */
   async getMultiroomOrderForm(
-    prebookedRooms: Array<{ booking_hash: string; book_hash?: string }>,
+    prebookedRooms: Array<{ book_hash: string }>,
     partnerOrderId: string,
     language: string = "en"
   ): Promise<MultiroomOrderFormResponse> {
@@ -419,15 +419,13 @@ class BookingApiService {
       throw new Error("Missing required fields: prebooked_rooms or partner_order_id");
     }
 
-    const firstBookingHash = prebookedRooms[0]?.booking_hash || prebookedRooms[0]?.book_hash;
     const requestBody = {
       userId,
       // Some backend validators still require a top-level book_hash even for multiroom;
       // we provide the first prebooked room hash (p-...) for compatibility.
-      book_hash: firstBookingHash,
+      book_hash: prebookedRooms[0]?.book_hash,
       prebooked_rooms: prebookedRooms.map((room) => ({
-        booking_hash: room.booking_hash || room.book_hash,
-        ...(room.book_hash ? { book_hash: room.book_hash } : {}),
+        book_hash: room.book_hash,
       })),
       partner_order_id: partnerOrderId,
       language,
@@ -474,7 +472,7 @@ class BookingApiService {
                     roomIndex: index,
                     order_id: recovered.order_id,
                     item_id: recovered.item_id,
-                    booking_hash: room.booking_hash || room.book_hash,
+                    booking_hash: room.book_hash,
                     payment_types: recovered.payment_types,
                     is_need_credit_card_data: false,
                     is_need_cvc: true,
@@ -534,7 +532,7 @@ class BookingApiService {
                   roomIndex: index,
                   order_id: recovered.order_id,
                   item_id: recovered.item_id,
-                  booking_hash: room.booking_hash || room.book_hash,
+                  booking_hash: room.book_hash,
                   payment_types: recovered.payment_types,
                   is_need_credit_card_data: false,
                   is_need_cvc: true,
