@@ -655,9 +655,9 @@ const PaymentPage = () => {
     setIsLoadingForm(true);
 
     try {
-      // Build prebooked_rooms array from prebookedRooms - backend expects field named "book_hash"
+      // Build prebooked_rooms array from prebookedRooms - use prebook booking_hash (p-...)
       const prebookedRoomsForApi = data.prebookedRooms.map(room => ({
-        book_hash: room.booking_hash,
+        booking_hash: room.booking_hash,
       }));
 
       console.log(`📋 Loading multiroom order form for ${prebookedRoomsForApi.length} rooms`);
@@ -682,7 +682,7 @@ const PaymentPage = () => {
             console.error(`Room ${failedRoom.roomIndex + 1} failed:`, {
               error: failedRoom.error,
               code: failedRoom.code,
-              book_hash: failedRoom.book_hash,
+              booking_hash: failedRoom.booking_hash,
             });
           });
           
