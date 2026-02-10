@@ -551,6 +551,7 @@ export interface MultiroomFailedRoom {
   roomIndex: number;
   error: string;
   code: string;
+  booking_hash?: string;   // Prebook booking hash (p-...)
   book_hash?: string;      // Original hash that failed
 }
 
